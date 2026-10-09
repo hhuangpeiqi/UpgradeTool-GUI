@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+RULE_NAME="99-rk-rockusb-all.rules"
+DEST="/etc/udev/rules.d/$RULE_NAME"
+
+if [ "$1" = "purge" ] && [ -e "$DEST" ]; then
+	rm -f "$DEST"
+	if command -v udevadm >/dev/null 2>&1; then
+		udevadm control --reload-rules || true
+		udevadm trigger || true
+	fi
+fi
+
+exit 0

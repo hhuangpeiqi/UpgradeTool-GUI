@@ -1,0 +1,6 @@
+
+SUBSYSTEM!="usb", GOTO="end_rk_rules"
+
+ATTRS{idVendor}=="2207", MODE="0666", GROUP="users"
+
+LABEL="end_rk_rules"

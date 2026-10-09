@@ -1,0 +1,46 @@
+#ifndef GUI_OPERATION_SPEC_H
+#define GUI_OPERATION_SPEC_H
+#include <QObject>
+#include <QString>
+#include "core/Operation.h"
+namespace gui {
+class Operations {
+	Q_GADGET
+public:
+	enum Id {
+		FirmwareUpgrade = static_cast<int>(core::Operation::FirmwareUpgrade),
+		FirmwareExtract = static_cast<int>(core::Operation::FirmwareExtract),
+		FirmwareInfo = static_cast<int>(core::Operation::FirmwareInfo),
+		LoaderUpgrade = static_cast<int>(core::Operation::LoaderUpgrade),
+		DownloadBoot = static_cast<int>(core::Operation::DownloadBoot),
+		EraseFlash = static_cast<int>(core::Operation::EraseFlash),
+		PartitionList = static_cast<int>(core::Operation::PartitionList),
+		DownloadImage = static_cast<int>(core::Operation::DownloadImage),
+		CreateGpt = static_cast<int>(core::Operation::CreateGpt),
+		SwitchDevice = static_cast<int>(core::Operation::SwitchDevice),
+		ReadSn = static_cast<int>(core::Operation::ReadSn),
+		WriteSn = static_cast<int>(core::Operation::WriteSn),
+		ReadComLog = static_cast<int>(core::Operation::ReadComLog),
+		ReadCapability = static_cast<int>(core::Operation::ReadCapability),
+		ReadFlashId = static_cast<int>(core::Operation::ReadFlashId),
+		ReadFlashInfo = static_cast<int>(core::Operation::ReadFlashInfo),
+		ReadChipInfo = static_cast<int>(core::Operation::ReadChipInfo),
+		ReadOtpChip = static_cast<int>(core::Operation::ReadOtpChip),
+		ReadSecureMode = static_cast<int>(core::Operation::ReadSecureMode),
+		TestDevice = static_cast<int>(core::Operation::TestDevice),
+		ResetDevice = static_cast<int>(core::Operation::ResetDevice),
+		ResetPipe = static_cast<int>(core::Operation::ResetPipe),
+		ReadLba = static_cast<int>(core::Operation::ReadLba),
+		WriteLba = static_cast<int>(core::Operation::WriteLba),
+		EraseLba = static_cast<int>(core::Operation::EraseLba),
+		WriteSector = static_cast<int>(core::Operation::WriteSector),
+		EraseBlock = static_cast<int>(core::Operation::EraseBlock),
+		RunSystem = static_cast<int>(core::Operation::RunSystem),
+		SwitchStorage = static_cast<int>(core::Operation::SwitchStorage),
+		Count = static_cast<int>(core::Operation::Count)
+	};
+	Q_ENUM(Id)
+};
+QString OperationName(core::Operation operation);
+}
+#endif

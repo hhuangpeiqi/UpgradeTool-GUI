@@ -1,0 +1,113 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ "$(uname -s)" != Darwin ]; then
+    echo "error: macOS 打包需要在 Mac 上运行。" >&2
+    exit 1
+fi
+if ! diskutil image create from --help >/dev/null 2>&1 || \
+   ! diskutil image attach --help >/dev/null 2>&1; then
+    echo "error: macOS 打包需要支持 diskutil image create/attach 的系统，请升级 macOS。" >&2
+    exit 1
+fi
+QT_ROOT=${QT_ROOT:-}
+if [ -z "$QT_ROOT" ]; then
+    for candidate in "$HOME"/Qt/*/macos; do
+        if [ -x "$candidate/bin/macdeployqt" ]; then
+            QT_ROOT=$candidate
+        fi
+    done
+fi
+if [ -z "$QT_ROOT" ] && command -v brew >/dev/null 2>&1; then
+    QT_ROOT=$(brew --prefix qt 2>/dev/null || true)
+fi
+if [ ! -x "$QT_ROOT/bin/macdeployqt" ]; then
+    echo "error: 未找到 Qt6，请设置 QT_ROOT 指向 Qt 的 macos 目录。" >&2
+    exit 1
+fi
+BUILD_DIR=${1:-"$ROOT/build-macos"}
+cmake -S "$ROOT" -B "$BUILD_DIR" -G Ninja \
+    -DCMAKE_PREFIX_PATH="$QT_ROOT" \
+    -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DUPGRADE_TOOL_TESTS=ON
+cmake --build "$BUILD_DIR" --parallel
+ctest --test-dir "$BUILD_DIR" --output-on-failure
+BUILD_DIR=$(CDPATH= cd -- "$BUILD_DIR" && pwd)
+VERSION=$(sed -n 's/.*TOOL_VERSION = "\([0-9.]*\)";.*/\1/p' "$ROOT/core/Version.h")
+[ -n "$VERSION" ] || exit 1
+OUTPUT_DIR="$BUILD_DIR/dist"
+mkdir -p "$OUTPUT_DIR"
+STAGE=$(mktemp -d "$BUILD_DIR/package.XXXXXX")
+MOUNT_DIR="$STAGE/mount"
+MOUNTED=0
+cleanup() {
+    if [ "$MOUNTED" = 1 ]; then
+        if ! diskutil eject "$MOUNT_DIR"; then
+            if ! diskutil eject force "$MOUNT_DIR"; then
+                echo "error: 无法卸载 ${MOUNT_DIR}；保留临时文件以便手动清理。" >&2
+                return
+            fi
+        fi
+    fi
+    rm -rf "$STAGE"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+CONTENTS="$STAGE/contents"
+mkdir -p "$CONTENTS"
+APP="$CONTENTS/UpgradeTool-GUI.app"
+ditto "$BUILD_DIR/upgrade_tool_gui.app" "$APP"
+cp "$ROOT/config.ini" "$CONTENTS/config.ini"
+mkdir -p "$APP/Contents/Resources/licenses"
+cp "$ROOT/lib/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.0.txt"
+cp "$ROOT/third_party/libusb/COPYING" "$APP/Contents/Resources/licenses/libusb-LGPL-2.1.txt"
+if [ -d "$QT_ROOT/../../Licenses" ]; then
+    ditto "$QT_ROOT/../../Licenses" "$APP/Contents/Resources/licenses/Qt"
+fi
+# Deploy only the platform and SVG plugins used by this application. Qt's
+# default deployment also collects SQL drivers with external database dependencies.
+set -- "$APP" "-qmldir=$ROOT/gui/qml" -always-overwrite -no-plugins -codesign=-
+for plugin in platforms/libqcocoa.dylib platforms/libqoffscreen.dylib \
+              iconengines/libqsvgicon.dylib imageformats/libqsvg.dylib; do
+    mkdir -p "$APP/Contents/PlugIns/$(dirname "$plugin")"
+    cp "$QT_ROOT/plugins/$plugin" "$APP/Contents/PlugIns/$plugin"
+    set -- "$@" "-executable=$APP/Contents/PlugIns/$plugin"
+done
+cat > "$APP/Contents/Resources/qt.conf" <<'QTCONF'
+[Paths]
+Plugins = PlugIns
+Imports = Resources/qml
+QmlImports = Resources/qml
+QTCONF
+"$QT_ROOT/bin/macdeployqt" "$@"
+codesign --verify --deep --strict "$APP"
+ln -s /Applications "$CONTENTS/Applications"
+# Keep a standalone application as well as the disk image.
+ditto "$APP" "$OUTPUT_DIR/UpgradeTool-GUI.app"
+DMG="$OUTPUT_DIR/UpgradeTool-GUI-$VERSION-macos-arm64.dmg"
+mkdir -p "$CONTENTS/.background"
+"$BUILD_DIR/upgrade_tool_icon_renderer" --dmg-background "$CONTENTS/.background/background.png"
+# Customize a writable image before compressing it, so Finder's layout persists.
+WRITABLE_DMG="$STAGE/layout.dmg"
+diskutil image create from --format RAW --volumeName "UpgradeTool-GUI" \
+    "$CONTENTS" "$WRITABLE_DMG"
+mkdir -p "$MOUNT_DIR"
+diskutil image attach --mountPoint "$MOUNT_DIR" "$WRITABLE_DMG"
+MOUNTED=1
+if ! osascript "$ROOT/scripts/macos/layout_dmg.applescript" "$MOUNT_DIR"; then
+    echo "error: 无法设置 DMG 布局，请检查 Finder 自动化权限。" >&2
+    exit 1
+fi
+if [ ! -s "$MOUNT_DIR/.DS_Store" ]; then
+    echo "error: Finder 未保存 DMG 布局。" >&2
+    exit 1
+fi
+sync
+diskutil eject "$MOUNT_DIR"
+MOUNTED=0
+diskutil image create from --format UDZO "$WRITABLE_DMG" "$STAGE/final.dmg"
+mv -f "$STAGE/final.dmg" "$DMG"
+echo "Application: $OUTPUT_DIR/UpgradeTool-GUI.app"
+echo "Disk image: $DMG"
