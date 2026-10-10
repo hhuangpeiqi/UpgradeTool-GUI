@@ -1,37 +1,37 @@
 # UpgradeTool-GUI
 
-瑞芯微与全志设备固件刷写工具，基于 Qt6 Quick/QML。瑞芯微支持 Loader / Maskrom，全志支持 FEL / FES。
+**English** | [中文](README.zh-CN.md)
 
-![浅色主题](docs/gui.png)
-![深色主题](docs/gui-dark.png)
+Firmware flashing tool for Rockchip (Loader / Maskrom) and Allwinner (FEL / FES) devices, built with Qt6 Quick/QML.
 
-## 功能
+![Light theme](docs/gui.png)
+![Dark theme](docs/gui-dark.png)
 
-- 整包固件升级、信息解析与解包。
-- Boot 下载、Loader 升级，按 `parameter.txt` 分区烧录镜像。
-- 设备、Flash、芯片、OTP、安全模式及分区表查询。
-- LBA 读写、扇区写入、块擦除、镜像导出。
-- 序列号读写、串口日志导出、GPT 生成。
-- 设备自动扫描、批量烧录、任务进度、取消与日志。
+## Features
 
-## 使用
+- Full firmware upgrade, info parsing, and unpacking.
+- Boot download and loader upgrade, flashing images by `parameter.txt` partitions.
+- Device, flash, chip, OTP, secure-mode, and partition-table queries.
+- LBA read/write, sector write, block erase, image export.
+- Serial number read/write, serial log export, GPT generation.
+- Automatic device scan, batch flashing, task progress, cancel, and logging.
 
-在顶部选择厂商，连接处于刷机模式的设备，在底部设备栏选择目标。批量刷写限同一厂商，按设备顺序执行。界面语言默认跟随系统，可在「配置 → 首选项…」切换到中文或 English。
+## Usage
 
-| 页面 | 操作 |
+Pick a vendor, connect a device in flashing mode, then select the target in the bottom device bar. Batch flashing is limited to one vendor and runs in device order. The UI language follows the system by default; switch between Chinese and English in **Config → Preferences…**.
+
+| Page | Action |
 |---|---|
-| 下载镜像 | 选择包含 `parameter.txt` 和镜像的目录，勾选分区后执行。自动匹配分区名与镜像文件，双击路径可手动指定。目录中的 Loader 显示在首行。 |
-| 升级固件 | 选择固件，确认芯片、版本等信息后升级。 |
-| 高级功能 | 查询设备信息、读写序列号、导出日志或镜像、擦除存储。 |
-| 配置 | 编辑配置、生成 GPT、安装 Linux 设备规则、切换主题。 |
+| Download Image | Select a directory containing `parameter.txt` and images, tick partitions, then run. Partition names are matched to image files; double-click a path to pick one manually. A Loader in the directory is shown in the first row. |
+| Upgrade Firmware | Select a firmware package and confirm chip, version, and other info before upgrading. |
+| Advanced | Query device info, read/write serial numbers, export logs or images, erase storage. |
+| Config | Edit config, generate GPT, install Linux device rules, switch theme. |
 
-全志工作区分为裸镜像刷写、固件刷写和高级功能；高级功能支持离线查看、解包、程序器镜像转换，以及在 FES 模式下重启设备。设备信息位于“设备”菜单。支持未加密 IMAGEWTY v1/v2/v3 的信息解析与解包，以及分区、保留用户数据、分区擦除和全擦四种刷写模式。默认全擦、开启校验、完成重启；校验失败会停止任务。按所选分区刷写仍会更新分区表和引导组件。
+Allwinner workspaces are bare-image flashing, firmware flashing, and advanced features. Advanced supports offline inspection, unpacking, programmer image conversion, and rebooting the device in FES mode; device info is under the **Device** menu. Unencrypted IMAGEWTY v1/v2/v3 parsing and unpacking are supported, with four flash modes: partition, keep user data, erase partition, and full erase (defaults: full erase, verification on, reboot when done; a failed verification stops the task).
 
-全志裸镜像与固件刷写页支持通过 ADB“切换”到 FEL，默认自动选择标准 `efex` 入口；识别到 T3 Buildroot（且具备 root 与 `devmem`）时自动改用兼容入口，也可手选“备选”强制指定。切换后检测目标 USB 端口确认结果，不会自动开始刷写。
+Allwinner bare-image and firmware pages can switch to FEL over ADB. The standard `efex` entry is used by default, a compatible T3 Buildroot entry is auto-detected, or you can force the alternative. After switching, the target USB port is checked to confirm the result; flashing does not start automatically. Bare-image flashing needs a board-matched IMAGEWTY boot firmware and always uses full erase, no verification, reboot when done. Image conversion supports SPI NOR, SD card, eMMC, SD NAND, and UFS, reads the DTB offset and secure-boot flag automatically, and needs no device.
 
-裸镜像刷写需要匹配板型的 IMAGEWTY 引导固件，固定全擦、不校验、完成重启。镜像转换支持 SPI NOR、SD 卡、eMMC、SD NAND、UFS，可自动读取 DTB 偏移与安全启动标记；无需连接设备。
-
-启动参数：
+Startup arguments:
 
 ```sh
 ./build/upgrade_tool_gui --firmware /path/to/update.img
@@ -39,27 +39,27 @@
 ./build/upgrade_tool_gui --vendor allwinner --firmware /path/to/allwinner.img
 ```
 
-`--vendor` 默认为 `rockchip`，可选 `allwinner`。瑞芯微 `--tab`：`0` 下载镜像、`1` 升级固件（默认）、`2` 高级功能；全志依次为裸镜像刷写、固件刷写、高级功能；`--firmware` 载入所选页面的固件包。`--lang` 默认为 `auto`（跟随系统），可选 `zh`、`en`。
+`--vendor` defaults to `rockchip`; the other value is `allwinner`. Rockchip `--tab`: `0` Download Image, `1` Upgrade Firmware (default), `2` Advanced; Allwinner uses bare-image flashing, firmware flashing, and advanced features in that order. `--firmware` loads a firmware package into the selected page. `--lang` defaults to `auto` (follow the system) and also accepts `zh` or `en`.
 
-### 设备权限
+### Device permissions
 
-**Linux**：在「配置」中安装 udev 规则，或执行：
+**Linux**: Install the udev rules from **Config**, or run:
 
 ```sh
 sudo scripts/install-udev.sh
 ```
 
-`.deb` 安装时会自动安装两种厂商规则。全志 USB ID 为 `1f3a:efe8`；如提示权限错误，安装规则后重新连接设备。设备栏显示 `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom` 时，已识别设备。
+The `.deb` installs both vendor rule sets automatically. The Allwinner USB ID is `1f3a:efe8`; if you see a permission error, install the rules and reconnect the device. A device is recognized when the device bar shows `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom`.
 
-**macOS**：无需另装 USB 驱动。可选安装 ADB，用于将 Android 设备切换到 Loader。
+**macOS**: No extra USB driver is needed. ADB is optional, to switch an Android device to Loader.
 
-**Windows**：使用 [Zadig](https://zadig.akeo.ie/) 为瑞芯微 VID `2207` 或全志 `1f3a:efe8` 设备安装 WinUSB 驱动。尚未在真实 Windows 环境验证。
+**Windows**: Use [Zadig](https://zadig.akeo.ie/) to install the WinUSB driver for Rockchip VID `2207` or Allwinner `1f3a:efe8` devices. Not yet verified on real Windows.
 
-## 构建
+## Build
 
-依赖 CMake 3.21.1+、C++11 编译器、Qt6（Core、Gui、Quick、QuickControls2）。libusb 通过子模块静态链接，无需单独安装。
+Requires CMake 3.21.1+, a C++11 compiler, and Qt6 (Core, Gui, Quick, QuickControls2). libusb is statically linked through a submodule; no separate install is needed.
 
-首次构建前拉取子模块：
+Fetch submodules before the first build:
 
 ```sh
 git submodule update --init --recursive
@@ -67,7 +67,7 @@ git submodule update --init --recursive
 
 ### Linux
 
-Debian / Ubuntu：
+Debian / Ubuntu:
 
 ```sh
 sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-l10n-tools \
@@ -76,7 +76,7 @@ sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-l10n-tools \
   qml6-module-qtqml-workerscript qt6-qpa-plugins
 ```
 
-SVG 插件按发行版安装 `qt6-svg-plugins` 或 `libqt6svg6`。
+Install the SVG plugin as `qt6-svg-plugins` or `libqt6svg6`, depending on the distribution.
 
 ```sh
 cmake -S . -B build
@@ -84,9 +84,9 @@ cmake --build build -j
 ./build/upgrade_tool_gui
 ```
 
-### macOS（Apple Silicon）
+### macOS (Apple Silicon)
 
-最低部署目标为 macOS 12，原瑞芯微功能已在 Qt 6.8.3、arm64 环境验证；新增全志功能尚未在 macOS 验证。将 `CMAKE_PREFIX_PATH` 替换为本机 Qt 路径：
+The minimum deployment target is macOS 12; the original Rockchip features are verified on Qt 6.8.3, arm64. Replace `CMAKE_PREFIX_PATH` with your local Qt path:
 
 ```sh
 cmake -S . -B build-macos -G Ninja \
@@ -98,54 +98,54 @@ open build-macos/upgrade_tool_gui.app
 
 ### Windows
 
-使用 Qt6 MinGW 工具链、CMake 和 Ninja，在对应 Qt MinGW 环境的 PowerShell 中运行：
+Using the Qt6 MinGW toolchain, CMake, and Ninja, run in the PowerShell of the matching Qt MinGW environment:
 
 ```powershell
 ./scripts/package_windows.ps1 -QtRoot C:/Qt/6.8.3/mingw_64
 ```
 
-产物位于 `build-windows/dist/UpgradeTool-GUI/`。Windows 构建和实机尚未验证。
+The output is in `build-windows/dist/UpgradeTool-GUI/`. Windows build and hardware are not yet verified.
 
-### 测试与打包
+### Tests and packaging
 
 ```sh
 cmake -S . -B build -DUPGRADE_TOOL_TESTS=ON
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 
-# Linux：通过 Docker 构建 .deb，支持 Ubuntu 22.04 及更新版本
+# Linux: build a .deb via Docker, for Ubuntu 22.04 and newer
 scripts/package_deb.sh
 
-# macOS：生成独立应用和 DMG，产物位于 build-macos/dist/
+# macOS: build a standalone app and DMG; output in build-macos/dist/
 QT_ROOT="$HOME/Qt/6.8.3/macos" scripts/package_macos.sh
 ```
 
-macOS 打包需系统支持 `diskutil image create/attach`；应用使用 ad-hoc 签名，未经开发者签名或公证。
+macOS packaging requires system support for `diskutil image create/attach`; the app is ad-hoc signed, without developer signing or notarization.
 
-## 配置与日志
+## Configuration and logs
 
-`config.ini` 查找顺序：用户配置目录 → 可执行文件目录 → macOS 应用的 `Contents/Resources/`。在「配置」中保存后写入用户配置并立即生效。
+`config.ini` is searched in order: user config directory → executable directory → the macOS app's `Contents/Resources/`. Saving in **Config** writes to the user config and takes effect immediately.
 
-Linux 默认路径：
+Default Linux paths:
 
-- 配置：`~/.config/upgrade_tool/config.ini`，遵循 `XDG_CONFIG_HOME`。
-- 日志：`~/.local/state/upgrade_tool/log/`，遵循 `XDG_STATE_HOME`。
+- Config: `~/.config/upgrade_tool/config.ini`, following `XDG_CONFIG_HOME`.
+- Logs: `~/.local/state/upgrade_tool/log/`, following `XDG_STATE_HOME`.
 
-配置格式为 `键=值`，以 `#` 开头的行为注释。仓库中的配置全部注释，使用默认行为。
+The config format is `key=value`, with lines starting with `#` as comments. The repository config is fully commented and uses default behavior.
 
-| 键 | 含义 |
+| Key | Meaning |
 |---|---|
-| `lba_parity` | LBA 传输奇偶校验 |
-| `rb_check_off` | 关闭写入回读校验 |
-| `nor_single_idb` | NOR 单份 IDB |
-| `log_off` | 关闭日志 |
-| `stdout_buffer_off` | 关闭 stdout 缓冲 |
-| `force_data_band` | 强制数据带宽 |
-| `log_dir` | 日志目录 |
-| `firmware` | 未保存最近固件时的默认路径 |
-| `loader` | 操作未指定 Loader 时的默认路径 |
-| `device` | 兼容保留，目标设备在设备栏选择 |
+| `lba_parity` | LBA transfer parity check |
+| `rb_check_off` | Disable write read-back verification |
+| `nor_single_idb` | Single IDB for NOR |
+| `log_off` | Disable logging |
+| `stdout_buffer_off` | Disable stdout buffering |
+| `force_data_band` | Force data bandwidth |
+| `log_dir` | Log directory |
+| `firmware` | Default path when no recent firmware is saved |
+| `loader` | Default path when no loader is specified for an operation |
+| `device` | Kept for compatibility; the target device is chosen in the device bar |
 
-## 许可
+## License
 
-协议与设备核心派生自 `rockchip-linux/rkdeveloptool`，遵循 GPL-2.0，见 [lib/license.txt](lib/license.txt)。内置 libusb 遵循 LGPL-2.1。全志功能参考 OpenixCLI，协议核心来自 libefex，均遵循 MIT，来源与许可见 [core/allwinner/README.md](core/allwinner/README.md) 和 [third_party/libefex/README.md](third_party/libefex/README.md)。
+The protocol and device core are derived from `rockchip-linux/rkdeveloptool` under GPL-2.0; see [lib/license.txt](lib/license.txt). The bundled libusb is under LGPL-2.1. Allwinner support references OpenixCLI, with the protocol core from libefex, both under MIT; see [core/allwinner/README.md](core/allwinner/README.md) and [third_party/libefex/README.md](third_party/libefex/README.md).

@@ -158,7 +158,7 @@ install(FILES config.ini
         DESTINATION share/upgrade_tool)
 install(FILES third_party/libefex/LICENSE core/allwinner/LICENSE.OpenixCLI
         DESTINATION share/doc/upgrade-tool/allwinner)
-install(FILES README.md
+install(FILES README.md README.zh-CN.md
         DESTINATION share/doc/upgrade-tool)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
