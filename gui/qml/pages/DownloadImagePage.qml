@@ -107,6 +107,7 @@ Item {
                 SecondaryButton {
                     text: qsTr("切换")
                     iconSource: Icons.switchBlue
+                    busy: app.switching
                     enabled: !app.busy && app.adbReady
                     onClicked: app.switchToLoader()
 

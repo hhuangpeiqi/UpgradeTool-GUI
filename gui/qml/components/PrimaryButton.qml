@@ -43,6 +43,8 @@ Button {
     }
 
     background: Rectangle {
+        border.width: root.activeFocus ? 2 : 0
+        border.color: Theme.textPrimary
         radius: Theme.controlRadius
         color: {
             if (!root.enabled)

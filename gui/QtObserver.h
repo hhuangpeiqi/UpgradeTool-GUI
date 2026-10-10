@@ -24,6 +24,7 @@ public:
 	void OnTransferProgress(core::TransferStage stage, long long total, long long current) override;
 	virtual void OnUpgradePrompt(ENUM_UPGRADE_PROMPT emPrompt, unsigned int uiParam);
 	virtual int OnSelectStorage(const std::vector<std::string> &vecOptions, int iCurrent);
+	void OnStageProgress(const std::string &, uint64_t, uint64_t, int) override;
 	virtual void OnResult(const core::OperationResult &result);
 
 	void SetSelectResult(int iResult);
@@ -31,6 +32,7 @@ public:
 	void BeginSelectionSession();
 
 signals:
+    void stageProgressReceived(const QString &stage, long long total, long long current, int overallPercent);
 	void outputReceived(int iLevel, const QString &strText);
 	void progressReceived(const QString &strPrompt, long long llTotal,
 	                      long long llCurrent, int iCall);

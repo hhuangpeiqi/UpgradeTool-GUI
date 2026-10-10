@@ -30,6 +30,7 @@
 #include "gui/backend/ThemeManager.h"
 #include "core/UpgradeObserver.h"
 #include "core/Version.h"
+#include "core/allwinner/Firmware.h"
 #include "Config.h"
 #include "platform/PlatformPath.h"
 
@@ -166,6 +167,14 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	  m_bAdbAvailable(false),
 	  m_bAdbWarned(false)
 {
+	m_diskLog = pLog;
+	const auto awSettings = allwinnerSettings();
+    for (int i = 0; i < 4; ++i) {
+        auto &state = m_allwinner[i];
+        state.summary = new KeyValueModel(this);
+        state.results = new KeyValueModel(this);
+        if (i < 3) state.firmware = awSettings.value(QString("page%1/firmware").arg(i), awSettings.value("firmware")).toString();
+    }
 	m_pWorker->moveToThread(m_pThread);
 	m_pWorker->SetObserver(m_pObserver);
 
@@ -181,6 +190,10 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
 	connect(m_pWorker, &EngineWorker::stepStarted, this, &AppController::onStepStarted);
 	connect(m_pObserver, &QtObserver::outputReceived, this, &AppController::onOutput);
+    connect(m_pObserver, &QtObserver::stageProgressReceived, this, [this](const QString &stage,long long total,long long current,int overall) {
+        onProgress(stage,total,current,current == 0 ? CALL_FIRST : CALL_MIDDLE);
+        if(overall >= 0) SetProgress(overall, m_strProgressText);
+    });
 	connect(m_pObserver, &QtObserver::progressReceived, this, &AppController::onProgress);
 	connect(m_pObserver, &QtObserver::upgradePromptReceived, this, &AppController::onUpgradePrompt);
 	connect(m_pObserver, &QtObserver::storageSelectionRequested, this, &AppController::onStorageSelection);
@@ -188,6 +201,12 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 
 	connect(m_pAdb, SIGNAL(finished(bool, QString)),
 	        this, SLOT(onAdbFinished(bool, QString)));
+	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const QString &message) {
+		if (!m_switchingFel) return;
+		m_felSwitchHint = message;
+		m_felSwitchError = false;
+		emit felSwitchStateChanged();
+	});
 	connect(m_pAdb, SIGNAL(deviceChoiceRequested(QStringList)),
 	        this, SLOT(onAdbDeviceChoice(QStringList)));
 	connect(m_pAdb, SIGNAL(devicesChanged(QStringList)),
@@ -276,10 +295,11 @@ QVariantList AppController::usageHelp() const
 		}
 	};
 	struct MakeGroup {
-		static QVariantMap Run(const QString &strTitle, const QString &strNote,
-		                       const QVariantList &items)
+		static QVariantMap Run(const QString &strVendor, const QString &strTitle,
+		                       const QString &strNote, const QVariantList &items)
 		{
 			QVariantMap map;
+			map["vendor"] = strVendor;
 			map["title"] = strTitle;
 			map["note"] = strNote;
 			map["items"] = items;
@@ -288,27 +308,31 @@ QVariantList AppController::usageHelp() const
 	};
 
 #ifdef Q_OS_LINUX
-	const QString connectionNote = tr("设备需处于 Rockusb 模式（Loader 或 Maskrom），且系统已安装 udev 规则。");
+	const QString connectionNote = tr("瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式，且系统已安装对应 udev 规则。");
 	const QString connectionHelp = tr("底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式与 udev 权限。");
 	const QString preferencesHelp = tr("编辑并保存 config.ini、重新加载、一键安装 udev 规则。");
-	const QString missingHelp = tr("确认设备处于 Rockusb 模式（Loader 或 Maskrom），并已安装 udev 规则后重新插拔。");
+	const QString missingHelp = tr("瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，并已安装 udev 规则后重新插拔。");
 #else
-	const QString connectionNote = tr("设备需处于 Rockusb 模式（Loader 或 Maskrom）。");
+	const QString connectionNote = tr("瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式。");
 	const QString connectionHelp = tr("底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式、USB 连接以及是否被其他程序占用。");
 	const QString preferencesHelp = tr("编辑并保存 config.ini、重新加载。");
-	const QString missingHelp = tr("确认设备处于 Rockusb 模式（Loader 或 Maskrom），检查 USB 连接并关闭占用设备的其他程序后重新插拔。");
+	const QString missingHelp = tr("瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，检查 USB 连接并关闭占用设备的其他程序后重新插拔。");
 #endif
+	const QString vendorCommon = tr("通用");
+	const QString vendorRk = tr("瑞芯微");
+	const QString vendorAw = tr("全志");
+
 	QVariantList groups;
 
-	groups.append(MakeGroup::Run(tr("快速上手"),
+	groups.append(MakeGroup::Run(vendorCommon, tr("快速上手"),
 		connectionNote,
 		QVariantList()
 		<< MakeItem::Run(tr("① 连接设备"), connectionHelp)
 		<< MakeItem::Run(tr("② 选择设备"), tr("在底部设备栏的下拉框中选择目标设备；要同时烧录多台，用标题栏「设备 → 批量选择…」。"))
-		<< MakeItem::Run(tr("③ 执行操作"), tr("切到对应功能页，选好文件或参数后点击「执行」/「升级」；进度、速率与预计剩余显示在底部，随时可「取消」。"))
+		<< MakeItem::Run(tr("③ 执行操作"), tr("切到对应功能页，选好文件或参数后点击「执行」/「升级」/「开始刷写」；进度、速率与预计剩余显示在底部，随时可「取消」。"))
 		<< MakeItem::Run(tr("④ 查看结果"), tr("中文结论显示在页面提示区，引擎原始输出写入日志文件（「帮助 → 日志」查看目录）。"))));
 
-	groups.append(MakeGroup::Run(tr("下载镜像"),
+	groups.append(MakeGroup::Run(vendorRk, tr("下载镜像"),
 		tr("按分体包目录内的 parameter.txt 分区表逐分区下载。"), QVariantList()
 		<< MakeItem::Run(tr("浏览…"), tr("选择分体包目录，目录内需包含 parameter.txt、各分区镜像与 Loader。"))
 		<< MakeItem::Run(tr("路径列"), tr("双击某一行可手动指定该分区的镜像文件。"))
@@ -318,7 +342,7 @@ QVariantList AppController::usageHelp() const
 		<< MakeItem::Run(tr("烧录完成后重启设备"), tr("队列结束后自动重启设备。"))
 		<< MakeItem::Run(tr("执行"), tr("按勾选的分区逐个下载镜像。"))));
 
-	groups.append(MakeGroup::Run(tr("升级固件"),
+	groups.append(MakeGroup::Run(vendorRk, tr("升级固件"),
 		tr("整包固件升级，界面会解析并显示固件信息。"), QVariantList()
 		<< MakeItem::Run(tr("浏览…"), tr("选择 .img 整包固件。"))
 		<< MakeItem::Run(tr("固件信息"), tr("显示固件版本、Loader 版本、芯片信息、构建时间与签名。"))
@@ -327,7 +351,7 @@ QVariantList AppController::usageHelp() const
 		<< MakeItem::Run(tr("烧录完成后重启设备"), tr("勾选表示升级完成后自动重启设备。"))
 		<< MakeItem::Run(tr("升级"), tr("整包烧录；不支持按分区过滤。"))));
 
-	groups.append(MakeGroup::Run(tr("高级功能"),
+	groups.append(MakeGroup::Run(vendorRk, tr("高级功能"),
 		tr("需要具体参数的设备操作，结果回填到结果表。"), QVariantList()
 		<< MakeItem::Run(tr("读取类按钮"), tr("读取 Flash ID / Flash 信息 / Chip 信息 / Capability / 安全模式 / OTP / 序列号。"))
 		<< MakeItem::Run(tr("测试设备 / 重启设备 / 切换存储 / 切换设备"), tr("对当前设备执行对应操作。"))
@@ -338,15 +362,43 @@ QVariantList AppController::usageHelp() const
 		<< MakeItem::Run(tr("LBA / 扇区"), tr("输入起始扇区与扇区数后，可「导出镜像」或「擦除扇区」。"))
 		<< MakeItem::Run(tr("专业操作参数"), tr("写入 LBA / 写入扇区 / 擦除块 / 运行系统 / 重置管道，需填写各自参数。"))));
 
-	groups.append(MakeGroup::Run(tr("配置与设备菜单"),
+	groups.append(MakeGroup::Run(vendorAw, tr("裸镜像刷写"),
+		tr("把单个镜像写入指定存储介质。"), QVariantList()
+		<< MakeItem::Run(tr("引导固件包"), tr("选择引导固件包（IMAGEWTY .img），用于确定分区布局与引导组件。"))
+		<< MakeItem::Run(tr("待写入镜像"), tr("选择要写入的镜像文件。"))
+		<< MakeItem::Run(tr("存储介质"), tr("选择 SD / eMMC、UFS 或 SPI NOR。"))
+		<< MakeItem::Run(tr("高级选项"), tr("设置写入方式（从扇区 0 写入 / 按逻辑偏移写入）与逻辑偏移（扇区，可留空自动匹配）。"))
+		<< MakeItem::Run(tr("切换"), tr("通过 ADB 把设备切到 FEL；识别到 T3 Buildroot 时自动使用兼容入口，也可手选「备选」。"))
+		<< MakeItem::Run(tr("开始刷写"), tr("把所选镜像写入目标介质。"))));
+
+	groups.append(MakeGroup::Run(vendorAw, tr("固件刷写"),
+		tr("整包固件刷写，界面会解析并显示固件信息。"), QVariantList()
+		<< MakeItem::Run(tr("固件包"), tr("选择 IMAGEWTY 固件包（.img）。"))
+		<< MakeItem::Run(tr("刷写模式"), tr("按所选分区刷写 / 保留用户数据 / 分区擦除后刷写 / 全盘擦除后刷写。"))
+		<< MakeItem::Run(tr("完成动作"), tr("刷写结束后重启、断电或关机，默认重启。"))
+		<< MakeItem::Run(tr("写入后校验"), tr("勾选后写入完成会校验，校验失败会停止任务。"))
+		<< MakeItem::Run(tr("分区列表"), tr("「按所选分区刷写」时勾选要刷写的分区。"))
+		<< MakeItem::Run(tr("开始刷写"), tr("按设置执行刷写。"))));
+
+	groups.append(MakeGroup::Run(vendorAw, tr("高级功能"),
+		tr("离线查看固件、解包、程序器镜像转换，以及重启设备。"), QVariantList()
+		<< MakeItem::Run(tr("查看分区与嵌入文件"), tr("展开显示固件的分区表与内嵌文件。"))
+		<< MakeItem::Run(tr("解包固件"), tr("选择输出目录并把当前固件解包到该目录。"))
+		<< MakeItem::Run(tr("程序器镜像转换"), tr("设置输出镜像与目标介质（SPI NOR / SD 卡 / eMMC / SD NAND / UFS）。"))
+		<< MakeItem::Run(tr("高级选项"), tr("逻辑偏移、U-Boot 偏移、NOR 容量、GPT 目标容量、安全启动组件。"))
+		<< MakeItem::Run(tr("重新读取信息 / 转换镜像"), tr("重新解析固件信息 / 生成程序器镜像。"))
+		<< MakeItem::Run(tr("重启设备"), tr("让处于 FES 模式的全志设备重启；FEL 模式不支持。"))));
+
+	groups.append(MakeGroup::Run(vendorCommon, tr("配置与设备菜单"),
 		tr("标题栏右侧的下拉菜单。"), QVariantList()
 		<< MakeItem::Run(tr("配置 → 首选项…"), preferencesHelp)
-		<< MakeItem::Run(tr("配置 → 生成 GPT…"), tr("由 parameter.txt 生成 GPT 镜像。"))
+		<< MakeItem::Run(tr("配置 → 生成 GPT…"), tr("仅瑞芯微：由 parameter.txt 生成 GPT 镜像。"))
 		<< MakeItem::Run(tr("配置 → 外观"), tr("在 跟随系统 / 浅色 / 深色 之间切换主题。"))
+		<< MakeItem::Run(tr("设备 → 设备信息…"), tr("仅全志：查看当前设备信息。"))
 		<< MakeItem::Run(tr("设备 → 刷新"), tr("重新扫描当前连接的设备。"))
 		<< MakeItem::Run(tr("设备 → 批量选择…"), tr("勾选多台设备，按顺序执行同一操作，可勾选「失败继续」。"))));
 
-	groups.append(MakeGroup::Run(tr("常见问题"), QString(), QVariantList()
+	groups.append(MakeGroup::Run(vendorCommon, tr("常见问题"), QString(), QVariantList()
 		<< MakeItem::Run(tr("底部一直没有设备"), missingHelp)
 		<< MakeItem::Run(tr("「切换」按钮置灰"), tr("主机未安装 ADB，或未检测到 ADB 设备。"))
 		<< MakeItem::Run(tr("按钮置灰并提示不支持"), tr("提示「当前引擎不支持该功能」，表示该操作暂未实现。"))
@@ -493,7 +545,7 @@ void AppController::SetDeviceStatus()
 		             : tr("发现 %1 台 %2 设备").arg(iCount).arg(strModes[i]));
 	}
 
-	// 没有 rockusb 设备时，才提示 ADB 状态
+	// 没有当前厂商的刷机模式设备时，提示共用的 ADB 状态
 	if (strParts.isEmpty()) {
 		if (!m_bAdbKnown)
 			strParts << tr("检测 ADB 中…");
@@ -567,8 +619,11 @@ void AppController::onThreadStarted()
 	refresh();
 }
 
-void AppController::onDevicesReady(const QVariantList &devices)
+void AppController::onDevicesReady(const QVariantList &incoming)
 {
+    m_allDevices = incoming;
+    QVariantList devices;
+    for(const auto &d:incoming) if(d.toMap().value("vendor",0).toInt()==m_vendor) devices.append(d);
 	QStringList strSignature;
 	for (int i = 0; i < devices.size(); i++) {
 		QVariantMap map = devices[i].toMap();
@@ -582,7 +637,7 @@ void AppController::onDevicesReady(const QVariantList &devices)
 		return;
 	m_strDeviceSignature = strNewSignature;
 
-	QString strPrevious;
+	QString strPrevious = m_vendorSelection[m_vendor];
 	if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceKeys.size())
 		strPrevious = m_deviceKeys.value(m_iDeviceIndex);
 
@@ -641,6 +696,7 @@ void AppController::setDeviceIndex(int iIndex)
 		emit batchModeChanged();
 	}
 	m_iDeviceIndex = iIndex;
+    m_vendorSelection[m_vendor] = iIndex >= 0 ? m_deviceKeys.value(iIndex) : QString();
 	emit deviceIndexChanged();
 
 	SetDeviceStatus();
@@ -672,6 +728,10 @@ void AppController::cancel()
 {
 	if (!m_bBusy)
 		return;
+	if (m_bSwitching) {
+		m_pAdb->CancelSwitch();
+		return;
+	}
 	m_bCancelRequested = true;
 	m_job.cancelled->store(true);
 	m_pObserver->CancelSelection();
@@ -706,6 +766,9 @@ void AppController::StartJob(core::TaskJob job)
 			core::DeviceIdentity identity;
 			identity.serial = map["serial"].toString().toStdString();
 			identity.location = map["locationId"].toUInt();
+            identity.vendor = static_cast<core::Vendor>(map.value("vendor",0).toInt());
+            identity.bus = static_cast<uint8_t>(map["bus"].toUInt());
+            for(const auto &p:map["ports"].toList()) identity.ports.push_back(static_cast<uint8_t>(p.toUInt()));
 			job.targets.push_back(identity);
 		}
 	}
@@ -724,7 +787,7 @@ void AppController::runOperation(int operation, const QVariantMap &parameters)
 	if (m_bBusy) return;
 	core::OperationRequest r;
 	r.operation = static_cast<core::Operation>(operation);
-	if (operation < 0 || operation >= static_cast<int>(core::Operation::Count)) return;
+	if (operation < 0 || operation >= static_cast<int>(core::Operation::AllwinnerFlash) || m_vendor != 0) return;
 	r.file.path = parameters.value("path").toString().toStdString();
 	r.file.output = parameters.value("output").toString().toStdString();
 	r.partition = parameters.value("partition").toString().toStdString();
@@ -826,6 +889,16 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 		if (m_runningOperation == core::Operation::FirmwareUpgrade) SetFirmwareHint(batch, !ok && !cancelled);
 		else if (m_runningOperation != core::Operation::LoaderUpgrade && m_runningOperation != core::Operation::DownloadImage) SetAdvancedHint(batch, !ok && !cancelled);
 	}
+    if(m_runningOperation >= core::Operation::AllwinnerFlash && m_runningOperation < core::Operation::Count) {
+        auto &state = m_allwinner[m_allwinnerContext];
+        state.error = !ok && !cancelled;
+        if(cancelled) state.hint=tr("已取消");
+        if(m_job.targets.size()>1) {
+            state.hint=tr("批量结束：成功 %1 台，失败 %2 台").arg(summary.succeeded).arg(summary.failed);
+            if(cancelled) state.hint += tr("，已取消后续操作");
+        }
+        emit allwinnerChanged();
+    }
 	SetProgress(ok ? 100 : m_iProgressValue, text);
 	m_bCancelRequested = false;
 	emit toastRequested(text, !ok && !cancelled);
@@ -846,7 +919,12 @@ void AppController::onStepStarted(int step, int target, int total, const QString
 
 void AppController::onOutput(int iLevel, const QString &strText)
 {
-	// 引擎原始输出只写入日志文件（界面不再显示），仅保留错误级供排查。
+	if(m_vendor == 1) {
+        AppendLog(strText, iLevel == static_cast<int>(core::LogLevel::Error));
+        if(m_diskLog) m_diskLog->Record("[Allwinner] %s", strText.toUtf8().constData());
+        return;
+    }
+    // Rockchip engine records its own detailed log.
 	if (iLevel == (int)core::LogLevel::Error)
 		AppendLog(strText, true);
 }
@@ -856,7 +934,7 @@ void AppController::onProgress(const QString &strPrompt, long long llTotal,
 {
 	if (llTotal <= 0)
 		return;
-	int iPct = (int)(llCurrent * 100 / llTotal);
+	int iPct = static_cast<int>(static_cast<double>(llCurrent) * 100.0 / llTotal);
 	if (iPct > 100)
 		iPct = 100;
 
@@ -904,8 +982,38 @@ void AppController::answerStorage(int iIndex)
 }
 
 
+void AppController::ApplyAllwinnerInspectResult(int context, const core::OperationResult &result)
+{
+    auto &state = m_allwinner[context];
+    QVariantList items;
+    for(const auto &row:result.items) items.append(QVariantMap{{"label",QString::fromStdString(row.label)},{"value",QString::fromStdString(row.value)}});
+    state.files.clear(); state.partitions.clear(); state.valid = result.ok();
+    for(const auto &e:result.firmware.entries) state.files.append(QVariantMap{{"name",QString::fromStdString(e.fileName)},{"type",QString::fromStdString(e.type)},{"size",QString::number(e.size)}});
+    for(const auto &p:result.partitions) {
+        bool writable=false;
+        for(const auto &e:result.firmware.entries) if(e.hasPart && e.partName==p.name) writable=true;
+        state.partitions.append(QVariantMap{{"name",QString::fromStdString(p.name)},{"begin",QString::number(p.begin)},{"count",QString::number(p.count)},{"writable",writable}});
+    }
+    state.summary->SetItems(items);
+    state.error = !result.ok() && result.status != core::OperationStatus::Cancelled;
+    state.hint = result.ok() ? OperationName(result.operation) + tr("完成") : QString::fromStdString(result.diagnostic);
+    if(result.status==core::OperationStatus::Cancelled) state.hint=tr("已取消");
+    emit allwinnerChanged();
+}
+
 void AppController::onOperationResult(const core::OperationResult &result)
 {
+    if(result.operation >= core::Operation::AllwinnerFlash && result.operation < core::Operation::Count) {
+        if(result.operation == core::Operation::AllwinnerInspect) { ApplyAllwinnerInspectResult(m_allwinnerContext, result); return; }
+        auto &state = m_allwinner[m_allwinnerContext];
+        QVariantList items;
+        for(const auto &row:result.items) items.append(QVariantMap{{"label",QString::fromStdString(row.label)},{"value",QString::fromStdString(row.value)}});
+        state.results->SetItems(items);
+        state.error = !result.ok() && result.status != core::OperationStatus::Cancelled;
+        state.hint = result.ok() ? OperationName(result.operation) + tr("完成") : QString::fromStdString(result.diagnostic);
+        if(result.status==core::OperationStatus::Cancelled) state.hint=tr("已取消");
+        emit allwinnerChanged(); return;
+    }
 	bool bOk = result.ok();
 	core::Operation id = result.operation;
 	QVariantList items;
@@ -1130,17 +1238,37 @@ void AppController::showFirmwareInfo()
 
 void AppController::switchToLoader()
 {
-	if (m_bSwitching)
+	if (m_bBusy || m_bSwitching)
 		return;
 	if (!adbReady()) {
 		emit toastRequested(tr("未检测到 ADB 设备，无法切换。"), true);
 		return;
 	}
 	m_bSwitching = true;
+	m_switchingFel = false;
+	emit switchingChanged();
+	SetBusy(true);
 	SetAdvancedHint(tr("正在将设备切换到 Loader 模式…"), false);
 	SetImageHint(tr("正在将设备切换到 Loader 模式…"), false);
 	SetFirmwareHint(tr("正在将设备切换到 Loader 模式…"), false);
 	m_pAdb->SwitchToLoader();
+}
+
+void AppController::switchToFel(int mode)
+{
+	if (m_vendor != 1 || m_bBusy || m_bSwitching) return;
+	if (mode < 0 || mode > 1 || !adbReady()) {
+		emit toastRequested(tr("未检测到 ADB 设备或切换方式无效。"), true);
+		return;
+	}
+	m_bSwitching = true;
+	m_switchingFel = true;
+	emit switchingChanged();
+	m_felSwitchHint = tr("准备将 ADB 设备切换到 FEL 模式…");
+	m_felSwitchError = false;
+	emit felSwitchStateChanged();
+	SetBusy(true);
+	m_pAdb->SwitchToFel(static_cast<AdbRunner::FelMethod>(mode));
 }
 
 void AppController::onAdbDeviceChoice(const QStringList &strDevices)
@@ -1180,7 +1308,20 @@ void AppController::cancelAdbChoice()
 
 void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 {
+	if (!m_bSwitching) return;
 	m_bSwitching = false;
+	emit switchingChanged();
+	if (m_switchingFel) {
+		m_switchingFel = false;
+		m_felSwitchHint = strMessage;
+		m_felSwitchError = !bOk;
+		emit felSwitchStateChanged();
+		SetBusy(false);
+		emit requestScan();
+		emit toastRequested(strMessage, !bOk);
+		return;
+	}
+	SetBusy(false);
 	SetAdvancedHint(strMessage, !bOk);
 	SetImageHint(strMessage, !bOk);
 	SetFirmwareHint(strMessage, !bOk);
@@ -1215,6 +1356,155 @@ void AppController::createGpt(const QString &strInput, const QString &strOutput)
 	}
 
 	runOperation(static_cast<int>(core::Operation::CreateGpt), {{"path", strInput.trimmed()}, {"output", strOutput.trimmed()}});
+}
+
+void AppController::setVendor(int vendor)
+{
+    if(m_bBusy || vendor<0 || vendor>1 || vendor==m_vendor) return;
+    m_vendorSelection[m_vendor] = m_iDeviceIndex >= 0 ? m_deviceKeys.value(m_iDeviceIndex) : QString();
+    m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
+    m_vendor=vendor; m_pConfig->setUsbVendor(vendor == 1 ? "1f3a" : "2207");
+    m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();
+    m_devices.clear(); m_deviceKeys.clear(); m_iDeviceIndex=-1; m_strDeviceSignature=QStringLiteral("changed");
+    m_batchKeys=m_vendorBatch[m_vendor]; m_bBatchContinue=m_vendorContinue[m_vendor]; m_bBatchMode=m_batchKeys.size()>1;
+    emit vendorChanged(); emit deviceIndexChanged(); emit batchModeChanged();
+    onDevicesReady(m_allDevices); refresh();
+}
+QVariantMap AppController::allwinnerSettings() const
+{
+    QSettings settings(QSettings::IniFormat,QSettings::UserScope,"upgrade_tool","upgrade_tool");
+    settings.beginGroup("allwinner"); QVariantMap result;
+    for(const auto &key:settings.allKeys()) result[key]=settings.value(key);
+    return result;
+}
+void AppController::saveAllwinnerSettings(const QVariantMap &values)
+{
+    QSettings settings(QSettings::IniFormat,QSettings::UserScope,"upgrade_tool","upgrade_tool");
+    settings.beginGroup("allwinner");
+    for(auto it=values.begin();it!=values.end();++it) settings.setValue(it.key(),it.value());
+}
+QVariantList AppController::allwinnerStates() const
+{
+    QVariantList states;
+    for (const auto &state : m_allwinner) {
+        states.append(QVariantMap{{"firmware", state.firmware}, {"hint", state.hint},
+            {"valid", state.valid}, {"error", state.error}, {"partitions", state.partitions},
+            {"files", state.files}, {"summary", QVariant::fromValue(state.summary)},
+            {"results", QVariant::fromValue(state.results)}});
+    }
+    return states;
+}
+
+void AppController::setAllwinnerFirmware(const QString &path)
+{
+    setAllwinnerContextFirmware(1, path);
+}
+
+void AppController::setAllwinnerContextFirmware(int context, const QString &path)
+{
+    if(m_bBusy || m_vendor!=1 || context<0 || context>2) return;
+    auto &state=m_allwinner[context];
+    const QString trimmed=path.trimmed();
+    if(state.firmware==trimmed && state.inspected && state.valid) return;
+    state.firmware=trimmed; state.valid=false; state.inspected=false; state.error=false;
+    state.hint.clear(); state.files.clear(); state.partitions.clear();
+    state.summary->Clear(); state.results->Clear();
+    saveAllwinnerSettings({{QString("page%1/firmware").arg(context),state.firmware}});
+    emit allwinnerChanged();
+    ensureAllwinnerContext(context);
+}
+
+void AppController::inspectAllwinnerFirmware(int context)
+{
+    if(m_vendor!=1 || context<0 || context>2) return;
+    auto &state=m_allwinner[context];
+    if(state.firmware.isEmpty()) return;
+    state.inspected=true;
+    core::OperationResult result;
+    result.operation=core::Operation::AllwinnerInspect;
+    try {
+        result=core::allwinner::InspectFirmware(state.firmware.toStdString());
+    } catch(const std::exception &e) {
+        result.operation=core::Operation::AllwinnerInspect;
+        result.status=core::OperationStatus::Failed;
+        result.diagnostic=e.what();
+    }
+    ApplyAllwinnerInspectResult(context, result);
+}
+
+void AppController::ensureAllwinnerContext(int context)
+{
+    if(m_bBusy || m_vendor!=1 || context<0 || context>2) return;
+    auto &state=m_allwinner[context];
+    if(!state.inspected && !state.firmware.isEmpty())
+        inspectAllwinnerFirmware(context);
+}
+
+void AppController::runAllwinner(int operation,const QVariantMap &p)
+{
+    if(m_bBusy || m_vendor!=1 || operation<static_cast<int>(core::Operation::AllwinnerFlash) || operation>=static_cast<int>(core::Operation::Count)) return;
+    core::OperationRequest r; r.operation=static_cast<core::Operation>(operation); r.vendor=core::Vendor::Allwinner;
+    bool contextOk=true;
+    const int context=r.operation==core::Operation::AllwinnerDeviceInfo ? 3 : p.value("context",1).toInt(&contextOk);
+    if(!contextOk || context<0 || context>3 || (context==3 && r.operation!=core::Operation::AllwinnerDeviceInfo)) return;
+    auto &state=m_allwinner[context];
+    r.file.path=p.value("path",state.firmware).toString().trimmed().toStdString();
+    r.file.output=p.value("output").toString().trimmed().toStdString();
+    auto &o=r.allwinner; bool valid=true;
+    auto choice=[&](const char *key,int fallback,int maximum) { bool ok=true; int value=p.value(key,fallback).toInt(&ok); if(!ok||value<0||value>maximum) valid=false; return value; };
+    auto number=[&](const char *key,uint64_t &value,bool *present=nullptr) {
+        QString text=p.value(key).toString().trimmed(); if(text.isEmpty()) return;
+        bool ok; auto n=text.toULongLong(&ok,text.startsWith("0x",Qt::CaseInsensitive)?16:10);
+        if(!ok||text.startsWith('-')||n>uint64_t(INT64_MAX)) valid=false;
+        else { value=n; if(present) *present=true; }
+    };
+    switch(r.operation) {
+    case core::Operation::AllwinnerFlash:
+        o.mode=static_cast<core::AllwinnerFlashMode>(choice("mode",3,3));
+        o.postAction=static_cast<core::PostAction>(choice("postAction",0,2));
+        o.verify=p.value("verify",true).toBool();
+        if(o.mode==core::AllwinnerFlashMode::Partition) {
+            for(const auto &name:p.value("partitions").toStringList()) o.partitions.push_back(name.toStdString());
+            if(o.partitions.empty()) valid=false;
+        }
+        break;
+    case core::Operation::AllwinnerRaw:
+        o.rawMode=static_cast<core::RawMode>(choice("rawMode",1,1));
+        o.rawStorage=static_cast<core::RawStorage>(choice("rawStorage",0,2));
+        o.rawImage=p.value("rawImage").toString().trimmed().toStdString();
+        if(o.rawImage.empty()) valid=false;
+        if(o.rawMode==core::RawMode::LogicOffset) number("logicOffset",o.logicOffset,&o.hasLogicOffset);
+        break;
+    case core::Operation::AllwinnerConvert:
+        o.convertTarget=static_cast<core::ConvertTarget>(choice("target",2,4));
+        number("logicOffset",o.logicOffset,&o.hasLogicOffset);
+        if(o.convertTarget==core::ConvertTarget::Spinor) {
+            number("ubootOffset",o.ubootOffset,&o.hasUbootOffset); number("norMiB",o.norMiB);
+        } else {
+            o.secure=static_cast<core::SecureMode>(choice("secure",0,2));
+            o.storageSize=p.value("storageSize","auto").toString().toStdString();
+        }
+        if(r.file.output.empty()) valid=false;
+        break;
+    case core::Operation::AllwinnerExtract:
+        if(r.file.output.empty()) valid=false;
+        break;
+    default: break;
+    }
+    if(r.operation!=core::Operation::AllwinnerDeviceInfo && r.operation!=core::Operation::AllwinnerReboot && r.file.path.empty()) valid=false;
+    if(!valid) { state.error=true; state.hint=tr("请检查当前操作的文件路径与参数，数值须在有效范围内"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return; }
+    if(!core::IsLocalOperation(r.operation) && !hasDevice()) {
+        state.error=true; state.hint=tr("请先连接并选择全志设备"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return;
+    }
+    m_allwinnerContext=context;
+    if(r.operation==core::Operation::AllwinnerInspect) state.inspected=true;
+    state.error=false; state.hint=tr("正在执行：%1").arg(OperationName(r.operation));
+    if(r.operation!=core::Operation::AllwinnerInspect) state.results->Clear();
+    emit allwinnerChanged();
+    core::TaskJob job; job.steps.push_back(r); StartJob(job);
+    if(!m_bBusy) {
+        state.error=true; state.hint=tr("请先选择在线的全志设备"); emit allwinnerChanged();
+    }
 }
 
 }

@@ -2,6 +2,13 @@
 namespace gui {
 QString OperationName(core::Operation operation) {
 	switch (operation) {
+	case core::Operation::AllwinnerFlash: return QString::fromUtf8("全志固件刷写");
+	case core::Operation::AllwinnerRaw: return QString::fromUtf8("全志裸镜像刷写");
+	case core::Operation::AllwinnerConvert: return QString::fromUtf8("程序器镜像转换");
+	case core::Operation::AllwinnerInspect: return QString::fromUtf8("全志固件信息");
+	case core::Operation::AllwinnerExtract: return QString::fromUtf8("全志固件解包");
+	case core::Operation::AllwinnerDeviceInfo: return QString::fromUtf8("全志设备信息");
+	case core::Operation::AllwinnerReboot: return QString::fromUtf8("全志重启设备");
 	case core::Operation::FirmwareUpgrade: return QString::fromUtf8("升级固件");
 	case core::Operation::FirmwareExtract: return QString::fromUtf8("解包固件");
 	case core::Operation::FirmwareInfo: return QString::fromUtf8("查看固件信息");

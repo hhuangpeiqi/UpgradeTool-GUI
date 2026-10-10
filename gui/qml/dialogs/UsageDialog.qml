@@ -21,9 +21,9 @@ AppDialog {
 
             Text {
                 width: parent.width
-                text: qsTr("选择设备后，在对应功能页执行操作。设备需处于 Rockusb 模式（Loader 或 Maskrom），"
-                          + "请确认 USB 连接正常。")
-                      + (Qt.platform.os === "linux" ? qsTr("系统需安装 udev 规则。") : "")
+                text: qsTr("选择设备后，在对应功能页执行操作。瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），"
+                          + "全志设备需处于 FEL / FES 模式，请确认 USB 连接正常。")
+                      + (Qt.platform.os === "linux" ? qsTr("系统需安装对应 udev 规则。") : "")
                 color: Theme.textSecondary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontNormal
@@ -37,12 +37,36 @@ AppDialog {
                     width: parent.width
                     spacing: 8
 
-                    Text {
-                        text: modelData.title
-                        color: Theme.textPrimary
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontMedium
-                        font.bold: true
+                    Row {
+                        spacing: 8
+
+                        Rectangle {
+                            id: vendorTag
+                            visible: modelData.vendor !== undefined && modelData.vendor !== ""
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 3
+                            color: Theme.primary
+                            implicitWidth: vendorTagText.implicitWidth + 10
+                            implicitHeight: vendorTagText.implicitHeight + 2
+
+                            Text {
+                                id: vendorTagText
+                                anchors.centerIn: parent
+                                text: modelData.vendor
+                                color: Theme.textOnPrimary
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSmall
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: modelData.title
+                            color: Theme.textPrimary
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontMedium
+                            font.bold: true
+                        }
                     }
 
                     Text {

@@ -5,6 +5,7 @@ import QtQuick.Controls
 MenuSeparator {
     id: control
 
+    height: visible ? implicitHeight : 0
     padding: 5
 
     contentItem: Rectangle {

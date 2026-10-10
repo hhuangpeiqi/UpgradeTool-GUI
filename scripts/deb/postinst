@@ -1,14 +1,14 @@
 #!/bin/sh
 set -e
 
-RULE_NAME="99-rk-rockusb-all.rules"
-SRC="/usr/share/upgrade_tool/$RULE_NAME"
-DEST="/etc/udev/rules.d/$RULE_NAME"
-
-if [ "$1" = "configure" ] && [ ! -e "$DEST" ] && [ -f "$SRC" ]; then
-	install -d -m 0755 "$(dirname "$DEST")" 2>/dev/null || true
-	install -m 0644 "$SRC" "$DEST" || true
-fi
+for RULE_NAME in 99-rk-rockusb-all.rules 99-allwinner.rules; do
+    SRC="/usr/share/upgrade_tool/$RULE_NAME"
+    DEST="/etc/udev/rules.d/$RULE_NAME"
+    if [ "$1" = "configure" ] && [ ! -e "$DEST" ] && [ -f "$SRC" ]; then
+        install -d -m 0755 "$(dirname "$DEST")" 2>/dev/null || true
+        install -m 0644 "$SRC" "$DEST" || true
+    fi
+done
 
 if command -v udevadm >/dev/null 2>&1; then
 	udevadm control --reload-rules || true

@@ -9,6 +9,7 @@ Button {
     property int iconSize: 18
     property color textColor: Theme.textPrimary
     property int hPadding: 18
+    property bool busy: false
 
     implicitHeight: 38
     implicitWidth: Math.max(76, contentRow.implicitWidth + hPadding * 2)
@@ -23,11 +24,17 @@ Button {
 
         Row {
             id: contentRow
-            spacing: root.iconSource.toString() !== "" ? 8 : 0
+            spacing: (root.busy || root.iconSource.toString() !== "") ? 8 : 0
             anchors.centerIn: parent
 
+            Spinner {
+                visible: root.busy
+                size: root.iconSize
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
             Image {
-                visible: root.iconSource.toString() !== ""
+                visible: !root.busy && root.iconSource.toString() !== ""
                 source: root.iconSource
                 sourceSize.width: root.iconSize
                 sourceSize.height: root.iconSize
@@ -54,7 +61,7 @@ Button {
                 return Theme.buttonFaceHover;
             return Theme.buttonFace;
         }
-        border.width: 1
-        border.color: root.enabled ? Theme.borderStrong : Theme.border
+        border.width: root.activeFocus ? 2 : 1
+        border.color: root.activeFocus ? Theme.primary : root.enabled ? Theme.borderStrong : Theme.border
     }
 }

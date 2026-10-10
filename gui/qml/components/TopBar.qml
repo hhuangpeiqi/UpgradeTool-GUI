@@ -32,15 +32,23 @@ Item {
         anchors.rightMargin: 12
         spacing: 4
 
+        AppComboBox {
+            Layout.preferredWidth: 170
+            model: [qsTr("瑞芯微 Rockchip"), qsTr("全志 Allwinner")]
+            currentIndex: app.vendor
+            enabled: !app.busy
+            onActivated: (index) => app.vendor = index
+        }
+
         NavButton {
-            text: qsTr("下载镜像")
+            text: app.vendor === 0 ? qsTr("下载镜像") : qsTr("裸镜像刷写")
             iconSource: root.currentIndex === 0 ? Icons.downloadBlue : Icons.downloadGray
             selected: root.currentIndex === 0
             onClicked: root.tabRequested(0)
         }
 
         NavButton {
-            text: qsTr("升级固件")
+            text: app.vendor === 0 ? qsTr("升级固件") : qsTr("固件刷写")
             iconSource: root.currentIndex === 1 ? Icons.chipBlue : Icons.chipGray
             selected: root.currentIndex === 1
             onClicked: root.tabRequested(1)

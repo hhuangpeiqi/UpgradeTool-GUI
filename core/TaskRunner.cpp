@@ -6,8 +6,11 @@ TaskSummary TaskRunner::Run(const TaskJob &job, IOperationExecutor &executor,
 	TaskSummary summary;
 	const bool local = !job.steps.empty() && IsLocalOperation(job.steps.front().operation);
 	for (const auto &step : job.steps) {
-		if (IsLocalOperation(step.operation) != local) { summary.status = OperationStatus::Failed; return summary; }
+		if (IsLocalOperation(step.operation) != local || step.vendor != job.steps.front().vendor) { summary.status = OperationStatus::Failed; return summary; }
 	}
+    if(!job.steps.empty()) for(const auto &target:job.targets) {
+        if(target.vendor != job.steps.front().vendor) { summary.status=OperationStatus::Failed; return summary; }
+    }
 	const size_t count = local || job.targets.empty() ? 1 : job.targets.size();
 	std::vector<size_t> finished(count, 0);
 	std::vector<bool> failed(count, false);

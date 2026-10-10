@@ -37,6 +37,13 @@ public:
 		EraseBlock = static_cast<int>(core::Operation::EraseBlock),
 		RunSystem = static_cast<int>(core::Operation::RunSystem),
 		SwitchStorage = static_cast<int>(core::Operation::SwitchStorage),
+		AllwinnerFlash = static_cast<int>(core::Operation::AllwinnerFlash),
+		AllwinnerRaw = static_cast<int>(core::Operation::AllwinnerRaw),
+		AllwinnerConvert = static_cast<int>(core::Operation::AllwinnerConvert),
+		AllwinnerInspect = static_cast<int>(core::Operation::AllwinnerInspect),
+		AllwinnerExtract = static_cast<int>(core::Operation::AllwinnerExtract),
+		AllwinnerDeviceInfo = static_cast<int>(core::Operation::AllwinnerDeviceInfo),
+		AllwinnerReboot = static_cast<int>(core::Operation::AllwinnerReboot),
 		Count = static_cast<int>(core::Operation::Count)
 	};
 	Q_ENUM(Id)

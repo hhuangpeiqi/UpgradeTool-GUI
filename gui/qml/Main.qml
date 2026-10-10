@@ -18,6 +18,8 @@ ApplicationWindow {
     flags: nativeWindow ? Qt.Window : (Qt.Window | Qt.FramelessWindowHint)
 
     property int currentPage: 1
+    property var vendorPages: [1, 1]
+    property int previousVendor: 0
 
     Binding {
         target: Theme
@@ -62,6 +64,8 @@ ApplicationWindow {
     Component.onCompleted: {
         if (typeof startTab !== "undefined")
             window.currentPage = startTab;
+        window.previousVendor = app.vendor;
+        window.vendorPages[app.vendor] = window.currentPage;
     }
 
     MouseArea {
@@ -152,11 +156,19 @@ ApplicationWindow {
                     StackLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        currentIndex: window.currentPage
+                        currentIndex: app.vendor * 3 + window.currentPage
 
                         DownloadImagePage {}
                         FirmwarePage {}
                         AdvancedPage {}
+                        AllwinnerRawPage {}
+                        AllwinnerFirmwarePage {
+                            onToolsRequested: (path) => {
+                                app.setAllwinnerContextFirmware(2, path);
+                                window.currentPage = 2;
+                            }
+                        }
+                        AllwinnerToolsPage {}
                     }
 
                     LogPanel {
@@ -198,7 +210,7 @@ ApplicationWindow {
     AppMenu {
         id: configMenu
         AppMenuItem { text: qsTr("首选项…"); onTriggered: settingsDialog.openDialog() }
-        AppMenuItem { text: qsTr("生成 GPT…"); onTriggered: gptDialog.open() }
+        AppMenuItem { text: qsTr("生成 GPT…"); visible: app.vendor === 0; onTriggered: gptDialog.open() }
         AppMenuSeparator {}
         AppMenu {
             title: qsTr("外观")
@@ -233,6 +245,12 @@ ApplicationWindow {
     AppMenu {
         id: deviceMenu
         AppMenuItem {
+            text: qsTr("设备信息…")
+            visible: app.vendor === 1
+            enabled: !app.busy && app.hasDevice
+            onTriggered: allwinnerDeviceDialog.open()
+        }
+        AppMenuItem {
             text: qsTr("刷新")
             onTriggered: app.refresh()
         }
@@ -253,6 +271,8 @@ ApplicationWindow {
         AppMenuItem { text: qsTr("关于"); onTriggered: aboutDialog.open() }
     }
 
+    AllwinnerDeviceDialog { id: allwinnerDeviceDialog }
+
     Toast {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter
@@ -264,6 +284,11 @@ ApplicationWindow {
     Connections {
         target: app
 
+        function onVendorChanged() {
+            window.vendorPages[window.previousVendor] = window.currentPage;
+            window.previousVendor = app.vendor;
+            window.currentPage = window.vendorPages[app.vendor];
+        }
         function onToastRequested(text, error) {
             toast.show(text, error);
         }

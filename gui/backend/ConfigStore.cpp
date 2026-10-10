@@ -32,13 +32,13 @@ bool IsKey(const QString &strName)
 }
 
 #ifdef Q_OS_LINUX
-QString FindUdevRule()
+QString FindUdevRule(const QString &name)
 {
 	QString strDir = QString::fromStdString(platform::GetExecutableDir());
 	QStringList strCandidates;
-	strCandidates << strDir + "/scripts/99-rk-rockusb-all.rules";
-	strCandidates << strDir + "/../scripts/99-rk-rockusb-all.rules";
-	strCandidates << "/usr/share/upgrade_tool/99-rk-rockusb-all.rules";
+	strCandidates << strDir + "/scripts/" + name;
+	strCandidates << strDir + "/../scripts/" + name;
+	strCandidates << "/usr/share/upgrade_tool/" + name;
 	for (int i = 0; i < strCandidates.size(); i++) {
 		if (QFileInfo(strCandidates[i]).isFile())
 			return QFileInfo(strCandidates[i]).absoluteFilePath();
@@ -53,9 +53,9 @@ const char *kUdevRuleDirs[] = {
 	"/lib/udev/rules.d"
 };
 
-bool RuleGrantsRockchipAccess(const QString &strText)
+bool RuleGrantsUsbAccess(const QString &strText, const QString &vendor)
 {
-	const QRegularExpression reVendor("idVendor\\}\\s*==\\s*\"2207\"");
+	const QRegularExpression reVendor("idVendor\\}\\s*==\\s*\"" + vendor + "\"");
 	const QStringList strLines = strText.split('\n');
 	for (int i = 0; i < strLines.size(); i++) {
 		QString strLine = strLines[i];
@@ -190,9 +190,9 @@ void ConfigStore::installUdev()
 	SetStatus(strMsg);
 	emit udevInstallFinished(false, strMsg);
 #else
-	QString strRule = FindUdevRule();
+	QString strRule = FindUdevRule(m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
 	if (strRule.isEmpty()) {
-		QString strMsg = tr("未找到 99-rk-rockusb-all.rules，请手动复制 scripts/ 下的规则到 /etc/udev/rules.d/");
+		QString strMsg = tr("未找到 USB 规则文件，请手动复制 scripts/ 下的规则到 /etc/udev/rules.d/");
 		SetStatus(strMsg);
 		emit udevInstallFinished(false, strMsg);
 		return;
@@ -241,7 +241,7 @@ bool ConfigStore::udevRuleInstalled() const
 				continue;
 			QString strText = QString::fromUtf8(file.readAll());
 			file.close();
-			if (RuleGrantsRockchipAccess(strText))
+			if (RuleGrantsUsbAccess(strText, m_usbVendor))
 				return true;
 		}
 	}
@@ -252,9 +252,9 @@ bool ConfigStore::udevRuleInstalled() const
 QString ConfigStore::udevCommand() const
 {
 #ifdef Q_OS_LINUX
-	QString strRule = FindUdevRule();
+	QString strRule = FindUdevRule(m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
 	if (strRule.isEmpty())
-		strRule = "scripts/99-rk-rockusb-all.rules";
+		strRule = m_usbVendor == "1f3a" ? "scripts/99-allwinner.rules" : "scripts/99-rk-rockusb-all.rules";
 	return "sudo cp '" + strRule + "' /etc/udev/rules.d/ && "
 	       "sudo udevadm control --reload-rules && sudo udevadm trigger";
 #else

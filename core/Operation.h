@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace core {
+enum class Vendor { Rockchip, Allwinner };
 enum class Operation {
 	FirmwareUpgrade,
 	FirmwareExtract,
@@ -38,6 +39,13 @@ enum class Operation {
 	EraseBlock,
 	RunSystem,
 	SwitchStorage,
+	AllwinnerFlash,
+	AllwinnerRaw,
+	AllwinnerConvert,
+	AllwinnerInspect,
+	AllwinnerExtract,
+	AllwinnerDeviceInfo,
+	AllwinnerReboot,
 	Count
 };
 
@@ -50,8 +58,30 @@ struct SystemRequest {
 	uint32_t ubootAddress = 0, trustAddress = 0, bootAddress = 0;
 	std::string uboot, trust, boot;
 };
+enum class AllwinnerFlashMode { Partition, KeepData, PartitionErase, FullErase };
+enum class PostAction { Reboot, PowerOff, Shutdown };
+enum class RawMode { Command, LogicOffset };
+enum class RawStorage { Sdmmc, Ufs, Nor };
+enum class ConvertTarget { Spinor, Sdcard, Emmc, Sdnand, Ufs };
+enum class SecureMode { Auto, Enabled, Disabled };
+struct AllwinnerOptions {
+    AllwinnerFlashMode mode = AllwinnerFlashMode::FullErase;
+    bool verify = true;
+    std::vector<std::string> partitions;
+    PostAction postAction = PostAction::Reboot;
+    std::string rawImage;
+    RawMode rawMode = RawMode::LogicOffset;
+    RawStorage rawStorage = RawStorage::Sdmmc;
+    ConvertTarget convertTarget = ConvertTarget::Emmc;
+    SecureMode secure = SecureMode::Auto;
+    bool hasLogicOffset = false, hasUbootOffset = false;
+    uint64_t logicOffset = 0, ubootOffset = 0, norMiB = 16;
+    std::string storageSize = "auto";
+};
 struct OperationRequest {
 	Operation operation = Operation::Count;
+	Vendor vendor = Vendor::Rockchip;
+	AllwinnerOptions allwinner;
 	FileRequest file;
 	LbaRequest lba;
 	SectorRequest sector;
@@ -69,11 +99,15 @@ struct OperationRequest {
 struct DeviceIdentity {
 	std::string serial;
 	uint32_t location = 0;
+	Vendor vendor = Vendor::Rockchip;
+	uint8_t bus = 0;
+	std::vector<uint8_t> ports;
 };
 
 inline bool IsLocalOperation(Operation op)
 {
-	return op == Operation::FirmwareInfo || op == Operation::FirmwareExtract || op == Operation::CreateGpt;
+	return op == Operation::FirmwareInfo || op == Operation::FirmwareExtract || op == Operation::CreateGpt ||
+        op == Operation::AllwinnerInspect || op == Operation::AllwinnerExtract || op == Operation::AllwinnerConvert;
 }
 
 using Cancellation = std::shared_ptr<std::atomic<bool> >;

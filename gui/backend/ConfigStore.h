@@ -19,6 +19,7 @@ public:
 	QString filePath() const { return m_strFile; }
 	QString status() const { return m_strStatus; }
 
+    void setUsbVendor(const QString &vendor) { m_usbVendor = vendor; }
 	Q_INVOKABLE QVariantMap load();
 	Q_INVOKABLE bool save(const QVariantMap &values);
 	Q_INVOKABLE void installUdev();
@@ -33,6 +34,7 @@ signals:
 private:
 	void SetStatus(const QString &strText);
 
+    QString m_usbVendor = "2207";
 	QString m_strFile;
 	QString m_strStatus;
 };

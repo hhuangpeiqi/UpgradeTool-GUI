@@ -11,6 +11,13 @@ CheckBox {
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontMedium
 
+    background: Rectangle {
+        color: "transparent"
+        radius: Theme.controlRadius
+        border.width: root.activeFocus ? 1 : 0
+        border.color: Theme.primary
+    }
+
     indicator: Rectangle {
         implicitWidth: 18
         implicitHeight: 18

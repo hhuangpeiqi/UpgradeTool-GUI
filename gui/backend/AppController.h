@@ -28,6 +28,13 @@ class AppController : public QObject
 {
 	Q_OBJECT
 
+    Q_PROPERTY(QVariantList allwinnerStates READ allwinnerStates NOTIFY allwinnerChanged)
+    Q_PROPERTY(int vendor READ vendor WRITE setVendor NOTIFY vendorChanged)
+    Q_PROPERTY(QString allwinnerFirmware READ allwinnerFirmware WRITE setAllwinnerFirmware NOTIFY allwinnerChanged)
+    Q_PROPERTY(QVariantList allwinnerPartitions READ allwinnerPartitions NOTIFY allwinnerChanged)
+    Q_PROPERTY(QVariantList allwinnerFiles READ allwinnerFiles NOTIFY allwinnerChanged)
+    Q_PROPERTY(bool allwinnerValid READ allwinnerValid NOTIFY allwinnerChanged)
+    Q_PROPERTY(gui::KeyValueModel *allwinnerResults READ allwinnerResults CONSTANT)
 	Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
 	Q_PROPERTY(QStringList deviceLabels READ deviceLabels NOTIFY devicesChanged)
 	Q_PROPERTY(QString deviceStatusText READ deviceStatusText NOTIFY devicesChanged)
@@ -39,6 +46,9 @@ class AppController : public QObject
 	Q_PROPERTY(bool adbAvailable READ adbAvailable NOTIFY adbStateChanged)
 	Q_PROPERTY(int adbDeviceCount READ adbDeviceCount NOTIFY adbStateChanged)
 	Q_PROPERTY(bool adbReady READ adbReady NOTIFY adbStateChanged)
+	Q_PROPERTY(QString felSwitchHint READ felSwitchHint NOTIFY felSwitchStateChanged)
+	Q_PROPERTY(bool felSwitchError READ felSwitchError NOTIFY felSwitchStateChanged)
+	Q_PROPERTY(bool switching READ switching NOTIFY switchingChanged)
 
 	Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 	Q_PROPERTY(int progressValue READ progressValue NOTIFY progressChanged)
@@ -77,6 +87,22 @@ public:
 	explicit AppController(CRKLog *pLog, QObject *parent = NULL);
 	~AppController();
 
+    int vendor() const { return m_vendor; }
+    void setVendor(int);
+    QString allwinnerFirmware() const { return m_allwinner[1].firmware; }
+    void setAllwinnerFirmware(const QString &);
+    QVariantList allwinnerPartitions() const { return m_allwinner[1].partitions; }
+    QVariantList allwinnerFiles() const { return m_allwinner[1].files; }
+    bool allwinnerValid() const { return m_allwinner[1].valid; }
+    KeyValueModel *allwinnerResults() const { return m_allwinner[1].summary; }
+    QVariantList allwinnerStates() const;
+    Q_INVOKABLE void setAllwinnerContextFirmware(int context, const QString &path);
+    Q_INVOKABLE void ensureAllwinnerContext(int context);
+    Q_INVOKABLE void inspectAllwinnerFirmware(int context);
+    Q_INVOKABLE void runAllwinner(int operation, const QVariantMap &parameters = QVariantMap());
+    Q_INVOKABLE QVariantMap allwinnerSettings() const;
+    Q_INVOKABLE void saveAllwinnerSettings(const QVariantMap &);
+
 	QVariantList devices() const { return m_devices; }
 	QStringList deviceLabels() const;
 	QString deviceStatusText() const { return m_strDeviceStatus; }
@@ -92,6 +118,9 @@ public:
 	bool adbReady() const { return m_bAdbKnown && m_bAdbAvailable
 	                                && !m_strAdbDevices.isEmpty(); }
 
+	QString felSwitchHint() const { return m_felSwitchHint; }
+	bool felSwitchError() const { return m_felSwitchError; }
+	bool switching() const { return m_bSwitching; }
 	bool busy() const { return m_bBusy; }
 	int progressValue() const { return m_iProgressValue; }
 	QString progressText() const { return m_strProgressText; }
@@ -158,6 +187,7 @@ public:
 	Q_INVOKABLE void showFirmwareInfo();
 
 	Q_INVOKABLE void switchToLoader();
+	Q_INVOKABLE void switchToFel(int mode = 0);
 	Q_INVOKABLE void chooseAdbDevice(const QString &strSerial);
 	Q_INVOKABLE void cancelAdbChoice();
 
@@ -167,6 +197,8 @@ public:
 	Q_INVOKABLE void createGpt(const QString &strInput, const QString &strOutput);
 
 signals:
+    void vendorChanged();
+    void allwinnerChanged();
 	void requestScan();
 	void requestExecute(const core::TaskJob &job);
 	void requestAbort();
@@ -175,6 +207,8 @@ signals:
 	void deviceIndexChanged();
 	void permissionChanged();
 	void adbStateChanged();
+	void felSwitchStateChanged();
+	void switchingChanged();
 	void busyChanged();
 	void progressChanged();
 	void batchModeChanged();
@@ -186,6 +220,23 @@ signals:
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
 
+private:
+    int m_vendor = 0;
+    CRKLog *m_diskLog = nullptr;
+    QVariantList m_allDevices;
+    struct AllwinnerState {
+        QString firmware, hint;
+        QVariantList partitions, files;
+        bool valid = false, inspected = false, error = false;
+        KeyValueModel *summary = nullptr;
+        KeyValueModel *results = nullptr;
+    };
+    // Contexts: 0 raw boot package, 1 firmware flashing, 2 offline tools, 3 device info.
+    AllwinnerState m_allwinner[4];
+    int m_allwinnerContext = 1;
+    QString m_vendorSelection[2];
+    QStringList m_vendorBatch[2];
+    bool m_vendorContinue[2] = { false, false };
 private slots:
 	void onThreadStarted();
 	void onDevicesReady(const QVariantList &devices);
@@ -212,6 +263,7 @@ private:
 	void SetImageHint(const QString &strText, bool bError);
 	void SetFirmwareHint(const QString &strText, bool bError);
 	void SetAdvancedHint(const QString &strText, bool bError);
+	void ApplyAllwinnerInspectResult(int context, const core::OperationResult &result);
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;
 
@@ -271,6 +323,9 @@ private:
 	bool m_bAdvancedHintError;
 
 	bool m_bSwitching;
+	bool m_switchingFel = false;
+	QString m_felSwitchHint;
+	bool m_felSwitchError = false;
 
 	QStringList m_strAdbDevices;
 	bool m_bAdbKnown;

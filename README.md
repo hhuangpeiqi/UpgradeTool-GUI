@@ -1,6 +1,6 @@
 # UpgradeTool-GUI
 
-Rockchip 设备固件烧录工具，基于 Qt6 Quick/QML，支持 Loader 和 Maskrom 模式。
+瑞芯微与全志设备固件刷写工具，基于 Qt6 Quick/QML。瑞芯微支持 Loader / Maskrom，全志支持 FEL / FES。
 
 ![浅色主题](docs/gui.png)
 ![深色主题](docs/gui-dark.png)
@@ -16,7 +16,7 @@ Rockchip 设备固件烧录工具，基于 Qt6 Quick/QML，支持 Loader 和 Mas
 
 ## 使用
 
-连接处于 Loader 或 Maskrom 模式的设备，在底部设备栏选择目标。
+在顶部选择厂商，连接处于刷机模式的设备，在底部设备栏选择目标。批量刷写限同一厂商，按设备顺序执行。
 
 | 页面 | 操作 |
 |---|---|
@@ -25,14 +25,21 @@ Rockchip 设备固件烧录工具，基于 Qt6 Quick/QML，支持 Loader 和 Mas
 | 高级功能 | 查询设备信息、读写序列号、导出日志或镜像、擦除存储。 |
 | 配置 | 编辑配置、生成 GPT、安装 Linux 设备规则、切换主题。 |
 
+全志工作区分为裸镜像刷写、固件刷写和高级功能；高级功能支持离线查看、解包、程序器镜像转换，以及在 FES 模式下重启设备。设备信息位于“设备”菜单。支持未加密 IMAGEWTY v1/v2/v3 的信息解析与解包，以及分区、保留用户数据、分区擦除和全擦四种刷写模式。默认全擦、开启校验、完成重启；校验失败会停止任务。按所选分区刷写仍会更新分区表和引导组件。
+
+全志裸镜像与固件刷写页支持通过 ADB“切换”到 FEL，默认自动选择标准 `efex` 入口；识别到 T3 Buildroot（且具备 root 与 `devmem`）时自动改用兼容入口，也可手选“备选”强制指定。切换后检测目标 USB 端口确认结果，不会自动开始刷写。
+
+裸镜像刷写需要匹配板型的 IMAGEWTY 引导固件，固定全擦、不校验、完成重启。镜像转换支持 SPI NOR、SD 卡、eMMC、SD NAND、UFS，可自动读取 DTB 偏移与安全启动标记；无需连接设备。
+
 启动参数：
 
 ```sh
 ./build/upgrade_tool_gui --firmware /path/to/update.img
 ./build/upgrade_tool_gui --tab 0 --image-dir /path/to/images
+./build/upgrade_tool_gui --vendor allwinner --firmware /path/to/allwinner.img
 ```
 
-`--tab`：`0` 下载镜像、`1` 升级固件（默认）、`2` 高级功能。
+`--vendor` 默认为 `rockchip`，可选 `allwinner`。瑞芯微 `--tab`：`0` 下载镜像、`1` 升级固件（默认）、`2` 高级功能；全志依次为裸镜像刷写、固件刷写、高级功能；`--firmware` 载入所选页面的固件包。
 
 ### 设备权限
 
@@ -42,11 +49,11 @@ Rockchip 设备固件烧录工具，基于 Qt6 Quick/QML，支持 Loader 和 Mas
 sudo scripts/install-udev.sh
 ```
 
-`.deb` 安装时会自动安装规则。设备栏显示 `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom` 时，已识别设备。
+`.deb` 安装时会自动安装两种厂商规则。全志 USB ID 为 `1f3a:efe8`；如提示权限错误，安装规则后重新连接设备。设备栏显示 `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom` 时，已识别设备。
 
 **macOS**：无需另装 USB 驱动。可选安装 ADB，用于将 Android 设备切换到 Loader。
 
-**Windows**：使用 [Zadig](https://zadig.akeo.ie/) 为 VID `2207` 的设备安装 WinUSB 驱动。尚未在真实 Windows 环境验证。
+**Windows**：使用 [Zadig](https://zadig.akeo.ie/) 为瑞芯微 VID `2207` 或全志 `1f3a:efe8` 设备安装 WinUSB 驱动。尚未在真实 Windows 环境验证。
 
 ## 构建
 
@@ -79,7 +86,7 @@ cmake --build build -j
 
 ### macOS（Apple Silicon）
 
-最低部署目标为 macOS 12，已在 Qt 6.8.3、arm64 环境验证。将 `CMAKE_PREFIX_PATH` 替换为本机 Qt 路径：
+最低部署目标为 macOS 12，原瑞芯微功能已在 Qt 6.8.3、arm64 环境验证；新增全志功能尚未在 macOS 验证。将 `CMAKE_PREFIX_PATH` 替换为本机 Qt 路径：
 
 ```sh
 cmake -S . -B build-macos -G Ninja \
@@ -91,7 +98,13 @@ open build-macos/upgrade_tool_gui.app
 
 ### Windows
 
-需安装 Qt6 和 MSVC / MinGW 工具链；构建流程尚未验证。
+使用 Qt6 MinGW 工具链、CMake 和 Ninja，在对应 Qt MinGW 环境的 PowerShell 中运行：
+
+```powershell
+./scripts/package_windows.ps1 -QtRoot C:/Qt/6.8.3/mingw_64
+```
+
+产物位于 `build-windows/dist/UpgradeTool-GUI/`。Windows 构建和实机尚未验证。
 
 ### 测试与打包
 
@@ -135,4 +148,4 @@ Linux 默认路径：
 
 ## 许可
 
-协议与设备核心派生自 `rockchip-linux/rkdeveloptool`，遵循 GPL-2.0，见 [lib/license.txt](lib/license.txt)。内置 libusb 遵循 LGPL-2.1。
+协议与设备核心派生自 `rockchip-linux/rkdeveloptool`，遵循 GPL-2.0，见 [lib/license.txt](lib/license.txt)。内置 libusb 遵循 LGPL-2.1。全志功能参考 OpenixCLI，协议核心来自 libefex，均遵循 MIT，来源与许可见 [core/allwinner/README.md](core/allwinner/README.md) 和 [third_party/libefex/README.md](third_party/libefex/README.md)。

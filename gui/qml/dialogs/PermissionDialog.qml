@@ -31,7 +31,7 @@ AppDialog {
             color: Theme.textPrimary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
-            text: qsTr("当前用户（非 root）没有安装 Rockchip udev 规则，插上 Rockusb 设备后可能无法访问。")
+            text: app.vendor === 0 ? qsTr("当前用户（非 root）没有安装 Rockchip udev 规则，设备可能无法访问。") : qsTr("当前用户（非 root）没有安装全志 FEL/FES udev 规则，设备可能无法访问。")
         }
 
         Text {

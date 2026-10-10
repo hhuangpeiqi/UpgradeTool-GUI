@@ -32,6 +32,10 @@ target_link_libraries(upgrade_gui_backend PUBLIC upgradetool Qt6::Core Qt6::Gui 
 qt_add_executable(upgrade_tool_gui main.cpp)
 
 if(UPGRADE_TOOL_TESTS)
+  add_executable(test_adb_runner ${CMAKE_SOURCE_DIR}/tests/test_adb_runner.cpp)
+  target_link_libraries(test_adb_runner PRIVATE upgrade_gui_backend)
+  add_test(NAME test_adb_runner COMMAND test_adb_runner)
+  set_tests_properties(test_adb_runner PROPERTIES TIMEOUT 30)
   add_executable(test_gui_backend ${CMAKE_SOURCE_DIR}/tests/test_gui_backend.cpp)
   target_link_libraries(test_gui_backend PRIVATE upgrade_gui_backend)
   add_test(NAME test_gui_backend COMMAND test_gui_backend)
@@ -42,6 +46,16 @@ if(UPGRADE_TOOL_TESTS)
         -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/smoke-${_tab}
         -P ${CMAKE_SOURCE_DIR}/tests/gui_smoke.cmake)
   endforeach()
+  foreach(_tab RANGE 0 2)
+    add_test(NAME test_allwinner_page_${_tab}
+      COMMAND ${CMAKE_COMMAND}
+        -DAPP=$<TARGET_FILE:upgrade_tool_gui> -DTAB=${_tab} -DVENDOR=allwinner
+        -DFIRMWARE=${CMAKE_BINARY_DIR}/allwinner-fixtures/normal.img
+        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/allwinner-smoke-${_tab}
+        -P ${CMAKE_SOURCE_DIR}/tests/gui_smoke.cmake)
+  endforeach()
+  set_tests_properties(test_allwinner_page_0 test_allwinner_page_1 test_allwinner_page_2
+    PROPERTIES FIXTURES_REQUIRED allwinner_firmware)
   set_tests_properties(test_gui_backend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
 endif()
 
@@ -53,6 +67,7 @@ set(_qml_files
   Icons.qml
   components/PrimaryButton.qml
   components/SecondaryButton.qml
+  components/Spinner.qml
   components/AppCheckBox.qml
   components/AppComboBox.qml
   components/CheckSquare.qml
@@ -64,6 +79,7 @@ set(_qml_files
   components/TitleBar.qml
   components/NavButton.qml
   components/NavAction.qml
+  components/FilePathRow.qml
   components/TopBar.qml
   components/DeviceComboBox.qml
   components/StatusBar.qml
@@ -78,6 +94,12 @@ set(_qml_files
   components/ImageTable.qml
   components/KeyValueTable.qml
   pages/DownloadImagePage.qml
+  components/AllwinnerWorkspace.qml
+  components/AllwinnerPartitions.qml
+  pages/AllwinnerRawPage.qml
+  pages/AllwinnerFirmwarePage.qml
+  pages/AllwinnerToolsPage.qml
+  dialogs/AllwinnerDeviceDialog.qml
   pages/FirmwarePage.qml
   pages/AdvancedPage.qml
   dialogs/SettingsDialog.qml
@@ -167,6 +189,19 @@ qt_add_qml_module(upgrade_tool_gui
   RESOURCES ${_icon_abs}
   ${_qml_module_options}
 )
+
+if(UPGRADE_TOOL_TESTS)
+  add_executable(test_allwinner_ui ${CMAKE_SOURCE_DIR}/tests/test_allwinner_ui.cpp)
+  target_link_libraries(test_allwinner_ui PRIVATE upgrade_gui_backend)
+  set(_test_qmldir "${CMAKE_CURRENT_BINARY_DIR}/UpgradeTool/qmldir")
+  set_source_files_properties("${_test_qmldir}" PROPERTIES QT_RESOURCE_ALIAS qmldir)
+  qt_add_resources(test_allwinner_ui allwinner_ui_assets
+    PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
+  add_test(NAME test_allwinner_ui COMMAND test_allwinner_ui
+    "${CMAKE_BINARY_DIR}/allwinner-fixtures/normal.img" "${CMAKE_CURRENT_BINARY_DIR}/allwinner-ui")
+  set_tests_properties(test_allwinner_ui PROPERTIES FIXTURES_REQUIRED allwinner_firmware
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software" TIMEOUT 30)
+endif()
 
 target_include_directories(upgrade_tool_gui PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(upgrade_tool_gui PRIVATE

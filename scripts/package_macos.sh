@@ -63,6 +63,8 @@ cp "$ROOT/config.ini" "$CONTENTS/config.ini"
 mkdir -p "$APP/Contents/Resources/licenses"
 cp "$ROOT/lib/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.0.txt"
 cp "$ROOT/third_party/libusb/COPYING" "$APP/Contents/Resources/licenses/libusb-LGPL-2.1.txt"
+cp "$ROOT/third_party/libefex/LICENSE" "$APP/Contents/Resources/licenses/libefex-MIT.txt"
+cp "$ROOT/core/allwinner/LICENSE.OpenixCLI" "$APP/Contents/Resources/licenses/OpenixCLI-MIT.txt"
 if [ -d "$QT_ROOT/../../Licenses" ]; then
     ditto "$QT_ROOT/../../Licenses" "$APP/Contents/Resources/licenses/Qt"
 fi

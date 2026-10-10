@@ -6,6 +6,7 @@ MenuItem {
     id: control
 
     implicitHeight: 34
+    height: visible ? implicitHeight : 0
     padding: 8
     spacing: 8
     hoverEnabled: true

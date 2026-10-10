@@ -21,6 +21,7 @@ public:
 	virtual void OnTransferProgress(TransferStage stage, long long total, long long current) = 0;
 	virtual void OnUpgradePrompt(ENUM_UPGRADE_PROMPT emPrompt, unsigned int uiParam) = 0;
 	virtual int OnSelectStorage(const std::vector<std::string> &vecOptions, int iCurrent) = 0;
+	virtual void OnStageProgress(const std::string &stage, uint64_t total, uint64_t current, int overallPercent = -1) { (void)stage; (void)total; (void)current; (void)overallPercent; }
 	virtual void OnResult(const OperationResult &result) { (void)result; }
 };
 

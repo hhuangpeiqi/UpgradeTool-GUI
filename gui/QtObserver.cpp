@@ -86,6 +86,11 @@ int QtObserver::OnSelectStorage(const std::vector<std::string> &options, int cur
 	return m_iSelectResult;
 }
 
+void QtObserver::OnStageProgress(const std::string &stage, uint64_t total, uint64_t current, int overallPercent)
+{
+	emit stageProgressReceived(QString::fromStdString(stage), total, current, overallPercent);
+}
+
 void QtObserver::OnResult(const core::OperationResult &result)
 {
 	emit resultReceived(result);

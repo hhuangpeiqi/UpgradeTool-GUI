@@ -20,7 +20,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("Rockchip 设备固件烧录工具。\n协议/设备核心派生自 rockchip-linux/rkdeveloptool (GPL-2.0)。")
+        text: qsTr("瑞芯微与全志设备固件刷写工具。\n参考鸣谢：\nrockchip-linux/rkdeveloptool (GPL-2.0)。\nOpenixCLI libefex (MIT)。")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal

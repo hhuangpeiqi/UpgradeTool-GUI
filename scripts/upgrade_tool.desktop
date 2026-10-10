@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=UpgradeTool-GUI
-GenericName=Rockchip Upgrade Tool
-Comment=Flash firmware to Rockchip devices over USB
+GenericName=Firmware Upgrade Tool
+Comment=Flash firmware to Rockchip and Allwinner devices over USB
 Exec=upgrade_tool_gui
 Icon=upgrade_tool
 Terminal=false
 Categories=Development;Utility;
-Keywords=rockchip;firmware;flashing;usb;rkdeveloptool;
+Keywords=rockchip;allwinner;firmware;flashing;usb;rkdeveloptool;fel;
