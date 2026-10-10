@@ -95,7 +95,7 @@ EdgeRoundedRect {
             model: root.deviceLabels
             currentIndex: root.deviceLabels.length > 0 ? root.deviceIndex : -1
             enabled: root.deviceLabels.length > 0
-            onActivated: root.deviceActivated(index)
+            onActivated: (index) => root.deviceActivated(index)
         }
 
         SecondaryButton {

@@ -718,7 +718,7 @@ AppDialog {
             Layout.preferredWidth: 180
             Layout.preferredHeight: root.rowHeight
             model: root.filterLabels()
-            onActivated: {
+            onActivated: (index) => {
                 root.activeFilter = index;
                 root.applyFilter();
             }

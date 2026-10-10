@@ -69,7 +69,7 @@ AppDialog {
             id: themeBox
             width: 180
             model: [qsTr("Follow system"), qsTr("Light"), qsTr("Dark")]
-            onActivated: app.theme.mode = index === 2 ? "dark" : (index === 1 ? "light" : "auto")
+            onActivated: (index) => app.theme.mode = index === 2 ? "dark" : (index === 1 ? "light" : "auto")
         }
     }
 
@@ -90,7 +90,7 @@ AppDialog {
             id: languageBox
             width: 180
             model: [qsTr("Follow system"), qsTr("Chinese"), qsTr("English")]
-            onActivated: app.language.mode = index === 2 ? "en" : (index === 1 ? "zh_CN" : "auto")
+            onActivated: (index) => app.language.mode = index === 2 ? "en" : (index === 1 ? "zh_CN" : "auto")
         }
     }
 
