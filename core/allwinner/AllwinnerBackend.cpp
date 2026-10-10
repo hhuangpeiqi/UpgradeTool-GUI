@@ -1,6 +1,8 @@
 // Derived from OpenixCLI (MIT); see LICENSE.OpenixCLI.
 #include "core/allwinner/AllwinnerBackend.h"
+#include <QCoreApplication>
 #include <QFileInfo>
+#include <QString>
 #include <QThread>
 #include <chrono>
 #include <algorithm>
@@ -10,9 +12,20 @@ namespace core { namespace allwinner {
 namespace {
 const uint32_t ValidVerify=0x6a617603;
 const size_t ChunkSize=1024*1024;
+QString AwTr(const char *szText) { return QCoreApplication::translate("Allwinner", szText); }
 void CheckCancel(const Cancellation &c) { if(c&&c->load()) throw std::runtime_error("Cancelled"); }
 void Wait(unsigned ms,const Cancellation &c) { for(unsigned n=0;n<ms;n+=50) { CheckCancel(c); QThread::msleep(std::min(50u,ms-n)); } }
 void Log(IUpgradeObserver *o,const std::string &text) { if(o) o->OnOutput(LogLevel::Info,text); }
+// Stage strings double as progress keys; translate only the display form so the
+// internal comparisons below keep matching the untranslated literals.
+std::string DisplayStage(const std::string &stage) {
+    static const char *kWrite="写入 / ", *kSkip="跳过空白 / ";
+    if(stage.compare(0,std::strlen(kWrite),kWrite)==0)
+        return AwTr("写入 / ").toStdString()+stage.substr(std::strlen(kWrite));
+    if(stage.compare(0,std::strlen(kSkip),kSkip)==0)
+        return AwTr("跳过空白 / ").toStdString()+stage.substr(std::strlen(kSkip));
+    return AwTr(stage.c_str()).toStdString();
+}
 void Progress(IUpgradeObserver *o,const std::string &stage,uint64_t total,uint64_t done) {
     int start=-1,width=0;
     if(stage=="初始化 DRAM") { start=0; width=5; }
@@ -28,7 +41,7 @@ void Progress(IUpgradeObserver *o,const std::string &stage,uint64_t total,uint64
     else if(stage=="完成动作") start=99;
     else if(stage=="刷写完成") start=100;
     int overall=start<0?-1:start+(total?int(double(done)/double(total)*width):0);
-    if(o) o->OnStageProgress(stage,total,done,overall);
+    if(o) o->OnStageProgress(DisplayStage(stage),total,done,overall);
 }
 uint32_t Sum(const Bytes &data) {
     uint32_t sum=0;
@@ -72,7 +85,7 @@ void PrepareFel(Firmware &fw,ITransport &t,const DeviceIdentity &target,const Ca
     if(fes.size()<48||uboot.size()<228||config.size()>512*1024) throw std::runtime_error("Invalid FEL boot firmware");
     uint32_t run=U32(fes.data()+32),ret=U32(fes.data()+28),ubootRun=U32(uboot.data()+44);
     if(Add(run,fes.size())>0x100000000ULL||Add(ubootRun,std::max<uint64_t>(uboot.size(),4*1024*1024))>0x100000000ULL||Add(ret,136)>0x100000000ULL) throw std::runtime_error("FEL address overflow");
-    Progress(o,"初始化 DRAM",1,0); Log(o,"初始化 DRAM");
+    Progress(o,"初始化 DRAM",1,0); Log(o,AwTr("初始化 DRAM").toStdString());
     t.FelWrite(ret,Bytes(136,0)); t.FelWrite(run,fes); t.FelExec(run);
     bool ready=false;
     for(unsigned i=0;i<60;++i) {
@@ -93,7 +106,7 @@ void PrepareFel(Firmware &fw,ITransport &t,const DeviceIdentity &target,const Ca
     t.FelWrite(ubootRun+3*1024*1024,config);
     component("BOARD_CONFIG_BIN",3*1024*1024+512*1024,512*1024);
     Put32(uboot.data()+224,0x10); t.FelWrite(ubootRun,uboot); t.FelExec(ubootRun); t.Close();
-    Progress(o,"等待 FES 重连",1,0); Log(o,"等待原 USB 端口上的 FES 设备重新连接");
+    Progress(o,"等待 FES 重连",1,0); Log(o,AwTr("等待原 USB 端口上的 FES 设备重新连接").toStdString());
     auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(45);
     Wait(2000,cancel);
     do {
@@ -148,7 +161,10 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
     else if(details.mode!=2) throw std::runtime_error("Unsupported Allwinner device mode");
     Progress(o,"查询设备",1,0);
     uint32_t secure=t.QuerySecure(),storage=t.QueryStorage(),capacity=t.QuerySize();
-    Log(o,"存储："+StorageName(storage)+"，容量："+std::to_string(uint64_t(capacity)*512/1024/1024)+" MiB，启动模式："+std::to_string(secure));
+    Log(o,AwTr("存储：%1，容量：%2 MiB，启动模式：%3")
+            .arg(QString::fromStdString(StorageName(storage)))
+            .arg(uint64_t(capacity)*512/1024/1024)
+            .arg(secure).toStdString());
     auto boots=BootEntries(fw,secure,storage);
     // Read boot images before erasing; malformed or oversized components must fail first.
     auto boot0=fw.Read(*boots.first),boot1=fw.Read(*boots.second);
@@ -172,7 +188,7 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
     try {
         t.FlashAccess(true); access=true;
         for(const auto &d:downloads) {
-            CheckCancel(cancel); Log(o,"写入分区："+d.part.name);
+            CheckCancel(cancel); Log(o,AwTr("写入分区：%1").arg(QString::fromStdString(d.part.name)).toStdString());
             if(raw&&uint64_t(external.size())!=d.size) throw std::runtime_error("Raw image changed before write");
             auto write=[&](uint64_t outputOffset,Bytes b,size_t original) {
                 CheckCancel(cancel); uint64_t sector=Add(d.part.address,outputOffset/512);
@@ -202,7 +218,7 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
         }
         t.FlashAccess(false); access=false;
     } catch(...) {
-        if(access) { try { t.FlashAccess(false); } catch(const std::exception &e) { Log(o,std::string("关闭存储访问失败：")+e.what()); } }
+        if(access) { try { t.FlashAccess(false); } catch(const std::exception &e) { Log(o,AwTr("关闭存储访问失败：%1").arg(QString::fromStdString(e.what())).toStdString()); } }
         throw;
     }
     auto boot=[&](const Bytes &b,uint32_t tag,const char *name) {
@@ -221,17 +237,17 @@ OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const 
         CheckCancel(cancel);
         if(request.operation==Operation::AllwinnerDeviceInfo) {
             auto t=factory(); t->Open(target,cancel); auto d=t->Details();
-            result.items.push_back({"设备模式",ModeName(d.mode)}); result.items.push_back({"芯片 ID",std::to_string(d.chip)});
-            result.items.push_back({"协议固件",std::to_string(d.firmware)});
+            result.items.push_back({AwTr("设备模式").toStdString(),ModeName(d.mode)}); result.items.push_back({AwTr("芯片 ID").toStdString(),std::to_string(d.chip)});
+            result.items.push_back({AwTr("协议固件").toStdString(),std::to_string(d.firmware)});
             if(d.mode==2) {
-                result.items.push_back({"存储类型",StorageName(t->QueryStorage())});
-                result.items.push_back({"容量（字节）",std::to_string(uint64_t(t->QuerySize())*512)});
-                result.items.push_back({"启动模式",std::to_string(t->QuerySecure())});
+                result.items.push_back({AwTr("存储类型").toStdString(),StorageName(t->QueryStorage())});
+                result.items.push_back({AwTr("容量（字节）").toStdString(),std::to_string(uint64_t(t->QuerySize())*512)});
+                result.items.push_back({AwTr("启动模式").toStdString(),std::to_string(t->QuerySecure())});
             }
         } else if(request.operation==Operation::AllwinnerReboot) {
             auto t=factory(); t->Open(target,cancel);
             if(t->Details().mode!=2) throw std::runtime_error("Reboot requires the device to be in FES mode");
-            Log(observer,"重启设备");
+            Log(observer,AwTr("重启设备").toStdString());
             t->Finish(PostAction::Reboot);
         } else if(request.operation==Operation::AllwinnerInspect) {
             result=InspectFirmware(request.file.path);

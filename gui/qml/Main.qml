@@ -211,35 +211,6 @@ ApplicationWindow {
         id: configMenu
         AppMenuItem { text: qsTr("首选项…"); onTriggered: settingsDialog.openDialog() }
         AppMenuItem { text: qsTr("生成 GPT…"); visible: app.vendor === 0; onTriggered: gptDialog.open() }
-        AppMenuSeparator {}
-        AppMenu {
-            title: qsTr("外观")
-            ActionGroup {
-                id: appearanceGroup
-                exclusive: true
-            }
-            AppMenuItem {
-                text: qsTr("跟随系统")
-                checkable: true
-                checked: app.theme.mode === "auto"
-                ActionGroup.group: appearanceGroup
-                onTriggered: app.theme.mode = "auto"
-            }
-            AppMenuItem {
-                text: qsTr("浅色")
-                checkable: true
-                checked: app.theme.mode === "light"
-                ActionGroup.group: appearanceGroup
-                onTriggered: app.theme.mode = "light"
-            }
-            AppMenuItem {
-                text: qsTr("深色")
-                checkable: true
-                checked: app.theme.mode === "dark"
-                ActionGroup.group: appearanceGroup
-                onTriggered: app.theme.mode = "dark"
-            }
-        }
     }
 
     AppMenu {

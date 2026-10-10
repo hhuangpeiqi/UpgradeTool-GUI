@@ -58,12 +58,15 @@ int main(int argc, char *argv[])
 	QString strScreenshot;
 	QString strImageDir;
 	QString strFirmware;
+	QString strLanguage;
 	int iTab = 1;
     int vendor = 0;
 	for (int i = 1; i < argc; i++) {
 		if (qstrcmp(argv[i], "--vendor") == 0 && i + 1 < argc)
             vendor = qstrcmp(argv[++i], "allwinner") == 0 ? 1 : 0;
-        else if (qstrcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
+        else if (qstrcmp(argv[i], "--lang") == 0 && i + 1 < argc)
+			strLanguage = QString::fromLocal8Bit(argv[++i]);
+		else if (qstrcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
 			strScreenshot = QString::fromLocal8Bit(argv[++i]);
 		else if (qstrcmp(argv[i], "--tab") == 0 && i + 1 < argc)
 			iTab = atoi(argv[++i]);
@@ -77,11 +80,14 @@ int main(int argc, char *argv[])
 	{
 		gui::AppController controller(pLog);
         controller.setVendor(vendor);
+        if (!strLanguage.isEmpty()) controller.language()->setMode(strLanguage);
         if(!strScreenshot.isEmpty()) controller.ignorePermission();
 
 		QQmlApplicationEngine engine;
 		engine.rootContext()->setContextProperty("app", &controller);
 		engine.rootContext()->setContextProperty("startTab", iTab);
+		QObject::connect(controller.language(), &gui::LanguageManager::languageChanged,
+		                 &engine, &QQmlApplicationEngine::retranslate);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
 		engine.loadFromModule("UpgradeTool", "Main");
 #else

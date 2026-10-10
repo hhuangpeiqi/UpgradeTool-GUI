@@ -1,8 +1,10 @@
 // Derived from OpenixCLI (MIT); see LICENSE.OpenixCLI.
 #include "core/allwinner/Firmware.h"
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QDir>
 #include <QSaveFile>
+#include <QString>
 #include <QStringList>
 #include <algorithm>
 #include <cstring>
@@ -110,7 +112,7 @@ void Convert(Firmware &fw,const OperationRequest &request,const Cancellation &ca
     };
     auto component=[&](const char *sub,uint64_t dest,bool twice,uint64_t second) {
         auto *e=fw.Find(sub);
-        if(!e) { if(progress) progress(std::string("缺少可选组件：")+sub,0,0); return; }
+        if(!e) { if(progress) progress(QCoreApplication::translate("Allwinner","缺少可选组件：%1").arg(QString::fromStdString(sub)).toStdString(),0,0); return; }
         copy(*e,dest,!nor,nor?size-dest:UINT64_MAX); if(twice) copy(*e,second,true,UINT64_MAX);
     };
     if(nor) {
@@ -137,6 +139,7 @@ void Convert(Firmware &fw,const OperationRequest &request,const Cancellation &ca
     }
     check(); size=Mul(Add(size,511)/512,512);
     if(!out.resize(qint64(size))||!out.commit()) throw std::runtime_error("Cannot finalize output image");
-    result.items.push_back({"输出文件",path.toStdString()}); result.items.push_back({"字节数",std::to_string(size)});
+    result.items.push_back({QCoreApplication::translate("Allwinner","输出文件").toStdString(),path.toStdString()});
+    result.items.push_back({QCoreApplication::translate("Allwinner","字节数").toStdString(),std::to_string(size)});
 }
 } }

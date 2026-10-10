@@ -25,6 +25,8 @@ add_library(upgrade_gui_backend STATIC
   backend/DirModel.h
   backend/ThemeManager.cpp
   backend/ThemeManager.h
+  backend/LanguageManager.cpp
+  backend/LanguageManager.h
 )
 
 target_include_directories(upgrade_gui_backend PUBLIC ${CMAKE_SOURCE_DIR})
@@ -189,6 +191,35 @@ qt_add_qml_module(upgrade_tool_gui
   RESOURCES ${_icon_abs}
   ${_qml_module_options}
 )
+
+find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
+set(_tr_sources
+  ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/AdbRunner.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/QtObserver.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/FirmwareEntries.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/OperationSpec.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/backend/AppController.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/backend/ConfigStore.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/backend/DirModel.cpp
+  ${CMAKE_SOURCE_DIR}/core/allwinner/AllwinnerBackend.cpp
+  ${CMAKE_SOURCE_DIR}/core/allwinner/Convert.cpp
+  ${CMAKE_SOURCE_DIR}/core/allwinner/Firmware.cpp
+  ${_qml_abs}
+)
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
+  qt_add_translations(TARGETS upgrade_tool_gui
+    SOURCES ${_tr_sources}
+    INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}
+    TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_en.ts
+    RESOURCE_PREFIX "/i18n")
+else()
+  qt_add_translations(upgrade_tool_gui
+    SOURCES ${_tr_sources}
+    INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}
+    TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_en.ts
+    RESOURCE_PREFIX "/i18n")
+endif()
 
 if(UPGRADE_TOOL_TESTS)
   add_executable(test_allwinner_ui ${CMAKE_SOURCE_DIR}/tests/test_allwinner_ui.cpp)

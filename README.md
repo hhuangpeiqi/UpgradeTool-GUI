@@ -16,7 +16,7 @@
 
 ## 使用
 
-在顶部选择厂商，连接处于刷机模式的设备，在底部设备栏选择目标。批量刷写限同一厂商，按设备顺序执行。
+在顶部选择厂商，连接处于刷机模式的设备，在底部设备栏选择目标。批量刷写限同一厂商，按设备顺序执行。界面语言默认跟随系统，可在「配置 → 首选项…」切换到中文或 English。
 
 | 页面 | 操作 |
 |---|---|
@@ -39,7 +39,7 @@
 ./build/upgrade_tool_gui --vendor allwinner --firmware /path/to/allwinner.img
 ```
 
-`--vendor` 默认为 `rockchip`，可选 `allwinner`。瑞芯微 `--tab`：`0` 下载镜像、`1` 升级固件（默认）、`2` 高级功能；全志依次为裸镜像刷写、固件刷写、高级功能；`--firmware` 载入所选页面的固件包。
+`--vendor` 默认为 `rockchip`，可选 `allwinner`。瑞芯微 `--tab`：`0` 下载镜像、`1` 升级固件（默认）、`2` 高级功能；全志依次为裸镜像刷写、固件刷写、高级功能；`--firmware` 载入所选页面的固件包。`--lang` 默认为 `auto`（跟随系统），可选 `zh`、`en`。
 
 ### 设备权限
 
@@ -70,7 +70,7 @@ git submodule update --init --recursive
 Debian / Ubuntu：
 
 ```sh
-sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev \
+sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-l10n-tools \
   qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
   qml6-module-qtquick-templates qml6-module-qtquick-window \
   qml6-module-qtqml-workerscript qt6-qpa-plugins

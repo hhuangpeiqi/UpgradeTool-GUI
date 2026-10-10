@@ -47,16 +47,16 @@ void QtObserver::OnProgress(ENUM_PROGRESS_PROMPT emPrompt, long long llTotal,
 {
 	QString strPrompt;
 	switch (emPrompt) {
-	case TESTDEVICE_PROGRESS:     strPrompt = QString::fromUtf8("检测设备"); break;
-	case DOWNLOADIMAGE_PROGRESS:  strPrompt = QString::fromUtf8("下载镜像"); break;
-	case CHECKIMAGE_PROGRESS:     strPrompt = QString::fromUtf8("校验镜像"); break;
-	case TAGBADBLOCK_PROGRESS:    strPrompt = QString::fromUtf8("标记坏块"); break;
-	case TESTBLOCK_PROGRESS:      strPrompt = QString::fromUtf8("测试块"); break;
-	case ERASEFLASH_PROGRESS:     strPrompt = QString::fromUtf8("擦除 Flash"); break;
-	case ERASESYSTEM_PROGRESS:    strPrompt = QString::fromUtf8("擦除系统"); break;
-	case LOWERFORMAT_PROGRESS:    strPrompt = QString::fromUtf8("低级格式化"); break;
-	case ERASEUSERDATA_PROGRESS:  strPrompt = QString::fromUtf8("擦除用户数据"); break;
-	default:                      strPrompt = QString::fromUtf8("进度"); break;
+	case TESTDEVICE_PROGRESS:     strPrompt = tr("检测设备"); break;
+	case DOWNLOADIMAGE_PROGRESS:  strPrompt = tr("下载镜像"); break;
+	case CHECKIMAGE_PROGRESS:     strPrompt = tr("校验镜像"); break;
+	case TAGBADBLOCK_PROGRESS:    strPrompt = tr("标记坏块"); break;
+	case TESTBLOCK_PROGRESS:      strPrompt = tr("测试块"); break;
+	case ERASEFLASH_PROGRESS:     strPrompt = tr("擦除 Flash"); break;
+	case ERASESYSTEM_PROGRESS:    strPrompt = tr("擦除系统"); break;
+	case LOWERFORMAT_PROGRESS:    strPrompt = tr("低级格式化"); break;
+	case ERASEUSERDATA_PROGRESS:  strPrompt = tr("擦除用户数据"); break;
+	default:                      strPrompt = tr("进度"); break;
 	}
 	emit progressReceived(strPrompt, llTotal, llCurrent, (int)emCall);
 }

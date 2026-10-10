@@ -1,8 +1,10 @@
 // Derived from OpenixCLI (MIT); see LICENSE.OpenixCLI.
 #include "core/allwinner/Firmware.h"
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QSaveFile>
+#include <QString>
 #include <QStringList>
 #include <algorithm>
 #include <cstring>
@@ -118,9 +120,12 @@ OperationResult InspectFirmware(const std::string &path) {
     result.kind = ResultKind::FirmwareInfo;
     Firmware fw(path);
     result.firmware = fw.Info();
-    result.items = {{"格式", result.firmware.sign}, {"固件字节数", std::to_string(fw.size)},
-        {"嵌入文件", std::to_string(fw.entries.size())}, {"固件版本", std::to_string(fw.version)},
-        {"属性", std::to_string(fw.attr)}, {"加密", "否"}};
+    result.items = {{QCoreApplication::translate("Allwinner","格式").toStdString(), result.firmware.sign},
+        {QCoreApplication::translate("Allwinner","固件字节数").toStdString(), std::to_string(fw.size)},
+        {QCoreApplication::translate("Allwinner","嵌入文件").toStdString(), std::to_string(fw.entries.size())},
+        {QCoreApplication::translate("Allwinner","固件版本").toStdString(), std::to_string(fw.version)},
+        {QCoreApplication::translate("Allwinner","属性").toStdString(), std::to_string(fw.attr)},
+        {QCoreApplication::translate("Allwinner","加密").toStdString(), QCoreApplication::translate("Allwinner","否").toStdString()}};
     auto *mbr = fw.Find("1234567890___MBR");
     if (mbr) for (const auto &p : fw.Partitions()) result.partitions.push_back({p.name, p.address, p.sectors});
     result.status = OperationStatus::Succeeded;

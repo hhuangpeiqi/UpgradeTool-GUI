@@ -22,6 +22,7 @@ AppDialog {
         loaderField.text = v.loader !== undefined ? v.loader : "";
         deviceField.text = v.device !== undefined ? v.device : "";
         themeBox.currentIndex = dlg.themeIndex();
+        languageBox.currentIndex = dlg.languageIndex();
         dlg.open();
     }
 
@@ -31,10 +32,23 @@ AppDialog {
         return app.theme.mode === "light" ? 1 : 0;
     }
 
+    function languageIndex() {
+        if (app.language.mode === "en")
+            return 2;
+        return app.language.mode === "zh_CN" ? 1 : 0;
+    }
+
     Connections {
         target: app.theme
         function onModeChanged() {
             themeBox.currentIndex = dlg.themeIndex();
+        }
+    }
+
+    Connections {
+        target: app.language
+        function onModeChanged() {
+            languageBox.currentIndex = dlg.languageIndex();
         }
     }
 
@@ -56,6 +70,27 @@ AppDialog {
             width: 180
             model: [qsTr("跟随系统"), qsTr("浅色"), qsTr("深色")]
             onActivated: app.theme.mode = index === 2 ? "dark" : (index === 1 ? "light" : "auto")
+        }
+    }
+
+    Text {
+        width: parent.width
+        text: qsTr("语言")
+        color: Theme.textPrimary
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontMedium
+        font.bold: true
+    }
+
+    Row {
+        width: parent.width
+        spacing: 10
+        Text { text: qsTr("界面语言"); width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+        AppComboBox {
+            id: languageBox
+            width: 180
+            model: [qsTr("跟随系统"), qsTr("中文"), qsTr("English")]
+            onActivated: app.language.mode = index === 2 ? "en" : (index === 1 ? "zh_CN" : "auto")
         }
     }
 
@@ -161,7 +196,8 @@ AppDialog {
                     "loader": loaderField.text,
                     "device": deviceField.text
                 };
-                app.config.save(map);
+                if (app.config.save(map))
+                    dlg.close();
             }
         }
     }

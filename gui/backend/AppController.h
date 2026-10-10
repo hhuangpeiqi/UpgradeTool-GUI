@@ -12,6 +12,7 @@
 #include "gui/backend/ConfigStore.h"
 #include "gui/backend/ImageEntryModel.h"
 #include "gui/backend/KeyValueModel.h"
+#include "gui/backend/LanguageManager.h"
 #include "gui/backend/LogModel.h"
 #include "gui/backend/ThemeManager.h"
 
@@ -63,6 +64,7 @@ class AppController : public QObject
 	Q_PROPERTY(gui::KeyValueModel *results READ results CONSTANT)
 	Q_PROPERTY(gui::ConfigStore *config READ config CONSTANT)
 	Q_PROPERTY(gui::ThemeManager *theme READ theme CONSTANT)
+	Q_PROPERTY(gui::LanguageManager *language READ language CONSTANT)
 
 	Q_PROPERTY(QString imageDir READ imageDir NOTIFY imageStateChanged)
 	Q_PROPERTY(QString imageHint READ imageHint NOTIFY imageStateChanged)
@@ -134,6 +136,7 @@ public:
 	gui::KeyValueModel *results() const { return m_pResults; }
 	gui::ConfigStore *config() const { return m_pConfig; }
 	gui::ThemeManager *theme() const { return m_pTheme; }
+	gui::LanguageManager *language() const { return m_pLanguage; }
 
 	QString imageDir() const { return m_strImageDir; }
 	QString imageHint() const { return m_strImageHint; }
@@ -252,6 +255,7 @@ private slots:
 	void onAdbDeviceChoice(const QStringList &strDevices);
 	void onAdbDevicesChanged(const QStringList &strDevices);
 	void onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage);
+	void onLanguageChanged();
 
 private:
 	void SetBusy(bool bBusy);
@@ -273,6 +277,7 @@ private:
 	AdbRunner *m_pAdb;
 	ConfigStore *m_pConfig;
 	ThemeManager *m_pTheme;
+	LanguageManager *m_pLanguage;
 
 	LogModel *m_pLog;
 	ImageEntryModel *m_pImageEntries;

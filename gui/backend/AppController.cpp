@@ -26,6 +26,7 @@
 #include "gui/backend/ConfigStore.h"
 #include "gui/backend/ImageEntryModel.h"
 #include "gui/backend/KeyValueModel.h"
+#include "gui/backend/LanguageManager.h"
 #include "gui/backend/LogModel.h"
 #include "gui/backend/ThemeManager.h"
 #include "core/UpgradeObserver.h"
@@ -143,6 +144,7 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	  m_pAdb(new AdbRunner(this)),
 	  m_pConfig(new ConfigStore(this)),
 	  m_pTheme(new ThemeManager(this)),
+	  m_pLanguage(new LanguageManager(this)),
 	  m_pLog(new LogModel(this)),
 	  m_pImageEntries(new ImageEntryModel(this)),
 	  m_pFirmwareEntries(new KeyValueModel(this)),
@@ -216,6 +218,9 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 
 	connect(m_pConfig, &gui::ConfigStore::udevInstallFinished,
 	        this, [this](bool, const QString &) { retryPermission(); });
+
+	connect(m_pLanguage, &gui::LanguageManager::languageChanged,
+	        this, &AppController::onLanguageChanged);
 
 	m_bPermissionBlocked = PermissionMissing();
 	emit permissionChanged();
@@ -310,12 +315,12 @@ QVariantList AppController::usageHelp() const
 #ifdef Q_OS_LINUX
 	const QString connectionNote = tr("瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式，且系统已安装对应 udev 规则。");
 	const QString connectionHelp = tr("底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式与 udev 权限。");
-	const QString preferencesHelp = tr("编辑并保存 config.ini、重新加载、一键安装 udev 规则。");
+	const QString preferencesHelp = tr("编辑并保存 config.ini、切换主题与语言、重新加载、一键安装 udev 规则。");
 	const QString missingHelp = tr("瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，并已安装 udev 规则后重新插拔。");
 #else
 	const QString connectionNote = tr("瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式。");
 	const QString connectionHelp = tr("底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式、USB 连接以及是否被其他程序占用。");
-	const QString preferencesHelp = tr("编辑并保存 config.ini、重新加载。");
+	const QString preferencesHelp = tr("编辑并保存 config.ini、切换主题与语言、重新加载。");
 	const QString missingHelp = tr("瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，检查 USB 连接并关闭占用设备的其他程序后重新插拔。");
 #endif
 	const QString vendorCommon = tr("通用");
@@ -393,7 +398,6 @@ QVariantList AppController::usageHelp() const
 		tr("标题栏右侧的下拉菜单。"), QVariantList()
 		<< MakeItem::Run(tr("配置 → 首选项…"), preferencesHelp)
 		<< MakeItem::Run(tr("配置 → 生成 GPT…"), tr("仅瑞芯微：由 parameter.txt 生成 GPT 镜像。"))
-		<< MakeItem::Run(tr("配置 → 外观"), tr("在 跟随系统 / 浅色 / 深色 之间切换主题。"))
 		<< MakeItem::Run(tr("设备 → 设备信息…"), tr("仅全志：查看当前设备信息。"))
 		<< MakeItem::Run(tr("设备 → 刷新"), tr("重新扫描当前连接的设备。"))
 		<< MakeItem::Run(tr("设备 → 批量选择…"), tr("勾选多台设备，按顺序执行同一操作，可勾选「失败继续」。"))));
@@ -611,6 +615,28 @@ void AppController::SetAdvancedHint(const QString &strText, bool bError)
 	m_strAdvancedHint = strText;
 	m_bAdvancedHintError = bError;
 	emit advancedStateChanged();
+}
+
+void AppController::onLanguageChanged()
+{
+	// Retranslate strings that AppController owns. The status bar and idle
+	// hints are refreshed here; hints describing the last operation refresh on
+	// the next action.
+	SetDeviceStatus();
+
+	if (!m_bBusy) {
+		if (m_strImageDir.isEmpty())
+			SetImageHint(tr("请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。"), false);
+		if (m_strFirmware.isEmpty())
+			SetFirmwareHint(tr("请选择固件。"), false);
+	}
+
+	emit imageStateChanged();
+	emit firmwareStateChanged();
+	emit advancedStateChanged();
+	emit progressChanged();
+	emit felSwitchStateChanged();
+	emit allwinnerChanged();
 }
 
 
