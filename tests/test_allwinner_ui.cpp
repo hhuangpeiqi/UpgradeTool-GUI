@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
             CHECK(switchButton && switchMethod);
             if (switchButton && switchMethod) {
                 CHECK(switchMethod->property("currentIndex").toInt()==0);
-                CHECK(switchMethod->property("model").toStringList()==QStringList({QStringLiteral("自动"),QStringLiteral("备选")}));
+                CHECK(switchMethod->property("model").toStringList()==QStringList({QStringLiteral("Auto"),QStringLiteral("Alternate")}));
                 controller.setAllwinnerContextFirmware(context,QString());
                 CHECK(!controller.allwinnerStates()[context].toMap()["valid"].toBool());
                 CHECK(switchButton->isEnabled()); // Switching needs ADB, not a firmware package.

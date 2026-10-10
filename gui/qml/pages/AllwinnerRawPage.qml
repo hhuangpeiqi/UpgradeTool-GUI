@@ -6,15 +6,15 @@ AllwinnerWorkspace {
     id: page
     objectName: "AllwinnerRawPage"
     context: 0
-    title: qsTr("裸镜像刷写")
-    fileCaption: qsTr("引导固件包")
+    title: qsTr("Raw Image Flash")
+    fileCaption: qsTr("Boot package")
 
     FilePathRow {
         id: rawImage
         objectName: "awRawImage"
         Layout.fillWidth: true
-        caption: qsTr("待写入镜像")
-        placeholder: qsTr("请选择待写入的镜像文件")
+        caption: qsTr("Image to write")
+        placeholder: qsTr("Select the image file to write")
         text: page.setting("rawImage", "")
         enabled: !app.busy
         persistKey: "allwinnerRaw"
@@ -22,7 +22,7 @@ AllwinnerWorkspace {
     }
     RowLayout {
         Layout.fillWidth: true
-        Text { text: qsTr("存储介质"); color: Theme.textSecondary; font.family: Theme.fontFamily; Layout.preferredWidth: 80 }
+        Text { text: qsTr("Storage medium"); color: Theme.textSecondary; font.family: Theme.fontFamily; Layout.preferredWidth: 80 }
         AppComboBox {
             id: storage
             Layout.fillWidth: true
@@ -36,7 +36,7 @@ AllwinnerWorkspace {
         id: advanced
         objectName: "awRawAdvanced"
         focusPolicy: Qt.StrongFocus
-        text: qsTr("高级选项")
+        text: qsTr("Advanced options")
     }
     GridLayout {
         visible: advanced.checked
@@ -45,20 +45,20 @@ AllwinnerWorkspace {
         columnSpacing: 12
         rowSpacing: 10
         enabled: !app.busy
-        Text { text: qsTr("写入方式"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { text: qsTr("Write method"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppComboBox {
             id: mode
             Layout.fillWidth: true
-            model: [qsTr("从扇区 0 写入（Command）"), qsTr("按逻辑偏移写入（Logic offset）")]
+            model: [qsTr("Write from sector 0 (Command)"), qsTr("Write at logic offset (Logic offset)")]
             currentIndex: Number(page.setting("rawMode", 1))
             onActivated: page.saveSetting("rawMode", currentIndex)
         }
-        Text { visible: mode.currentIndex === 1; text: qsTr("逻辑偏移（扇区）"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { visible: mode.currentIndex === 1; text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppTextField {
             id: offset
             visible: mode.currentIndex === 1
             Layout.fillWidth: true
-            placeholderText: qsTr("留空自动匹配（可填 0x 十六进制）")
+            placeholderText: qsTr("Leave empty to auto-detect (0x hex allowed)")
             text: page.setting("logicOffset", "")
             onEditingFinished: page.saveSetting("logicOffset", text)
         }
@@ -67,7 +67,7 @@ AllwinnerWorkspace {
         PrimaryButton {
             focusPolicy: Qt.StrongFocus
             objectName: "awRawStart"
-            text: app.batchMode ? qsTr("批量刷写") : qsTr("开始刷写")
+            text: app.batchMode ? qsTr("Batch flash") : qsTr("Start Flashing")
             enabled: !app.busy && page.valid && app.hasDevice && rawImage.text.trim() !== ""
             onClicked: page.execute(Operations.AllwinnerRaw, {rawImage: rawImage.text, rawMode: mode.currentIndex,
                 rawStorage: storage.currentIndex, logicOffset: offset.text})

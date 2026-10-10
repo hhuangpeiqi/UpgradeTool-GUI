@@ -93,7 +93,7 @@ void Convert(Firmware &fw,const OperationRequest &request,const Cancellation &ca
     };
     if(nor) {
         Bytes fill(1024*1024,0xff);
-        for(uint64_t off=0;off<size;) { check(); size_t n=size_t(std::min<uint64_t>(fill.size(),size-off)); if(out.write(reinterpret_cast<char *>(fill.data()),n)!=qint64(n)) throw std::runtime_error("NOR output write failed"); off+=n; if(progress) progress("初始化 NOR 镜像",size,off); }
+        for(uint64_t off=0;off<size;) { check(); size_t n=size_t(std::min<uint64_t>(fill.size(),size-off)); if(out.write(reinterpret_cast<char *>(fill.data()),n)!=qint64(n)) throw std::runtime_error("NOR output write failed"); off+=n; if(progress) progress(QCoreApplication::translate("Allwinner","Initializing NOR image").toStdString(),size,off); }
     }
     auto copy=[&](const Entry &entry,uint64_t dest,bool sparse,uint64_t limit) {
         uint64_t expanded=entry.size; auto chunks=sparse?SparseLayout(fw,entry,expanded):std::vector<SparseChunk>();
@@ -112,7 +112,7 @@ void Convert(Firmware &fw,const OperationRequest &request,const Cancellation &ca
     };
     auto component=[&](const char *sub,uint64_t dest,bool twice,uint64_t second) {
         auto *e=fw.Find(sub);
-        if(!e) { if(progress) progress(QCoreApplication::translate("Allwinner","缺少可选组件：%1").arg(QString::fromStdString(sub)).toStdString(),0,0); return; }
+        if(!e) { if(progress) progress(QCoreApplication::translate("Allwinner","Missing optional component: %1").arg(QString::fromStdString(sub)).toStdString(),0,0); return; }
         copy(*e,dest,!nor,nor?size-dest:UINT64_MAX); if(twice) copy(*e,second,true,UINT64_MAX);
     };
     if(nor) {
@@ -139,7 +139,7 @@ void Convert(Firmware &fw,const OperationRequest &request,const Cancellation &ca
     }
     check(); size=Mul(Add(size,511)/512,512);
     if(!out.resize(qint64(size))||!out.commit()) throw std::runtime_error("Cannot finalize output image");
-    result.items.push_back({QCoreApplication::translate("Allwinner","输出文件").toStdString(),path.toStdString()});
-    result.items.push_back({QCoreApplication::translate("Allwinner","字节数").toStdString(),std::to_string(size)});
+    result.items.push_back({QCoreApplication::translate("Allwinner","Output file").toStdString(),path.toStdString()});
+    result.items.push_back({QCoreApplication::translate("Allwinner","Bytes").toStdString(),std::to_string(size)});
 }
 } }

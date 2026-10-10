@@ -146,7 +146,7 @@ bool ParseImageFolder(const QString &strDir, QList<FirmwareEntry> &entries)
 		e.hasPart = true;
 		e.isLoader = false;
 		e.imageLike = !strResolved.isEmpty() || QFileInfo(dir.filePath(e.fileName)).isFile();
-		e.type = e.imageLike ? QObject::tr("image") : QObject::tr("其他");
+		e.type = e.imageLike ? QObject::tr("image") : QObject::tr("Other");
 		entries.append(e);
 	}
 	return true;

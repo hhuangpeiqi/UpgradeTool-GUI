@@ -7,7 +7,7 @@ Item {
     id: workspace
     property int context: 1
     property string title: ""
-    property string fileCaption: qsTr("固件包")
+    property string fileCaption: qsTr("Firmware package")
     readonly property var contextState: app.allwinnerStates[context]
     readonly property string firmware: contextState.firmware
     readonly property bool valid: contextState.valid
@@ -52,7 +52,7 @@ Item {
                 id: firmwareRow
                 Layout.fillWidth: true
                 caption: workspace.fileCaption
-                placeholder: qsTr("请选择 IMAGEWTY 固件包（.img）")
+                placeholder: qsTr("Select an IMAGEWTY firmware package (.img)")
                 text: workspace.firmware
                 enabled: !app.busy
                 persistKey: "allwinnerFirmware" + workspace.context
@@ -75,7 +75,7 @@ Item {
                         Layout.fillWidth: true
                         visible: workspace.contextState.summary.count > 0
                         Text {
-                            text: qsTr("固件信息")
+                            text: qsTr("Firmware Info")
                             color: Theme.textPrimary
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontMedium
@@ -125,7 +125,7 @@ Item {
                 RowLayout {
                     visible: workspace.context === 0 || workspace.context === 1
                     Text {
-                        text: qsTr("切换方式")
+                        text: qsTr("Switch Method")
                         color: Theme.textSecondary
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontNormal
@@ -134,12 +134,12 @@ Item {
                         id: switchMethod
                         objectName: "awSwitchMethod"
                         Layout.preferredWidth: 130
-                        model: [qsTr("自动"), qsTr("备选")]
+                        model: [qsTr("Auto"), qsTr("Alternate")]
                         enabled: !app.busy
                     }
                     SecondaryButton {
                         objectName: "awSwitchButton"
-                        text: qsTr("切换")
+                        text: qsTr("Switch")
                         busy: app.switching
                         enabled: !app.busy && app.adbReady
                         onClicked: app.switchToFel(switchMethod.currentIndex)

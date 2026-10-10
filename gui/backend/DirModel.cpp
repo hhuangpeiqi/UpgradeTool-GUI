@@ -165,17 +165,17 @@ QString DirModel::makeDirectory(const QString &strName)
 {
 	QString strTrimmed = strName.trimmed();
 	if (strTrimmed.isEmpty())
-		return tr("目录名不能为空");
+		return tr("Directory name cannot be empty");
 	if (strTrimmed.contains('/') || strTrimmed == "." || strTrimmed == "..")
-		return tr("目录名不合法");
+		return tr("Invalid directory name");
 
 	QDir dir(m_strRoot);
 	if (!dir.exists())
-		return tr("当前目录不存在");
+		return tr("Current directory does not exist");
 	if (dir.exists(strTrimmed))
-		return tr("同名文件或目录已存在");
+		return tr("A file or directory with the same name already exists");
 	if (!dir.mkdir(strTrimmed))
-		return tr("创建目录失败");
+		return tr("Failed to create directory");
 
 	Reload();
 	return QString();
@@ -190,7 +190,7 @@ void DirModel::Reload()
 		beginResetModel();
 		m_entries.clear();
 		endResetModel();
-		SetError(tr("目录不存在"));
+		SetError(tr("Directory does not exist"));
 		emit countChanged();
 		return;
 	}
@@ -198,7 +198,7 @@ void DirModel::Reload()
 		beginResetModel();
 		m_entries.clear();
 		endResetModel();
-		SetError(tr("无法读取该目录（权限不足）"));
+		SetError(tr("Cannot read the directory (permission denied)"));
 		emit countChanged();
 		return;
 	}

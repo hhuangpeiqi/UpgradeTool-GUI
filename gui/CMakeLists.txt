@@ -211,13 +211,13 @@ if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
   qt_add_translations(TARGETS upgrade_tool_gui
     SOURCES ${_tr_sources}
     INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}
-    TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_en.ts
+    TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
     RESOURCE_PREFIX "/i18n")
 else()
   qt_add_translations(upgrade_tool_gui
     SOURCES ${_tr_sources}
     INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}
-    TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_en.ts
+    TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
     RESOURCE_PREFIX "/i18n")
 endif()
 

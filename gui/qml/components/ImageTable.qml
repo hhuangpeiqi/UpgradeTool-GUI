@@ -55,11 +55,11 @@ Rectangle {
                 }
 
                 Text { width: root.cNo; height: parent.height; leftPadding: 12; text: qsTr("#"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
-                Text { width: root.cCheck; height: parent.height; leftPadding: 12; text: qsTr("选择"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
-                Text { width: root.cStorage; height: parent.height; leftPadding: 12; text: qsTr("存储"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
-                Text { width: root.cAddr; height: parent.height; leftPadding: 12; text: qsTr("地址"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
-                Text { width: root.cName; height: parent.height; leftPadding: 12; text: qsTr("名字"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
-                Text { width: parent.width - root.fixedWidth; height: parent.height; leftPadding: 12; text: qsTr("路径"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
+                Text { width: root.cCheck; height: parent.height; leftPadding: 12; text: qsTr("Select"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
+                Text { width: root.cStorage; height: parent.height; leftPadding: 12; text: qsTr("Storage"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
+                Text { width: root.cAddr; height: parent.height; leftPadding: 12; text: qsTr("Address"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
+                Text { width: root.cName; height: parent.height; leftPadding: 12; text: qsTr("Name"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
+                Text { width: parent.width - root.fixedWidth; height: parent.height; leftPadding: 12; text: qsTr("Path"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; font.bold: true; verticalAlignment: Text.AlignVCenter }
             }
 
             Rectangle {

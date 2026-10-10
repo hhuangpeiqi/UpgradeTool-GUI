@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("需要 USB 设备访问权限")
+    titleText: qsTr("USB device access permission required")
     width: 540
     closePolicy: Popup.NoAutoClose
 
@@ -31,7 +31,7 @@ AppDialog {
             color: Theme.textPrimary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
-            text: app.vendor === 0 ? qsTr("当前用户（非 root）没有安装 Rockchip udev 规则，设备可能无法访问。") : qsTr("当前用户（非 root）没有安装全志 FEL/FES udev 规则，设备可能无法访问。")
+            text: app.vendor === 0 ? qsTr("The current user (non-root) has not installed the Rockchip udev rules; the device may be inaccessible.") : qsTr("The current user (non-root) has not installed the Allwinner FEL/FES udev rules; the device may be inaccessible.")
         }
 
         Text {
@@ -40,7 +40,7 @@ AppDialog {
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
-            text: qsTr("点击下方「安装 udev 规则」，按提示输入密码即可修复；也可在终端手动执行：")
+            text: qsTr("Click \"Install udev rules\" below and enter the password when prompted; or run manually in a terminal:")
         }
 
         Row {
@@ -73,7 +73,7 @@ AppDialog {
 
             SecondaryButton {
                 id: copyBtn
-                text: qsTr("复制")
+                text: qsTr("Copy")
                 onClicked: {
                     cmdEdit.selectAll();
                     cmdEdit.copy();
@@ -87,7 +87,7 @@ AppDialog {
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSmall
-            text: qsTr("安装后若仍提示无权限，请重新插拔设备，再点「重新检测」。")
+            text: qsTr("If permission errors persist after installing, reconnect the device and click \"Retry\".")
         }
 
         Text {
@@ -106,20 +106,20 @@ AppDialog {
         spacing: 10
 
         SecondaryButton {
-            text: qsTr("暂时忽略")
+            text: qsTr("Ignore for now")
             onClicked: dlg.close()
         }
 
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
-            text: qsTr("重新检测")
+            text: qsTr("Retry")
             enabled: !dlg.installing
             onClicked: app.retryPermission()
         }
 
         PrimaryButton {
-            text: dlg.installing ? qsTr("安装中…") : qsTr("安装 udev 规则")
+            text: dlg.installing ? qsTr("Installing…") : qsTr("Install udev rules")
             enabled: !dlg.installing
             onClicked: {
                 dlg.installing = true;

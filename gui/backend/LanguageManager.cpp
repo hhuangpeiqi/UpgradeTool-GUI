@@ -71,12 +71,12 @@ void LanguageManager::setMode(const QString &strMode)
 void LanguageManager::Apply()
 {
 	const QString strEffective = Effective();
-	const bool bEnglish = strEffective != QLatin1String(kChinese);
+	const bool bChinese = strEffective == QLatin1String(kChinese);
 
-	// Application catalog: Chinese is the source language, so only English needs a translator.
-	if (bEnglish) {
+	// Application catalog: English is the source language, so only Chinese needs a translator.
+	if (bChinese) {
 		if (!m_bAppLoaded) {
-			m_appTranslator.load(QLatin1String("upgrade_tool_en"), QLatin1String(":/i18n"));
+			m_appTranslator.load(QLatin1String("upgrade_tool_zh_CN"), QLatin1String(":/i18n"));
 			m_bAppLoaded = QCoreApplication::installTranslator(&m_appTranslator);
 		}
 	} else if (m_bAppLoaded) {

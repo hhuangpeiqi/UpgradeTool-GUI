@@ -15,7 +15,7 @@ Item {
             spacing: 14
 
             SectionTitle {
-                text: qsTr("固件升级")
+                text: qsTr("Firmware Upgrade")
                 Layout.fillWidth: true
             }
 
@@ -25,7 +25,7 @@ Item {
 
                 AppTextField {
                     Layout.fillWidth: true
-                    placeholderText: qsTr("请选择固件文件（.img）")
+                    placeholderText: qsTr("Select a firmware file (.img)")
                     text: app.firmwarePath
                     enabled: !app.busy
                     onAccepted: app.setFirmware(text)
@@ -36,22 +36,22 @@ Item {
                 }
 
                 PrimaryButton {
-                    text: qsTr("浏览...")
+                    text: qsTr("Browse...")
                     iconSource: Icons.folderWhite
                     enabled: !app.busy
                     onClicked: firmwareDialog.open()
                 }
 
                 SecondaryButton {
-                    text: qsTr("切换")
+                    text: qsTr("Switch")
                     iconSource: Icons.switchBlue
                     busy: app.switching
                     enabled: !app.busy && app.adbReady
                     onClicked: app.switchToLoader()
 
                     ToolTip.visible: hovered && !enabled && !app.busy
-                    ToolTip.text: app.adbAvailable ? qsTr("未检测到 ADB 设备")
-                                                   : qsTr("ADB 不可用")
+                    ToolTip.text: app.adbAvailable ? qsTr("No ADB device detected")
+                                                   : qsTr("ADB unavailable")
                 }
             }
 
@@ -75,7 +75,7 @@ Item {
                     spacing: 12
 
                     Text {
-                        text: qsTr("固件信息")
+                        text: qsTr("Firmware Info")
                         color: Theme.textPrimary
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontMedium
@@ -88,15 +88,15 @@ Item {
                         columnSpacing: 28
                         rowSpacing: 10
 
-                        Text { text: qsTr("固件版本"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                        Text { text: qsTr("Firmware version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                         Text { text: app.firmwareVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("Loader版本"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                        Text { text: qsTr("Loader version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                         Text { text: app.firmwareLoaderVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("芯片信息"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                        Text { text: qsTr("Chip info"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                         Text { text: app.firmwareChip; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("构建时间"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                        Text { text: qsTr("Build time"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                         Text { text: app.firmwareBuildTime; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("签名"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                        Text { text: qsTr("Signature"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                         Text { text: app.firmwareSign; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
                     }
                 }
@@ -104,7 +104,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: qsTr("固件条目")
+                text: qsTr("Firmware entries")
                 color: Theme.textPrimary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontMedium
@@ -123,7 +123,7 @@ Item {
 
                 AppCheckBox {
                     id: rebootBox
-                    text: qsTr("烧录完成后重启设备")
+                    text: qsTr("Reboot device when done")
                     checked: true
                     enabled: !app.busy
                 }
@@ -131,26 +131,26 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 SecondaryButton {
-                    text: qsTr("查看固件信息")
+                    text: qsTr("View Firmware Info")
                     enabled: !app.busy && app.firmwarePath !== ""
                     onClicked: app.showFirmwareInfo()
                 }
 
                 SecondaryButton {
-                    text: qsTr("解包固件…")
+                    text: qsTr("Extract Firmware…")
                     enabled: !app.busy && app.firmwarePath !== ""
                     onClicked: extractDialog.open()
                 }
 
                 PrimaryButton {
-                    text: qsTr("升级")
+                    text: qsTr("Upgrade")
                     iconSource: Icons.playWhite
                     enabled: !app.busy && app.firmwareValid && app.hasDevice
                     onClicked: app.executeFirmwareUpgrade(rebootBox.checked)
 
                     ToolTip.visible: hovered && !enabled && !app.busy
-                    ToolTip.text: !app.hasDevice ? qsTr("未检测到设备，请连接或切换到 Loader/Maskrom 模式")
-                                                 : qsTr("请先选择有效的固件")
+                    ToolTip.text: !app.hasDevice ? qsTr("No device detected. Connect or switch to Loader/Maskrom mode")
+                                                 : qsTr("Select a valid firmware first")
                 }
             }
         }
@@ -159,8 +159,8 @@ Item {
     AppFilePicker {
         id: firmwareDialog
         mode: AppFilePicker.OpenFile
-        titleText: qsTr("选择固件")
-        nameFilters: ["固件 (*.img)", "所有文件 (*)"]
+        titleText: qsTr("Select Firmware")
+        nameFilters: [qsTr("Firmware (*.img)"), qsTr("All files (*)")]
         persistKey: "firmware"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());
@@ -171,7 +171,7 @@ Item {
     AppFilePicker {
         id: extractDialog
         mode: AppFilePicker.OpenFolder
-        titleText: qsTr("选择解包输出目录")
+        titleText: qsTr("Select Extract Output Directory")
         persistKey: "extract_dir"
         onAccepted: {
             var dir = app.toLocalPath(selectedFolder.toString());

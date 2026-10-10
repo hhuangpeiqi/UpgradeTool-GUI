@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("生成 GPT")
+    titleText: qsTr("Generate GPT")
     width: 520
 
     Column {
@@ -18,7 +18,7 @@ AppDialog {
             spacing: 10
 
             Text {
-                text: qsTr("输入 parameter")
+                text: qsTr("Input parameter")
                 width: 120
                 height: 38
                 verticalAlignment: Text.AlignVCenter
@@ -30,11 +30,11 @@ AppDialog {
             AppTextField {
                 id: inputField
                 width: parent.width - 220
-                placeholderText: qsTr("parameter.txt 路径")
+                placeholderText: qsTr("parameter.txt path")
             }
 
             SecondaryButton {
-                text: qsTr("选择…")
+                text: qsTr("Choose…")
                 onClicked: {
                     picker.onPicked = function (p) { inputField.text = p; };
                     picker.open();
@@ -47,7 +47,7 @@ AppDialog {
             spacing: 10
 
             Text {
-                text: qsTr("输出 GPT")
+                text: qsTr("Output GPT")
                 width: 120
                 height: 38
                 verticalAlignment: Text.AlignVCenter
@@ -59,11 +59,11 @@ AppDialog {
             AppTextField {
                 id: outputField
                 width: parent.width - 220
-                placeholderText: qsTr("输出 gpt 文件路径")
+                placeholderText: qsTr("Output gpt file path")
             }
 
             SecondaryButton {
-                text: qsTr("选择…")
+                text: qsTr("Choose…")
                 onClicked: {
                     savePicker.onPicked = function (p) { outputField.text = p; };
                     savePicker.open();
@@ -79,12 +79,12 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
-            text: qsTr("取消")
+            text: qsTr("Cancel")
             onClicked: dlg.close()
         }
 
         PrimaryButton {
-            text: qsTr("生成")
+            text: qsTr("Generate")
             onClicked: {
                 app.createGpt(inputField.text, outputField.text);
                 dlg.close();
@@ -96,7 +96,7 @@ AppDialog {
         id: picker
         mode: AppFilePicker.OpenFile
         property var onPicked: null
-        titleText: qsTr("选择输入 parameter")
+        titleText: qsTr("Select Input Parameter")
         persistKey: "parameter"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());
@@ -109,7 +109,7 @@ AppDialog {
         id: savePicker
         mode: AppFilePicker.SaveFile
         property var onPicked: null
-        titleText: qsTr("选择输出 GPT")
+        titleText: qsTr("Select Output GPT")
         persistKey: "gpt_output"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());

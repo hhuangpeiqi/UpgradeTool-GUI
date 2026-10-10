@@ -8,8 +8,8 @@ Rectangle {
 
     property var model: null
     property bool showHeader: true
-    property string labelHeader: qsTr("项目")
-    property string valueHeader: qsTr("值")
+    property string labelHeader: qsTr("Item")
+    property string valueHeader: qsTr("Value")
     property int labelWidth: 190
 
     color: Theme.card

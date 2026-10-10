@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("关于")
+    titleText: qsTr("About")
     width: 480
 
     Text {
@@ -20,7 +20,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("瑞芯微与全志设备固件刷写工具。\n参考鸣谢：\nrockchip-linux/rkdeveloptool (GPL-2.0)。\nOpenixCLI libefex (MIT)。")
+        text: qsTr("Firmware flashing tool for Rockchip and Allwinner devices.\nCredits:\nrockchip-linux/rkdeveloptool (GPL-2.0).\nOpenixCLI libefex (MIT).")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -34,7 +34,7 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         PrimaryButton {
-            text: qsTr("关闭")
+            text: qsTr("Close")
             onClicked: dlg.close()
         }
     }

@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("使用帮助")
+    titleText: qsTr("Usage Help")
     width: 640
 
     ScrollView {
@@ -21,9 +21,8 @@ AppDialog {
 
             Text {
                 width: parent.width
-                text: qsTr("选择设备后，在对应功能页执行操作。瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），"
-                          + "全志设备需处于 FEL / FES 模式，请确认 USB 连接正常。")
-                      + (Qt.platform.os === "linux" ? qsTr("系统需安装对应 udev 规则。") : "")
+                text: qsTr("Select a device, then run the operation on the matching page. Rockchip devices must be in Rockusb mode (Loader or Maskrom), and Allwinner devices in FEL / FES mode; make sure the USB connection is good.")
+                      + (Qt.platform.os === "linux" ? qsTr("The system must have the matching udev rules installed.") : "")
                 color: Theme.textSecondary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontNormal
@@ -117,7 +116,7 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         PrimaryButton {
-            text: qsTr("关闭")
+            text: qsTr("Close")
             onClicked: dlg.close()
         }
     }

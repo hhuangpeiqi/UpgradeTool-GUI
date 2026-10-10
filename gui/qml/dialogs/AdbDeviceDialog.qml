@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("选择设备")
+    titleText: qsTr("Select Device")
     width: 460
 
     property var options: []
@@ -25,8 +25,8 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: app.vendor === 1 ? qsTr("检测到多台 ADB 设备，请选择要切换到 FEL 的设备:")
-                              : qsTr("检测到多台 ADB 设备，请选择要切换到 Loader 的设备:")
+        text: app.vendor === 1 ? qsTr("Multiple ADB devices detected. Select the one to switch to FEL:")
+                              : qsTr("Multiple ADB devices detected. Select the one to switch to Loader:")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -77,7 +77,7 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
-            text: qsTr("取消")
+            text: qsTr("Cancel")
             onClicked: dlg.close()
         }
     }

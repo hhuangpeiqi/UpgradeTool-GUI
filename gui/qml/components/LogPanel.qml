@@ -25,7 +25,7 @@ Rectangle {
             spacing: 8
 
             Text {
-                text: qsTr("日志")
+                text: qsTr("Log")
                 color: Theme.textPrimary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontLarge
@@ -35,7 +35,7 @@ Rectangle {
             Item { Layout.fillWidth: true }
 
             SecondaryButton {
-                text: qsTr("清空")
+                text: qsTr("Clear")
                 implicitHeight: 32
                 hPadding: 14
                 onClicked: root.clearRequested()

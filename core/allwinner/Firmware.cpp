@@ -120,12 +120,12 @@ OperationResult InspectFirmware(const std::string &path) {
     result.kind = ResultKind::FirmwareInfo;
     Firmware fw(path);
     result.firmware = fw.Info();
-    result.items = {{QCoreApplication::translate("Allwinner","格式").toStdString(), result.firmware.sign},
-        {QCoreApplication::translate("Allwinner","固件字节数").toStdString(), std::to_string(fw.size)},
-        {QCoreApplication::translate("Allwinner","嵌入文件").toStdString(), std::to_string(fw.entries.size())},
-        {QCoreApplication::translate("Allwinner","固件版本").toStdString(), std::to_string(fw.version)},
-        {QCoreApplication::translate("Allwinner","属性").toStdString(), std::to_string(fw.attr)},
-        {QCoreApplication::translate("Allwinner","加密").toStdString(), QCoreApplication::translate("Allwinner","否").toStdString()}};
+    result.items = {{QCoreApplication::translate("Allwinner","Format").toStdString(), result.firmware.sign},
+        {QCoreApplication::translate("Allwinner","Firmware size").toStdString(), std::to_string(fw.size)},
+        {QCoreApplication::translate("Allwinner","Embedded files").toStdString(), std::to_string(fw.entries.size())},
+        {QCoreApplication::translate("Allwinner","Firmware version").toStdString(), std::to_string(fw.version)},
+        {QCoreApplication::translate("Allwinner","Attributes").toStdString(), std::to_string(fw.attr)},
+        {QCoreApplication::translate("Allwinner","Encrypted").toStdString(), QCoreApplication::translate("Allwinner","No").toStdString()}};
     auto *mbr = fw.Find("1234567890___MBR");
     if (mbr) for (const auto &p : fw.Partitions()) result.partitions.push_back({p.name, p.address, p.sectors});
     result.status = OperationStatus::Succeeded;

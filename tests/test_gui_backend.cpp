@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
 		gui::AppController controller(nullptr);
 		for (int vendor : {0, 1}) {
 			controller.setVendor(vendor);
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("检测 ADB 中…"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("Detecting ADB…"));
 		}
 		auto availability = [&](bool available) {
 			CHECK(QMetaObject::invokeMethod(&controller, "onAdbAvailabilityChanged", Qt::DirectConnection,
@@ -44,14 +44,14 @@ int main(int argc, char **argv) {
 		for (int vendor : {0, 1, 0}) {
 			controller.setVendor(vendor);
 			availability(false);
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("未检测到 ADB 环境"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("No ADB environment detected"));
 			adbDevices({});
 			availability(true);
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("未发现设备"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("No device found"));
 			adbDevices({"board"});
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("发现 ADB 设备"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("ADB device found"));
 			adbDevices({"board", "second-board"});
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("发现 2 台 ADB 设备"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("Found 2 ADB device(s)"));
 		}
 		QVariantList devices{
 			QVariantMap{{"vendor", 0}, {"index", 1}, {"mode", "Loader"}, {"key", "rk:1-1"}},
@@ -59,14 +59,14 @@ int main(int argc, char **argv) {
 		};
 		CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
 			Q_ARG(QVariantList, devices)));
-		CHECK(controller.deviceStatusText() == QString::fromUtf8("发现 Loader 设备"));
+		CHECK(controller.deviceStatusText() == QString::fromUtf8("Found Loader device"));
 		controller.setVendor(1);
-		CHECK(controller.deviceStatusText() == QString::fromUtf8("发现 FEL/FES 设备"));
+		CHECK(controller.deviceStatusText() == QString::fromUtf8("Found FEL/FES device"));
 		CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
 			Q_ARG(QVariantList, QVariantList())));
-		CHECK(controller.deviceStatusText() == QString::fromUtf8("发现 2 台 ADB 设备"));
+		CHECK(controller.deviceStatusText() == QString::fromUtf8("Found 2 ADB device(s)"));
 		controller.setVendor(0);
-		CHECK(controller.deviceStatusText() == QString::fromUtf8("发现 2 台 ADB 设备"));
+		CHECK(controller.deviceStatusText() == QString::fromUtf8("Found 2 ADB device(s)"));
 	}
 #ifdef Q_OS_UNIX
 	{
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 		// Cancelling immediately must survive queued task startup.
 		controller.createGpt(parameter.fileName(), temporary.filePath("cancel.gpt")); controller.cancel();
 		CHECK(Await([&] { return !controller.busy(); })); CHECK(finishes == 2); CHECK(captured.cancelled->load());
-		CHECK(controller.advancedHint().contains(QString::fromUtf8("已取消")));
+		CHECK(controller.advancedHint().contains(QString::fromUtf8("Cancelled")));
 		// A new task gets a new cancellation token.
 		controller.createGpt(parameter.fileName(), output);
 		CHECK(Await([&] { return !controller.busy(); })); CHECK(finishes == 3 && !captured.cancelled->load());
@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
         CHECK(controller.busy() && captured.steps[0].allwinner.partitions==std::vector<std::string>{"rootfs"}); finish();
         controller.runAllwinner(gui::Operations::AllwinnerRaw,{{"context",0},{"rawImage","disk.img"},{"rawMode",0},{"logicOffset","bad"}});
         CHECK(controller.busy() && !captured.steps[0].allwinner.hasLogicOffset); finish(core::OperationStatus::Cancelled);
-        CHECK(state(0)["hint"].toString()==QString::fromUtf8("已取消") && !state(0)["error"].toBool());
+        CHECK(state(0)["hint"].toString()==QString::fromUtf8("Cancelled") && !state(0)["error"].toBool());
         before=submissions;
         controller.runAllwinner(gui::Operations::AllwinnerRaw,{{"context",0},{"rawImage","disk.img"},{"rawMode",1},{"logicOffset","bad"}});
         controller.runAllwinner(gui::Operations::AllwinnerConvert,{{"context",2},{"output","out.img"},{"logicOffset","-1"}});

@@ -68,13 +68,13 @@ QString FormatEta(double dSeconds)
 QString ErrorText(core::ErrorCode code)
 {
 	switch (code) {
-	case core::ErrorCode::InvalidInput: return QObject::tr("参数无效或超出范围");
-	case core::ErrorCode::DeviceMissing: return QObject::tr("目标设备已断开，请重新选择设备");
-	case core::ErrorCode::DeviceAmbiguous: return QObject::tr("设备身份不明确，请重新选择设备");
-	case core::ErrorCode::FileAccess: return QObject::tr("无法打开文件，请检查路径和权限");
-	case core::ErrorCode::InvalidFirmware: return QObject::tr("固件格式或校验无效");
-	case core::ErrorCode::UnsupportedDevice: return QObject::tr("当前设备模式不支持此操作");
-	default: return QObject::tr("操作失败，详见日志");
+	case core::ErrorCode::InvalidInput: return QObject::tr("Invalid or out-of-range parameter");
+	case core::ErrorCode::DeviceMissing: return QObject::tr("Target device disconnected; select a device again");
+	case core::ErrorCode::DeviceAmbiguous: return QObject::tr("Device identity is ambiguous; select a device again");
+	case core::ErrorCode::FileAccess: return QObject::tr("Cannot open file; check the path and permissions");
+	case core::ErrorCode::InvalidFirmware: return QObject::tr("Invalid firmware format or checksum");
+	case core::ErrorCode::UnsupportedDevice: return QObject::tr("The current device mode does not support this operation");
+	default: return QObject::tr("Operation failed; see the log");
 	}
 }
 
@@ -82,54 +82,54 @@ QString PromptText(int prompt, bool &failed)
 {
 	failed = false;
 	switch (prompt) {
-	case PROMPT_DOWNLOAD_BOOT_START: return QObject::tr("开始下载 Boot");
-	case PROMPT_DOWNLOAD_BOOT_FAIL: failed = true; return QObject::tr("下载 Boot 失败");
-	case PROMPT_DOWNLOAD_BOOT_SUCCESS: return QObject::tr("下载 Boot 成功");
-	case PROMPT_DOWNLOAD_IDB_START: return QObject::tr("开始下载 IDB");
-	case PROMPT_DOWNLOAD_IDB_FAIL: failed = true; return QObject::tr("下载 IDB 失败");
-	case PROMPT_DOWNLOAD_IDB_SUCCESS: return QObject::tr("下载 IDB 成功");
-	case PROMPT_DOWNLOAD_FIRMWARE_START: return QObject::tr("开始下载固件");
-	case PROMPT_DOWNLOAD_FIRMWARE_FAIL: failed = true; return QObject::tr("下载固件失败");
-	case PROMPT_DOWNLOAD_FIRMWARE_SUCCESS: return QObject::tr("下载固件成功");
-	case PROMPT_TEST_DEVICE_START: return QObject::tr("开始检测设备");
-	case PROMPT_TEST_DEVICE_FAIL: failed = true; return QObject::tr("检测设备失败");
-	case PROMPT_TEST_DEVICE_SUCCESS: return QObject::tr("检测设备成功");
-	case PROMPT_RESET_DEVICE_START: return QObject::tr("正在重启设备");
-	case PROMPT_RESET_DEVICE_FAIL: failed = true; return QObject::tr("重启设备失败");
-	case PROMPT_RESET_DEVICE_SUCCESS: return QObject::tr("重启设备成功");
-	case PROMPT_WAIT_MSC_START: return QObject::tr("等待进入 MSC 模式");
-	case PROMPT_WAIT_MSC_FAIL: failed = true; return QObject::tr("等待 MSC 模式失败");
-	case PROMPT_WAIT_MSC_SUCCESS: return QObject::tr("已进入 MSC 模式");
-	case PROMPT_WAIT_LOADER_START: return QObject::tr("等待进入 Loader 模式");
-	case PROMPT_WAIT_LOADER_FAIL: failed = true; return QObject::tr("等待 Loader 模式失败");
-	case PROMPT_WAIT_LOADER_SUCCESS: return QObject::tr("已进入 Loader 模式");
-	case PROMPT_WAIT_MASKROM_START: return QObject::tr("等待进入 Maskrom 模式");
-	case PROMPT_WAIT_MASKROM_FAIL: failed = true; return QObject::tr("等待 Maskrom 模式失败");
-	case PROMPT_WAIT_MASKROM_SUCCESS: return QObject::tr("已进入 Maskrom 模式");
-	case PROMPT_ERASE_IDB_START: return QObject::tr("开始擦除 IDB");
-	case PROMPT_ERASE_IDB_FAIL: failed = true; return QObject::tr("擦除 IDB 失败");
-	case PROMPT_ERASE_IDB_SUCCESS: return QObject::tr("擦除 IDB 成功");
-	case PROMPT_SWITCH_MSC_START: return QObject::tr("开始切换到 MSC 模式");
-	case PROMPT_SWITCH_MSC_FAIL: failed = true; return QObject::tr("切换到 MSC 模式失败");
-	case PROMPT_SWITCH_MSC_SUCCESS: return QObject::tr("已切换到 MSC 模式");
-	case PROMPT_CHECK_CHIP_START: return QObject::tr("开始校验芯片");
-	case PROMPT_CHECK_CHIP_FAIL: failed = true; return QObject::tr("校验芯片失败");
-	case PROMPT_CHECK_CHIP_SUCCESS: return QObject::tr("校验芯片成功");
-	case PROMPT_PREPARE_IDB_START: return QObject::tr("开始准备 IDB");
-	case PROMPT_PREPARE_IDB_FAIL: failed = true; return QObject::tr("准备 IDB 失败");
-	case PROMPT_PREPARE_IDB_SUCCESS: return QObject::tr("准备 IDB 完成");
-	case PROMPT_ERASE_FLASH_START: return QObject::tr("开始擦除 Flash");
-	case PROMPT_ERASE_FLASH_FAIL: failed = true; return QObject::tr("擦除 Flash 失败");
-	case PROMPT_ERASE_FLASH_SUCCESS: return QObject::tr("擦除 Flash 成功");
-	case PROMPT_GET_BLOCK_STATE_START: return QObject::tr("读取块状态");
-	case PROMPT_GET_BLOCK_STATE_FAIL: failed = true; return QObject::tr("读取块状态失败");
-	case PROMPT_GET_BLOCK_STATE_SUCCESS: return QObject::tr("读取块状态成功");
-	case PROMPT_GET_FLASH_INFO_START: return QObject::tr("读取 Flash 信息");
-	case PROMPT_GET_FLASH_INFO_FAIL: failed = true; return QObject::tr("读取 Flash 信息失败");
-	case PROMPT_GET_FLASH_INFO_SUCCESS: return QObject::tr("读取 Flash 信息成功");
-	case PROMPT_LOWER_FORMAT_START: return QObject::tr("开始低级格式化");
-	case PROMPT_LOWER_FORMAT_FAIL: failed = true; return QObject::tr("低级格式化失败");
-	case PROMPT_LOWER_FORMAT_SUCCESS: return QObject::tr("低级格式化成功");
+	case PROMPT_DOWNLOAD_BOOT_START: return QObject::tr("Downloading Boot");
+	case PROMPT_DOWNLOAD_BOOT_FAIL: failed = true; return QObject::tr("Download Boot failed");
+	case PROMPT_DOWNLOAD_BOOT_SUCCESS: return QObject::tr("Download Boot succeeded");
+	case PROMPT_DOWNLOAD_IDB_START: return QObject::tr("Downloading IDB");
+	case PROMPT_DOWNLOAD_IDB_FAIL: failed = true; return QObject::tr("Download IDB failed");
+	case PROMPT_DOWNLOAD_IDB_SUCCESS: return QObject::tr("Download IDB succeeded");
+	case PROMPT_DOWNLOAD_FIRMWARE_START: return QObject::tr("Downloading firmware");
+	case PROMPT_DOWNLOAD_FIRMWARE_FAIL: failed = true; return QObject::tr("Download firmware failed");
+	case PROMPT_DOWNLOAD_FIRMWARE_SUCCESS: return QObject::tr("Download firmware succeeded");
+	case PROMPT_TEST_DEVICE_START: return QObject::tr("Testing device");
+	case PROMPT_TEST_DEVICE_FAIL: failed = true; return QObject::tr("Test device failed");
+	case PROMPT_TEST_DEVICE_SUCCESS: return QObject::tr("Test device succeeded");
+	case PROMPT_RESET_DEVICE_START: return QObject::tr("Resetting device");
+	case PROMPT_RESET_DEVICE_FAIL: failed = true; return QObject::tr("Reset device failed");
+	case PROMPT_RESET_DEVICE_SUCCESS: return QObject::tr("Reset device succeeded");
+	case PROMPT_WAIT_MSC_START: return QObject::tr("Waiting for MSC mode");
+	case PROMPT_WAIT_MSC_FAIL: failed = true; return QObject::tr("Waiting for MSC mode failed");
+	case PROMPT_WAIT_MSC_SUCCESS: return QObject::tr("Entered MSC mode");
+	case PROMPT_WAIT_LOADER_START: return QObject::tr("Waiting for Loader mode");
+	case PROMPT_WAIT_LOADER_FAIL: failed = true; return QObject::tr("Waiting for Loader mode failed");
+	case PROMPT_WAIT_LOADER_SUCCESS: return QObject::tr("Entered Loader mode");
+	case PROMPT_WAIT_MASKROM_START: return QObject::tr("Waiting for Maskrom mode");
+	case PROMPT_WAIT_MASKROM_FAIL: failed = true; return QObject::tr("Waiting for Maskrom mode failed");
+	case PROMPT_WAIT_MASKROM_SUCCESS: return QObject::tr("Entered Maskrom mode");
+	case PROMPT_ERASE_IDB_START: return QObject::tr("Erasing IDB");
+	case PROMPT_ERASE_IDB_FAIL: failed = true; return QObject::tr("Erase IDB failed");
+	case PROMPT_ERASE_IDB_SUCCESS: return QObject::tr("Erase IDB succeeded");
+	case PROMPT_SWITCH_MSC_START: return QObject::tr("Switching to MSC mode");
+	case PROMPT_SWITCH_MSC_FAIL: failed = true; return QObject::tr("Switch to MSC mode failed");
+	case PROMPT_SWITCH_MSC_SUCCESS: return QObject::tr("Switched to MSC mode");
+	case PROMPT_CHECK_CHIP_START: return QObject::tr("Checking chip");
+	case PROMPT_CHECK_CHIP_FAIL: failed = true; return QObject::tr("Check chip failed");
+	case PROMPT_CHECK_CHIP_SUCCESS: return QObject::tr("Check chip succeeded");
+	case PROMPT_PREPARE_IDB_START: return QObject::tr("Preparing IDB");
+	case PROMPT_PREPARE_IDB_FAIL: failed = true; return QObject::tr("Prepare IDB failed");
+	case PROMPT_PREPARE_IDB_SUCCESS: return QObject::tr("Prepare IDB done");
+	case PROMPT_ERASE_FLASH_START: return QObject::tr("Erasing Flash");
+	case PROMPT_ERASE_FLASH_FAIL: failed = true; return QObject::tr("Erase Flash failed");
+	case PROMPT_ERASE_FLASH_SUCCESS: return QObject::tr("Erase Flash succeeded");
+	case PROMPT_GET_BLOCK_STATE_START: return QObject::tr("Reading block state");
+	case PROMPT_GET_BLOCK_STATE_FAIL: failed = true; return QObject::tr("Read block state failed");
+	case PROMPT_GET_BLOCK_STATE_SUCCESS: return QObject::tr("Read block state succeeded");
+	case PROMPT_GET_FLASH_INFO_START: return QObject::tr("Reading Flash info");
+	case PROMPT_GET_FLASH_INFO_FAIL: failed = true; return QObject::tr("Read Flash info failed");
+	case PROMPT_GET_FLASH_INFO_SUCCESS: return QObject::tr("Read Flash info succeeded");
+	case PROMPT_LOWER_FORMAT_START: return QObject::tr("Low-level formatting");
+	case PROMPT_LOWER_FORMAT_FAIL: failed = true; return QObject::tr("Low-level format failed");
+	case PROMPT_LOWER_FORMAT_SUCCESS: return QObject::tr("Low-level format succeeded");
 	default: return QString();
 	}
 }
@@ -225,9 +225,9 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	m_bPermissionBlocked = PermissionMissing();
 	emit permissionChanged();
 
-	SetImageHint(tr("请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。"), false);
-	SetFirmwareHint(tr("请选择固件。"), false);
-	SetAdvancedHint(tr("就绪"), false);
+	SetImageHint(tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."), false);
+	SetFirmwareHint(tr("Select firmware."), false);
+	SetAdvancedHint(tr("Ready"), false);
 	SetDeviceStatus();
 
 	m_strFwVersion = m_strFwLoader = m_strFwChip = m_strFwBuild = m_strFwSign = QString("-");
@@ -247,7 +247,7 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 
 	{
 		QString strStamp = QTime::currentTime().toString("HH:mm:ss");
-		AppendLog(QString("[%1] %2").arg(strStamp).arg(tr("应用已启动")), false);
+		AppendLog(QString("[%1] %2").arg(strStamp).arg(tr("Application started")), false);
 	}
 
 	m_pThread->start();
@@ -313,100 +313,100 @@ QVariantList AppController::usageHelp() const
 	};
 
 #ifdef Q_OS_LINUX
-	const QString connectionNote = tr("瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式，且系统已安装对应 udev 规则。");
-	const QString connectionHelp = tr("底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式与 udev 权限。");
-	const QString preferencesHelp = tr("编辑并保存 config.ini、切换主题与语言、重新加载、一键安装 udev 规则。");
-	const QString missingHelp = tr("瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，并已安装 udev 规则后重新插拔。");
+	const QString connectionNote = tr("Rockchip devices must be in Rockusb mode (Loader or Maskrom) and Allwinner devices in FEL / FES mode, with the matching udev rules installed.");
+	const QString connectionHelp = tr("The status bar scans automatically; if nothing appears, click \"Refresh\" and check the device mode and udev permissions.");
+	const QString preferencesHelp = tr("Edit and save config.ini, switch theme and language, reload, and install udev rules in one click.");
+	const QString missingHelp = tr("Confirm Rockchip is in Rockusb mode (Loader or Maskrom) and Allwinner in FEL / FES mode, then reconnect the device after installing the udev rules.");
 #else
-	const QString connectionNote = tr("瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式。");
-	const QString connectionHelp = tr("底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式、USB 连接以及是否被其他程序占用。");
-	const QString preferencesHelp = tr("编辑并保存 config.ini、切换主题与语言、重新加载。");
-	const QString missingHelp = tr("瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，检查 USB 连接并关闭占用设备的其他程序后重新插拔。");
+	const QString connectionNote = tr("Rockchip devices must be in Rockusb mode (Loader or Maskrom) and Allwinner devices in FEL / FES mode.");
+	const QString connectionHelp = tr("The status bar scans automatically; if nothing appears, click \"Refresh\" and check the device mode, USB connection, and whether another program is using it.");
+	const QString preferencesHelp = tr("Edit and save config.ini, switch theme and language, then reload.");
+	const QString missingHelp = tr("Confirm Rockchip is in Rockusb mode (Loader or Maskrom) and Allwinner in FEL / FES mode; check the USB connection, close other programs using the device, then reconnect.");
 #endif
-	const QString vendorCommon = tr("通用");
-	const QString vendorRk = tr("瑞芯微");
-	const QString vendorAw = tr("全志");
+	const QString vendorCommon = tr("General");
+	const QString vendorRk = tr("Rockchip");
+	const QString vendorAw = tr("Allwinner");
 
 	QVariantList groups;
 
-	groups.append(MakeGroup::Run(vendorCommon, tr("快速上手"),
+	groups.append(MakeGroup::Run(vendorCommon, tr("Getting Started"),
 		connectionNote,
 		QVariantList()
-		<< MakeItem::Run(tr("① 连接设备"), connectionHelp)
-		<< MakeItem::Run(tr("② 选择设备"), tr("在底部设备栏的下拉框中选择目标设备；要同时烧录多台，用标题栏「设备 → 批量选择…」。"))
-		<< MakeItem::Run(tr("③ 执行操作"), tr("切到对应功能页，选好文件或参数后点击「执行」/「升级」/「开始刷写」；进度、速率与预计剩余显示在底部，随时可「取消」。"))
-		<< MakeItem::Run(tr("④ 查看结果"), tr("中文结论显示在页面提示区，引擎原始输出写入日志文件（「帮助 → 日志」查看目录）。"))));
+		<< MakeItem::Run(tr("① Connect the device"), connectionHelp)
+		<< MakeItem::Run(tr("② Select the device"), tr("Choose the target in the status bar dropdown; to flash several at once, use \"Device → Batch Select…\"."))
+		<< MakeItem::Run(tr("③ Run the operation"), tr("Open the matching page, choose the file or parameters, then click \"Execute\" / \"Upgrade\" / \"Start Flashing\"; progress, speed and ETA show at the bottom, and you can \"Cancel\" anytime."))
+		<< MakeItem::Run(tr("④ Check the result"), tr("The result appears in the page hint area; raw engine output is written to the log file (see \"Help → Log\" for the directory)."))));
 
-	groups.append(MakeGroup::Run(vendorRk, tr("下载镜像"),
-		tr("按分体包目录内的 parameter.txt 分区表逐分区下载。"), QVariantList()
-		<< MakeItem::Run(tr("浏览…"), tr("选择分体包目录，目录内需包含 parameter.txt、各分区镜像与 Loader。"))
-		<< MakeItem::Run(tr("路径列"), tr("双击某一行可手动指定该分区的镜像文件。"))
-		<< MakeItem::Run(tr("勾选框"), tr("勾选要下载的分区；表头勾选框可全选或全不选。"))
-		<< MakeItem::Run(tr("切换"), tr("把 ADB 模式的设备切到 Loader 模式（主机需安装 ADB）。"))
-		<< MakeItem::Run(tr("清空"), tr("清除当前目录与分区选择。"))
-		<< MakeItem::Run(tr("烧录完成后重启设备"), tr("队列结束后自动重启设备。"))
-		<< MakeItem::Run(tr("执行"), tr("按勾选的分区逐个下载镜像。"))));
+	groups.append(MakeGroup::Run(vendorRk, tr("Download Image"),
+		tr("Download partition by partition using parameter.txt in the split package directory."), QVariantList()
+		<< MakeItem::Run(tr("Browse…"), tr("Select the split package directory; it must contain parameter.txt, the per-partition images and the Loader."))
+		<< MakeItem::Run(tr("Path column"), tr("Double-click a row to specify the image file for that partition manually."))
+		<< MakeItem::Run(tr("Checkbox"), tr("Select the partitions to download; the header checkbox selects or clears all."))
+		<< MakeItem::Run(tr("Switch"), tr("Switch an ADB-mode device to Loader mode (ADB must be installed on the host)."))
+		<< MakeItem::Run(tr("Clear"), tr("Clear the current directory and partition selection."))
+		<< MakeItem::Run(tr("Reboot device when done"), tr("Reboot the device after the queue finishes."))
+		<< MakeItem::Run(tr("Execute"), tr("Download each checked partition image in turn."))));
 
-	groups.append(MakeGroup::Run(vendorRk, tr("升级固件"),
-		tr("整包固件升级，界面会解析并显示固件信息。"), QVariantList()
-		<< MakeItem::Run(tr("浏览…"), tr("选择 .img 整包固件。"))
-		<< MakeItem::Run(tr("固件信息"), tr("显示固件版本、Loader 版本、芯片信息、构建时间与签名。"))
-		<< MakeItem::Run(tr("查看固件信息"), tr("重新解析并显示固件信息。"))
-		<< MakeItem::Run(tr("解包固件…"), tr("把固件解包到指定目录。"))
-		<< MakeItem::Run(tr("烧录完成后重启设备"), tr("勾选表示升级完成后自动重启设备。"))
-		<< MakeItem::Run(tr("升级"), tr("整包烧录；不支持按分区过滤。"))));
+	groups.append(MakeGroup::Run(vendorRk, tr("Upgrade Firmware"),
+		tr("Upgrade the full firmware package; the UI parses and shows firmware info."), QVariantList()
+		<< MakeItem::Run(tr("Browse…"), tr("Select a full .img firmware package."))
+		<< MakeItem::Run(tr("Firmware Info"), tr("Show firmware version, Loader version, chip info, build time and signature."))
+		<< MakeItem::Run(tr("View Firmware Info"), tr("Re-parse and show firmware info."))
+		<< MakeItem::Run(tr("Extract Firmware…"), tr("Extract the firmware to a chosen directory."))
+		<< MakeItem::Run(tr("Reboot device when done"), tr("Check to reboot the device automatically after the upgrade."))
+		<< MakeItem::Run(tr("Upgrade"), tr("Flash the whole package; per-partition filtering is not supported."))));
 
-	groups.append(MakeGroup::Run(vendorRk, tr("高级功能"),
-		tr("需要具体参数的设备操作，结果回填到结果表。"), QVariantList()
-		<< MakeItem::Run(tr("读取类按钮"), tr("读取 Flash ID / Flash 信息 / Chip 信息 / Capability / 安全模式 / OTP / 序列号。"))
-		<< MakeItem::Run(tr("测试设备 / 重启设备 / 切换存储 / 切换设备"), tr("对当前设备执行对应操作。"))
-		<< MakeItem::Run(tr("下载 Boot"), tr("配合上方「Boot」文件路径下载 Boot。"))
-		<< MakeItem::Run(tr("擦除所有"), tr("擦除设备 Flash。"))
-		<< MakeItem::Run(tr("导出串口日志"), tr("把当前设备的串口日志保存到文件。"))
-		<< MakeItem::Run(tr("写入序列号"), tr("把「序列号」输入框中的内容写入设备。"))
-		<< MakeItem::Run(tr("LBA / 扇区"), tr("输入起始扇区与扇区数后，可「导出镜像」或「擦除扇区」。"))
-		<< MakeItem::Run(tr("专业操作参数"), tr("写入 LBA / 写入扇区 / 擦除块 / 运行系统 / 重置管道，需填写各自参数。"))));
+	groups.append(MakeGroup::Run(vendorRk, tr("Advanced"),
+		tr("Device operations needing parameters; results fill the result table."), QVariantList()
+		<< MakeItem::Run(tr("Read buttons"), tr("Read Flash ID / Flash info / Chip info / Capability / Secure mode / OTP / serial number."))
+		<< MakeItem::Run(tr("Test Device / Reset Device / Switch Storage / Switch Device"), tr("Run the corresponding operation on the current device."))
+		<< MakeItem::Run(tr("Download Boot"), tr("Download Boot using the \"Boot\" file path above."))
+		<< MakeItem::Run(tr("Erase All"), tr("Erase the device Flash."))
+		<< MakeItem::Run(tr("Export COM Log"), tr("Save the current device's COM log to a file."))
+		<< MakeItem::Run(tr("Write Serial"), tr("Write the contents of the \"Serial\" field to the device."))
+		<< MakeItem::Run(tr("LBA / Sector"), tr("After entering the start sector and count, you can \"Export Image\" or \"Erase Sectors\"."))
+		<< MakeItem::Run(tr("Expert Parameters"), tr("Write LBA / Write Sector / Erase Block / Run System / Reset Pipe; each needs its own parameters."))));
 
-	groups.append(MakeGroup::Run(vendorAw, tr("裸镜像刷写"),
-		tr("把单个镜像写入指定存储介质。"), QVariantList()
-		<< MakeItem::Run(tr("引导固件包"), tr("选择引导固件包（IMAGEWTY .img），用于确定分区布局与引导组件。"))
-		<< MakeItem::Run(tr("待写入镜像"), tr("选择要写入的镜像文件。"))
-		<< MakeItem::Run(tr("存储介质"), tr("选择 SD / eMMC、UFS 或 SPI NOR。"))
-		<< MakeItem::Run(tr("高级选项"), tr("设置写入方式（从扇区 0 写入 / 按逻辑偏移写入）与逻辑偏移（扇区，可留空自动匹配）。"))
-		<< MakeItem::Run(tr("切换"), tr("通过 ADB 把设备切到 FEL；识别到 T3 Buildroot 时自动使用兼容入口，也可手选「备选」。"))
-		<< MakeItem::Run(tr("开始刷写"), tr("把所选镜像写入目标介质。"))));
+	groups.append(MakeGroup::Run(vendorAw, tr("Raw Image Flash"),
+		tr("Write a single image to the chosen storage medium."), QVariantList()
+		<< MakeItem::Run(tr("Boot package"), tr("Select the boot package (IMAGEWTY .img) that determines the partition layout and boot components."))
+		<< MakeItem::Run(tr("Image to write"), tr("Select the image file to write."))
+		<< MakeItem::Run(tr("Storage medium"), tr("Choose SD / eMMC, UFS or SPI NOR."))
+		<< MakeItem::Run(tr("Advanced options"), tr("Set the write method (from sector 0 / at logic offset) and the logic offset (sectors, empty to auto-detect)."))
+		<< MakeItem::Run(tr("Switch"), tr("Switch the device to FEL via ADB; when a T3 Buildroot is detected the compatible entry is used automatically, or choose \"Alternate\" manually."))
+		<< MakeItem::Run(tr("Start Flashing"), tr("Write the selected image to the target medium."))));
 
-	groups.append(MakeGroup::Run(vendorAw, tr("固件刷写"),
-		tr("整包固件刷写，界面会解析并显示固件信息。"), QVariantList()
-		<< MakeItem::Run(tr("固件包"), tr("选择 IMAGEWTY 固件包（.img）。"))
-		<< MakeItem::Run(tr("刷写模式"), tr("按所选分区刷写 / 保留用户数据 / 分区擦除后刷写 / 全盘擦除后刷写。"))
-		<< MakeItem::Run(tr("完成动作"), tr("刷写结束后重启、断电或关机，默认重启。"))
-		<< MakeItem::Run(tr("写入后校验"), tr("勾选后写入完成会校验，校验失败会停止任务。"))
-		<< MakeItem::Run(tr("分区列表"), tr("「按所选分区刷写」时勾选要刷写的分区。"))
-		<< MakeItem::Run(tr("开始刷写"), tr("按设置执行刷写。"))));
+	groups.append(MakeGroup::Run(vendorAw, tr("Flash Firmware"),
+		tr("Flash the full firmware package; the UI parses and shows firmware info."), QVariantList()
+		<< MakeItem::Run(tr("Firmware package"), tr("Select an IMAGEWTY firmware package (.img)."))
+		<< MakeItem::Run(tr("Flash Mode"), tr("Flash selected partitions / Keep user data / Erase partitions then flash / Full erase then flash."))
+		<< MakeItem::Run(tr("After Finish"), tr("Reboot, power off or shut down after flashing; default is reboot."))
+		<< MakeItem::Run(tr("Verify after write"), tr("When checked, the write is verified; a verification failure stops the task."))
+		<< MakeItem::Run(tr("Partition list"), tr("When \"Flash selected partitions\" is chosen, check the partitions to flash."))
+		<< MakeItem::Run(tr("Start Flashing"), tr("Flash according to the settings."))));
 
-	groups.append(MakeGroup::Run(vendorAw, tr("高级功能"),
-		tr("离线查看固件、解包、程序器镜像转换，以及重启设备。"), QVariantList()
-		<< MakeItem::Run(tr("查看分区与嵌入文件"), tr("展开显示固件的分区表与内嵌文件。"))
-		<< MakeItem::Run(tr("解包固件"), tr("选择输出目录并把当前固件解包到该目录。"))
-		<< MakeItem::Run(tr("程序器镜像转换"), tr("设置输出镜像与目标介质（SPI NOR / SD 卡 / eMMC / SD NAND / UFS）。"))
-		<< MakeItem::Run(tr("高级选项"), tr("逻辑偏移、U-Boot 偏移、NOR 容量、GPT 目标容量、安全启动组件。"))
-		<< MakeItem::Run(tr("重新读取信息 / 转换镜像"), tr("重新解析固件信息 / 生成程序器镜像。"))
-		<< MakeItem::Run(tr("重启设备"), tr("让处于 FES 模式的全志设备重启；FEL 模式不支持。"))));
+	groups.append(MakeGroup::Run(vendorAw, tr("Advanced"),
+		tr("View firmware offline, extract, convert programmer images, and reboot the device."), QVariantList()
+		<< MakeItem::Run(tr("View partitions and embedded files"), tr("Expand to show the firmware's partition table and embedded files."))
+		<< MakeItem::Run(tr("Extract Firmware"), tr("Choose an output directory and extract the current firmware into it."))
+		<< MakeItem::Run(tr("Programmer Image Convert"), tr("Set the output image and target medium (SPI NOR / SD card / eMMC / SD NAND / UFS)."))
+		<< MakeItem::Run(tr("Advanced options"), tr("Logic offset, U-Boot offset, NOR capacity, GPT target capacity, secure boot components."))
+		<< MakeItem::Run(tr("Read Info Again / Convert Image"), tr("Re-parse firmware info / generate the programmer image."))
+		<< MakeItem::Run(tr("Reboot Device"), tr("Reboot an Allwinner device in FES mode; FEL mode is not supported."))));
 
-	groups.append(MakeGroup::Run(vendorCommon, tr("配置与设备菜单"),
-		tr("标题栏右侧的下拉菜单。"), QVariantList()
-		<< MakeItem::Run(tr("配置 → 首选项…"), preferencesHelp)
-		<< MakeItem::Run(tr("配置 → 生成 GPT…"), tr("仅瑞芯微：由 parameter.txt 生成 GPT 镜像。"))
-		<< MakeItem::Run(tr("设备 → 设备信息…"), tr("仅全志：查看当前设备信息。"))
-		<< MakeItem::Run(tr("设备 → 刷新"), tr("重新扫描当前连接的设备。"))
-		<< MakeItem::Run(tr("设备 → 批量选择…"), tr("勾选多台设备，按顺序执行同一操作，可勾选「失败继续」。"))));
+	groups.append(MakeGroup::Run(vendorCommon, tr("Config and Device menus"),
+		tr("The dropdown menus on the right of the title bar."), QVariantList()
+		<< MakeItem::Run(tr("Config → Preferences…"), preferencesHelp)
+		<< MakeItem::Run(tr("Config → Generate GPT…"), tr("Rockchip only: generate a GPT image from parameter.txt."))
+		<< MakeItem::Run(tr("Device → Device Info…"), tr("Allwinner only: view current device info."))
+		<< MakeItem::Run(tr("Device → Refresh"), tr("Rescan the currently connected devices."))
+		<< MakeItem::Run(tr("Device → Batch Select…"), tr("Check multiple devices to run the same operation in order; \"Continue on failure\" is available."))));
 
-	groups.append(MakeGroup::Run(vendorCommon, tr("常见问题"), QString(), QVariantList()
-		<< MakeItem::Run(tr("底部一直没有设备"), missingHelp)
-		<< MakeItem::Run(tr("「切换」按钮置灰"), tr("主机未安装 ADB，或未检测到 ADB 设备。"))
-		<< MakeItem::Run(tr("按钮置灰并提示不支持"), tr("提示「当前引擎不支持该功能」，表示该操作暂未实现。"))
-		<< MakeItem::Run(tr("执行中点「取消」"), tr("属于「已取消」而非失败，会停止当前操作与后续队列。"))));
+	groups.append(MakeGroup::Run(vendorCommon, tr("FAQ"), QString(), QVariantList()
+		<< MakeItem::Run(tr("No device ever appears"), missingHelp)
+		<< MakeItem::Run(tr("The \"Switch\" button is grayed out"), tr("ADB is not installed on the host, or no ADB device was detected."))
+		<< MakeItem::Run(tr("Button grayed out with an unsupported notice"), tr("\"The current engine does not support this feature\" means the operation is not implemented yet."))
+		<< MakeItem::Run(tr("Clicking \"Cancel\" during execution"), tr("It counts as \"Cancelled\", not a failure, and stops the current operation and the remaining queue."))));
 
 	return groups;
 }
@@ -459,12 +459,12 @@ QVariantList AppController::standardPlaces() const
 		places.append(map);
 	};
 
-	addPlace(tr("主目录"), QDir::homePath());
-	addPlace(tr("桌面"), QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
-	addPlace(tr("文档"), QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
-	addPlace(tr("下载"), QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));
-	addPlace(tr("图片"), QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
-	addPlace(tr("根目录"), QStringLiteral("/"));
+	addPlace(tr("Home"), QDir::homePath());
+	addPlace(tr("Desktop"), QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+	addPlace(tr("Documents"), QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+	addPlace(tr("Downloads"), QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));
+	addPlace(tr("Pictures"), QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+	addPlace(tr("Root"), QStringLiteral("/"));
 
 	const QString strUser = QDir::home().dirName();
 	QStringList mediaRoots;
@@ -522,7 +522,7 @@ QStringList AppController::deviceLabels() const
 void AppController::SetDeviceStatus()
 {
 	if (m_bBatchMode && !m_batchKeys.isEmpty()) {
-		m_strDeviceStatus = tr("批量: 已选 %1 台 / 当前 %2 台")
+		m_strDeviceStatus = tr("Batch: %1 selected / %2 current")
 		                    .arg(m_batchKeys.size())
 		                    .arg(m_deviceKeys.size());
 		emit devicesChanged();
@@ -545,24 +545,24 @@ void AppController::SetDeviceStatus()
 	for (int i = 0; i < strModes.size(); i++) {
 		int iCount = mapCount[strModes[i]];
 		strParts << (iCount == 1
-		             ? tr("发现 %1 设备").arg(strModes[i])
-		             : tr("发现 %1 台 %2 设备").arg(iCount).arg(strModes[i]));
+		             ? tr("Found %1 device").arg(strModes[i])
+		             : tr("Found %1 %2 device(s)").arg(iCount).arg(strModes[i]));
 	}
 
 	// 没有当前厂商的刷机模式设备时，提示共用的 ADB 状态
 	if (strParts.isEmpty()) {
 		if (!m_bAdbKnown)
-			strParts << tr("检测 ADB 中…");
+			strParts << tr("Detecting ADB…");
 		else if (!m_bAdbAvailable)
-			strParts << tr("未检测到 ADB 环境");
+			strParts << tr("No ADB environment detected");
 		else if (!m_strAdbDevices.isEmpty())
 			strParts << (m_strAdbDevices.size() == 1
-			             ? tr("发现 ADB 设备")
-			             : tr("发现 %1 台 ADB 设备").arg(m_strAdbDevices.size()));
+			             ? tr("ADB device found")
+			             : tr("Found %1 ADB device(s)").arg(m_strAdbDevices.size()));
 	}
 
-	m_strDeviceStatus = strParts.isEmpty() ? tr("未发现设备")
-	                                       : strParts.join(tr("、"));
+	m_strDeviceStatus = strParts.isEmpty() ? tr("No device found")
+	                                       : strParts.join(tr(", "));
 	emit devicesChanged();
 }
 
@@ -626,9 +626,9 @@ void AppController::onLanguageChanged()
 
 	if (!m_bBusy) {
 		if (m_strImageDir.isEmpty())
-			SetImageHint(tr("请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。"), false);
+			SetImageHint(tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."), false);
 		if (m_strFirmware.isEmpty())
-			SetFirmwareHint(tr("请选择固件。"), false);
+			SetFirmwareHint(tr("Select firmware."), false);
 	}
 
 	emit imageStateChanged();
@@ -761,7 +761,7 @@ void AppController::cancel()
 	m_bCancelRequested = true;
 	m_job.cancelled->store(true);
 	m_pObserver->CancelSelection();
-	AppendLog(tr("正在取消…"), false);
+	AppendLog(tr("Cancelling…"), false);
 	emit requestAbort();
 }
 
@@ -786,7 +786,7 @@ void AppController::StartJob(core::TaskJob job)
 		QVariantList targets;
 		if (m_bBatchMode) targets = BatchTargets();
 		else if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_devices.size()) targets.append(m_devices[m_iDeviceIndex]);
-		if (targets.isEmpty()) { emit toastRequested(tr("请先选择设备"), true); return; }
+		if (targets.isEmpty()) { emit toastRequested(tr("Select a device first"), true); return; }
 		for (const auto &value : targets) {
 			QVariantMap map = value.toMap();
 			core::DeviceIdentity identity;
@@ -804,7 +804,7 @@ void AppController::StartJob(core::TaskJob job)
 	m_bCancelRequested = false;
 	m_pObserver->BeginSelectionSession();
 	SetBusy(true); ResetProgress();
-	AppendLog(tr("开始：%1").arg(OperationName(m_runningOperation)), false);
+	AppendLog(tr("Start: %1").arg(OperationName(m_runningOperation)), false);
 	emit requestExecute(m_job);
 }
 
@@ -839,7 +839,7 @@ void AppController::runOperation(int operation, const QVariantMap &parameters)
 	// Keep existing loader fallback, resolved before submitting a business request.
 	if (r.file.path.empty() && (r.operation == core::Operation::EraseFlash || r.operation == core::Operation::DownloadBoot || r.operation == core::Operation::LoaderUpgrade))
 		GetConfigString("loader", r.file.path);
-	if (!valid) { SetAdvancedHint(tr("数值参数无效或超出范围"), true); emit toastRequested(tr("数值参数无效或超出范围"), true); return; }
+	if (!valid) { SetAdvancedHint(tr("Numeric parameter invalid or out of range"), true); emit toastRequested(tr("Numeric parameter invalid or out of range"), true); return; }
 	core::TaskJob job; job.steps.push_back(r); StartJob(job);
 }
 
@@ -861,7 +861,7 @@ void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnErr
 
 		emit batchModeChanged();
 		SetDeviceStatus();
-		emit toastRequested(tr("批量模式：已选 %1 台").arg(strAlive.size()), false);
+		emit toastRequested(tr("Batch mode: %1 selected").arg(strAlive.size()), false);
 		return;
 	}
 
@@ -874,9 +874,9 @@ void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnErr
 
 		}
 		SetDeviceStatus();
-		emit toastRequested(tr("已选择单台设备"), false);
+		emit toastRequested(tr("Single device selected"), false);
 	} else {
-		emit toastRequested(tr("未选择设备"), false);
+		emit toastRequested(tr("No device selected"), false);
 	}
 }
 
@@ -896,12 +896,12 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 	const bool cancelled = summary.status == core::OperationStatus::Cancelled;
 	const bool ok = summary.status == core::OperationStatus::Succeeded;
 	SetBusy(false);
-	QString text = cancelled ? tr("已取消") : ok ? tr("操作完成") : tr("操作失败，详见日志");
+	QString text = cancelled ? tr("Cancelled") : ok ? tr("Operation complete") : tr("Operation failed; see the log");
 	AppendLog(text, !ok && !cancelled);
 	if (m_bQueueActive) {
 		m_bQueueActive = false;
-		SetImageHint(cancelled ? tr("已取消。") : ok ?
-			(m_job.rebootAfter ? tr("下载完成，已发送重启指令。") : tr("下载完成。")) : tr("下载结束，存在失败。失败设备未自动重启。"), !ok && !cancelled);
+		SetImageHint(cancelled ? tr("Cancelled.") : ok ?
+			(m_job.rebootAfter ? tr("Download complete; reboot command sent.") : tr("Download complete.")) : tr("Download finished with failures. Failed devices were not rebooted automatically."), !ok && !cancelled);
 		emit imageStateChanged();
 	} else if (cancelled) {
 		if (m_runningOperation == core::Operation::FirmwareUpgrade || m_runningOperation == core::Operation::FirmwareExtract || m_runningOperation == core::Operation::FirmwareInfo)
@@ -909,8 +909,8 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 		else SetAdvancedHint(text, false);
 	}
 	if (m_job.targets.size() > 1) {
-		QString batch = tr("批量结束：成功 %1 台，失败 %2 台").arg(summary.succeeded).arg(summary.failed);
-		if (cancelled) batch += tr("，已取消后续操作");
+		QString batch = tr("Batch finished: %1 succeeded, %2 failed").arg(summary.succeeded).arg(summary.failed);
+		if (cancelled) batch += tr(", remaining operations cancelled");
 		AppendLog(batch, summary.failed > 0);
 		if (m_runningOperation == core::Operation::FirmwareUpgrade) SetFirmwareHint(batch, !ok && !cancelled);
 		else if (m_runningOperation != core::Operation::LoaderUpgrade && m_runningOperation != core::Operation::DownloadImage) SetAdvancedHint(batch, !ok && !cancelled);
@@ -918,10 +918,10 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
     if(m_runningOperation >= core::Operation::AllwinnerFlash && m_runningOperation < core::Operation::Count) {
         auto &state = m_allwinner[m_allwinnerContext];
         state.error = !ok && !cancelled;
-        if(cancelled) state.hint=tr("已取消");
+        if(cancelled) state.hint=tr("Cancelled");
         if(m_job.targets.size()>1) {
-            state.hint=tr("批量结束：成功 %1 台，失败 %2 台").arg(summary.succeeded).arg(summary.failed);
-            if(cancelled) state.hint += tr("，已取消后续操作");
+            state.hint=tr("Batch finished: %1 succeeded, %2 failed").arg(summary.succeeded).arg(summary.failed);
+            if(cancelled) state.hint += tr(", remaining operations cancelled");
         }
         emit allwinnerChanged();
     }
@@ -936,8 +936,8 @@ void AppController::onStepStarted(int step, int target, int total, const QString
 	if (step < static_cast<int>(m_job.steps.size())) {
 		const auto &request = m_job.steps[step];
 		QString label = request.partition.empty() ? OperationName(request.operation) : QString::fromStdString(request.partition);
-		QString text = tr("正在执行 %1/%2：%3").arg(step + 1).arg(m_job.steps.size()).arg(label);
-		if (total > 1) text += tr("，设备 %1/%2 %3").arg(target + 1).arg(total).arg(device);
+		QString text = tr("Running %1/%2: %3").arg(step + 1).arg(m_job.steps.size()).arg(label);
+		if (total > 1) text += tr(", device %1/%2 %3").arg(target + 1).arg(total).arg(device);
 		if (m_bQueueActive) SetImageHint(text, false);
 		AppendLog(text, false);
 	}
@@ -980,7 +980,7 @@ void AppController::onProgress(const QString &strPrompt, long long llTotal,
 			strText += tr("  %1/s").arg(FormatRate(dRate));
 			m_strProgressSpeed = tr("%1/s").arg(FormatRate(dRate));
 			if (dRate > 0.0 && llCurrent < llTotal) {
-				QString strEta = tr("  剩余 %1").arg(FormatEta((llTotal - llCurrent) / dRate));
+				QString strEta = tr("  remaining %1").arg(FormatEta((llTotal - llCurrent) / dRate));
 				strText += strEta;
 				m_strProgressSpeed += strEta;
 			}
@@ -1022,8 +1022,8 @@ void AppController::ApplyAllwinnerInspectResult(int context, const core::Operati
     }
     state.summary->SetItems(items);
     state.error = !result.ok() && result.status != core::OperationStatus::Cancelled;
-    state.hint = result.ok() ? OperationName(result.operation) + tr("完成") : QString::fromStdString(result.diagnostic);
-    if(result.status==core::OperationStatus::Cancelled) state.hint=tr("已取消");
+    state.hint = result.ok() ? OperationName(result.operation) + tr("done") : QString::fromStdString(result.diagnostic);
+    if(result.status==core::OperationStatus::Cancelled) state.hint=tr("Cancelled");
     emit allwinnerChanged();
 }
 
@@ -1036,8 +1036,8 @@ void AppController::onOperationResult(const core::OperationResult &result)
         for(const auto &row:result.items) items.append(QVariantMap{{"label",QString::fromStdString(row.label)},{"value",QString::fromStdString(row.value)}});
         state.results->SetItems(items);
         state.error = !result.ok() && result.status != core::OperationStatus::Cancelled;
-        state.hint = result.ok() ? OperationName(result.operation) + tr("完成") : QString::fromStdString(result.diagnostic);
-        if(result.status==core::OperationStatus::Cancelled) state.hint=tr("已取消");
+        state.hint = result.ok() ? OperationName(result.operation) + tr("done") : QString::fromStdString(result.diagnostic);
+        if(result.status==core::OperationStatus::Cancelled) state.hint=tr("Cancelled");
         emit allwinnerChanged(); return;
     }
 	bool bOk = result.ok();
@@ -1045,42 +1045,42 @@ void AppController::onOperationResult(const core::OperationResult &result)
 	QVariantList items;
 	for (const auto &row : result.items) { QVariantMap item; item["label"] = QString::fromStdString(row.label); item["value"] = QString::fromStdString(row.value); items.append(item); }
 	if (id == core::Operation::FirmwareInfo) {
-		for (const auto &entry : result.firmware.entries) { QVariantMap item; item["label"] = QString::fromStdString(entry.partName); item["value"] = tr("%1，大小 %2，LBA 0x%3").arg(QString::fromStdString(entry.fileName)).arg(entry.size).arg(entry.lba, 0, 16); items.append(item); }
+		for (const auto &entry : result.firmware.entries) { QVariantMap item; item["label"] = QString::fromStdString(entry.partName); item["value"] = tr("%1, size %2, LBA 0x%3").arg(QString::fromStdString(entry.fileName)).arg(entry.size).arg(entry.lba, 0, 16); items.append(item); }
 	}
 
 	if (id == core::Operation::DownloadImage || id == core::Operation::LoaderUpgrade) {
 		if (!bOk && !m_bCancelRequested) {
 			QString strReason = ErrorText(result.error);
-			SetImageHint(strReason.isEmpty() ? tr("下载失败，详见日志。")
-			                                 : tr("下载失败：%1").arg(strReason), true);
+			SetImageHint(strReason.isEmpty() ? tr("Download failed; see the log.")
+			                                 : tr("Download failed: %1").arg(strReason), true);
 		}
 
 		return;
 	}
 
 	if (id == core::Operation::ResetDevice) {
-		SetImageHint(bOk ? tr("已发送重启指令。") : tr("重启设备失败。"), !bOk);
+		SetImageHint(bOk ? tr("Reboot command sent.") : tr("Reset device failed."), !bOk);
 		m_pResults->SetItems(items);
-		SetAdvancedHint(bOk ? tr("重启设备成功") : tr("重启设备失败"), !bOk);
+		SetAdvancedHint(bOk ? tr("Reset device succeeded") : tr("Reset device failed"), !bOk);
 
 		return;
 	}
 
 	if (id == core::Operation::FirmwareUpgrade) {
 		if (bOk)
-			SetFirmwareHint(m_bFirmwareReboot ? tr("升级成功，设备已重启。")
-			                                  : tr("升级成功，设备未重启。"), false);
+			SetFirmwareHint(m_bFirmwareReboot ? tr("Upgrade succeeded; device rebooted.")
+			                                  : tr("Upgrade succeeded; device not rebooted."), false);
 		else if (!m_bCancelRequested) {
 			QString strReason = ErrorText(result.error);
-			SetFirmwareHint(strReason.isEmpty() ? tr("升级失败，详见日志。")
-			                                    : tr("升级失败：%1").arg(strReason), true);
+			SetFirmwareHint(strReason.isEmpty() ? tr("Upgrade failed; see the log.")
+			                                    : tr("Upgrade failed: %1").arg(strReason), true);
 		}
 
 		return;
 	}
 
 	if (id == core::Operation::FirmwareExtract) {
-		SetFirmwareHint(bOk ? tr("解包成功。") : tr("解包失败。"), !bOk);
+		SetFirmwareHint(bOk ? tr("Extraction succeeded.") : tr("Extraction failed."), !bOk);
 
 		return;
 	}
@@ -1088,7 +1088,7 @@ void AppController::onOperationResult(const core::OperationResult &result)
 	if (id == core::Operation::FirmwareInfo) {
 		m_pFirmwareEntries->Clear();
 		if (!bOk) {
-			SetFirmwareHint(tr("读取固件信息失败。"), true);
+			SetFirmwareHint(tr("Failed to read firmware info."), true);
 
 			return;
 		}
@@ -1098,7 +1098,7 @@ void AppController::onOperationResult(const core::OperationResult &result)
 		m_strFwLoader = QString::fromStdString(result.firmware.loaderVersion);
 		m_strFwBuild = QString::fromStdString(result.firmware.buildTime);
 		m_strFwSign = QString::fromStdString(result.firmware.sign);
-		SetFirmwareHint(tr("固件信息读取成功。"), false);
+		SetFirmwareHint(tr("Firmware info read successfully."), false);
 		emit firmwareStateChanged();
 
 		return;
@@ -1107,11 +1107,11 @@ void AppController::onOperationResult(const core::OperationResult &result)
 	m_pResults->SetItems(items);
 	QString strName = OperationName(id);
 	if (!bOk)
-		SetAdvancedHint(tr("%1 失败：%2").arg(strName, ErrorText(result.error)), true);
+		SetAdvancedHint(tr("%1 failed: %2").arg(strName, ErrorText(result.error)), true);
 	else if (items.isEmpty())
-		SetAdvancedHint(tr("%1 成功").arg(strName), false);
+		SetAdvancedHint(tr("%1 succeeded").arg(strName), false);
 	else
-		SetAdvancedHint(tr("%1 读取成功").arg(strName), false);
+		SetAdvancedHint(tr("%1 read successfully").arg(strName), false);
 
 }
 
@@ -1123,14 +1123,14 @@ void AppController::setImageDir(const QString &strDir)
 	m_pImageEntries->Clear();
 
 	if (m_strImageDir.isEmpty()) {
-		SetImageHint(tr("请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。"), false);
+		SetImageHint(tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."), false);
 		emit imageStateChanged();
 		return;
 	}
 
 	QList<FirmwareEntry> entries;
 	if (!ParseImageFolder(m_strImageDir, entries)) {
-		SetImageHint(tr("未找到 parameter.txt 或解析失败：%1").arg(m_strImageDir), true);
+		SetImageHint(tr("parameter.txt not found or failed to parse: %1").arg(m_strImageDir), true);
 		emit imageStateChanged();
 		return;
 	}
@@ -1153,7 +1153,7 @@ void AppController::setImageDir(const QString &strDir)
 	}
 	m_pImageEntries->SetRows(rows);
 
-	SetImageHint(tr("已从 %1 解析 %2 个条目，勾选后点「执行」逐条下载。")
+	SetImageHint(tr("Parsed %2 entries from %1; check them and click \"Execute\" to download one by one.")
 	             .arg(m_strImageDir).arg(entries.size()), false);
 	emit imageStateChanged();
 }
@@ -1162,7 +1162,7 @@ void AppController::clearImage()
 {
 	if (m_bBusy) return;
 	m_pImageEntries->Clear();
-	SetImageHint(tr("已清空。"), false);
+	SetImageHint(tr("Cleared."), false);
 	emit imageStateChanged();
 }
 
@@ -1177,7 +1177,7 @@ void AppController::executeImageDownload(bool reboot)
 		request.file.path = row.path.toStdString(); request.partition = row.name.toStdString();
 		job.steps.push_back(request);
 	}
-	if (job.steps.empty()) { SetImageHint(tr("请先勾选条目并指定镜像文件。"), true); return; }
+	if (job.steps.empty()) { SetImageHint(tr("Check entries and specify image files first."), true); return; }
 	job.rebootAfter = reboot;
 	StartJob(job);
 	if (m_bBusy) { m_bQueueActive = true; emit imageStateChanged(); }
@@ -1198,14 +1198,14 @@ void AppController::setFirmware(const QString &strPath)
 	emit firmwareStateChanged();
 
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("请选择固件。"), false);
+		SetFirmwareHint(tr("Select firmware."), false);
 		return;
 	}
 
 	QList<FirmwareEntry> entries;
 	FirmwareMeta meta;
 	if (!ParseFirmware(m_strFirmware, entries, meta)) {
-		SetFirmwareHint(tr("固件无效。"), true);
+		SetFirmwareHint(tr("Invalid firmware."), true);
 		return;
 	}
 
@@ -1215,7 +1215,7 @@ void AppController::setFirmware(const QString &strPath)
 	m_strFwBuild = meta.buildTime;
 	m_strFwSign = meta.sign;
 	m_bFirmwareValid = true;
-	SetFirmwareHint(tr("固件已加载，共 %1 个分区。").arg(entries.size()), false);
+	SetFirmwareHint(tr("Firmware loaded with %1 partitions.").arg(entries.size()), false);
 	emit firmwareStateChanged();
 }
 
@@ -1228,36 +1228,36 @@ void AppController::executeFirmwareUpgrade(bool bReboot)
 {
 	if (m_bBusy) return;
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("请先选择固件"), true);
+		SetFirmwareHint(tr("Select firmware first"), true);
 		return;
 	}
 	m_bFirmwareReboot = bReboot;
 
-	SetFirmwareHint(tr("正在升级固件…"), false);
+	SetFirmwareHint(tr("Upgrading firmware…"), false);
 	runOperation(static_cast<int>(core::Operation::FirmwareUpgrade), {{"path", m_strFirmware}, {"reboot", bReboot}});
 }
 
 void AppController::extractFirmware(const QString &strDir)
 {
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("请先选择固件"), true);
+		SetFirmwareHint(tr("Select firmware first"), true);
 		return;
 	}
 	if (strDir.trimmed().isEmpty())
 		return;
 
-	SetFirmwareHint(tr("正在解包固件…"), false);
+	SetFirmwareHint(tr("Extracting firmware…"), false);
 	runOperation(static_cast<int>(core::Operation::FirmwareExtract), {{"path", m_strFirmware}, {"output", strDir.trimmed()}});
 }
 
 void AppController::showFirmwareInfo()
 {
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("请先选择固件"), true);
+		SetFirmwareHint(tr("Select firmware first"), true);
 		return;
 	}
 
-	SetFirmwareHint(tr("正在读取固件信息…"), false);
+	SetFirmwareHint(tr("Reading firmware info…"), false);
 	runOperation(static_cast<int>(core::Operation::FirmwareInfo), {{"path", m_strFirmware}});
 }
 
@@ -1267,16 +1267,16 @@ void AppController::switchToLoader()
 	if (m_bBusy || m_bSwitching)
 		return;
 	if (!adbReady()) {
-		emit toastRequested(tr("未检测到 ADB 设备，无法切换。"), true);
+		emit toastRequested(tr("No ADB device detected; cannot switch."), true);
 		return;
 	}
 	m_bSwitching = true;
 	m_switchingFel = false;
 	emit switchingChanged();
 	SetBusy(true);
-	SetAdvancedHint(tr("正在将设备切换到 Loader 模式…"), false);
-	SetImageHint(tr("正在将设备切换到 Loader 模式…"), false);
-	SetFirmwareHint(tr("正在将设备切换到 Loader 模式…"), false);
+	SetAdvancedHint(tr("Switching device to Loader mode…"), false);
+	SetImageHint(tr("Switching device to Loader mode…"), false);
+	SetFirmwareHint(tr("Switching device to Loader mode…"), false);
 	m_pAdb->SwitchToLoader();
 }
 
@@ -1284,13 +1284,13 @@ void AppController::switchToFel(int mode)
 {
 	if (m_vendor != 1 || m_bBusy || m_bSwitching) return;
 	if (mode < 0 || mode > 1 || !adbReady()) {
-		emit toastRequested(tr("未检测到 ADB 设备或切换方式无效。"), true);
+		emit toastRequested(tr("No ADB device detected or the switch method is invalid."), true);
 		return;
 	}
 	m_bSwitching = true;
 	m_switchingFel = true;
 	emit switchingChanged();
-	m_felSwitchHint = tr("准备将 ADB 设备切换到 FEL 模式…");
+	m_felSwitchHint = tr("Preparing to switch ADB device to FEL mode…");
 	m_felSwitchError = false;
 	emit felSwitchStateChanged();
 	SetBusy(true);
@@ -1367,7 +1367,7 @@ void AppController::exportImage(const QString &strBegin, const QString &strCount
 {
 	if (strBegin.trimmed().isEmpty() || strCount.trimmed().isEmpty() ||
 	    strFile.trimmed().isEmpty()) {
-		SetAdvancedHint(tr("请输入起始扇区、扇区数并选择导出文件"), true);
+		SetAdvancedHint(tr("Enter the start sector and count and choose an export file"), true);
 		return;
 	}
 
@@ -1377,7 +1377,7 @@ void AppController::exportImage(const QString &strBegin, const QString &strCount
 void AppController::createGpt(const QString &strInput, const QString &strOutput)
 {
 	if (strInput.trimmed().isEmpty() || strOutput.trimmed().isEmpty()) {
-		emit toastRequested(tr("请填写输入 parameter 与输出 GPT"), true);
+		emit toastRequested(tr("Enter the input parameter and output GPT"), true);
 		return;
 	}
 
@@ -1518,18 +1518,18 @@ void AppController::runAllwinner(int operation,const QVariantMap &p)
     default: break;
     }
     if(r.operation!=core::Operation::AllwinnerDeviceInfo && r.operation!=core::Operation::AllwinnerReboot && r.file.path.empty()) valid=false;
-    if(!valid) { state.error=true; state.hint=tr("请检查当前操作的文件路径与参数，数值须在有效范围内"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return; }
+    if(!valid) { state.error=true; state.hint=tr("Check the file paths and parameters for this operation; numbers must be in range"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return; }
     if(!core::IsLocalOperation(r.operation) && !hasDevice()) {
-        state.error=true; state.hint=tr("请先连接并选择全志设备"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return;
+        state.error=true; state.hint=tr("Connect and select an Allwinner device first"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return;
     }
     m_allwinnerContext=context;
     if(r.operation==core::Operation::AllwinnerInspect) state.inspected=true;
-    state.error=false; state.hint=tr("正在执行：%1").arg(OperationName(r.operation));
+    state.error=false; state.hint=tr("Running: %1").arg(OperationName(r.operation));
     if(r.operation!=core::Operation::AllwinnerInspect) state.results->Clear();
     emit allwinnerChanged();
     core::TaskJob job; job.steps.push_back(r); StartJob(job);
     if(!m_bBusy) {
-        state.error=true; state.hint=tr("请先选择在线的全志设备"); emit allwinnerChanged();
+        state.error=true; state.hint=tr("Select an online Allwinner device first"); emit allwinnerChanged();
     }
 }
 

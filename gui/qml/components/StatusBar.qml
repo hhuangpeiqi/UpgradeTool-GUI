@@ -83,7 +83,7 @@ EdgeRoundedRect {
         }
 
         SecondaryButton {
-            text: qsTr("取消")
+            text: qsTr("Cancel")
             enabled: root.busy
             implicitHeight: 34
             hPadding: 16
@@ -99,7 +99,7 @@ EdgeRoundedRect {
         }
 
         SecondaryButton {
-            text: qsTr("刷新")
+            text: qsTr("Refresh")
             iconSource: Icons.refreshBlue
             implicitHeight: 34
             hPadding: 16

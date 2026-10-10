@@ -209,24 +209,24 @@ ApplicationWindow {
 
     AppMenu {
         id: configMenu
-        AppMenuItem { text: qsTr("首选项…"); onTriggered: settingsDialog.openDialog() }
-        AppMenuItem { text: qsTr("生成 GPT…"); visible: app.vendor === 0; onTriggered: gptDialog.open() }
+        AppMenuItem { text: qsTr("Preferences…"); onTriggered: settingsDialog.openDialog() }
+        AppMenuItem { text: qsTr("Generate GPT…"); visible: app.vendor === 0; onTriggered: gptDialog.open() }
     }
 
     AppMenu {
         id: deviceMenu
         AppMenuItem {
-            text: qsTr("设备信息…")
+            text: qsTr("Device Info…")
             visible: app.vendor === 1
             enabled: !app.busy && app.hasDevice
             onTriggered: allwinnerDeviceDialog.open()
         }
         AppMenuItem {
-            text: qsTr("刷新")
+            text: qsTr("Refresh")
             onTriggered: app.refresh()
         }
         AppMenuItem {
-            text: qsTr("批量选择…")
+            text: qsTr("Batch Select…")
             enabled: app.devices.length > 0
             onTriggered: batchDialog.openDialog()
         }
@@ -234,12 +234,12 @@ ApplicationWindow {
 
     AppMenu {
         id: helpMenu
-        AppMenuItem { text: qsTr("用法"); onTriggered: usageDialog.open() }
+        AppMenuItem { text: qsTr("Usage"); onTriggered: usageDialog.open() }
         AppMenuItem {
-            text: qsTr("日志")
-            onTriggered: toast.show(qsTr("日志目录：%1").arg(app.logDir()), false)
+            text: qsTr("Log")
+            onTriggered: toast.show(qsTr("Log directory: %1").arg(app.logDir()), false)
         }
-        AppMenuItem { text: qsTr("关于"); onTriggered: aboutDialog.open() }
+        AppMenuItem { text: qsTr("About"); onTriggered: aboutDialog.open() }
     }
 
     AllwinnerDeviceDialog { id: allwinnerDeviceDialog }

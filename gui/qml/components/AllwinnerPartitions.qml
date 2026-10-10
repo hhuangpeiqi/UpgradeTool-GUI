@@ -9,10 +9,10 @@ ColumnLayout {
     property bool selectable: false
     signal selectionChanged(var names)
     spacing: 8
-    Text { text: qsTr("固件分区"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
+    Text { text: qsTr("Firmware partitions"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
     Text {
         visible: root.partitions.length === 0
-        text: qsTr("选择固件后显示分区；部分引导包不包含分区表。")
+        text: qsTr("Partitions appear after selecting firmware; some boot packages have no partition table.")
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
         color: Theme.textSecondary
@@ -48,7 +48,7 @@ ColumnLayout {
             }
             Text {
                 Layout.fillWidth: true
-                text: qsTr("扇区 %1 · 长度 %2").arg(modelData.begin).arg(modelData.count)
+                text: qsTr("Sector %1 · Length %2").arg(modelData.begin).arg(modelData.count)
                 color: Theme.textSecondary
                 horizontalAlignment: Text.AlignRight
                 wrapMode: Text.WordWrap

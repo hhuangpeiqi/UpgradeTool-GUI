@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("批量选择设备")
+    titleText: qsTr("Batch Select Devices")
     width: 480
 
     property var checkedKeys: []
@@ -18,7 +18,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("勾选要依次执行同一操作的设备:")
+        text: qsTr("Check the devices to run the same operation on, in order:")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -67,7 +67,7 @@ AppDialog {
 
     AppCheckBox {
         id: continueBox
-        text: qsTr("失败继续")
+        text: qsTr("Continue on failure")
         checked: true
     }
 
@@ -78,12 +78,12 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
-            text: qsTr("取消")
+            text: qsTr("Cancel")
             onClicked: dlg.close()
         }
 
         PrimaryButton {
-            text: qsTr("确定")
+            text: qsTr("OK")
             onClicked: {
                 app.setBatchTargets(dlg.checkedKeys, continueBox.checked);
                 dlg.close();

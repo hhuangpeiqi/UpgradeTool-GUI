@@ -7,24 +7,24 @@ Item {
     id: page
 
     readonly property var simpleOperations: [
-        { label: qsTr("读取FlashID"), operation: Operations.ReadFlashId },
-        { label: qsTr("读取Flash信息"), operation: Operations.ReadFlashInfo },
-        { label: qsTr("读取Chip信息"), operation: Operations.ReadChipInfo },
-        { label: qsTr("读取Capability"), operation: Operations.ReadCapability },
-        { label: qsTr("测试设备"), operation: Operations.TestDevice },
-        { label: qsTr("重启设备"), operation: Operations.ResetDevice },
-        { label: qsTr("切换存储"), operation: Operations.SwitchStorage },
-        { label: qsTr("检测安全模式"), operation: Operations.ReadSecureMode },
-        { label: qsTr("读取OTP"), operation: Operations.ReadOtpChip },
-        { label: qsTr("切换设备"), operation: Operations.SwitchDevice },
-        { label: qsTr("读取序列号"), operation: Operations.ReadSn }
+        { label: qsTr("Read Flash ID"), operation: Operations.ReadFlashId },
+        { label: qsTr("Read Flash Info"), operation: Operations.ReadFlashInfo },
+        { label: qsTr("Read Chip Info"), operation: Operations.ReadChipInfo },
+        { label: qsTr("Read Capability"), operation: Operations.ReadCapability },
+        { label: qsTr("Test Device"), operation: Operations.TestDevice },
+        { label: qsTr("Reset Device"), operation: Operations.ResetDevice },
+        { label: qsTr("Switch Storage"), operation: Operations.SwitchStorage },
+        { label: qsTr("Read Secure Mode"), operation: Operations.ReadSecureMode },
+        { label: qsTr("Read OTP"), operation: Operations.ReadOtpChip },
+        { label: qsTr("Switch Device"), operation: Operations.SwitchDevice },
+        { label: qsTr("Read Serial"), operation: Operations.ReadSn }
     ]
 
     readonly property var unsupportedOperations: [
-        qsTr("进入Maskrom"),
-        qsTr("清空序列号"),
-        qsTr("获取当前存储"),
-        qsTr("切换USB3")
+        qsTr("Enter Maskrom"),
+        qsTr("Clear Serial"),
+        qsTr("Get Current Storage"),
+        qsTr("Switch USB3")
     ]
 
     readonly property bool canRun: !app.busy && app.hasDevice
@@ -44,7 +44,7 @@ Item {
                 spacing: 14
 
                 SectionTitle {
-                    text: qsTr("高级功能")
+                    text: qsTr("Advanced")
                     Layout.fillWidth: true
                 }
 
@@ -64,12 +64,12 @@ Item {
                     rowSpacing: 10
 
                     Text { text: qsTr("Boot:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
-                    AppTextField { id: bootField; Layout.fillWidth: true; placeholderText: qsTr("Loader / boot 文件路径") }
-                    SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
+                    AppTextField { id: bootField; Layout.fillWidth: true; placeholderText: qsTr("Loader / boot file path") }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
 
-                    Text { text: qsTr("固件:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
-                    AppTextField { id: fwField; Layout.fillWidth: true; placeholderText: qsTr("固件文件路径") }
-                    SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
+                    Text { text: qsTr("Firmware:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
+                    AppTextField { id: fwField; Layout.fillWidth: true; placeholderText: qsTr("Firmware file path") }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
                 }
 
                 RowLayout {
@@ -77,17 +77,17 @@ Item {
                     spacing: 12
 
                     SecondaryButton {
-                        text: qsTr("下载 Boot")
+                        text: qsTr("Download Boot")
                         enabled: page.canRun && bootField.text !== ""
                         onClicked: app.runOperation(Operations.DownloadBoot, {path: bootField.text})
                     }
                     SecondaryButton {
-                        text: qsTr("解包固件")
+                        text: qsTr("Extract Firmware")
                         enabled: !app.busy && fwField.text !== ""
                         onClicked: { folderPicker.pending = "extract"; folderPicker.open(); }
                     }
                     SecondaryButton {
-                        text: qsTr("擦除所有")
+                        text: qsTr("Erase All")
                         enabled: page.canRun
                         onClicked: app.runOperation(Operations.EraseFlash, {path: bootField.text})
                     }
@@ -116,7 +116,7 @@ Item {
                             enabled: false
                             hoverEnabled: true
                             ToolTip.visible: hovered
-                            ToolTip.text: qsTr("当前引擎不支持该功能")
+                            ToolTip.text: qsTr("The current engine does not support this feature")
                         }
                     }
                 }
@@ -126,7 +126,7 @@ Item {
                     spacing: 12
 
                     SecondaryButton {
-                        text: qsTr("导出串口日志")
+                        text: qsTr("Export COM Log")
                         enabled: page.canRun
                         onClicked: { savePicker.pending = "comlog"; savePicker.open(); }
                     }
@@ -136,10 +136,10 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    Text { text: qsTr("序列号:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                    AppTextField { id: snField; Layout.preferredWidth: 280; placeholderText: qsTr("要写入的序列号") }
+                    Text { text: qsTr("Serial:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                    AppTextField { id: snField; Layout.preferredWidth: 280; placeholderText: qsTr("Serial number to write") }
                     SecondaryButton {
-                        text: qsTr("写入序列号")
+                        text: qsTr("Write Serial")
                         enabled: page.canRun && snField.text.trim() !== ""
                         onClicked: app.runOperation(Operations.WriteSn, {serial: snField.text.trim()})
                     }
@@ -161,7 +161,7 @@ Item {
                         spacing: 12
 
                         Text {
-                            text: qsTr("LBA / 扇区")
+                            text: qsTr("LBA / Sector")
                             color: Theme.textPrimary
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontMedium
@@ -171,9 +171,9 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
-                            Text { text: qsTr("起始扇区"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                            Text { text: qsTr("Start sector"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                             AppTextField { id: beginField; Layout.preferredWidth: 140 }
-                            Text { text: qsTr("扇区数"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                            Text { text: qsTr("Sector count"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
                             AppTextField { id: countField; Layout.preferredWidth: 140 }
                             Item { Layout.fillWidth: true }
                         }
@@ -182,12 +182,12 @@ Item {
                             Layout.fillWidth: true
                             spacing: 12
                             SecondaryButton {
-                                text: qsTr("导出镜像")
+                                text: qsTr("Export Image")
                                 enabled: page.canRun && beginField.text !== "" && countField.text !== ""
                                 onClicked: { savePicker.pending = "export"; savePicker.open(); }
                             }
                             SecondaryButton {
-                                text: qsTr("擦除扇区")
+                                text: qsTr("Erase Sectors")
                                 enabled: page.canRun && beginField.text !== "" && countField.text !== ""
                                 onClicked: app.runOperation(Operations.EraseLba, {begin: beginField.text, count: countField.text})
                             }
@@ -217,7 +217,7 @@ Item {
                         spacing: 14
 
                         Text {
-                            text: qsTr("专业操作参数")
+                            text: qsTr("Expert Parameters")
                             color: Theme.textPrimary
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontMedium
@@ -227,12 +227,12 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
-                            Text { text: qsTr("写入 LBA"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
-                            AppTextField { id: wlBegin; Layout.preferredWidth: 140; placeholderText: qsTr("起始扇区") }
-                            AppTextField { id: wlFile; Layout.fillWidth: true; placeholderText: qsTr("文件") }
-                            SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
+                            Text { text: qsTr("Write LBA"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
+                            AppTextField { id: wlBegin; Layout.preferredWidth: 140; placeholderText: qsTr("Start sector") }
+                            AppTextField { id: wlFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
                             SecondaryButton {
-                                text: qsTr("执行")
+                                text: qsTr("Execute")
                                 enabled: page.canRun && wlBegin.text !== "" && wlFile.text !== ""
                                 onClicked: app.runOperation(Operations.WriteLba, {begin: wlBegin.text, path: wlFile.text})
                             }
@@ -241,14 +241,14 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
-                            Text { text: qsTr("写入扇区"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
-                            AppTextField { id: wsBegin; Layout.preferredWidth: 110; placeholderText: qsTr("起始扇区") }
-                            AppTextField { id: wsPage; Layout.preferredWidth: 100; placeholderText: qsTr("页KB") }
+                            Text { text: qsTr("Write Sector"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
+                            AppTextField { id: wsBegin; Layout.preferredWidth: 110; placeholderText: qsTr("Start sector") }
+                            AppTextField { id: wsPage; Layout.preferredWidth: 100; placeholderText: qsTr("Page KB") }
                             AppTextField { id: wsSpare; Layout.preferredWidth: 100; placeholderText: qsTr("spare") }
-                            AppTextField { id: wsFile; Layout.fillWidth: true; placeholderText: qsTr("文件") }
-                            SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
+                            AppTextField { id: wsFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
                             SecondaryButton {
-                                text: qsTr("执行")
+                                text: qsTr("Execute")
                                 enabled: page.canRun && wsBegin.text !== "" && wsPage.text !== "" && wsSpare.text !== "" && wsFile.text !== ""
                                 onClicked: app.runOperation(Operations.WriteSector, {begin: wsBegin.text, pageSize: wsPage.text, spareSize: wsSpare.text, path: wsFile.text})
                             }
@@ -257,14 +257,14 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
-                            Text { text: qsTr("擦除块"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
+                            Text { text: qsTr("Erase Block"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
                             AppTextField { id: ebCs; Layout.preferredWidth: 90; placeholderText: qsTr("CS") }
-                            AppTextField { id: ebBegin; Layout.preferredWidth: 110; placeholderText: qsTr("起始块") }
-                            AppTextField { id: ebCount; Layout.preferredWidth: 110; placeholderText: qsTr("块数") }
-                            AppCheckBox { id: ebForce; text: qsTr("强制擦除") }
+                            AppTextField { id: ebBegin; Layout.preferredWidth: 110; placeholderText: qsTr("Start block") }
+                            AppTextField { id: ebCount; Layout.preferredWidth: 110; placeholderText: qsTr("Block count") }
+                            AppCheckBox { id: ebForce; text: qsTr("Force erase") }
                             Item { Layout.fillWidth: true }
                             SecondaryButton {
-                                text: qsTr("执行")
+                                text: qsTr("Execute")
                                 enabled: page.canRun && ebCs.text !== "" && ebBegin.text !== "" && ebCount.text !== ""
                                 onClicked: app.runOperation(Operations.EraseBlock, {chipSelect: ebCs.text, begin: ebBegin.text, count: ebCount.text, force: ebForce.checked})
                             }
@@ -273,24 +273,24 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
-                            Text { text: qsTr("运行系统"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
-                            AppTextField { id: runUbootAddr; Layout.preferredWidth: 110; placeholderText: qsTr("uboot地址") }
-                            AppTextField { id: runTrustAddr; Layout.preferredWidth: 110; placeholderText: qsTr("trust地址") }
-                            AppTextField { id: runBootAddr; Layout.preferredWidth: 110; placeholderText: qsTr("boot地址") }
+                            Text { text: qsTr("Run System"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
+                            AppTextField { id: runUbootAddr; Layout.preferredWidth: 110; placeholderText: qsTr("U-Boot address") }
+                            AppTextField { id: runTrustAddr; Layout.preferredWidth: 110; placeholderText: qsTr("Trust address") }
+                            AppTextField { id: runBootAddr; Layout.preferredWidth: 110; placeholderText: qsTr("Boot address") }
                             Item { Layout.fillWidth: true }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
                             Item { Layout.preferredWidth: 130 }
-                            AppTextField { id: runUboot; Layout.fillWidth: true; placeholderText: qsTr("uboot 文件") }
-                            SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
-                            AppTextField { id: runTrust; Layout.fillWidth: true; placeholderText: qsTr("trust 文件") }
-                            SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
-                            AppTextField { id: runBoot; Layout.fillWidth: true; placeholderText: qsTr("boot 文件") }
-                            SecondaryButton { text: qsTr("选择…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
+                            AppTextField { id: runUboot; Layout.fillWidth: true; placeholderText: qsTr("U-Boot file") }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
+                            AppTextField { id: runTrust; Layout.fillWidth: true; placeholderText: qsTr("Trust file") }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
+                            AppTextField { id: runBoot; Layout.fillWidth: true; placeholderText: qsTr("Boot file") }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
                             SecondaryButton {
-                                text: qsTr("执行")
+                                text: qsTr("Execute")
                                 enabled: page.canRun && runUbootAddr.text !== "" && runTrustAddr.text !== "" && runBootAddr.text !== ""
                                          && runUboot.text !== "" && runTrust.text !== "" && runBoot.text !== ""
                                 onClicked: app.runOperation(Operations.RunSystem, {ubootAddress: runUbootAddr.text, trustAddress: runTrustAddr.text, bootAddress: runBootAddr.text, uboot: runUboot.text, trust: runTrust.text, boot: runBoot.text})
@@ -300,11 +300,11 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
-                            Text { text: qsTr("重置管道"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
-                            AppTextField { id: rpPipe; Layout.preferredWidth: 160; placeholderText: qsTr("可选 pipe") }
+                            Text { text: qsTr("Reset Pipe"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
+                            AppTextField { id: rpPipe; Layout.preferredWidth: 160; placeholderText: qsTr("Optional pipe") }
                             Item { Layout.fillWidth: true }
                             SecondaryButton {
-                                text: qsTr("执行")
+                                text: qsTr("Execute")
                                 enabled: page.canRun
                                 onClicked: app.runOperation(Operations.ResetPipe, rpPipe.text.trim() !== "" ? {pipe: rpPipe.text.trim()} : {})
                             }
@@ -321,7 +321,7 @@ Item {
         id: picker
         mode: AppFilePicker.OpenFile
         property var onPicked: null
-        titleText: qsTr("选择文件")
+        titleText: qsTr("Select File")
         persistKey: "open_file"
         onAccepted: {
             if (picker.onPicked)
@@ -332,7 +332,7 @@ Item {
     AppFilePicker {
         id: folderPicker
         mode: AppFilePicker.OpenFolder
-        titleText: qsTr("选择输出目录")
+        titleText: qsTr("Select Output Directory")
         persistKey: "extract_dir"
         onAccepted: {
             var dir = app.toLocalPath(selectedFolder.toString());
@@ -344,7 +344,7 @@ Item {
     AppFilePicker {
         id: savePicker
         mode: AppFilePicker.SaveFile
-        titleText: qsTr("选择保存文件")
+        titleText: qsTr("Select Save File")
         persistKey: "export_file"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());

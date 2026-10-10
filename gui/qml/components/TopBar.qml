@@ -34,28 +34,28 @@ Item {
 
         AppComboBox {
             Layout.preferredWidth: 170
-            model: [qsTr("瑞芯微 Rockchip"), qsTr("全志 Allwinner")]
+            model: [qsTr("Rockchip"), qsTr("Allwinner")]
             currentIndex: app.vendor
             enabled: !app.busy
             onActivated: (index) => app.vendor = index
         }
 
         NavButton {
-            text: app.vendor === 0 ? qsTr("下载镜像") : qsTr("裸镜像刷写")
+            text: app.vendor === 0 ? qsTr("Download Image") : qsTr("Raw Image Flash")
             iconSource: root.currentIndex === 0 ? Icons.downloadBlue : Icons.downloadGray
             selected: root.currentIndex === 0
             onClicked: root.tabRequested(0)
         }
 
         NavButton {
-            text: app.vendor === 0 ? qsTr("升级固件") : qsTr("固件刷写")
+            text: app.vendor === 0 ? qsTr("Upgrade Firmware") : qsTr("Flash Firmware")
             iconSource: root.currentIndex === 1 ? Icons.chipBlue : Icons.chipGray
             selected: root.currentIndex === 1
             onClicked: root.tabRequested(1)
         }
 
         NavButton {
-            text: qsTr("高级功能")
+            text: qsTr("Advanced")
             iconSource: root.currentIndex === 2 ? Icons.gearBlue : Icons.gearGray
             selected: root.currentIndex === 2
             onClicked: root.tabRequested(2)
@@ -65,21 +65,21 @@ Item {
 
         NavAction {
             id: configAction
-            text: qsTr("配置")
+            text: qsTr("Config")
             iconSource: Icons.gearGray
             onClicked: root.configClicked(configAction)
         }
 
         NavAction {
             id: deviceAction
-            text: qsTr("设备")
+            text: qsTr("Device")
             iconSource: Icons.monitorGray
             onClicked: root.deviceClicked(deviceAction)
         }
 
         NavAction {
             id: helpAction
-            text: qsTr("帮助")
+            text: qsTr("Help")
             iconSource: Icons.helpGray
             onClicked: root.helpClicked(helpAction)
         }

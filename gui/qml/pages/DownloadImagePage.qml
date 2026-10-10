@@ -15,7 +15,7 @@ Item {
             spacing: 14
 
             SectionTitle {
-                text: qsTr("分体包目录")
+                text: qsTr("Split package directory")
                 Layout.fillWidth: true
             }
 
@@ -26,7 +26,7 @@ Item {
                 AppTextField {
                     id: dirField
                     Layout.fillWidth: true
-                    placeholderText: qsTr("请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader.bin）")
+                    placeholderText: qsTr("Select the split package directory (with parameter.txt, per-partition .img and Loader.bin)")
                     text: app.imageDir
                     enabled: !app.busy
                     onAccepted: app.setImageDir(text)
@@ -37,7 +37,7 @@ Item {
                 }
 
                 PrimaryButton {
-                    text: qsTr("浏览...")
+                    text: qsTr("Browse...")
                     iconSource: Icons.folderWhite
                     enabled: !app.busy
                     onClicked: folderDialog.open()
@@ -59,8 +59,8 @@ Item {
                 Layout.fillHeight: true
                 model: app.imageEntries
                 emptyIcon: Icons.folderGray
-                emptyTitle: qsTr("还未选择分体包目录")
-                emptySubtitle: qsTr("请点击上方「浏览」按钮选择目录")
+                emptyTitle: qsTr("No split package directory selected")
+                emptySubtitle: qsTr("Click \"Browse\" above to choose a directory")
                 allChecked: app.imageEntries.checkedCount > 0
                             && app.imageEntries.checkedCount === app.imageEntries.checkableCount
                 allEnabled: app.imageEntries.checkableCount > 0 && !app.busy
@@ -78,46 +78,46 @@ Item {
 
                 AppCheckBox {
                     id: rebootBox
-                    text: qsTr("烧录完成后重启设备")
+                    text: qsTr("Reboot device when done")
                     checked: true
                     enabled: !app.busy
                 }
 
                 AppCheckBox {
-                    text: qsTr("强制按地址写")
+                    text: qsTr("Force write by address")
                     enabled: false
                     hoverEnabled: true
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("当前引擎不支持该选项")
+                    ToolTip.text: qsTr("The current engine does not support this option")
                 }
 
                 Item { Layout.fillWidth: true }
 
                 PrimaryButton {
-                    text: qsTr("执行")
+                    text: qsTr("Execute")
                     iconSource: Icons.playWhite
                     enabled: !app.busy && app.imageEntries.checkedCount > 0 && app.hasDevice
                     onClicked: app.executeImageDownload(rebootBox.checked)
 
                     ToolTip.visible: hovered && !enabled && !app.busy
-                    ToolTip.text: !app.hasDevice ? qsTr("未检测到设备，请连接或切换到 Loader/Maskrom 模式")
-                                                 : qsTr("请至少勾选一个分区")
+                    ToolTip.text: !app.hasDevice ? qsTr("No device detected. Connect or switch to Loader/Maskrom mode")
+                                                 : qsTr("Select at least one partition")
                 }
 
                 SecondaryButton {
-                    text: qsTr("切换")
+                    text: qsTr("Switch")
                     iconSource: Icons.switchBlue
                     busy: app.switching
                     enabled: !app.busy && app.adbReady
                     onClicked: app.switchToLoader()
 
                     ToolTip.visible: hovered && !enabled && !app.busy
-                    ToolTip.text: app.adbAvailable ? qsTr("未检测到 ADB 设备")
-                                                   : qsTr("ADB 不可用")
+                    ToolTip.text: app.adbAvailable ? qsTr("No ADB device detected")
+                                                   : qsTr("ADB unavailable")
                 }
 
                 SecondaryButton {
-                    text: qsTr("清空")
+                    text: qsTr("Clear")
                     iconSource: Icons.trashGray
                     enabled: !app.busy
                     onClicked: app.clearImage()
@@ -129,7 +129,7 @@ Item {
     AppFilePicker {
         id: folderDialog
         mode: AppFilePicker.OpenFolder
-        titleText: qsTr("选择分体包目录")
+        titleText: qsTr("Select Split Package Directory")
         persistKey: "image_dir"
         defaultFolder: app.imageDir !== "" ? app.pathUrl(app.imageDir) : ""
         onAccepted: {
@@ -142,8 +142,8 @@ Item {
         id: pathDialog
         mode: AppFilePicker.OpenFile
         property int targetRow: -1
-        titleText: qsTr("选择镜像文件")
-        nameFilters: ["镜像文件 (*.img *.bin)", "所有文件 (*)"]
+        titleText: qsTr("Select Image File")
+        nameFilters: [qsTr("Image files (*.img *.bin)"), qsTr("All files (*)")]
         persistKey: "open_file"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());

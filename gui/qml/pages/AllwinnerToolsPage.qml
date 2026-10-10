@@ -6,18 +6,18 @@ AllwinnerWorkspace {
     id: page
     objectName: "AllwinnerToolsPage"
     context: 2
-    title: qsTr("高级功能")
+    title: qsTr("Advanced")
 
     AppCheckBox {
         id: showFiles
         focusPolicy: Qt.StrongFocus
-        text: qsTr("查看分区与嵌入文件")
+        text: qsTr("View partitions and embedded files")
     }
     ColumnLayout {
         Layout.fillWidth: true
         visible: showFiles.checked
         AllwinnerPartitions { Layout.fillWidth: true; partitions: page.contextState.partitions }
-        Text { text: qsTr("嵌入文件"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
+        Text { text: qsTr("Embedded files"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
         ColumnLayout {
             Layout.fillWidth: true
             Repeater {
@@ -37,10 +37,10 @@ AllwinnerWorkspace {
     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
     RowLayout {
         Layout.fillWidth: true
-        Text { text: qsTr("解包固件"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium; Layout.fillWidth: true }
+        Text { text: qsTr("Extract Firmware"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium; Layout.fillWidth: true }
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
-            text: qsTr("选择目录并解包…")
+            text: qsTr("Choose a directory and extract…")
             enabled: !app.busy && page.valid
             onClicked: extractPicker.open()
         }
@@ -48,24 +48,24 @@ AllwinnerWorkspace {
     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
     RowLayout {
         Layout.fillWidth: true
-        Text { text: qsTr("设备操作"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium; Layout.fillWidth: true }
+        Text { text: qsTr("Device Operations"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium; Layout.fillWidth: true }
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
             objectName: "awReboot"
-            text: qsTr("重启设备")
+            text: qsTr("Reboot Device")
             enabled: !app.busy && app.vendor === 1 && app.hasDevice
             onClicked: page.execute(Operations.AllwinnerReboot)
         }
     }
     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
-    Text { text: qsTr("程序器镜像转换"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
+    Text { text: qsTr("Programmer Image Convert"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
     FilePathRow {
         id: output
         objectName: "awConvertOutput"
         Layout.fillWidth: true
-        caption: qsTr("输出镜像")
+        caption: qsTr("Output image")
         pickerMode: AppFilePicker.SaveFile
-        placeholder: qsTr("选择或输入输出镜像路径")
+        placeholder: qsTr("Choose or enter the output image path")
         text: page.setting("output", "")
         enabled: !app.busy
         persistKey: "allwinnerConvert"
@@ -73,12 +73,12 @@ AllwinnerWorkspace {
     }
     RowLayout {
         Layout.fillWidth: true
-        Text { text: qsTr("目标介质"); color: Theme.textSecondary; font.family: Theme.fontFamily; Layout.preferredWidth: 80 }
+        Text { text: qsTr("Target medium"); color: Theme.textSecondary; font.family: Theme.fontFamily; Layout.preferredWidth: 80 }
         AppComboBox {
             id: target
             Layout.fillWidth: true
             enabled: !app.busy
-            model: ["SPI NOR", qsTr("SD 卡"), "eMMC", "SD NAND", "UFS"]
+            model: ["SPI NOR", qsTr("SD card"), "eMMC", "SD NAND", "UFS"]
             currentIndex: Number(page.setting("target", 2))
             onActivated: page.saveSetting("target", currentIndex)
         }
@@ -87,7 +87,7 @@ AllwinnerWorkspace {
         id: advanced
         objectName: "awConvertAdvanced"
         focusPolicy: Qt.StrongFocus
-        text: qsTr("高级选项")
+        text: qsTr("Advanced options")
     }
     GridLayout {
         visible: advanced.checked
@@ -96,47 +96,47 @@ AllwinnerWorkspace {
         columnSpacing: 12
         rowSpacing: 10
         enabled: !app.busy
-        Text { text: qsTr("逻辑偏移（扇区）"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppTextField {
             id: offset
             Layout.fillWidth: true
             text: page.setting("logicOffset", "")
-            placeholderText: qsTr("留空自动匹配（可填 0x 十六进制）")
+            placeholderText: qsTr("Leave empty to auto-detect (0x hex allowed)")
             onEditingFinished: page.saveSetting("logicOffset", text)
         }
-        Text { visible: target.currentIndex === 0; text: qsTr("U-Boot 偏移（扇区）"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { visible: target.currentIndex === 0; text: qsTr("U-Boot offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppTextField {
             id: uboot
             visible: target.currentIndex === 0
             Layout.fillWidth: true
             text: page.setting("ubootOffset", "")
-            placeholderText: qsTr("留空自动匹配")
+            placeholderText: qsTr("Leave empty to auto-detect")
             onEditingFinished: page.saveSetting("ubootOffset", text)
         }
-        Text { visible: target.currentIndex === 0; text: qsTr("NOR 容量（MiB）"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { visible: target.currentIndex === 0; text: qsTr("NOR capacity (MiB)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppTextField {
             id: nor
             visible: target.currentIndex === 0
             Layout.fillWidth: true
             text: page.setting("norMiB", "16")
-            placeholderText: qsTr("默认 16")
+            placeholderText: qsTr("Default 16")
             onEditingFinished: page.saveSetting("norMiB", text)
         }
-        Text { visible: target.currentIndex !== 0; text: qsTr("GPT 目标容量"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { visible: target.currentIndex !== 0; text: qsTr("GPT target capacity"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppTextField {
             id: capacity
             visible: target.currentIndex !== 0
             Layout.fillWidth: true
             text: page.setting("storageSize", "auto")
-            placeholderText: qsTr("auto 或 8GB / 512MB")
+            placeholderText: qsTr("auto or 8GB / 512MB")
             onEditingFinished: page.saveSetting("storageSize", text)
         }
-        Text { visible: target.currentIndex !== 0; text: qsTr("安全启动组件"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text { visible: target.currentIndex !== 0; text: qsTr("Secure boot components"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppComboBox {
             id: secure
             visible: target.currentIndex !== 0
             Layout.fillWidth: true
-            model: [qsTr("自动检测"), "TOC0 / TOC1", "Boot0 / BOOTPKG"]
+            model: [qsTr("Auto detect"), "TOC0 / TOC1", "Boot0 / BOOTPKG"]
             currentIndex: Number(page.setting("secure", 0))
             onActivated: page.saveSetting("secure", currentIndex)
         }
@@ -150,7 +150,7 @@ AllwinnerWorkspace {
     actions: [
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
-            text: qsTr("重新读取信息")
+            text: qsTr("Read Info Again")
             enabled: !app.busy && page.firmware !== ""
             onClicked: page.execute(Operations.AllwinnerInspect)
         },
@@ -158,7 +158,7 @@ AllwinnerWorkspace {
         PrimaryButton {
             focusPolicy: Qt.StrongFocus
             objectName: "awConvertStart"
-            text: qsTr("转换镜像")
+            text: qsTr("Convert Image")
             enabled: !app.busy && page.valid && output.text.trim() !== ""
             onClicked: page.execute(Operations.AllwinnerConvert, {output: output.text, target: target.currentIndex,
                 logicOffset: offset.text, ubootOffset: uboot.text, norMiB: nor.text,
@@ -168,7 +168,7 @@ AllwinnerWorkspace {
     AppFilePicker {
         id: extractPicker
         mode: AppFilePicker.OpenFolder
-        titleText: qsTr("选择解包输出目录")
+        titleText: qsTr("Select Extract Output Directory")
         persistKey: "allwinnerExtract"
         defaultFolder: app.pathUrl(page.setting("extractOutput", page.saved["page1/output"] || ""))
         onAccepted: {

@@ -132,7 +132,7 @@ AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, 
 	        SLOT(onRebootFinished(int, QProcess::ExitStatus)));
 	connect(m_pProc, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
 		if (error == QProcess::FailedToStart && m_bRunning)
-			Complete(false, tr("无法启动 ADB 进程：%1").arg(m_pProc->errorString()));
+			Complete(false, tr("Cannot start ADB process: %1").arg(m_pProc->errorString()));
 	});
 
 	m_pTimeout = new QTimer(this);
@@ -204,7 +204,7 @@ void AdbRunner::RunPoll()
 
 	QString strAdb = AdbPath();
 	if (strAdb.isEmpty()) {
-		UpdateAvailability(false, tr("未找到 ADB 可执行文件，请确认已安装 ADB 且在 PATH 中。"));
+		UpdateAvailability(false, tr("ADB executable not found; make sure ADB is installed and in PATH."));
 		return;
 	}
 
@@ -234,7 +234,7 @@ void AdbRunner::onPollError(QProcess::ProcessError eError)
 	if (eError != QProcess::FailedToStart)
 		return;
 	m_pPollKill->stop();
-	UpdateAvailability(false, tr("无法启动 ADB 进程：%1").arg(m_pPollProc->errorString()));
+	UpdateAvailability(false, tr("Cannot start ADB process: %1").arg(m_pPollProc->errorString()));
 }
 
 void AdbRunner::onPollKillTimeout()
@@ -268,13 +268,13 @@ void AdbRunner::BeginSwitch()
 		return;
 
 	if (AdbPath().isEmpty()) {
-		emit finished(false, tr("未找到 ADB 可执行文件，请确认已安装 ADB 且在 PATH 中。"));
+		emit finished(false, tr("ADB executable not found; make sure ADB is installed and in PATH."));
 		return;
 	}
 
 	QStringList strDevices = m_strDevices;
 	if (strDevices.isEmpty()) {
-		emit finished(false, tr("未找到处于 ADB 模式的设备。"));
+		emit finished(false, tr("No device in ADB mode found."));
 		return;
 	}
 
@@ -292,7 +292,7 @@ void AdbRunner::ChooseDevice(const QString &strSerial)
 	if (!m_bAwaitingChoice)
 		return;
 	if (!m_strDevices.contains(strSerial.trimmed())) {
-		Complete(false, tr("所选 ADB 设备已不可用。"));
+		Complete(false, tr("The selected ADB device is no longer available."));
 		return;
 	}
 	m_bAwaitingChoice = false;
@@ -303,7 +303,7 @@ void AdbRunner::CancelSwitch()
 {
 	if (!m_bAwaitingChoice && !m_bRunning)
 		return;
-	Complete(false, tr("已取消切换请求；若设备已开始重启，请检查设备列表。"));
+	Complete(false, tr("Switch request cancelled; if the device already began rebooting, check the device list."));
 }
 
 void AdbRunner::StartReboot(const QString &serial)
@@ -314,7 +314,7 @@ void AdbRunner::StartReboot(const QString &serial)
 	m_bRunning = true;
 	if (m_felSwitch) {
 		m_stage = Stage::Listing;
-		emit switchProgress(tr("正在检查 ADB 设备和 USB 端口…"));
+		emit switchProgress(tr("Checking ADB devices and USB ports…"));
 		StartCommand({"devices", "-l"});
 	} else {
 		m_stage = Stage::Loader;
@@ -355,15 +355,15 @@ void AdbRunner::onRebootFinished(int code, QProcess::ExitStatus status)
 	}
 	Complete(status == QProcess::NormalExit && code == 0,
 	         status == QProcess::NormalExit && code == 0
-	             ? tr("已切换到 Loader 模式。")
-	             : tr("切换到 Loader 失败：%1").arg(output.isEmpty() ? tr("ADB 返回 %1").arg(code) : output));
+	             ? tr("Switched to Loader mode.")
+	             : tr("Switch to Loader failed: %1").arg(output.isEmpty() ? tr("ADB returned %1").arg(code) : output));
 }
 
 void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QString &output)
 {
 	if (m_stage == Stage::Rebooting) {
 		if (output.contains("AW_SWITCH_ERROR")) {
-			Complete(false, tr("T3 FEL 标志设置或重启失败：%1").arg(output));
+			Complete(false, tr("Failed to set T3 FEL flag or reboot: %1").arg(output));
 			return;
 		}
 		// A disconnected ADB process may fail even though the device is entering FEL.
@@ -374,7 +374,7 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 		return;
 	}
 	if (status != QProcess::NormalExit || code != 0) {
-		Complete(false, tr("ADB 检查失败：%1").arg(output.isEmpty() ? QString::number(code) : output));
+		Complete(false, tr("ADB check failed: %1").arg(output.isEmpty() ? QString::number(code) : output));
 		return;
 	}
 	if (m_stage == Stage::Listing) {
@@ -385,7 +385,7 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 				line = candidate;
 		}
 		if (line.isEmpty()) {
-			Complete(false, tr("所选 ADB 设备已断开或未授权。"));
+			Complete(false, tr("The selected ADB device is disconnected or unauthorized."));
 			return;
 		}
 		const auto devices = m_usbScanner(true);
@@ -408,7 +408,7 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 		if (matches.size() == 1)
 			m_target = matches[0];
 		m_stage = Stage::Probing;
-		emit switchProgress(tr("正在识别设备系统和切换能力…"));
+		emit switchProgress(tr("Detecting device system and switch capability…"));
 		StartCommand({"-s", m_serial, "shell", QString::fromLatin1(kProbe)});
 		return;
 	}
@@ -421,7 +421,7 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 		const bool busybox = ProbeValue(output, "AW_BUSYBOX") == "1" ||
 		                     ProbeValue(output, "AW_REBOOT_LINK").contains("busybox", Qt::CaseInsensitive);
 		if (ProbeValue(output, "AW_UID").isEmpty() || ProbeValue(output, "AW_BUILDROOT").isEmpty()) {
-			Complete(false, tr("无法完整识别设备系统，未发送切换命令。"));
+			Complete(false, tr("Could not fully identify the device system; no switch command was sent."));
 			return;
 		}
 		QStringList command{"-s", m_serial};
@@ -429,7 +429,7 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 		if (m_felMethod == FelMethod::T3Buildroot) {
 			if (!t3Capable) {
 				Complete(false,
-				         tr("备选需要 sun8iw11p1、Buildroot、root 权限及 devmem。"));
+				         tr("The alternate requires sun8iw11p1, Buildroot, root and devmem."));
 				return;
 			}
 			command << "shell" << kT3FelCommand;
@@ -439,8 +439,8 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 				command << "shell" << kT3FelCommand;
 			} else {
 				Complete(false, buildroot && t3
-				                    ? tr("此 T3 Buildroot 缺少 root 或 devmem，无法自动切换，请手动进入刷机模式。")
-				                    : tr("此 BusyBox 环境未找到支持的 FEL 切换入口，请手动进入刷机模式。"));
+				                    ? tr("This T3 Buildroot lacks root or devmem; automatic switching is unavailable. Enter flash mode manually.")
+				                    : tr("No supported FEL switch entry was found in this BusyBox environment; enter flash mode manually."));
 				return;
 			}
 		} else if (!android && !ProbeValue(output, "AW_REBOOT").isEmpty()) {
@@ -449,7 +449,7 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 			command << "reboot" << "efex";
 		}
 		m_stage = Stage::Rebooting;
-		emit switchProgress(tr("已发送 FEL 切换请求，等待 USB 设备出现…"));
+		emit switchProgress(tr("FEL switch request sent; waiting for the USB device to appear…"));
 		m_felElapsed.start();
 		m_felTimer->start();
 		StartCommand(command);
@@ -470,7 +470,7 @@ void AdbRunner::CheckFel()
 					m_pProc->kill();
 					return;
 				}
-				Complete(true, tr("已在目标 USB 端口检测到 FEL 刷机设备。"));
+				Complete(true, tr("FEL flash device detected on the target USB port."));
 				return;
 			}
 		}
@@ -478,8 +478,8 @@ void AdbRunner::CheckFel()
 	if (m_felElapsed.elapsed() >= m_felTimeoutMs) {
 		Complete(false,
 		         m_target.ports.isEmpty()
-		             ? tr("已发送切换请求，但无法唯一定位目标 USB 端口，不能自动确认成功；请检查设备列表。")
-		             : tr("未在目标 USB 端口检测到 FEL 设备。请检查系统支持情况，或选择“备选”。%1")
+		             ? tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.")
+		             : tr("No FEL device detected on the target USB port. Check system support, or choose \"Alternate\". %1")
 		                   .arg(m_commandError.isEmpty() ? QString() : "\n" + m_commandError));
 	}
 }
@@ -489,12 +489,12 @@ void AdbRunner::onTimeout()
 	if (!m_bRunning)
 		return;
 	if (m_stage == Stage::Rebooting) {
-		m_commandError = tr("ADB 重启命令未及时返回。");
+		m_commandError = tr("The ADB reboot command did not return in time.");
 		m_stage = Stage::Waiting;
 		m_pProc->kill();
 		return;
 	}
-	Complete(false, tr("ADB 操作超时，未完成模式切换。"));
+	Complete(false, tr("ADB operation timed out; mode switch not completed."));
 }
 
 } // namespace gui

@@ -47,24 +47,24 @@ void QtObserver::OnProgress(ENUM_PROGRESS_PROMPT emPrompt, long long llTotal,
 {
 	QString strPrompt;
 	switch (emPrompt) {
-	case TESTDEVICE_PROGRESS:     strPrompt = tr("检测设备"); break;
-	case DOWNLOADIMAGE_PROGRESS:  strPrompt = tr("下载镜像"); break;
-	case CHECKIMAGE_PROGRESS:     strPrompt = tr("校验镜像"); break;
-	case TAGBADBLOCK_PROGRESS:    strPrompt = tr("标记坏块"); break;
-	case TESTBLOCK_PROGRESS:      strPrompt = tr("测试块"); break;
-	case ERASEFLASH_PROGRESS:     strPrompt = tr("擦除 Flash"); break;
-	case ERASESYSTEM_PROGRESS:    strPrompt = tr("擦除系统"); break;
-	case LOWERFORMAT_PROGRESS:    strPrompt = tr("低级格式化"); break;
-	case ERASEUSERDATA_PROGRESS:  strPrompt = tr("擦除用户数据"); break;
-	default:                      strPrompt = tr("进度"); break;
+	case TESTDEVICE_PROGRESS:     strPrompt = tr("Test device"); break;
+	case DOWNLOADIMAGE_PROGRESS:  strPrompt = tr("Download Image"); break;
+	case CHECKIMAGE_PROGRESS:     strPrompt = tr("Verify image"); break;
+	case TAGBADBLOCK_PROGRESS:    strPrompt = tr("Mark bad block"); break;
+	case TESTBLOCK_PROGRESS:      strPrompt = tr("Test block"); break;
+	case ERASEFLASH_PROGRESS:     strPrompt = tr("Erase Flash"); break;
+	case ERASESYSTEM_PROGRESS:    strPrompt = tr("Erase system"); break;
+	case LOWERFORMAT_PROGRESS:    strPrompt = tr("Low-level format"); break;
+	case ERASEUSERDATA_PROGRESS:  strPrompt = tr("Erase user data"); break;
+	default:                      strPrompt = tr("Progress"); break;
 	}
 	emit progressReceived(strPrompt, llTotal, llCurrent, (int)emCall);
 }
 
 void QtObserver::OnTransferProgress(core::TransferStage stage, long long total, long long current)
 {
-	QString label = stage == core::TransferStage::Read ? tr("读取镜像") :
-	                stage == core::TransferStage::Write ? tr("写入镜像") : tr("解包固件");
+	QString label = stage == core::TransferStage::Read ? tr("Read image") :
+	                stage == core::TransferStage::Write ? tr("Write image") : tr("Extract Firmware");
 	emit progressReceived(label, total, current, current == 0 ? CALL_FIRST : CALL_MIDDLE);
 }
 

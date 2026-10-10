@@ -12,34 +12,62 @@ namespace core { namespace allwinner {
 namespace {
 const uint32_t ValidVerify=0x6a617603;
 const size_t ChunkSize=1024*1024;
-QString AwTr(const char *szText) { return QCoreApplication::translate("Allwinner", szText); }
 void CheckCancel(const Cancellation &c) { if(c&&c->load()) throw std::runtime_error("Cancelled"); }
 void Wait(unsigned ms,const Cancellation &c) { for(unsigned n=0;n<ms;n+=50) { CheckCancel(c); QThread::msleep(std::min(50u,ms-n)); } }
 void Log(IUpgradeObserver *o,const std::string &text) { if(o) o->OnOutput(LogLevel::Info,text); }
-// Stage strings double as progress keys; translate only the display form so the
-// internal comparisons below keep matching the untranslated literals.
+// Progress stages use stable, untranslated keys for comparisons; their display
+// text is resolved in DisplayStage() so every visible string is a translatable
+// literal that lupdate can extract.
+namespace Stage {
+const char *const InitDram     = "stage.init-dram";
+const char *const LoadUboot    = "stage.load-uboot";
+const char *const WaitFes      = "stage.wait-fes";
+const char *const QueryDevice  = "stage.query-device";
+const char *const EraseMode    = "stage.erase-mode";
+const char *const WriteTable   = "stage.write-table";
+const char *const WritePreboot = "stage.write-preboot";
+const char *const WriteBoot1   = "stage.write-boot1";
+const char *const WriteBoot0   = "stage.write-boot0";
+const char *const FinishAction = "stage.finish-action";
+const char *const FlashDone    = "stage.flash-done";
+const char *const Extract      = "stage.extract";
+}
+const char *const kWritePrefix = "stage.write/";
+const char *const kSkipPrefix  = "stage.skip/";
 std::string DisplayStage(const std::string &stage) {
-    static const char *kWrite="写入 / ", *kSkip="跳过空白 / ";
-    if(stage.compare(0,std::strlen(kWrite),kWrite)==0)
-        return AwTr("写入 / ").toStdString()+stage.substr(std::strlen(kWrite));
-    if(stage.compare(0,std::strlen(kSkip),kSkip)==0)
-        return AwTr("跳过空白 / ").toStdString()+stage.substr(std::strlen(kSkip));
-    return AwTr(stage.c_str()).toStdString();
+    const size_t wl=std::strlen(kWritePrefix), sl=std::strlen(kSkipPrefix);
+    if(stage.compare(0,wl,kWritePrefix)==0)
+        return QCoreApplication::translate("Allwinner", "Writing / ").toStdString()+stage.substr(wl);
+    if(stage.compare(0,sl,kSkipPrefix)==0)
+        return QCoreApplication::translate("Allwinner", "Skipping blank / ").toStdString()+stage.substr(sl);
+    if(stage==Stage::InitDram)     return QCoreApplication::translate("Allwinner", "Initializing DRAM").toStdString();
+    if(stage==Stage::LoadUboot)    return QCoreApplication::translate("Allwinner", "Loading U-Boot").toStdString();
+    if(stage==Stage::WaitFes)      return QCoreApplication::translate("Allwinner", "Waiting for FES reconnect").toStdString();
+    if(stage==Stage::QueryDevice)  return QCoreApplication::translate("Allwinner", "Querying device").toStdString();
+    if(stage==Stage::EraseMode)    return QCoreApplication::translate("Allwinner", "Setting erase mode").toStdString();
+    if(stage==Stage::WriteTable)   return QCoreApplication::translate("Allwinner", "Writing partition table").toStdString();
+    if(stage==Stage::WritePreboot) return QCoreApplication::translate("Allwinner", "Writing Preboot").toStdString();
+    if(stage==Stage::WriteBoot1)   return QCoreApplication::translate("Allwinner", "Writing Boot1").toStdString();
+    if(stage==Stage::WriteBoot0)   return QCoreApplication::translate("Allwinner", "Writing Boot0").toStdString();
+    if(stage==Stage::FinishAction) return QCoreApplication::translate("Allwinner", "Finishing action").toStdString();
+    if(stage==Stage::FlashDone)    return QCoreApplication::translate("Allwinner", "Flashing complete").toStdString();
+    if(stage==Stage::Extract)      return QCoreApplication::translate("Allwinner", "Extracting firmware").toStdString();
+    return stage;
 }
 void Progress(IUpgradeObserver *o,const std::string &stage,uint64_t total,uint64_t done) {
     int start=-1,width=0;
-    if(stage=="初始化 DRAM") { start=0; width=5; }
-    else if(stage=="加载 U-Boot") { start=5; width=5; }
-    else if(stage=="等待 FES 重连") start=10;
-    else if(stage=="查询设备") start=15;
-    else if(stage=="设置擦除模式") start=18;
-    else if(stage=="写入分区表") start=20;
-    else if(stage.find("写入 / ")==0||stage.find("跳过空白 / ")==0) { start=22; width=73; }
-    else if(stage=="写入 Preboot") start=95;
-    else if(stage=="写入 Boot1") start=96;
-    else if(stage=="写入 Boot0") start=98;
-    else if(stage=="完成动作") start=99;
-    else if(stage=="刷写完成") start=100;
+    if(stage==Stage::InitDram) { start=0; width=5; }
+    else if(stage==Stage::LoadUboot) { start=5; width=5; }
+    else if(stage==Stage::WaitFes) start=10;
+    else if(stage==Stage::QueryDevice) start=15;
+    else if(stage==Stage::EraseMode) start=18;
+    else if(stage==Stage::WriteTable) start=20;
+    else if(stage.compare(0,std::strlen(kWritePrefix),kWritePrefix)==0||stage.compare(0,std::strlen(kSkipPrefix),kSkipPrefix)==0) { start=22; width=73; }
+    else if(stage==Stage::WritePreboot) start=95;
+    else if(stage==Stage::WriteBoot1) start=96;
+    else if(stage==Stage::WriteBoot0) start=98;
+    else if(stage==Stage::FinishAction) start=99;
+    else if(stage==Stage::FlashDone) start=100;
     int overall=start<0?-1:start+(total?int(double(done)/double(total)*width):0);
     if(o) o->OnStageProgress(DisplayStage(stage),total,done,overall);
 }
@@ -85,7 +113,7 @@ void PrepareFel(Firmware &fw,ITransport &t,const DeviceIdentity &target,const Ca
     if(fes.size()<48||uboot.size()<228||config.size()>512*1024) throw std::runtime_error("Invalid FEL boot firmware");
     uint32_t run=U32(fes.data()+32),ret=U32(fes.data()+28),ubootRun=U32(uboot.data()+44);
     if(Add(run,fes.size())>0x100000000ULL||Add(ubootRun,std::max<uint64_t>(uboot.size(),4*1024*1024))>0x100000000ULL||Add(ret,136)>0x100000000ULL) throw std::runtime_error("FEL address overflow");
-    Progress(o,"初始化 DRAM",1,0); Log(o,AwTr("初始化 DRAM").toStdString());
+    Progress(o,Stage::InitDram,1,0); Log(o,QCoreApplication::translate("Allwinner", "Initializing DRAM").toStdString());
     t.FelWrite(ret,Bytes(136,0)); t.FelWrite(run,fes); t.FelExec(run);
     bool ready=false;
     for(unsigned i=0;i<60;++i) {
@@ -95,18 +123,18 @@ void PrepareFel(Firmware &fw,ITransport &t,const DeviceIdentity &target,const Ca
         if(flag>1) { ready=true; break; }
     }
     if(!ready) throw std::runtime_error("DRAM initialization timed out");
-    Progress(o,"初始化 DRAM",1,1);
+    Progress(o,Stage::InitDram,1,1);
     auto component=[&](const char *sub,uint32_t offset,size_t limit) {
         auto *e=fw.Find(sub); if(!e) return;
         auto b=fw.Read(*e); if(b.size()>limit) throw std::runtime_error("FEL component exceeds reserved memory slot");
         t.FelWrite(ubootRun+offset,b);
     };
-    Progress(o,"加载 U-Boot",1,0);
+    Progress(o,Stage::LoadUboot,1,0);
     component("DTB_CONFIG000000",2*1024*1024,1024*1024);
     t.FelWrite(ubootRun+3*1024*1024,config);
     component("BOARD_CONFIG_BIN",3*1024*1024+512*1024,512*1024);
     Put32(uboot.data()+224,0x10); t.FelWrite(ubootRun,uboot); t.FelExec(ubootRun); t.Close();
-    Progress(o,"等待 FES 重连",1,0); Log(o,AwTr("等待原 USB 端口上的 FES 设备重新连接").toStdString());
+    Progress(o,Stage::WaitFes,1,0); Log(o,QCoreApplication::translate("Allwinner", "Waiting for the FES device to reconnect on the original USB port").toStdString());
     auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(45);
     Wait(2000,cancel);
     do {
@@ -159,9 +187,9 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
     t.Open(target,cancel); auto details=t.Details();
     if(details.mode==1) PrepareFel(fw,t,target,cancel,o);
     else if(details.mode!=2) throw std::runtime_error("Unsupported Allwinner device mode");
-    Progress(o,"查询设备",1,0);
+    Progress(o,Stage::QueryDevice,1,0);
     uint32_t secure=t.QuerySecure(),storage=t.QueryStorage(),capacity=t.QuerySize();
-    Log(o,AwTr("存储：%1，容量：%2 MiB，启动模式：%3")
+    Log(o,QCoreApplication::translate("Allwinner", "Storage: %1, capacity: %2 MiB, boot mode: %3")
             .arg(QString::fromStdString(StorageName(storage)))
             .arg(uint64_t(capacity)*512/1024/1024)
             .arg(secure).toStdString());
@@ -173,7 +201,7 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
     if(raw&&Add(downloads.front().size,511)/512>capacity) throw std::runtime_error("Raw image exceeds device capacity");
     for(const auto &d:downloads) if(!raw&&Add(d.part.address,Add(d.expanded,511)/512)>capacity) throw std::runtime_error("Partition exceeds device capacity: "+d.part.name);
     if(mode!=AllwinnerFlashMode::Partition) {
-        CheckCancel(cancel); Progress(o,"设置擦除模式",1,0); Bytes flag(16,0);
+        CheckCancel(cancel); Progress(o,Stage::EraseMode,1,0); Bytes flag(16,0);
         Put32(flag.data(),mode==AllwinnerFlashMode::FullErase?0x12:mode==AllwinnerFlashMode::PartitionErase?1:0);
         t.Download(0,0x7f04,flag); VerifyStatus(t,0x7f04,true,cancel);
     }
@@ -182,13 +210,13 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
         if(name.startsWith("UDISK")||name.startsWith("SYSRECOVERY")||name.startsWith("PRIVATE")||d.size<4) continue;
         auto b=fw.Read(*d.entry,0,4); if(U32(b.data())==0x06101831) { t.Download(0,0x7ff0,Bytes(4096)); break; }
     }
-    CheckCancel(cancel); Progress(o,"写入分区表",1,0); t.Download(0,0x7f01,mbr); VerifyStatus(t,0x7f01,true,cancel);
+    CheckCancel(cancel); Progress(o,Stage::WriteTable,1,0); t.Download(0,0x7f01,mbr); VerifyStatus(t,0x7f01,true,cancel);
     uint64_t total=0,done=0; for(const auto &d:downloads) total=Add(total,d.expanded);
     bool access=false;
     try {
         t.FlashAccess(true); access=true;
         for(const auto &d:downloads) {
-            CheckCancel(cancel); Log(o,AwTr("写入分区：%1").arg(QString::fromStdString(d.part.name)).toStdString());
+            CheckCancel(cancel); Log(o,QCoreApplication::translate("Allwinner", "Writing partition: %1").arg(QString::fromStdString(d.part.name)).toStdString());
             if(raw&&uint64_t(external.size())!=d.size) throw std::runtime_error("Raw image changed before write");
             auto write=[&](uint64_t outputOffset,Bytes b,size_t original) {
                 CheckCancel(cancel); uint64_t sector=Add(d.part.address,outputOffset/512);
@@ -196,7 +224,7 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
                 uint32_t checksum=Sum(b); size_t padded=(b.size()+511)&~size_t(511); b.resize(padded,0);
                 t.Download(uint32_t(sector),0x8000,b);
                 if(verify) Verify(t,uint32_t(sector),original,checksum);
-                done+=original; Progress(o,"写入 / "+d.part.name,total,done);
+                done+=original; Progress(o,std::string(kWritePrefix)+d.part.name,total,done);
             };
             if(d.chunks.empty()) {
                 for(uint64_t pos=0;pos<d.size;) {
@@ -207,7 +235,7 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
                 }
             } else for(const auto &c:d.chunks) {
                 if(c.type==0xcac4) continue;
-                if(c.type==0xcac3) { done+=c.size; Progress(o,"跳过空白 / "+d.part.name,total,done); continue; }
+                if(c.type==0xcac3) { done+=c.size; Progress(o,std::string(kSkipPrefix)+d.part.name,total,done); continue; }
                 for(uint64_t pos=0;pos<c.size;) {
                     CheckCancel(cancel); size_t n=size_t(std::min<uint64_t>(ChunkSize,c.size-pos)); Bytes b;
                     if(c.type==0xcac1) b=fw.Read(*d.entry,Add(c.offset,pos),n);
@@ -218,16 +246,16 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
         }
         t.FlashAccess(false); access=false;
     } catch(...) {
-        if(access) { try { t.FlashAccess(false); } catch(const std::exception &e) { Log(o,AwTr("关闭存储访问失败：%1").arg(QString::fromStdString(e.what())).toStdString()); } }
+        if(access) { try { t.FlashAccess(false); } catch(const std::exception &e) { Log(o,QCoreApplication::translate("Allwinner", "Failed to close storage access: %1").arg(QString::fromStdString(e.what())).toStdString()); } }
         throw;
     }
     auto boot=[&](const Bytes &b,uint32_t tag,const char *name) {
         CheckCancel(cancel); Progress(o,name,1,0); t.Download(0,tag,b); VerifyStatus(t,tag,false,cancel);
     };
-    if(!pre.empty()) boot(pre,0x7f08,"写入 Preboot");
-    boot(boot1,0x7f02,"写入 Boot1"); boot(boot0,0x7f03,"写入 Boot0");
-    CheckCancel(cancel); Progress(o,"完成动作",1,0); t.Finish(raw?PostAction::Reboot:opts.postAction);
-    Progress(o,"刷写完成",1,1);
+    if(!pre.empty()) boot(pre,0x7f08,Stage::WritePreboot);
+    boot(boot1,0x7f02,Stage::WriteBoot1); boot(boot0,0x7f03,Stage::WriteBoot0);
+    CheckCancel(cancel); Progress(o,Stage::FinishAction,1,0); t.Finish(raw?PostAction::Reboot:opts.postAction);
+    Progress(o,Stage::FlashDone,1,1);
 }
 }
 OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const DeviceIdentity &target,const Cancellation &cancel,IUpgradeObserver *observer) {
@@ -237,17 +265,17 @@ OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const 
         CheckCancel(cancel);
         if(request.operation==Operation::AllwinnerDeviceInfo) {
             auto t=factory(); t->Open(target,cancel); auto d=t->Details();
-            result.items.push_back({AwTr("设备模式").toStdString(),ModeName(d.mode)}); result.items.push_back({AwTr("芯片 ID").toStdString(),std::to_string(d.chip)});
-            result.items.push_back({AwTr("协议固件").toStdString(),std::to_string(d.firmware)});
+            result.items.push_back({QCoreApplication::translate("Allwinner", "Device mode").toStdString(),ModeName(d.mode)}); result.items.push_back({QCoreApplication::translate("Allwinner", "Chip ID").toStdString(),std::to_string(d.chip)});
+            result.items.push_back({QCoreApplication::translate("Allwinner", "Protocol firmware").toStdString(),std::to_string(d.firmware)});
             if(d.mode==2) {
-                result.items.push_back({AwTr("存储类型").toStdString(),StorageName(t->QueryStorage())});
-                result.items.push_back({AwTr("容量（字节）").toStdString(),std::to_string(uint64_t(t->QuerySize())*512)});
-                result.items.push_back({AwTr("启动模式").toStdString(),std::to_string(t->QuerySecure())});
+                result.items.push_back({QCoreApplication::translate("Allwinner", "Storage type").toStdString(),StorageName(t->QueryStorage())});
+                result.items.push_back({QCoreApplication::translate("Allwinner", "Capacity (bytes)").toStdString(),std::to_string(uint64_t(t->QuerySize())*512)});
+                result.items.push_back({QCoreApplication::translate("Allwinner", "Boot mode").toStdString(),std::to_string(t->QuerySecure())});
             }
         } else if(request.operation==Operation::AllwinnerReboot) {
             auto t=factory(); t->Open(target,cancel);
             if(t->Details().mode!=2) throw std::runtime_error("Reboot requires the device to be in FES mode");
-            Log(observer,AwTr("重启设备").toStdString());
+            Log(observer,QCoreApplication::translate("Allwinner", "Rebooting device").toStdString());
             t->Finish(PostAction::Reboot);
         } else if(request.operation==Operation::AllwinnerInspect) {
             result=InspectFirmware(request.file.path);
@@ -255,7 +283,7 @@ OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const 
             Firmware fw(request.file.path);
             if(request.operation==Operation::AllwinnerExtract) {
                 if(request.file.output.empty()) throw std::runtime_error("Choose an output directory");
-                fw.Extract(request.file.output,cancel,[&](uint64_t total,uint64_t done) { Progress(observer,"解包固件",total,done); });
+                fw.Extract(request.file.output,cancel,[&](uint64_t total,uint64_t done) { Progress(observer,Stage::Extract,total,done); });
             } else if(request.operation==Operation::AllwinnerConvert) {
                 Convert(fw,request,cancel,[&](const std::string &stage,uint64_t total,uint64_t done) { if(total) Progress(observer,stage,total,done); else Log(observer,stage); },result);
             } else {

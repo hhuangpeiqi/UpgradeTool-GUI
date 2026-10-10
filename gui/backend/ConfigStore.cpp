@@ -118,7 +118,7 @@ QVariantMap ConfigStore::load()
 	map["loader"] = GetConfigString("loader", strValue) ? QString::fromStdString(strValue) : QString();
 	map["device"] = GetConfigString("device", strValue) ? QString::fromStdString(strValue) : QString();
 
-	SetStatus(tr("已加载: %1").arg(m_strFile));
+	SetStatus(tr("Loaded: %1").arg(m_strFile));
 	return map;
 }
 
@@ -168,7 +168,7 @@ bool ConfigStore::save(const QVariantMap &values)
 
 	QFile out(strTarget);
 	if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-		SetStatus(tr("保存失败: 无法写入 %1").arg(strTarget));
+		SetStatus(tr("Save failed: cannot write %1").arg(strTarget));
 		return false;
 	}
 	QTextStream stream(&out);
@@ -179,20 +179,20 @@ bool ConfigStore::save(const QVariantMap &values)
 	m_strFile = strTarget;
 	emit filePathChanged();
 	parse_config_file(m_strFile.toStdString().c_str(), g_ConfigItemVec);
-	SetStatus(tr("已保存: %1").arg(strTarget));
+	SetStatus(tr("Saved: %1").arg(strTarget));
 	return true;
 }
 
 void ConfigStore::installUdev()
 {
 #ifndef Q_OS_LINUX
-	QString strMsg = tr("此平台无需安装 udev 规则。");
+	QString strMsg = tr("No udev rules are needed on this platform.");
 	SetStatus(strMsg);
 	emit udevInstallFinished(false, strMsg);
 #else
 	QString strRule = FindUdevRule(m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
 	if (strRule.isEmpty()) {
-		QString strMsg = tr("未找到 USB 规则文件，请手动复制 scripts/ 下的规则到 /etc/udev/rules.d/");
+		QString strMsg = tr("USB rule files not found; copy the rules from scripts/ to /etc/udev/rules.d/ manually");
 		SetStatus(strMsg);
 		emit udevInstallFinished(false, strMsg);
 		return;
@@ -200,7 +200,7 @@ void ConfigStore::installUdev()
 
 	QString strScript = "cp '" + strRule
 	                    + "' /etc/udev/rules.d/ && udevadm control --reload-rules && udevadm trigger";
-	SetStatus(tr("正在安装 udev 规则…"));
+	SetStatus(tr("Installing udev rules…"));
 
 	QProcess *pProc = new QProcess(this);
 	std::shared_ptr<bool> pbFinished = std::make_shared<bool>(false);
@@ -215,14 +215,14 @@ void ConfigStore::installUdev()
 	connect(pProc, &QProcess::errorOccurred, this,
 	        [finish](QProcess::ProcessError error) {
 		        if (error == QProcess::FailedToStart)
-			        finish(false, tr("无法启动 pkexec，请用 sudo 手动执行安装命令。"));
+			        finish(false, tr("Cannot launch pkexec; run the install command manually with sudo."));
 	        });
 	connect(pProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
 	        [finish, strRule](int iExit, QProcess::ExitStatus status) {
 		        if (status == QProcess::NormalExit && iExit == 0)
-			        finish(true, tr("udev 规则安装成功: %1").arg(strRule));
+			        finish(true, tr("udev rules installed successfully: %1").arg(strRule));
 		        else
-			        finish(false, tr("udev 规则安装失败（退出码 %1），请用 sudo 手动执行。").arg(iExit));
+			        finish(false, tr("udev rule install failed (exit code %1); run it manually with sudo.").arg(iExit));
 	        });
 	pProc->start("pkexec", QStringList() << "sh" << "-c" << strScript);
 #endif

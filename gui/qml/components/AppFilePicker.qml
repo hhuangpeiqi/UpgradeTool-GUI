@@ -209,7 +209,7 @@ AppDialog {
         var err = dirModel.makeDirectory(newFolderField.text);
         if (err === "") {
             creatingFolder = false;
-            hintText = qsTr("已创建目录");
+            hintText = qsTr("Directory created");
             hintError = false;
         } else {
             hintText = err;
@@ -230,13 +230,13 @@ AppDialog {
                 if (!selectedIsDir && selectedPath !== "") {
                     selectedFile = app.pathUrl(selectedPath);
                 } else {
-                    hintText = qsTr("请输入文件名");
+                    hintText = qsTr("Enter a file name");
                     hintError = true;
                     fileField.forceActiveFocus();
                     return;
                 }
             } else if (name.indexOf("/") >= 0) {
-                hintText = qsTr("文件名不能包含 “/”");
+                hintText = qsTr("File name cannot contain \"/\"");
                 hintError = true;
                 return;
             } else {
@@ -267,7 +267,7 @@ AppDialog {
                 spacing: 6
 
                 Text {
-                    text: qsTr("位置")
+                    text: qsTr("Location")
                     color: Theme.textSecondary
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSmall
@@ -429,7 +429,7 @@ AppDialog {
                             width: parent.width
                             height: root.rowHeight
                             visible: root.editingPath
-                            placeholderText: qsTr("/绝对/路径")
+                            placeholderText: qsTr("/absolute/path")
                             onAccepted: root.navigateTo(text)
                             Keys.onEscapePressed: {
                                 root.editingPath = false;
@@ -465,25 +465,25 @@ AppDialog {
                     spacing: 8
 
                     SecondaryButton {
-                        text: qsTr("上一级")
+                        text: qsTr("Up")
                         Layout.preferredHeight: root.rowHeight
                         onClicked: root.goUp()
                     }
 
                     SecondaryButton {
-                        text: qsTr("刷新")
+                        text: qsTr("Refresh")
                         Layout.preferredHeight: root.rowHeight
                         onClicked: dirModel.refresh()
                     }
 
                     AppCheckBox {
                         id: hiddenBox
-                        text: qsTr("显示隐藏")
+                        text: qsTr("Show hidden")
                         Layout.preferredHeight: root.rowHeight
                     }
 
                     SecondaryButton {
-                        text: qsTr("新建目录")
+                        text: qsTr("New Folder")
                         Layout.preferredHeight: root.rowHeight
                         onClicked: {
                             root.creatingFolder = true;
@@ -516,19 +516,19 @@ AppDialog {
                         id: newFolderField
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.rowHeight
-                        placeholderText: qsTr("新目录名称")
+                        placeholderText: qsTr("New folder name")
                         onAccepted: root.createFolder()
                         Keys.onEscapePressed: root.creatingFolder = false
                     }
 
                     SecondaryButton {
-                        text: qsTr("取消")
+                        text: qsTr("Cancel")
                         Layout.preferredHeight: root.rowHeight
                         onClicked: root.creatingFolder = false
                     }
 
                     PrimaryButton {
-                        text: qsTr("创建")
+                        text: qsTr("Create")
                         Layout.preferredHeight: root.rowHeight
                         onClicked: root.createFolder()
                     }
@@ -543,7 +543,7 @@ AppDialog {
                         id: searchField
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.rowHeight
-                        placeholderText: qsTr("搜索当前目录…")
+                        placeholderText: qsTr("Search current directory…")
                         onTextChanged: dirModel.searchText = text
                         Keys.onEscapePressed: root.clearSearch()
                     }
@@ -666,8 +666,8 @@ AppDialog {
                             anchors.centerIn: parent
                             visible: dirModel.count === 0
                             text: dirModel.errorText !== "" ? dirModel.errorText
-                                  : (searchField.text !== "" ? qsTr("未找到匹配项")
-                                                             : qsTr("（空目录）"))
+                                  : (searchField.text !== "" ? qsTr("No matches found")
+                                                             : qsTr("(empty directory)"))
                             color: Theme.textSecondary
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontNormal
@@ -687,7 +687,7 @@ AppDialog {
             visible: !root.folderMode
             Layout.preferredWidth: 56
             Layout.alignment: Qt.AlignVCenter
-            text: qsTr("文件名")
+            text: qsTr("File name")
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
@@ -698,7 +698,7 @@ AppDialog {
             visible: !root.folderMode
             Layout.fillWidth: true
             Layout.preferredHeight: root.rowHeight
-            placeholderText: root.saveMode ? qsTr("输入或选择要保存的文件") : qsTr("选择文件")
+            placeholderText: root.saveMode ? qsTr("Enter or choose a file to save") : qsTr("Select File")
             onAccepted: root.confirmAccept()
         }
 
@@ -706,7 +706,7 @@ AppDialog {
             visible: !root.folderMode && root.filterLabels().length > 1
             Layout.preferredWidth: 56
             Layout.alignment: Qt.AlignVCenter
-            text: root.saveMode ? qsTr("保存类型") : qsTr("文件类型")
+            text: root.saveMode ? qsTr("Save as type") : qsTr("File type")
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
@@ -731,15 +731,15 @@ AppDialog {
 
         SecondaryButton {
             Layout.alignment: Qt.AlignVCenter
-            text: qsTr("取消")
+            text: qsTr("Cancel")
             onClicked: root.close()
         }
 
         PrimaryButton {
             Layout.alignment: Qt.AlignVCenter
             text: root.folderMode
-                  ? (root.selectedIsDir ? qsTr("选择该目录") : qsTr("选择此目录"))
-                  : (root.saveMode ? qsTr("保存") : qsTr("选择"))
+                  ? (root.selectedIsDir ? qsTr("Select this directory") : qsTr("Select this directory"))
+                  : (root.saveMode ? qsTr("Save") : qsTr("Select"))
             onClicked: root.confirmAccept()
         }
     }

@@ -6,7 +6,7 @@ import QtQuick.Layouts
 AppDialog {
     id: dlg
 
-    titleText: qsTr("选择存储")
+    titleText: qsTr("Select Storage")
     width: 440
 
     property var options: []
@@ -25,7 +25,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("请选择要切换的存储:")
+        text: qsTr("Select the storage to switch to:")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -75,7 +75,7 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
-            text: qsTr("取消")
+            text: qsTr("Cancel")
             onClicked: dlg.close()
         }
     }
