@@ -70,7 +70,7 @@ git submodule update --init --recursive
 Debian / Ubuntu:
 
 ```sh
-sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-l10n-tools \
+sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-l10n-tools qt6-tools-dev-tools \
   qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
   qml6-module-qtquick-templates qml6-module-qtquick-window \
   qml6-module-qtqml-workerscript qt6-qpa-plugins
