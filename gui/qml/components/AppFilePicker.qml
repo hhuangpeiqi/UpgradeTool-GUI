@@ -198,6 +198,11 @@ AppDialog {
         navigateTo(start);
         if (!folderMode)
             fileField.text = "";
+        // setRootPath() early-returns when the target directory is unchanged,
+        // so the persistent DirModel would otherwise keep showing the stale
+        // list cached from the previous open. Force a rescan every time the
+        // picker is shown so newly added/removed files appear immediately.
+        dirModel.refresh();
     }
 
     function selectEntry(name, path, isDir) {
