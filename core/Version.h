@@ -1,4 +1,4 @@
 #ifndef CORE_VERSION_H
 #define CORE_VERSION_H
-static const char *const TOOL_VERSION = "3.6.4";
+static const char *const TOOL_VERSION = "3.6.5";
 #endif

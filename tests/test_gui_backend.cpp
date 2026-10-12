@@ -293,6 +293,24 @@ int main(int argc, char **argv) {
 		controller.language()->setMode("auto");
 	}
 
+	// Changing the effective language retranslates the UI, which rebuilds the
+	// language combo box model and resets its currentIndex. The settings dialog
+	// restores the selection from modeChanged, so it must be emitted after
+	// languageChanged.
+	{
+		gui::AppController controller(NULL);
+		QStringList order;
+		QObject::connect(controller.language(), &gui::LanguageManager::languageChanged,
+		                 &application, [&order] { order << QStringLiteral("language"); });
+		QObject::connect(controller.language(), &gui::LanguageManager::modeChanged,
+		                 &application, [&order] { order << QStringLiteral("mode"); });
+		controller.language()->setMode("en");
+		controller.language()->setMode("zh_CN");
+		CHECK(order.endsWith(QStringLiteral("mode")));
+		CHECK(order.indexOf(QStringLiteral("language")) < order.lastIndexOf(QStringLiteral("mode")));
+		controller.language()->setMode("auto");
+	}
+
 	// Closing immediately with a queued job must join the thread without a deadlock.
 	{
 		gui::AppController controller(NULL);

@@ -64,8 +64,13 @@ void LanguageManager::setMode(const QString &strMode)
 	QSettings settings(QSettings::IniFormat, QSettings::UserScope,
 	                   "upgrade_tool", "upgrade_tool");
 	settings.setValue(QString::fromLatin1(kSettingsKey), m_strMode);
-	emit modeChanged();
+
+	// Apply first: retranslating the UI rebuilds the language combo box model,
+	// and a Qt model change resets its currentIndex back to the first item.
+	// Observers of modeChanged restore the selection, so the notification must
+	// come after the retranslation.
 	Apply();
+	emit modeChanged();
 }
 
 void LanguageManager::Apply()
