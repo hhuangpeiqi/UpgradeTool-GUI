@@ -84,6 +84,7 @@ class AppController : public QObject
 	Q_PROPERTY(QString advancedHint READ advancedHint NOTIFY advancedStateChanged)
 	Q_PROPERTY(bool advancedHintError READ advancedHintError NOTIFY advancedStateChanged)
 	Q_PROPERTY(QStringList storages READ storages CONSTANT)
+	Q_PROPERTY(QVariantList usageHelp READ usageHelp NOTIFY usageHelpChanged)
 
 public:
 	explicit AppController(CRKLog *pLog, QObject *parent = NULL);
@@ -161,7 +162,7 @@ public:
 	Q_INVOKABLE QString logDir() const;
 	Q_INVOKABLE QString homeDir() const;
 	Q_INVOKABLE QVariantList standardPlaces() const;
-	Q_INVOKABLE QVariantList usageHelp() const;
+	QVariantList usageHelp() const;
 	Q_INVOKABLE void logLine(const QString &strText);
 	Q_INVOKABLE QString lastDir(const QString &strKey) const;
 	Q_INVOKABLE void rememberPath(const QString &strKey, const QString &strPath);
@@ -218,6 +219,7 @@ signals:
 	void imageStateChanged();
 	void firmwareStateChanged();
 	void advancedStateChanged();
+	void usageHelpChanged();
 
 	void toastRequested(const QString &strText, bool bError);
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
@@ -267,6 +269,7 @@ private:
 	void SetImageHint(const QString &strText, bool bError);
 	void SetFirmwareHint(const QString &strText, bool bError);
 	void SetAdvancedHint(const QString &strText, bool bError);
+	void RebuildUsageHelp();
 	void ApplyAllwinnerInspectResult(int context, const core::OperationResult &result);
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;
@@ -285,6 +288,7 @@ private:
 	KeyValueModel *m_pResults;
 
 	QVariantList m_devices;
+	QVariantList m_usageHelp;
 	QString m_strDeviceStatus;
 	QStringList m_deviceKeys;
 	QString m_strDeviceSignature;

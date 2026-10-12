@@ -277,6 +277,22 @@ int main(int argc, char **argv) {
         CHECK(legacy.allwinnerSettings()["page2/logicOffset"]=="0x2000");
     }
 
+	// Usage help is refreshed when the effective language changes; the QML view
+	// relies on usageHelpChanged because the model comes from C++ rather than
+	// from qsTr bindings that retranslate() would re-evaluate.
+	{
+		gui::AppController controller(NULL);
+		int helpRefreshes = 0;
+		QObject::connect(&controller, &gui::AppController::usageHelpChanged,
+		                 &application, [&helpRefreshes] { ++helpRefreshes; });
+		CHECK(!controller.usageHelp().isEmpty());
+		controller.language()->setMode("en");
+		controller.language()->setMode("zh_CN");
+		CHECK(helpRefreshes >= 1);
+		CHECK(!controller.usageHelp().isEmpty());
+		controller.language()->setMode("auto");
+	}
+
 	// Closing immediately with a queued job must join the thread without a deadlock.
 	{
 		gui::AppController controller(NULL);

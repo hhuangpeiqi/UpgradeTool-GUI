@@ -30,7 +30,7 @@ AppDialog {
             }
 
             Repeater {
-                model: app.usageHelp()
+                model: app.usageHelp
 
                 delegate: Column {
                     width: parent.width

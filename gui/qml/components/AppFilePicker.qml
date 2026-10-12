@@ -32,8 +32,16 @@ AppDialog {
     property bool searchVisible: false
     property int activeFilter: 0
     property var crumbs: []
+    // Location names come from C++ (translated); rebuild them when the UI
+    // language changes, since retranslate() only refreshes qsTr bindings.
+    property var placesModel: app.standardPlaces()
 
     signal accepted()
+
+    Connections {
+        target: app.language
+        function onLanguageChanged() { root.placesModel = app.standardPlaces() }
+    }
 
     readonly property int listHeight: 400
     readonly property int rowHeight: 34
@@ -279,7 +287,7 @@ AppDialog {
                     height: root.listHeight
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-                    model: app.standardPlaces()
+                    model: root.placesModel
 
                     ScrollBar.vertical: ScrollBar {
                         policy: ScrollBar.AsNeeded

@@ -250,6 +250,8 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 		AppendLog(QString("[%1] %2").arg(strStamp).arg(tr("Application started")), false);
 	}
 
+	RebuildUsageHelp();
+
 	m_pThread->start();
 
 	QTimer *pTimer = new QTimer(this);
@@ -289,6 +291,11 @@ QString AppController::logDir() const
 }
 
 QVariantList AppController::usageHelp() const
+{
+	return m_usageHelp;
+}
+
+void AppController::RebuildUsageHelp()
 {
 	struct MakeItem {
 		static QVariantMap Run(const QString &strName, const QString &strDesc)
@@ -408,7 +415,8 @@ QVariantList AppController::usageHelp() const
 		<< MakeItem::Run(tr("Button grayed out with an unsupported notice"), tr("\"The current engine does not support this feature\" means the operation is not implemented yet."))
 		<< MakeItem::Run(tr("Clicking \"Cancel\" during execution"), tr("It counts as \"Cancelled\", not a failure, and stops the current operation and the remaining queue."))));
 
-	return groups;
+	m_usageHelp = groups;
+	emit usageHelpChanged();
 }
 
 void AppController::logLine(const QString &strText)
@@ -637,6 +645,7 @@ void AppController::onLanguageChanged()
 	emit progressChanged();
 	emit felSwitchStateChanged();
 	emit allwinnerChanged();
+	RebuildUsageHelp();
 }
 
 
