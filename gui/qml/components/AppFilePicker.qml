@@ -290,13 +290,14 @@ AppDialog {
                     model: root.placesModel
 
                     ScrollBar.vertical: ScrollBar {
+                        id: placesBar
                         policy: ScrollBar.AsNeeded
                         background: Rectangle { color: "transparent" }
                         contentItem: Rectangle {
                             implicitWidth: 6
                             radius: 3
                             color: Theme.borderStrong
-                            opacity: 0.5
+                            opacity: placesBar.size < 1.0 ? (placesBar.active || placesBar.pressed ? 1.0 : 0.5) : 0.0
                         }
                     }
 
@@ -618,13 +619,14 @@ AppDialog {
                         }
 
                         ScrollBar.vertical: ScrollBar {
+                            id: entryBar
                             policy: ScrollBar.AsNeeded
                             background: Rectangle { color: "transparent" }
                             contentItem: Rectangle {
                                 implicitWidth: 6
                                 radius: 3
                                 color: Theme.borderStrong
-                                opacity: 0.5
+                                opacity: entryBar.size < 1.0 ? (entryBar.active || entryBar.pressed ? 1.0 : 0.5) : 0.0
                             }
                         }
 

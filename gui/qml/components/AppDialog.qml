@@ -89,6 +89,10 @@ Popup {
             ScrollBar.vertical: ScrollBar {
                 id: vbar
                 policy: ScrollBar.AsNeeded
+                // Only grab the mouse when there is actually something to scroll,
+                // so the overlay bar does not swallow clicks meant for controls
+                // (e.g. nested list scroll bars) at the content's right edge.
+                interactive: vbar.size < 1.0
                 background: Rectangle { color: "transparent" }
 
                 contentItem: Rectangle {
@@ -101,7 +105,11 @@ Popup {
 
             Column {
                 id: body
-                width: bodyFlick.width
+                // Reserve a gutter for the vertical scroll bar so the content
+                // never sits underneath it (the bar overlays the flickable's
+                // right edge). Constant offset to avoid a binding loop with
+                // body.implicitHeight -> vbar.size.
+                width: bodyFlick.width - 14
                 spacing: 12
             }
         }
