@@ -116,6 +116,9 @@ ctest --test-dir build --output-on-failure
 # Linux：通过 Docker 构建 .deb，支持 Ubuntu 22.04 及更新版本
 scripts/package_deb.sh
 
+# Linux：用本机工具链构建 .deb，产物仅适用于当前发行版
+UPGRADE_TOOL_NATIVE_DEB=1 scripts/package_deb.sh
+
 # macOS：生成独立应用和 DMG，产物位于 build-macos/dist/
 QT_ROOT="$HOME/Qt/6.8.3/macos" scripts/package_macos.sh
 ```

@@ -116,6 +116,9 @@ ctest --test-dir build --output-on-failure
 # Linux: build a .deb via Docker, for Ubuntu 22.04 and newer
 scripts/package_deb.sh
 
+# Linux: build a .deb with the host toolchain; current distro only
+UPGRADE_TOOL_NATIVE_DEB=1 scripts/package_deb.sh
+
 # macOS: build a standalone app and DMG; output in build-macos/dist/
 QT_ROOT="$HOME/Qt/6.8.3/macos" scripts/package_macos.sh
 ```

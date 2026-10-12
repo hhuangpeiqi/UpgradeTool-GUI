@@ -7,10 +7,10 @@ if [ "$#" -ge 1 ] && [ -f "$1" ]; then
 	DEB=$1
 	shift
 else
-	DEB=$(ls "$ROOT"/build-deb/build/*.deb "$ROOT"/build/*.deb 2>/dev/null | head -1 || true)
+	DEB=$(ls -t "$ROOT"/build-deb/build/*.deb "$ROOT"/build/*.deb 2>/dev/null | head -1 || true)
 fi
 if [ -z "${DEB:-}" ] || [ ! -f "$DEB" ]; then
-	echo "error: 找不到 .deb，请先运行 scripts/build_deb_container.sh。" >&2
+	echo "error: 找不到 .deb，请先运行 scripts/package_deb.sh。" >&2
 	exit 1
 fi
 DEB=$(CDPATH= cd -- "$(dirname -- "$DEB")" && pwd)/$(basename -- "$DEB")
