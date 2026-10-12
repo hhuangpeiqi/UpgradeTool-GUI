@@ -120,6 +120,7 @@ AppDialog {
 
         PrimaryButton {
             text: dlg.installing ? qsTr("Installing…") : qsTr("Install udev rules")
+            reserveText: dlg.installing ? qsTr("Install udev rules") : qsTr("Installing…")
             enabled: !dlg.installing
             onClicked: {
                 dlg.installing = true;

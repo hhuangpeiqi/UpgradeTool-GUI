@@ -140,6 +140,7 @@ Item {
                     SecondaryButton {
                         objectName: "awSwitchButton"
                         text: qsTr("Switch")
+                        iconSource: Icons.switchBlue
                         busy: app.switching
                         enabled: !app.busy && app.adbReady
                         onClicked: app.switchToFel(switchMethod.currentIndex)

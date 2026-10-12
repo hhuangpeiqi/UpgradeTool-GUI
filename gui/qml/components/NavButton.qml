@@ -13,6 +13,14 @@ Item {
     implicitWidth: row.implicitWidth + 36
     implicitHeight: Theme.navBarHeight
 
+    TextMetrics {
+        id: boldMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontMedium
+        font.bold: true
+        text: root.text
+    }
+
     Rectangle {
         anchors.fill: parent
         anchors.topMargin: 6
@@ -35,6 +43,8 @@ Item {
 
         Text {
             text: root.text
+            width: Math.ceil(boldMetrics.advanceWidth)
+            horizontalAlignment: Text.AlignHCenter
             color: root.selected ? Theme.primary : Theme.textPrimary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontMedium

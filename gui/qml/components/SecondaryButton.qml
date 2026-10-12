@@ -10,6 +10,10 @@ Button {
     property color textColor: Theme.textPrimary
     property int hPadding: 18
     property bool busy: false
+    property string reserveText: ""
+
+    TextMetrics { id: textMetrics; font: root.font; text: root.text }
+    TextMetrics { id: reserveMetrics; font: root.font; text: root.reserveText }
 
     implicitHeight: 38
     implicitWidth: Math.max(76, contentRow.implicitWidth + hPadding * 2)
@@ -43,6 +47,8 @@ Button {
 
             Text {
                 text: root.text
+                width: Math.max(textMetrics.advanceWidth, reserveMetrics.advanceWidth)
+                horizontalAlignment: Text.AlignHCenter
                 color: root.enabled ? root.textColor : Theme.textDisabled
                 font: root.font
                 anchors.verticalCenter: parent.verticalCenter

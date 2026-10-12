@@ -72,7 +72,6 @@ EdgeRoundedRect {
 
         Text {
             text: root.progressSpeed
-            visible: text.length > 0
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontMedium
