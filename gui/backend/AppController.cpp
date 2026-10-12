@@ -13,6 +13,7 @@
 #include <QVariantMap>
 
 #include <cstring>
+#include <utility>
 
 #ifdef Q_OS_LINUX
 #include <unistd.h>
@@ -205,7 +206,7 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	        this, SLOT(onAdbFinished(bool, QString)));
 	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const QString &message) {
 		if (!m_switchingFel) return;
-		m_felSwitchHint = message;
+		m_felSwitchHint.Set([message] { return message; });
 		m_felSwitchError = false;
 		emit felSwitchStateChanged();
 	});
@@ -219,16 +220,20 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	connect(m_pConfig, &gui::ConfigStore::udevInstallFinished,
 	        this, [this](bool, const QString &) { retryPermission(); });
 
-	connect(m_pLanguage, &gui::LanguageManager::languageChanged,
-	        this, &AppController::onLanguageChanged);
-
 	m_bPermissionBlocked = PermissionMissing();
 	emit permissionChanged();
 
-	SetImageHint(tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."), false);
-	SetFirmwareHint(tr("Select firmware."), false);
-	SetAdvancedHint(tr("Ready"), false);
+	SetImageHint([] { return tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."); }, false);
+	SetFirmwareHint([] { return tr("Select firmware."); }, false);
+	SetAdvancedHint([] { return tr("Ready"); }, false);
 	SetDeviceStatus();
+
+	// Single source of truth for retranslation: every cached string owner
+	// registers here so LanguageManager refreshes them all on a language switch.
+	m_usageHelp.Set([this] { return BuildUsageHelp(); });
+	m_standardPlaces.Set([this] { return BuildStandardPlaces(); });
+	m_pLanguage->registerRetranslatable(this);
+	m_pLanguage->registerRetranslatable(m_pConfig);
 
 	m_strFwVersion = m_strFwLoader = m_strFwChip = m_strFwBuild = m_strFwSign = QString("-");
 
@@ -249,8 +254,6 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 		QString strStamp = QTime::currentTime().toString("HH:mm:ss");
 		AppendLog(QString("[%1] %2").arg(strStamp).arg(tr("Application started")), false);
 	}
-
-	RebuildUsageHelp();
 
 	m_pThread->start();
 
@@ -290,12 +293,7 @@ QString AppController::logDir() const
 	return QString::fromStdString(platform::GetUserLogDir());
 }
 
-QVariantList AppController::usageHelp() const
-{
-	return m_usageHelp;
-}
-
-void AppController::RebuildUsageHelp()
+QVariantList AppController::BuildUsageHelp() const
 {
 	struct MakeItem {
 		static QVariantMap Run(const QString &strName, const QString &strDesc)
@@ -415,8 +413,7 @@ void AppController::RebuildUsageHelp()
 		<< MakeItem::Run(tr("Button grayed out with an unsupported notice"), tr("\"The current engine does not support this feature\" means the operation is not implemented yet."))
 		<< MakeItem::Run(tr("Clicking \"Cancel\" during execution"), tr("It counts as \"Cancelled\", not a failure, and stops the current operation and the remaining queue."))));
 
-	m_usageHelp = groups;
-	emit usageHelpChanged();
+	return groups;
 }
 
 void AppController::logLine(const QString &strText)
@@ -447,7 +444,7 @@ QString AppController::homeDir() const
 	return QDir::homePath();
 }
 
-QVariantList AppController::standardPlaces() const
+QVariantList AppController::BuildStandardPlaces() const
 {
 	QVariantList places;
 	QStringList seen;
@@ -604,48 +601,62 @@ void AppController::SetBusy(bool bBusy)
 	emit busyChanged();
 }
 
-void AppController::SetImageHint(const QString &strText, bool bError)
+void AppController::SetImageHint(TranslatableText::Factory factory, bool bError)
 {
-	m_strImageHint = strText;
+	m_imageHint.Set(std::move(factory));
 	m_bImageHintError = bError;
 	emit imageStateChanged();
 }
 
-void AppController::SetFirmwareHint(const QString &strText, bool bError)
+void AppController::SetFirmwareHint(TranslatableText::Factory factory, bool bError)
 {
-	m_strFirmwareHint = strText;
+	m_firmwareHint.Set(std::move(factory));
 	m_bFirmwareHintError = bError;
 	emit firmwareStateChanged();
 }
 
-void AppController::SetAdvancedHint(const QString &strText, bool bError)
+void AppController::SetAdvancedHint(TranslatableText::Factory factory, bool bError)
 {
-	m_strAdvancedHint = strText;
+	m_advancedHint.Set(std::move(factory));
 	m_bAdvancedHintError = bError;
 	emit advancedStateChanged();
 }
 
-void AppController::onLanguageChanged()
+void AppController::SetAllwinnerHint(int context, TranslatableText::Factory factory, bool bError)
 {
-	// Retranslate strings that AppController owns. The status bar and idle
-	// hints are refreshed here; hints describing the last operation refresh on
-	// the next action.
-	SetDeviceStatus();
+	if (context < 0 || context >= 4)
+		return;
+	AllwinnerState &state = m_allwinner[context];
+	state.hint.Set(std::move(factory));
+	state.error = bError;
+	emit allwinnerChanged();
+}
 
-	if (!m_bBusy) {
-		if (m_strImageDir.isEmpty())
-			SetImageHint(tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."), false);
-		if (m_strFirmware.isEmpty())
-			SetFirmwareHint(tr("Select firmware."), false);
-	}
+void AppController::retranslate()
+{
+	// The single rebuild path: every cached tr() string in this controller is
+	// regenerated here, then the matching NOTIFY signals are emitted so QML
+	// reads the new text immediately.
+	m_imageHint.retranslate();
+	m_firmwareHint.retranslate();
+	m_advancedHint.retranslate();
+	m_felSwitchHint.retranslate();
+	for (AllwinnerState &state : m_allwinner)
+		state.hint.retranslate();
+	if (m_firmwareInfo.bound())
+		m_pFirmwareEntries->SetItems(m_firmwareInfo.value());
+	m_usageHelp.retranslate();
+	m_standardPlaces.retranslate();
+
+	SetDeviceStatus();
 
 	emit imageStateChanged();
 	emit firmwareStateChanged();
 	emit advancedStateChanged();
-	emit progressChanged();
-	emit felSwitchStateChanged();
 	emit allwinnerChanged();
-	RebuildUsageHelp();
+	emit felSwitchStateChanged();
+	emit usageHelpChanged();
+	emit standardPlacesChanged();
 }
 
 
@@ -848,7 +859,7 @@ void AppController::runOperation(int operation, const QVariantMap &parameters)
 	// Keep existing loader fallback, resolved before submitting a business request.
 	if (r.file.path.empty() && (r.operation == core::Operation::EraseFlash || r.operation == core::Operation::DownloadBoot || r.operation == core::Operation::LoaderUpgrade))
 		GetConfigString("loader", r.file.path);
-	if (!valid) { SetAdvancedHint(tr("Numeric parameter invalid or out of range"), true); emit toastRequested(tr("Numeric parameter invalid or out of range"), true); return; }
+	if (!valid) { SetAdvancedHint([] { return tr("Numeric parameter invalid or out of range"); }, true); emit toastRequested(tr("Numeric parameter invalid or out of range"), true); return; }
 	core::TaskJob job; job.steps.push_back(r); StartJob(job);
 }
 
@@ -905,32 +916,46 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 	const bool cancelled = summary.status == core::OperationStatus::Cancelled;
 	const bool ok = summary.status == core::OperationStatus::Succeeded;
 	SetBusy(false);
-	QString text = cancelled ? tr("Cancelled") : ok ? tr("Operation complete") : tr("Operation failed; see the log");
+	TranslatableText::Factory statusText = [cancelled, ok] {
+		return cancelled ? tr("Cancelled") : ok ? tr("Operation complete") : tr("Operation failed; see the log");
+	};
+	QString text = statusText();
 	AppendLog(text, !ok && !cancelled);
 	if (m_bQueueActive) {
 		m_bQueueActive = false;
-		SetImageHint(cancelled ? tr("Cancelled.") : ok ?
-			(m_job.rebootAfter ? tr("Download complete; reboot command sent.") : tr("Download complete.")) : tr("Download finished with failures. Failed devices were not rebooted automatically."), !ok && !cancelled);
+		SetImageHint([this, cancelled, ok] {
+			return cancelled ? tr("Cancelled.") : ok ?
+				(m_job.rebootAfter ? tr("Download complete; reboot command sent.") : tr("Download complete."))
+				: tr("Download finished with failures. Failed devices were not rebooted automatically.");
+		}, !ok && !cancelled);
 		emit imageStateChanged();
 	} else if (cancelled) {
 		if (m_runningOperation == core::Operation::FirmwareUpgrade || m_runningOperation == core::Operation::FirmwareExtract || m_runningOperation == core::Operation::FirmwareInfo)
-			SetFirmwareHint(text, false);
-		else SetAdvancedHint(text, false);
+			SetFirmwareHint(statusText, false);
+		else SetAdvancedHint(statusText, false);
 	}
 	if (m_job.targets.size() > 1) {
-		QString batch = tr("Batch finished: %1 succeeded, %2 failed").arg(summary.succeeded).arg(summary.failed);
-		if (cancelled) batch += tr(", remaining operations cancelled");
-		AppendLog(batch, summary.failed > 0);
-		if (m_runningOperation == core::Operation::FirmwareUpgrade) SetFirmwareHint(batch, !ok && !cancelled);
-		else if (m_runningOperation != core::Operation::LoaderUpgrade && m_runningOperation != core::Operation::DownloadImage) SetAdvancedHint(batch, !ok && !cancelled);
+		const int succeededCount = summary.succeeded;
+		const int failedCount = summary.failed;
+		TranslatableText::Factory batchText = [succeededCount, failedCount, cancelled] {
+			return tr("Batch finished: %1 succeeded, %2 failed").arg(succeededCount).arg(failedCount)
+			       + (cancelled ? tr(", remaining operations cancelled") : QString());
+		};
+		AppendLog(batchText(), summary.failed > 0);
+		if (m_runningOperation == core::Operation::FirmwareUpgrade) SetFirmwareHint(batchText, !ok && !cancelled);
+		else if (m_runningOperation != core::Operation::LoaderUpgrade && m_runningOperation != core::Operation::DownloadImage) SetAdvancedHint(batchText, !ok && !cancelled);
 	}
     if(m_runningOperation >= core::Operation::AllwinnerFlash && m_runningOperation < core::Operation::Count) {
         auto &state = m_allwinner[m_allwinnerContext];
         state.error = !ok && !cancelled;
-        if(cancelled) state.hint=tr("Cancelled");
+        if(cancelled) state.hint.Set([] { return tr("Cancelled"); });
         if(m_job.targets.size()>1) {
-            state.hint=tr("Batch finished: %1 succeeded, %2 failed").arg(summary.succeeded).arg(summary.failed);
-            if(cancelled) state.hint += tr(", remaining operations cancelled");
+            const int succeededCount = summary.succeeded;
+            const int failedCount = summary.failed;
+            state.hint.Set([succeededCount, failedCount, cancelled] {
+                return tr("Batch finished: %1 succeeded, %2 failed").arg(succeededCount).arg(failedCount)
+                       + (cancelled ? tr(", remaining operations cancelled") : QString());
+            });
         }
         emit allwinnerChanged();
     }
@@ -945,10 +970,14 @@ void AppController::onStepStarted(int step, int target, int total, const QString
 	if (step < static_cast<int>(m_job.steps.size())) {
 		const auto &request = m_job.steps[step];
 		QString label = request.partition.empty() ? OperationName(request.operation) : QString::fromStdString(request.partition);
-		QString text = tr("Running %1/%2: %3").arg(step + 1).arg(m_job.steps.size()).arg(label);
-		if (total > 1) text += tr(", device %1/%2 %3").arg(target + 1).arg(total).arg(device);
-		if (m_bQueueActive) SetImageHint(text, false);
-		AppendLog(text, false);
+		const int stepCount = m_job.steps.size();
+		TranslatableText::Factory runText = [step, stepCount, total, target, label, device] {
+			QString text = tr("Running %1/%2: %3").arg(step + 1).arg(stepCount).arg(label);
+			if (total > 1) text += tr(", device %1/%2 %3").arg(target + 1).arg(total).arg(device);
+			return text;
+		};
+		if (m_bQueueActive) SetImageHint(runText, false);
+		AppendLog(runText(), false);
 	}
 }
 
@@ -1031,9 +1060,21 @@ void AppController::ApplyAllwinnerInspectResult(int context, const core::Operati
     }
     state.summary->SetItems(items);
     state.error = !result.ok() && result.status != core::OperationStatus::Cancelled;
-    state.hint = result.ok() ? OperationName(result.operation) + tr("done") : QString::fromStdString(result.diagnostic);
-    if(result.status==core::OperationStatus::Cancelled) state.hint=tr("Cancelled");
+    SetAllwinnerHint(context, AwHint(result), state.error);
     emit allwinnerChanged();
+}
+
+TranslatableText::Factory AppController::AwHint(const core::OperationResult &result)
+{
+	const bool awOk = result.ok();
+	const bool awCancelled = result.status == core::OperationStatus::Cancelled;
+	const core::Operation awOp = result.operation;
+	const QString awDiagnostic = QString::fromStdString(result.diagnostic);
+	return [awOk, awCancelled, awOp, awDiagnostic] {
+		if (awCancelled)
+			return tr("Cancelled");
+		return awOk ? OperationName(awOp) + tr("done") : awDiagnostic;
+	};
 }
 
 void AppController::onOperationResult(const core::OperationResult &result)
@@ -1045,69 +1086,97 @@ void AppController::onOperationResult(const core::OperationResult &result)
         for(const auto &row:result.items) items.append(QVariantMap{{"label",QString::fromStdString(row.label)},{"value",QString::fromStdString(row.value)}});
         state.results->SetItems(items);
         state.error = !result.ok() && result.status != core::OperationStatus::Cancelled;
-        state.hint = result.ok() ? OperationName(result.operation) + tr("done") : QString::fromStdString(result.diagnostic);
-        if(result.status==core::OperationStatus::Cancelled) state.hint=tr("Cancelled");
+        SetAllwinnerHint(m_allwinnerContext, AwHint(result), state.error);
         emit allwinnerChanged(); return;
     }
 	bool bOk = result.ok();
 	core::Operation id = result.operation;
 	QVariantList items;
 	for (const auto &row : result.items) { QVariantMap item; item["label"] = QString::fromStdString(row.label); item["value"] = QString::fromStdString(row.value); items.append(item); }
+	QVariantList infoRows;
 	if (id == core::Operation::FirmwareInfo) {
-		for (const auto &entry : result.firmware.entries) { QVariantMap item; item["label"] = QString::fromStdString(entry.partName); item["value"] = tr("%1, size %2, LBA 0x%3").arg(QString::fromStdString(entry.fileName)).arg(entry.size).arg(entry.lba, 0, 16); items.append(item); }
+		for (const auto &entry : result.firmware.entries) {
+			QVariantMap row;
+			row["part"] = QString::fromStdString(entry.partName);
+			row["file"] = QString::fromStdString(entry.fileName);
+			row["size"] = QVariant::fromValue<qulonglong>(entry.size);
+			row["lba"] = QVariant::fromValue<qulonglong>(entry.lba);
+			infoRows.append(row);
+		}
 	}
 
 	if (id == core::Operation::DownloadImage || id == core::Operation::LoaderUpgrade) {
 		if (!bOk && !m_bCancelRequested) {
 			QString strReason = ErrorText(result.error);
-			SetImageHint(strReason.isEmpty() ? tr("Download failed; see the log.")
-			                                 : tr("Download failed: %1").arg(strReason), true);
+			SetImageHint([strReason] {
+				return strReason.isEmpty() ? tr("Download failed; see the log.")
+				                           : tr("Download failed: %1").arg(strReason);
+			}, true);
 		}
 
 		return;
 	}
 
 	if (id == core::Operation::ResetDevice) {
-		SetImageHint(bOk ? tr("Reboot command sent.") : tr("Reset device failed."), !bOk);
+		SetImageHint([bOk] { return bOk ? tr("Reboot command sent.") : tr("Reset device failed."); }, !bOk);
 		m_pResults->SetItems(items);
-		SetAdvancedHint(bOk ? tr("Reset device succeeded") : tr("Reset device failed"), !bOk);
+		SetAdvancedHint([bOk] { return bOk ? tr("Reset device succeeded") : tr("Reset device failed"); }, !bOk);
 
 		return;
 	}
 
 	if (id == core::Operation::FirmwareUpgrade) {
 		if (bOk)
-			SetFirmwareHint(m_bFirmwareReboot ? tr("Upgrade succeeded; device rebooted.")
-			                                  : tr("Upgrade succeeded; device not rebooted."), false);
+			SetFirmwareHint([this] {
+				return m_bFirmwareReboot ? tr("Upgrade succeeded; device rebooted.")
+				                         : tr("Upgrade succeeded; device not rebooted.");
+			}, false);
 		else if (!m_bCancelRequested) {
 			QString strReason = ErrorText(result.error);
-			SetFirmwareHint(strReason.isEmpty() ? tr("Upgrade failed; see the log.")
-			                                    : tr("Upgrade failed: %1").arg(strReason), true);
+			SetFirmwareHint([strReason] {
+				return strReason.isEmpty() ? tr("Upgrade failed; see the log.")
+				                           : tr("Upgrade failed: %1").arg(strReason);
+			}, true);
 		}
 
 		return;
 	}
 
 	if (id == core::Operation::FirmwareExtract) {
-		SetFirmwareHint(bOk ? tr("Extraction succeeded.") : tr("Extraction failed."), !bOk);
+		SetFirmwareHint([bOk] { return bOk ? tr("Extraction succeeded.") : tr("Extraction failed."); }, !bOk);
 
 		return;
 	}
 
 	if (id == core::Operation::FirmwareInfo) {
 		m_pFirmwareEntries->Clear();
+		m_firmwareInfo.Clear();
 		if (!bOk) {
-			SetFirmwareHint(tr("Failed to read firmware info."), true);
+			SetFirmwareHint([] { return tr("Failed to read firmware info."); }, true);
 
 			return;
 		}
-		m_pFirmwareEntries->SetItems(items);
+		m_firmwareInfo.Set([items, infoRows] {
+			QVariantList rows = items;
+			for (const QVariant &value : infoRows) {
+				const QVariantMap row = value.toMap();
+				QVariantMap item;
+				item["label"] = row["part"];
+				item["value"] = tr("%1, size %2, LBA 0x%3")
+					.arg(row["file"].toString())
+					.arg(row["size"].toULongLong())
+					.arg(row["lba"].toULongLong(), 0, 16);
+				rows.append(item);
+			}
+			return rows;
+		});
+		m_pFirmwareEntries->SetItems(m_firmwareInfo.value());
 		m_strFwChip = QString::fromStdString(result.firmware.chip);
 		m_strFwVersion = QString::fromStdString(result.firmware.version);
 		m_strFwLoader = QString::fromStdString(result.firmware.loaderVersion);
 		m_strFwBuild = QString::fromStdString(result.firmware.buildTime);
 		m_strFwSign = QString::fromStdString(result.firmware.sign);
-		SetFirmwareHint(tr("Firmware info read successfully."), false);
+		SetFirmwareHint([] { return tr("Firmware info read successfully."); }, false);
 		emit firmwareStateChanged();
 
 		return;
@@ -1115,12 +1184,14 @@ void AppController::onOperationResult(const core::OperationResult &result)
 
 	m_pResults->SetItems(items);
 	QString strName = OperationName(id);
+	const core::ErrorCode errorCode = result.error;
+	const bool itemsEmpty = items.isEmpty();
 	if (!bOk)
-		SetAdvancedHint(tr("%1 failed: %2").arg(strName, ErrorText(result.error)), true);
-	else if (items.isEmpty())
-		SetAdvancedHint(tr("%1 succeeded").arg(strName), false);
+		SetAdvancedHint([strName, errorCode] { return tr("%1 failed: %2").arg(strName, ErrorText(errorCode)); }, true);
+	else if (itemsEmpty)
+		SetAdvancedHint([strName] { return tr("%1 succeeded").arg(strName); }, false);
 	else
-		SetAdvancedHint(tr("%1 read successfully").arg(strName), false);
+		SetAdvancedHint([strName] { return tr("%1 read successfully").arg(strName); }, false);
 
 }
 
@@ -1132,14 +1203,14 @@ void AppController::setImageDir(const QString &strDir)
 	m_pImageEntries->Clear();
 
 	if (m_strImageDir.isEmpty()) {
-		SetImageHint(tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."), false);
+		SetImageHint([] { return tr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."); }, false);
 		emit imageStateChanged();
 		return;
 	}
 
 	QList<FirmwareEntry> entries;
 	if (!ParseImageFolder(m_strImageDir, entries)) {
-		SetImageHint(tr("parameter.txt not found or failed to parse: %1").arg(m_strImageDir), true);
+		SetImageHint([this] { return tr("parameter.txt not found or failed to parse: %1").arg(m_strImageDir); }, true);
 		emit imageStateChanged();
 		return;
 	}
@@ -1162,8 +1233,11 @@ void AppController::setImageDir(const QString &strDir)
 	}
 	m_pImageEntries->SetRows(rows);
 
-	SetImageHint(tr("Parsed %2 entries from %1; check them and click \"Execute\" to download one by one.")
-	             .arg(m_strImageDir).arg(entries.size()), false);
+	const int entryCount = entries.size();
+	SetImageHint([this, entryCount] {
+		return tr("Parsed %2 entries from %1; check them and click \"Execute\" to download one by one.")
+			.arg(m_strImageDir).arg(entryCount);
+	}, false);
 	emit imageStateChanged();
 }
 
@@ -1171,7 +1245,7 @@ void AppController::clearImage()
 {
 	if (m_bBusy) return;
 	m_pImageEntries->Clear();
-	SetImageHint(tr("Cleared."), false);
+	SetImageHint([] { return tr("Cleared."); }, false);
 	emit imageStateChanged();
 }
 
@@ -1186,7 +1260,7 @@ void AppController::executeImageDownload(bool reboot)
 		request.file.path = row.path.toStdString(); request.partition = row.name.toStdString();
 		job.steps.push_back(request);
 	}
-	if (job.steps.empty()) { SetImageHint(tr("Check entries and specify image files first."), true); return; }
+	if (job.steps.empty()) { SetImageHint([] { return tr("Check entries and specify image files first."); }, true); return; }
 	job.rebootAfter = reboot;
 	StartJob(job);
 	if (m_bBusy) { m_bQueueActive = true; emit imageStateChanged(); }
@@ -1202,19 +1276,20 @@ void AppController::setFirmware(const QString &strPath)
 		settings.setValue(kLastFirmwareKey, m_strFirmware);
 	}
 	m_pFirmwareEntries->Clear();
+	m_firmwareInfo.Clear();
 	m_bFirmwareValid = false;
 	m_strFwVersion = m_strFwLoader = m_strFwChip = m_strFwBuild = m_strFwSign = QString("-");
 	emit firmwareStateChanged();
 
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("Select firmware."), false);
+		SetFirmwareHint([] { return tr("Select firmware."); }, false);
 		return;
 	}
 
 	QList<FirmwareEntry> entries;
 	FirmwareMeta meta;
 	if (!ParseFirmware(m_strFirmware, entries, meta)) {
-		SetFirmwareHint(tr("Invalid firmware."), true);
+		SetFirmwareHint([] { return tr("Invalid firmware."); }, true);
 		return;
 	}
 
@@ -1224,7 +1299,8 @@ void AppController::setFirmware(const QString &strPath)
 	m_strFwBuild = meta.buildTime;
 	m_strFwSign = meta.sign;
 	m_bFirmwareValid = true;
-	SetFirmwareHint(tr("Firmware loaded with %1 partitions.").arg(entries.size()), false);
+	const int entryCount = entries.size();
+	SetFirmwareHint([entryCount] { return tr("Firmware loaded with %1 partitions.").arg(entryCount); }, false);
 	emit firmwareStateChanged();
 }
 
@@ -1237,36 +1313,36 @@ void AppController::executeFirmwareUpgrade(bool bReboot)
 {
 	if (m_bBusy) return;
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("Select firmware first"), true);
+		SetFirmwareHint([] { return tr("Select firmware first"); }, true);
 		return;
 	}
 	m_bFirmwareReboot = bReboot;
 
-	SetFirmwareHint(tr("Upgrading firmware…"), false);
+	SetFirmwareHint([] { return tr("Upgrading firmware…"); }, false);
 	runOperation(static_cast<int>(core::Operation::FirmwareUpgrade), {{"path", m_strFirmware}, {"reboot", bReboot}});
 }
 
 void AppController::extractFirmware(const QString &strDir)
 {
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("Select firmware first"), true);
+		SetFirmwareHint([] { return tr("Select firmware first"); }, true);
 		return;
 	}
 	if (strDir.trimmed().isEmpty())
 		return;
 
-	SetFirmwareHint(tr("Extracting firmware…"), false);
+	SetFirmwareHint([] { return tr("Extracting firmware…"); }, false);
 	runOperation(static_cast<int>(core::Operation::FirmwareExtract), {{"path", m_strFirmware}, {"output", strDir.trimmed()}});
 }
 
 void AppController::showFirmwareInfo()
 {
 	if (m_strFirmware.isEmpty()) {
-		SetFirmwareHint(tr("Select firmware first"), true);
+		SetFirmwareHint([] { return tr("Select firmware first"); }, true);
 		return;
 	}
 
-	SetFirmwareHint(tr("Reading firmware info…"), false);
+	SetFirmwareHint([] { return tr("Reading firmware info…"); }, false);
 	runOperation(static_cast<int>(core::Operation::FirmwareInfo), {{"path", m_strFirmware}});
 }
 
@@ -1283,9 +1359,9 @@ void AppController::switchToLoader()
 	m_switchingFel = false;
 	emit switchingChanged();
 	SetBusy(true);
-	SetAdvancedHint(tr("Switching device to Loader mode…"), false);
-	SetImageHint(tr("Switching device to Loader mode…"), false);
-	SetFirmwareHint(tr("Switching device to Loader mode…"), false);
+	SetAdvancedHint([] { return tr("Switching device to Loader mode…"); }, false);
+	SetImageHint([] { return tr("Switching device to Loader mode…"); }, false);
+	SetFirmwareHint([] { return tr("Switching device to Loader mode…"); }, false);
 	m_pAdb->SwitchToLoader();
 }
 
@@ -1299,7 +1375,7 @@ void AppController::switchToFel(int mode)
 	m_bSwitching = true;
 	m_switchingFel = true;
 	emit switchingChanged();
-	m_felSwitchHint = tr("Preparing to switch ADB device to FEL mode…");
+	m_felSwitchHint.Set([] { return tr("Preparing to switch ADB device to FEL mode…"); });
 	m_felSwitchError = false;
 	emit felSwitchStateChanged();
 	SetBusy(true);
@@ -1348,7 +1424,7 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 	emit switchingChanged();
 	if (m_switchingFel) {
 		m_switchingFel = false;
-		m_felSwitchHint = strMessage;
+		m_felSwitchHint.Set([strMessage] { return strMessage; });
 		m_felSwitchError = !bOk;
 		emit felSwitchStateChanged();
 		SetBusy(false);
@@ -1357,9 +1433,9 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 		return;
 	}
 	SetBusy(false);
-	SetAdvancedHint(strMessage, !bOk);
-	SetImageHint(strMessage, !bOk);
-	SetFirmwareHint(strMessage, !bOk);
+	SetAdvancedHint([strMessage] { return strMessage; }, !bOk);
+	SetImageHint([strMessage] { return strMessage; }, !bOk);
+	SetFirmwareHint([strMessage] { return strMessage; }, !bOk);
 	emit toastRequested(strMessage, !bOk);
 }
 
@@ -1376,7 +1452,7 @@ void AppController::exportImage(const QString &strBegin, const QString &strCount
 {
 	if (strBegin.trimmed().isEmpty() || strCount.trimmed().isEmpty() ||
 	    strFile.trimmed().isEmpty()) {
-		SetAdvancedHint(tr("Enter the start sector and count and choose an export file"), true);
+		SetAdvancedHint([] { return tr("Enter the start sector and count and choose an export file"); }, true);
 		return;
 	}
 
@@ -1422,7 +1498,7 @@ QVariantList AppController::allwinnerStates() const
 {
     QVariantList states;
     for (const auto &state : m_allwinner) {
-        states.append(QVariantMap{{"firmware", state.firmware}, {"hint", state.hint},
+        states.append(QVariantMap{{"firmware", state.firmware}, {"hint", state.hint.value()},
             {"valid", state.valid}, {"error", state.error}, {"partitions", state.partitions},
             {"files", state.files}, {"summary", QVariant::fromValue(state.summary)},
             {"results", QVariant::fromValue(state.results)}});
@@ -1442,7 +1518,7 @@ void AppController::setAllwinnerContextFirmware(int context, const QString &path
     const QString trimmed=path.trimmed();
     if(state.firmware==trimmed && state.inspected && state.valid) return;
     state.firmware=trimmed; state.valid=false; state.inspected=false; state.error=false;
-    state.hint.clear(); state.files.clear(); state.partitions.clear();
+    state.hint.Clear(); state.files.clear(); state.partitions.clear();
     state.summary->Clear(); state.results->Clear();
     saveAllwinnerSettings({{QString("page%1/firmware").arg(context),state.firmware}});
     emit allwinnerChanged();
@@ -1527,18 +1603,23 @@ void AppController::runAllwinner(int operation,const QVariantMap &p)
     default: break;
     }
     if(r.operation!=core::Operation::AllwinnerDeviceInfo && r.operation!=core::Operation::AllwinnerReboot && r.file.path.empty()) valid=false;
-    if(!valid) { state.error=true; state.hint=tr("Check the file paths and parameters for this operation; numbers must be in range"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return; }
+    if(!valid) {
+        SetAllwinnerHint(context, [] { return tr("Check the file paths and parameters for this operation; numbers must be in range"); }, true);
+        emit toastRequested(state.hint.value(), true); return;
+    }
     if(!core::IsLocalOperation(r.operation) && !hasDevice()) {
-        state.error=true; state.hint=tr("Connect and select an Allwinner device first"); emit allwinnerChanged(); emit toastRequested(state.hint,true); return;
+        SetAllwinnerHint(context, [] { return tr("Connect and select an Allwinner device first"); }, true);
+        emit toastRequested(state.hint.value(), true); return;
     }
     m_allwinnerContext=context;
     if(r.operation==core::Operation::AllwinnerInspect) state.inspected=true;
-    state.error=false; state.hint=tr("Running: %1").arg(OperationName(r.operation));
+    const core::Operation runningOp = r.operation;
+    SetAllwinnerHint(context, [runningOp] { return tr("Running: %1").arg(OperationName(runningOp)); }, false);
     if(r.operation!=core::Operation::AllwinnerInspect) state.results->Clear();
     emit allwinnerChanged();
     core::TaskJob job; job.steps.push_back(r); StartJob(job);
     if(!m_bBusy) {
-        state.error=true; state.hint=tr("Select an online Allwinner device first"); emit allwinnerChanged();
+        SetAllwinnerHint(context, [] { return tr("Select an online Allwinner device first"); }, true);
     }
 }
 

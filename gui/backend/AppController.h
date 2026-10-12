@@ -14,6 +14,7 @@
 #include "gui/backend/KeyValueModel.h"
 #include "gui/backend/LanguageManager.h"
 #include "gui/backend/LogModel.h"
+#include "gui/backend/Retranslatable.h"
 #include "gui/backend/ThemeManager.h"
 
 class QThread;
@@ -25,7 +26,7 @@ class AdbRunner;
 class EngineWorker;
 class QtObserver;
 
-class AppController : public QObject
+class AppController : public QObject, public Retranslatable
 {
 	Q_OBJECT
 
@@ -85,10 +86,15 @@ class AppController : public QObject
 	Q_PROPERTY(bool advancedHintError READ advancedHintError NOTIFY advancedStateChanged)
 	Q_PROPERTY(QStringList storages READ storages CONSTANT)
 	Q_PROPERTY(QVariantList usageHelp READ usageHelp NOTIFY usageHelpChanged)
+	Q_PROPERTY(QVariantList standardPlaces READ standardPlaces NOTIFY standardPlacesChanged)
 
 public:
 	explicit AppController(CRKLog *pLog, QObject *parent = NULL);
 	~AppController();
+
+	// Rebuilds every cached translated string when the UI language changes.
+	// Driven by LanguageManager's registry, not by per-feature refresh calls.
+	void retranslate() override;
 
     int vendor() const { return m_vendor; }
     void setVendor(int);
@@ -121,7 +127,7 @@ public:
 	bool adbReady() const { return m_bAdbKnown && m_bAdbAvailable
 	                                && !m_strAdbDevices.isEmpty(); }
 
-	QString felSwitchHint() const { return m_felSwitchHint; }
+	QString felSwitchHint() const { return m_felSwitchHint.value(); }
 	bool felSwitchError() const { return m_felSwitchError; }
 	bool switching() const { return m_bSwitching; }
 	bool busy() const { return m_bBusy; }
@@ -140,12 +146,12 @@ public:
 	gui::LanguageManager *language() const { return m_pLanguage; }
 
 	QString imageDir() const { return m_strImageDir; }
-	QString imageHint() const { return m_strImageHint; }
+	QString imageHint() const { return m_imageHint.value(); }
 	bool imageHintError() const { return m_bImageHintError; }
 	bool imageQueueActive() const { return m_bQueueActive; }
 
 	QString firmwarePath() const { return m_strFirmware; }
-	QString firmwareHint() const { return m_strFirmwareHint; }
+	QString firmwareHint() const { return m_firmwareHint.value(); }
 	bool firmwareHintError() const { return m_bFirmwareHintError; }
 	bool firmwareValid() const { return m_bFirmwareValid; }
 	QString firmwareVersion() const { return m_strFwVersion; }
@@ -154,15 +160,15 @@ public:
 	QString firmwareBuildTime() const { return m_strFwBuild; }
 	QString firmwareSign() const { return m_strFwSign; }
 
-	QString advancedHint() const { return m_strAdvancedHint; }
+	QString advancedHint() const { return m_advancedHint.value(); }
 	bool advancedHintError() const { return m_bAdvancedHintError; }
 	QStringList storages() const;
 
 	Q_INVOKABLE QString toolVersion() const;
 	Q_INVOKABLE QString logDir() const;
 	Q_INVOKABLE QString homeDir() const;
-	Q_INVOKABLE QVariantList standardPlaces() const;
-	QVariantList usageHelp() const;
+	QVariantList standardPlaces() const { return m_standardPlaces.value(); }
+	QVariantList usageHelp() const { return m_usageHelp.value(); }
 	Q_INVOKABLE void logLine(const QString &strText);
 	Q_INVOKABLE QString lastDir(const QString &strKey) const;
 	Q_INVOKABLE void rememberPath(const QString &strKey, const QString &strPath);
@@ -220,6 +226,7 @@ signals:
 	void firmwareStateChanged();
 	void advancedStateChanged();
 	void usageHelpChanged();
+	void standardPlacesChanged();
 
 	void toastRequested(const QString &strText, bool bError);
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
@@ -230,7 +237,8 @@ private:
     CRKLog *m_diskLog = nullptr;
     QVariantList m_allDevices;
     struct AllwinnerState {
-        QString firmware, hint;
+        QString firmware;
+        TranslatableText hint;
         QVariantList partitions, files;
         bool valid = false, inspected = false, error = false;
         KeyValueModel *summary = nullptr;
@@ -257,7 +265,6 @@ private slots:
 	void onAdbDeviceChoice(const QStringList &strDevices);
 	void onAdbDevicesChanged(const QStringList &strDevices);
 	void onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage);
-	void onLanguageChanged();
 
 private:
 	void SetBusy(bool bBusy);
@@ -266,10 +273,13 @@ private:
 	void ResetProgress();
 	void AppendLog(const QString &strText, bool bError);
 	void StartJob(core::TaskJob job);
-	void SetImageHint(const QString &strText, bool bError);
-	void SetFirmwareHint(const QString &strText, bool bError);
-	void SetAdvancedHint(const QString &strText, bool bError);
-	void RebuildUsageHelp();
+	void SetImageHint(TranslatableText::Factory factory, bool bError);
+	void SetFirmwareHint(TranslatableText::Factory factory, bool bError);
+	void SetAdvancedHint(TranslatableText::Factory factory, bool bError);
+	void SetAllwinnerHint(int context, TranslatableText::Factory factory, bool bError);
+	QVariantList BuildUsageHelp() const;
+	QVariantList BuildStandardPlaces() const;
+	TranslatableText::Factory AwHint(const core::OperationResult &result);
 	void ApplyAllwinnerInspectResult(int context, const core::OperationResult &result);
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;
@@ -288,7 +298,9 @@ private:
 	KeyValueModel *m_pResults;
 
 	QVariantList m_devices;
-	QVariantList m_usageHelp;
+	Translatable<QVariantList> m_usageHelp;
+	Translatable<QVariantList> m_standardPlaces;
+	Translatable<QVariantList> m_firmwareInfo;
 	QString m_strDeviceStatus;
 	QStringList m_deviceKeys;
 	QString m_strDeviceSignature;
@@ -313,12 +325,12 @@ private:
 	long long m_llProgressBase;
 
 	QString m_strImageDir;
-	QString m_strImageHint;
+	TranslatableText m_imageHint;
 	bool m_bImageHintError;
 	bool m_bQueueActive;
 
 	QString m_strFirmware;
-	QString m_strFirmwareHint;
+	TranslatableText m_firmwareHint;
 	bool m_bFirmwareHintError;
 	bool m_bFirmwareValid;
 	QString m_strFwVersion;
@@ -328,12 +340,12 @@ private:
 	QString m_strFwSign;
 	bool m_bFirmwareReboot;
 
-	QString m_strAdvancedHint;
+	TranslatableText m_advancedHint;
 	bool m_bAdvancedHintError;
 
 	bool m_bSwitching;
 	bool m_switchingFel = false;
-	QString m_felSwitchHint;
+	TranslatableText m_felSwitchHint;
 	bool m_felSwitchError = false;
 
 	QStringList m_strAdbDevices;

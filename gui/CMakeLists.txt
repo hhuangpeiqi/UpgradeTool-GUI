@@ -27,6 +27,7 @@ add_library(upgrade_gui_backend STATIC
   backend/ThemeManager.h
   backend/LanguageManager.cpp
   backend/LanguageManager.h
+  backend/Retranslatable.h
 )
 
 target_include_directories(upgrade_gui_backend PUBLIC ${CMAKE_SOURCE_DIR})
@@ -219,6 +220,20 @@ else()
     INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}
     TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
     RESOURCE_PREFIX "/i18n")
+endif()
+
+# Embed the same catalog in the backend test so it can assert that cached C++
+# strings actually change with the language, not just that signals fire.
+if(UPGRADE_TOOL_TESTS)
+  if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
+    qt_add_translations(TARGETS test_gui_backend
+      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
+      RESOURCE_PREFIX "/i18n")
+  else()
+    qt_add_translations(test_gui_backend
+      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
+      RESOURCE_PREFIX "/i18n")
+  endif()
 endif()
 
 if(UPGRADE_TOOL_TESTS)

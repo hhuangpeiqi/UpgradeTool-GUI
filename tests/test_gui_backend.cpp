@@ -1,4 +1,6 @@
 #include "gui/backend/AppController.h"
+#include "gui/backend/DirModel.h"
+#include "gui/backend/LanguageManager.h"
 #include "gui/QtObserver.h"
 #include "gui/OperationSpec.h"
 #include "Config.h"
@@ -309,6 +311,49 @@ int main(int argc, char **argv) {
 		CHECK(order.endsWith(QStringLiteral("mode")));
 		CHECK(order.indexOf(QStringLiteral("language")) < order.lastIndexOf(QStringLiteral("mode")));
 		controller.language()->setMode("auto");
+	}
+
+	// Every cached C++ string (page hints, firmware table, config status) is
+	// rebuilt through LanguageManager's registry, so switching the language
+	// updates them immediately rather than only on the next action.
+	{
+		gui::AppController controller(NULL);
+		controller.language()->setMode("zh_CN");
+		const QString zhAdvanced = controller.advancedHint();
+		controller.setImageDir(temporary.path());                       // no parameter.txt -> error hint
+		const QString zhImage = controller.imageHint();
+		controller.setFirmware(temporary.filePath("missing.img"));      // unparsable -> invalid hint
+		const QString zhFirmware = controller.firmwareHint();
+		controller.config()->load();
+		const QString zhStatus = controller.config()->status();
+		const QVariantList zhPlaces = controller.standardPlaces();
+		CHECK(!zhAdvanced.isEmpty() && !zhImage.isEmpty() && !zhFirmware.isEmpty() && !zhStatus.isEmpty());
+		CHECK(!zhPlaces.isEmpty());
+
+		controller.language()->setMode("en");
+		CHECK(controller.advancedHint() != zhAdvanced);
+		CHECK(controller.imageHint() != zhImage);
+		CHECK(controller.firmwareHint() != zhFirmware);
+		CHECK(controller.config()->status() != zhStatus);
+		CHECK(controller.standardPlaces().first().toMap()["name"]
+		      != zhPlaces.first().toMap()["name"]);
+		controller.language()->setMode("auto");
+	}
+
+	// DirModel is created in QML; it registers itself the same way and rebuilds
+	// its cached error text through the same registry.
+	{
+		gui::LanguageManager language;
+		gui::DirModel dir;
+		language.registerRetranslatable(&dir);
+		language.setMode("zh_CN");
+		CHECK(!dir.makeDirectory(".."));                                // invalid name -> translated error
+		const QString zhError = dir.errorText();
+		CHECK(!zhError.isEmpty());
+		language.setMode("en");
+		CHECK(!dir.errorText().isEmpty());
+		CHECK(dir.errorText() != zhError);
+		language.setMode("auto");
 	}
 
 	// Closing immediately with a queued job must join the thread without a deadlock.

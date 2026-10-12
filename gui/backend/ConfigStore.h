@@ -5,9 +5,11 @@
 #include <QString>
 #include <QVariantMap>
 
+#include "gui/backend/Retranslatable.h"
+
 namespace gui {
 
-class ConfigStore : public QObject
+class ConfigStore : public QObject, public Retranslatable
 {
 	Q_OBJECT
 	Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
@@ -17,7 +19,9 @@ public:
 	explicit ConfigStore(QObject *parent = NULL);
 
 	QString filePath() const { return m_strFile; }
-	QString status() const { return m_strStatus; }
+	QString status() const { return m_status.value(); }
+
+	void retranslate() override;
 
     void setUsbVendor(const QString &vendor) { m_usbVendor = vendor; }
 	Q_INVOKABLE QVariantMap load();
@@ -32,11 +36,11 @@ signals:
 	void udevInstallFinished(bool bOk, const QString &strMessage);
 
 private:
-	void SetStatus(const QString &strText);
+	void SetStatus(TranslatableText::Factory factory);
 
     QString m_usbVendor = "2207";
 	QString m_strFile;
-	QString m_strStatus;
+	TranslatableText m_status;
 };
 
 }

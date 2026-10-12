@@ -32,16 +32,26 @@ AppDialog {
     property bool searchVisible: false
     property int activeFilter: 0
     property var crumbs: []
-    // Location names come from C++ (translated); rebuild them when the UI
-    // language changes, since retranslate() only refreshes qsTr bindings.
-    property var placesModel: app.standardPlaces()
 
     signal accepted()
 
-    Connections {
-        target: app.language
-        function onLanguageChanged() { root.placesModel = app.standardPlaces() }
+    // Hint text is a binding rather than an imperative assignment so it
+    // retranslates like any other qsTr text; the C++ error text has its own
+    // NOTIFY signal. C++ location names come through app.standardPlaces.
+    enum Hint { None, Created, EnterName, SlashInName, ModelError }
+    property int hint: AppFilePicker.Hint.None
+    hintText: {
+        switch (hint) {
+        case AppFilePicker.Hint.Created:     return qsTr("Directory created");
+        case AppFilePicker.Hint.EnterName:   return qsTr("Enter a file name");
+        case AppFilePicker.Hint.SlashInName: return qsTr("File name cannot contain \"/\"");
+        case AppFilePicker.Hint.ModelError:  return dirModel.errorText;
+        default:                             return "";
+        }
     }
+    hintError: hint === AppFilePicker.Hint.EnterName
+               || hint === AppFilePicker.Hint.SlashInName
+               || hint === AppFilePicker.Hint.ModelError
 
     readonly property int listHeight: 400
     readonly property int rowHeight: 34
@@ -168,8 +178,7 @@ AppDialog {
     }
 
     function reset() {
-        hintText = "";
-        hintError = false;
+        hint = AppFilePicker.Hint.None;
         editingPath = false;
         creatingFolder = false;
         selectedPath = "";
@@ -194,7 +203,7 @@ AppDialog {
     function selectEntry(name, path, isDir) {
         selectedPath = path;
         selectedIsDir = isDir;
-        hintText = "";
+        hint = AppFilePicker.Hint.None;
         if (!folderMode && !isDir)
             fileField.text = name;
         if (!searchVisible)
@@ -214,14 +223,11 @@ AppDialog {
     }
 
     function createFolder() {
-        var err = dirModel.makeDirectory(newFolderField.text);
-        if (err === "") {
+        if (dirModel.makeDirectory(newFolderField.text)) {
             creatingFolder = false;
-            hintText = qsTr("Directory created");
-            hintError = false;
+            hint = AppFilePicker.Hint.Created;
         } else {
-            hintText = err;
-            hintError = true;
+            hint = AppFilePicker.Hint.ModelError;
         }
     }
 
@@ -238,14 +244,12 @@ AppDialog {
                 if (!selectedIsDir && selectedPath !== "") {
                     selectedFile = app.pathUrl(selectedPath);
                 } else {
-                    hintText = qsTr("Enter a file name");
-                    hintError = true;
+                    hint = AppFilePicker.Hint.EnterName;
                     fileField.forceActiveFocus();
                     return;
                 }
             } else if (name.indexOf("/") >= 0) {
-                hintText = qsTr("File name cannot contain \"/\"");
-                hintError = true;
+                hint = AppFilePicker.Hint.SlashInName;
                 return;
             } else {
                 var folder = dirModel.rootPath;
@@ -287,7 +291,7 @@ AppDialog {
                     height: root.listHeight
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-                    model: root.placesModel
+                    model: app.standardPlaces
 
                     ScrollBar.vertical: ScrollBar {
                         id: placesBar
@@ -758,5 +762,6 @@ AppDialog {
         id: dirModel
         showFiles: !root.folderMode
         showHidden: hiddenBox.checked
+        Component.onCompleted: app.language.registerRetranslatable(dirModel)
     }
 }

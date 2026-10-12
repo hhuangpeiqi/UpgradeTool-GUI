@@ -5,6 +5,8 @@
 #include <QLocale>
 #include <QSettings>
 
+#include "gui/backend/Retranslatable.h"
+
 namespace gui {
 
 namespace {
@@ -73,6 +75,26 @@ void LanguageManager::setMode(const QString &strMode)
 	emit modeChanged();
 }
 
+void LanguageManager::registerRetranslatable(QObject *target)
+{
+	if (!target || !dynamic_cast<Retranslatable *>(target))
+		return;
+	for (const QPointer<QObject> &existing : m_targets)
+		if (existing == target)
+			return;
+	m_targets.append(target);
+}
+
+void LanguageManager::RetranslateAll()
+{
+	for (const QPointer<QObject> &target : m_targets) {
+		if (!target)
+			continue;
+		if (auto *retranslatable = dynamic_cast<Retranslatable *>(target.data()))
+			retranslatable->retranslate();
+	}
+}
+
 void LanguageManager::Apply()
 {
 	const QString strEffective = Effective();
@@ -103,8 +125,12 @@ void LanguageManager::Apply()
 
 	const bool bChanged = strEffective != m_strEffective;
 	m_strEffective = strEffective;
-	if (bChanged)
+	if (bChanged) {
+		// Refresh every registered cached string before notifying QML, so
+		// property reads see the new language immediately.
+		RetranslateAll();
 		emit languageChanged();
+	}
 }
 
 }

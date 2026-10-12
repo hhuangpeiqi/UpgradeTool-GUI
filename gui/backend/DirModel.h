@@ -8,6 +8,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "gui/backend/Retranslatable.h"
+
 namespace gui {
 
 struct DirEntry {
@@ -19,7 +21,7 @@ struct DirEntry {
 	QDateTime modified;
 };
 
-class DirModel : public QAbstractListModel
+class DirModel : public QAbstractListModel, public Retranslatable
 {
 	Q_OBJECT
 	Q_PROPERTY(QString rootPath READ rootPath WRITE setRootPath NOTIFY rootPathChanged)
@@ -52,7 +54,9 @@ public:
 	QStringList nameFilters() const { return m_filters; }
 	QString searchText() const { return m_strSearch; }
 	int count() const { return m_entries.size(); }
-	QString errorText() const { return m_strError; }
+	QString errorText() const { return m_error.value(); }
+
+	void retranslate() override;
 
 	void setRootPath(const QString &strPath);
 	void setShowFiles(bool bShow);
@@ -64,7 +68,7 @@ public:
 	Q_INVOKABLE QString nameAt(int iRow) const;
 	Q_INVOKABLE QString pathAt(int iRow) const;
 	Q_INVOKABLE bool isDirAt(int iRow) const;
-	Q_INVOKABLE QString makeDirectory(const QString &strName);
+	Q_INVOKABLE bool makeDirectory(const QString &strName);
 
 signals:
 	void rootPathChanged();
@@ -78,7 +82,8 @@ signals:
 private:
 	void Reload();
 	void ApplySearch();
-	void SetError(const QString &strText);
+	void SetError(TranslatableText::Factory factory);
+	void ClearError();
 
 	QString m_strRoot;
 	bool m_bShowFiles;
@@ -87,7 +92,7 @@ private:
 	QString m_strSearch;
 	QList<DirEntry> m_scanned;
 	QList<DirEntry> m_entries;
-	QString m_strError;
+	TranslatableText m_error;
 };
 
 }

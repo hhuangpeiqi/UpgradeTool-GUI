@@ -5,6 +5,7 @@
 #include <QVector>
 
 #include <algorithm>
+#include <utility>
 
 namespace gui {
 
@@ -161,24 +162,35 @@ bool DirModel::isDirAt(int iRow) const
 	return m_entries[iRow].isDir;
 }
 
-QString DirModel::makeDirectory(const QString &strName)
+bool DirModel::makeDirectory(const QString &strName)
 {
 	QString strTrimmed = strName.trimmed();
-	if (strTrimmed.isEmpty())
-		return tr("Directory name cannot be empty");
-	if (strTrimmed.contains('/') || strTrimmed == "." || strTrimmed == "..")
-		return tr("Invalid directory name");
+	if (strTrimmed.isEmpty()) {
+		SetError([] { return tr("Directory name cannot be empty"); });
+		return false;
+	}
+	if (strTrimmed.contains('/') || strTrimmed == "." || strTrimmed == "..") {
+		SetError([] { return tr("Invalid directory name"); });
+		return false;
+	}
 
 	QDir dir(m_strRoot);
-	if (!dir.exists())
-		return tr("Current directory does not exist");
-	if (dir.exists(strTrimmed))
-		return tr("A file or directory with the same name already exists");
-	if (!dir.mkdir(strTrimmed))
-		return tr("Failed to create directory");
+	if (!dir.exists()) {
+		SetError([] { return tr("Current directory does not exist"); });
+		return false;
+	}
+	if (dir.exists(strTrimmed)) {
+		SetError([] { return tr("A file or directory with the same name already exists"); });
+		return false;
+	}
+	if (!dir.mkdir(strTrimmed)) {
+		SetError([] { return tr("Failed to create directory"); });
+		return false;
+	}
 
+	ClearError();
 	Reload();
-	return QString();
+	return true;
 }
 
 void DirModel::Reload()
@@ -190,7 +202,7 @@ void DirModel::Reload()
 		beginResetModel();
 		m_entries.clear();
 		endResetModel();
-		SetError(tr("Directory does not exist"));
+		SetError([] { return tr("Directory does not exist"); });
 		emit countChanged();
 		return;
 	}
@@ -198,7 +210,7 @@ void DirModel::Reload()
 		beginResetModel();
 		m_entries.clear();
 		endResetModel();
-		SetError(tr("Cannot read the directory (permission denied)"));
+		SetError([] { return tr("Cannot read the directory (permission denied)"); });
 		emit countChanged();
 		return;
 	}
@@ -234,7 +246,7 @@ void DirModel::Reload()
 	}
 
 	ApplySearch();
-	SetError(QString());
+	ClearError();
 }
 
 void DirModel::ApplySearch()
@@ -254,11 +266,28 @@ void DirModel::ApplySearch()
 	emit countChanged();
 }
 
-void DirModel::SetError(const QString &strText)
+void DirModel::SetError(TranslatableText::Factory factory)
 {
-	if (m_strError == strText)
+	const QString strText = factory ? factory() : QString();
+	if (m_error.value() == strText && m_error.bound() == static_cast<bool>(factory))
 		return;
-	m_strError = strText;
+	m_error.Set(std::move(factory));
+	emit errorTextChanged();
+}
+
+void DirModel::ClearError()
+{
+	if (!m_error.bound() && m_error.value().isEmpty())
+		return;
+	m_error.Clear();
+	emit errorTextChanged();
+}
+
+void DirModel::retranslate()
+{
+	if (!m_error.bound())
+		return;
+	m_error.retranslate();
 	emit errorTextChanged();
 }
 

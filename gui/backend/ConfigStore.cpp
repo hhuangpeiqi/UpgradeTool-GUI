@@ -1,6 +1,7 @@
 #include "gui/backend/ConfigStore.h"
 
 #include <memory>
+#include <utility>
 
 #include <QDir>
 #include <QFile>
@@ -93,9 +94,15 @@ ConfigStore::ConfigStore(QObject *parent)
 	            : QString::fromStdString(strExisting);
 }
 
-void ConfigStore::SetStatus(const QString &strText)
+void ConfigStore::SetStatus(TranslatableText::Factory factory)
 {
-	m_strStatus = strText;
+	m_status.Set(std::move(factory));
+	emit statusChanged();
+}
+
+void ConfigStore::retranslate()
+{
+	m_status.retranslate();
 	emit statusChanged();
 }
 
@@ -118,7 +125,7 @@ QVariantMap ConfigStore::load()
 	map["loader"] = GetConfigString("loader", strValue) ? QString::fromStdString(strValue) : QString();
 	map["device"] = GetConfigString("device", strValue) ? QString::fromStdString(strValue) : QString();
 
-	SetStatus(tr("Loaded: %1").arg(m_strFile));
+	SetStatus([this] { return tr("Loaded: %1").arg(m_strFile); });
 	return map;
 }
 
@@ -168,7 +175,7 @@ bool ConfigStore::save(const QVariantMap &values)
 
 	QFile out(strTarget);
 	if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-		SetStatus(tr("Save failed: cannot write %1").arg(strTarget));
+		SetStatus([strTarget] { return tr("Save failed: cannot write %1").arg(strTarget); });
 		return false;
 	}
 	QTextStream stream(&out);
@@ -179,50 +186,50 @@ bool ConfigStore::save(const QVariantMap &values)
 	m_strFile = strTarget;
 	emit filePathChanged();
 	parse_config_file(m_strFile.toStdString().c_str(), g_ConfigItemVec);
-	SetStatus(tr("Saved: %1").arg(strTarget));
+	SetStatus([strTarget] { return tr("Saved: %1").arg(strTarget); });
 	return true;
 }
 
 void ConfigStore::installUdev()
 {
 #ifndef Q_OS_LINUX
-	QString strMsg = tr("No udev rules are needed on this platform.");
-	SetStatus(strMsg);
-	emit udevInstallFinished(false, strMsg);
+	TranslatableText::Factory msg = [] { return tr("No udev rules are needed on this platform."); };
+	SetStatus(msg);
+	emit udevInstallFinished(false, msg());
 #else
 	QString strRule = FindUdevRule(m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
 	if (strRule.isEmpty()) {
-		QString strMsg = tr("USB rule files not found; copy the rules from scripts/ to /etc/udev/rules.d/ manually");
-		SetStatus(strMsg);
-		emit udevInstallFinished(false, strMsg);
+		TranslatableText::Factory msg = [] { return tr("USB rule files not found; copy the rules from scripts/ to /etc/udev/rules.d/ manually"); };
+		SetStatus(msg);
+		emit udevInstallFinished(false, msg());
 		return;
 	}
 
 	QString strScript = "cp '" + strRule
 	                    + "' /etc/udev/rules.d/ && udevadm control --reload-rules && udevadm trigger";
-	SetStatus(tr("Installing udev rules…"));
+	SetStatus([] { return tr("Installing udev rules…"); });
 
 	QProcess *pProc = new QProcess(this);
 	std::shared_ptr<bool> pbFinished = std::make_shared<bool>(false);
-	auto finish = [this, pProc, pbFinished, strRule](bool bOk, const QString &strMsg) {
+	auto finish = [this, pProc, pbFinished](bool bOk, TranslatableText::Factory factory) {
 		if (*pbFinished)
 			return;
 		*pbFinished = true;
-		SetStatus(strMsg);
-		emit udevInstallFinished(bOk, strMsg);
+		SetStatus(factory);
+		emit udevInstallFinished(bOk, factory());
 		pProc->deleteLater();
 	};
 	connect(pProc, &QProcess::errorOccurred, this,
 	        [finish](QProcess::ProcessError error) {
 		        if (error == QProcess::FailedToStart)
-			        finish(false, tr("Cannot launch pkexec; run the install command manually with sudo."));
+			        finish(false, [] { return tr("Cannot launch pkexec; run the install command manually with sudo."); });
 	        });
 	connect(pProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
 	        [finish, strRule](int iExit, QProcess::ExitStatus status) {
 		        if (status == QProcess::NormalExit && iExit == 0)
-			        finish(true, tr("udev rules installed successfully: %1").arg(strRule));
+			        finish(true, [strRule] { return tr("udev rules installed successfully: %1").arg(strRule); });
 		        else
-			        finish(false, tr("udev rule install failed (exit code %1); run it manually with sudo.").arg(iExit));
+			        finish(false, [iExit] { return tr("udev rule install failed (exit code %1); run it manually with sudo.").arg(iExit); });
 	        });
 	pProc->start("pkexec", QStringList() << "sh" << "-c" << strScript);
 #endif
