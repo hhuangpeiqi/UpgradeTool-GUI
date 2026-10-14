@@ -8,6 +8,8 @@ inline int MatchDevice(const std::vector<DeviceIdentity> &devices, const DeviceI
 	int found = -1;
 	for (size_t i = 0; i < devices.size(); ++i) {
 		if (devices[i].vendor != target.vendor) continue;
+        if (!target.devicePath.empty() && devices[i].devicePath != target.devicePath) continue;
+        if (target.transport != QualcommTransport::Auto && devices[i].transport != target.transport) continue;
         if (!target.ports.empty() && (devices[i].bus != target.bus || devices[i].ports != target.ports)) continue;
 		if (target.location && devices[i].location != target.location) continue;
 		if (!target.serial.empty() && devices[i].serial != target.serial) continue;

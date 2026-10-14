@@ -7,10 +7,15 @@ add_library(upgrade_gui_backend STATIC
   QtObserver.h
   EngineWorker.cpp
   EngineWorker.h
+  EdlRunner.cpp
+  EdlRunner.h
+  EdlTransport.cpp
   AdbRunner.cpp
   AdbRunner.h
   FirmwareEntries.cpp
   FirmwareEntries.h
+  backend/QualcommController.cpp
+  backend/QualcommController.h
   backend/AppController.cpp
   backend/AppController.h
   backend/LogModel.cpp
@@ -31,10 +36,21 @@ add_library(upgrade_gui_backend STATIC
 )
 
 target_include_directories(upgrade_gui_backend PUBLIC ${CMAKE_SOURCE_DIR})
-target_link_libraries(upgrade_gui_backend PUBLIC upgradetool Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2)
+target_link_libraries(upgrade_gui_backend PUBLIC upgradetool Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::SerialPort)
+if(WIN32)
+  target_link_libraries(upgrade_gui_backend PUBLIC cfgmgr32)
+endif()
 qt_add_executable(upgrade_tool_gui main.cpp)
 
 if(UPGRADE_TOOL_TESTS)
+  add_executable(test_edl_runner ${CMAKE_SOURCE_DIR}/tests/test_edl_runner.cpp)
+  target_link_libraries(test_edl_runner PRIVATE upgrade_gui_backend)
+  add_test(NAME test_edl_runner COMMAND test_edl_runner)
+  set_tests_properties(test_edl_runner PROPERTIES TIMEOUT 30)
+  add_executable(test_qualcomm_controller ${CMAKE_SOURCE_DIR}/tests/test_qualcomm_controller.cpp)
+  target_link_libraries(test_qualcomm_controller PRIVATE upgrade_gui_backend)
+  add_test(NAME test_qualcomm_controller COMMAND test_qualcomm_controller)
+  set_tests_properties(test_qualcomm_controller PROPERTIES TIMEOUT 30)
   add_executable(test_adb_runner ${CMAKE_SOURCE_DIR}/tests/test_adb_runner.cpp)
   target_link_libraries(test_adb_runner PRIVATE upgrade_gui_backend)
   add_test(NAME test_adb_runner COMMAND test_adb_runner)
@@ -59,12 +75,29 @@ if(UPGRADE_TOOL_TESTS)
   endforeach()
   set_tests_properties(test_allwinner_page_0 test_allwinner_page_1 test_allwinner_page_2
     PROPERTIES FIXTURES_REQUIRED allwinner_firmware)
+  foreach(_tab RANGE 0 2)
+    add_test(NAME test_qualcomm_page_${_tab}
+      COMMAND ${CMAKE_COMMAND}
+        -DAPP=$<TARGET_FILE:upgrade_tool_gui> -DTAB=${_tab} -DVENDOR=qualcomm
+        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/qualcomm-smoke-${_tab}
+        -P ${CMAKE_SOURCE_DIR}/tests/gui_smoke.cmake)
+  endforeach()
   set_tests_properties(test_gui_backend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
 endif()
 
 set(_qml_root ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
 set(_qml_files
+  components/QualcommWorkspace.qml
+  components/QualcommPathRow.qml
+  components/QualcommOptions.qml
+  components/QualcommProgrammer.qml
+  components/QualcommComboBox.qml
+  components/SegmentedControl.qml
+  components/QualcommXmlList.qml
+  pages/QualcommFlashPage.qml
+  pages/QualcommPartitionsPage.qml
+  pages/QualcommToolsPage.qml
   Main.qml
   Theme.qml
   Icons.qml
@@ -77,6 +110,8 @@ set(_qml_files
   components/AppTextField.qml
   components/Card.qml
   components/SectionTitle.qml
+  components/FormSection.qml
+  components/DisclosureSection.qml
   components/AppProgressBar.qml
   components/EmptyState.qml
   components/TitleBar.qml
@@ -108,10 +143,10 @@ set(_qml_files
   dialogs/SettingsDialog.qml
   dialogs/BatchSelectDialog.qml
   dialogs/StorageSelectDialog.qml
+  dialogs/EdlSwitchDialog.qml
   dialogs/AdbDeviceDialog.qml
   dialogs/GptDialog.qml
   dialogs/AboutDialog.qml
-  dialogs/UsageDialog.qml
   dialogs/PermissionDialog.qml
 )
 
@@ -123,7 +158,7 @@ set(_icon_files
   icons/gear-gray.svg
   icons/gear-blue.svg
   icons/monitor-gray.svg
-  icons/help-gray.svg
+  icons/more-gray.svg
   icons/refresh-blue.svg
   icons/folder-white.svg
   icons/folder-gray.svg
@@ -140,7 +175,7 @@ set(_icon_files
   icons/chip-gray-dark.svg
   icons/gear-gray-dark.svg
   icons/monitor-gray-dark.svg
-  icons/help-gray-dark.svg
+  icons/more-gray-dark.svg
   icons/folder-gray-dark.svg
   icons/file-gray-dark.svg
   icons/search-gray-dark.svg
@@ -166,7 +201,6 @@ foreach(_f IN LISTS _icon_files)
   list(APPEND _icon_abs ${_qml_root}/${_f})
 endforeach()
 
-# 左上角/窗口图标直接复用 deb 包安装的同一份 SVG（单一来源）。
 set(_app_logo "${CMAKE_SOURCE_DIR}/scripts/upgrade_tool.svg")
 set_source_files_properties(${_app_logo}
   PROPERTIES QT_RESOURCE_ALIAS "icons/upgrade_tool.svg")
@@ -196,10 +230,14 @@ qt_add_qml_module(upgrade_tool_gui
 find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
 set(_tr_sources
   ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/EdlRunner.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/EdlTransport.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbRunner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/QtObserver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/FirmwareEntries.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/OperationSpec.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/backend/QualcommController.cpp
+  ${CMAKE_SOURCE_DIR}/core/qualcomm/QualcommBackend.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/AppController.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/ConfigStore.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/DirModel.cpp
@@ -222,8 +260,6 @@ else()
     RESOURCE_PREFIX "/i18n")
 endif()
 
-# Embed the same catalog in the backend test so it can assert that cached C++
-# strings actually change with the language, not just that signals fire.
 if(UPGRADE_TOOL_TESTS)
   if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
     qt_add_translations(TARGETS test_gui_backend
@@ -243,6 +279,20 @@ if(UPGRADE_TOOL_TESTS)
   set_source_files_properties("${_test_qmldir}" PROPERTIES QT_RESOURCE_ALIAS qmldir)
   qt_add_resources(test_allwinner_ui allwinner_ui_assets
     PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
+  add_executable(test_qualcomm_ui ${CMAKE_SOURCE_DIR}/tests/test_qualcomm_ui.cpp)
+  target_link_libraries(test_qualcomm_ui PRIVATE upgrade_gui_backend)
+  qt_add_resources(test_qualcomm_ui qualcomm_ui_assets
+    PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
+  if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
+    qt_add_translations(TARGETS test_qualcomm_ui
+      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts RESOURCE_PREFIX "/i18n")
+  else()
+    qt_add_translations(test_qualcomm_ui
+      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts RESOURCE_PREFIX "/i18n")
+  endif()
+  add_test(NAME test_qualcomm_ui COMMAND test_qualcomm_ui)
+  set_tests_properties(test_qualcomm_ui PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software" TIMEOUT 30)
   add_test(NAME test_allwinner_ui COMMAND test_allwinner_ui
     "${CMAKE_BINARY_DIR}/allwinner-fixtures/normal.img" "${CMAKE_CURRENT_BINARY_DIR}/allwinner-ui")
   set_tests_properties(test_allwinner_ui PROPERTIES FIXTURES_REQUIRED allwinner_firmware

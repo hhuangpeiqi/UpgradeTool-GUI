@@ -9,7 +9,7 @@ EngineWorker::EngineWorker(CRKLog *log, QObject *parent)
 {
 	m_pScan->SetVidPid(); m_pEngine->SetLogObject(log); m_pEngine->SetScan(m_pScan);
 	m_rockchip.reset(new core::RockchipBackend(*m_pEngine));
-	m_backends.Add(*m_rockchip); m_backends.Add(m_allwinner);
+	m_backends.Add(*m_rockchip); m_backends.Add(m_allwinner); m_backends.Add(m_qualcomm);
 }
 EngineWorker::~EngineWorker() { delete m_pEngine; delete m_pScan; }
 void EngineWorker::SetObserver(core::IUpgradeObserver *observer) { m_observer = observer; m_pEngine->SetObserver(observer); }
@@ -17,20 +17,22 @@ void EngineWorker::abortTask() { CRKDevice::RequestAbort(); }
 void EngineWorker::scanDevices()
 {
 	QVariantList list;
-    for (auto *backend : std::vector<core::IDeviceBackend *>{m_rockchip.get(), &m_allwinner}) {
+    for (auto *backend : std::vector<core::IDeviceBackend *>{m_rockchip.get(), &m_allwinner, &m_qualcomm}) {
         try {
             for (const auto &dev : backend->Scan()) {
                 QVariantMap map;
                 map["index"] = dev.index; map["vid"] = dev.vid; map["pid"] = dev.pid;
                 map["locationId"] = dev.identity.location; map["usbType"] = dev.usbType;
                 map["mode"] = QString::fromStdString(dev.mode); map["serial"] = QString::fromStdString(dev.identity.serial);
+                map["devicePath"]=QString::fromStdString(dev.identity.devicePath);
+                map["transport"]=static_cast<int>(dev.identity.transport);
                 map["vendor"] = static_cast<int>(dev.identity.vendor); map["bus"] = dev.identity.bus;
                 QVariantList ports; QStringList labels;
                 for (auto p : dev.identity.ports) { ports.append(p); labels.append(QString::number(p)); }
                 map["ports"] = ports;
                 map["key"] = dev.identity.vendor == core::Vendor::Rockchip
                     ? QString::number(dev.identity.location,16) + ":" + QString::fromStdString(dev.identity.serial)
-                    : "allwinner:" + QString::number(dev.identity.bus) + "-" + labels.join('.');
+                    : (dev.identity.vendor == core::Vendor::Qualcomm ? "qualcomm:" + QString::number(static_cast<int>(dev.identity.transport)) + ":" + QString::fromStdString(dev.identity.devicePath) + ":" : "allwinner:") + QString::number(dev.identity.bus) + "-" + labels.join('.');
                 list.append(map);
             }
         } catch(const std::exception &e) {
@@ -66,7 +68,7 @@ void EngineWorker::execute(const core::TaskJob &job)
         core::TaskSummary summary; summary.status = core::OperationStatus::Failed; summary.failed = 1;
         emit taskFinished(summary); return;
     }
-    if(!core::IsLocalOperation(job.steps.front().operation)) {
+    if(core::RequiresEnumeratedDevice(job.steps.front())) {
         std::vector<core::DeviceIdentity> identities;
         try {
             for(const auto &d:m_backends.Find(job.steps.front().vendor)->Scan()) identities.push_back(d.identity);

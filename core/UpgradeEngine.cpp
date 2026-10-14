@@ -27,7 +27,6 @@ namespace core {
 
 static thread_local UpgradeEngine *g_pEngine = NULL;
 
-// 把引擎原始输出写入日志文件（界面侧不再显示），供排查使用。
 static void RecordRawToLog(CRKLog *pLog, const std::string &strText)
 {
 	if (!pLog)

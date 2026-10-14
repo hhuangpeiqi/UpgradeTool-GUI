@@ -20,7 +20,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("Firmware flashing tool for Rockchip and Allwinner devices.\nCredits:\nrockchip-linux/rkdeveloptool (GPL-2.0).\nOpenixCLI libefex (MIT).")
+        text: qsTr("Firmware flashing tool for embedded devices.")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal

@@ -197,7 +197,7 @@ void ConfigStore::installUdev()
 	SetStatus(msg);
 	emit udevInstallFinished(false, msg());
 #else
-	QString strRule = FindUdevRule(m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
+	QString strRule = FindUdevRule(m_usbVendor == "05c6" ? "99-qualcomm.rules" : m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
 	if (strRule.isEmpty()) {
 		TranslatableText::Factory msg = [] { return tr("USB rule files not found; copy the rules from scripts/ to /etc/udev/rules.d/ manually"); };
 		SetStatus(msg);
@@ -259,9 +259,9 @@ bool ConfigStore::udevRuleInstalled() const
 QString ConfigStore::udevCommand() const
 {
 #ifdef Q_OS_LINUX
-	QString strRule = FindUdevRule(m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
+	QString strRule = FindUdevRule(m_usbVendor == "05c6" ? "99-qualcomm.rules" : m_usbVendor == "1f3a" ? "99-allwinner.rules" : "99-rk-rockusb-all.rules");
 	if (strRule.isEmpty())
-		strRule = m_usbVendor == "1f3a" ? "scripts/99-allwinner.rules" : "scripts/99-rk-rockusb-all.rules";
+		strRule = m_usbVendor == "05c6" ? "scripts/99-qualcomm.rules" : m_usbVendor == "1f3a" ? "scripts/99-allwinner.rules" : "scripts/99-rk-rockusb-all.rules";
 	return "sudo cp '" + strRule + "' /etc/udev/rules.d/ && "
 	       "sudo udevadm control --reload-rules && sudo udevadm trigger";
 #else

@@ -20,9 +20,9 @@ QtObject {
     readonly property url monitorGray: Theme.dark
                                        ? Qt.resolvedUrl("icons/monitor-gray-dark.svg")
                                        : Qt.resolvedUrl("icons/monitor-gray.svg")
-    readonly property url helpGray: Theme.dark
-                                    ? Qt.resolvedUrl("icons/help-gray-dark.svg")
-                                    : Qt.resolvedUrl("icons/help-gray.svg")
+    readonly property url moreGray: Theme.dark
+                                    ? Qt.resolvedUrl("icons/more-gray-dark.svg")
+                                    : Qt.resolvedUrl("icons/more-gray.svg")
     readonly property url refreshBlue: Qt.resolvedUrl("icons/refresh-blue.svg")
     readonly property url folderWhite: Qt.resolvedUrl("icons/folder-white.svg")
     readonly property url folderGray: Theme.dark

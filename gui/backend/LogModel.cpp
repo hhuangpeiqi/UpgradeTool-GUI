@@ -66,7 +66,7 @@ void LogModel::Append(const QString &strText, bool bError)
 	emit countChanged();
 }
 
-void LogModel::Clear()
+void LogModel::clear()
 {
 	if (m_lines.isEmpty())
 		return;

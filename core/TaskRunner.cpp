@@ -4,9 +4,9 @@ TaskSummary TaskRunner::Run(const TaskJob &job, IOperationExecutor &executor,
                            const Started &started, const Completed &completed) const
 {
 	TaskSummary summary;
-	const bool local = !job.steps.empty() && IsLocalOperation(job.steps.front().operation);
+	const bool local = !job.steps.empty() && !RequiresEnumeratedDevice(job.steps.front());
 	for (const auto &step : job.steps) {
-		if (IsLocalOperation(step.operation) != local || step.vendor != job.steps.front().vendor) { summary.status = OperationStatus::Failed; return summary; }
+		if ((!RequiresEnumeratedDevice(step)) != local || step.vendor != job.steps.front().vendor) { summary.status = OperationStatus::Failed; return summary; }
 	}
     if(!job.steps.empty()) for(const auto &target:job.targets) {
         if(target.vendor != job.steps.front().vendor) { summary.status=OperationStatus::Failed; return summary; }
@@ -37,7 +37,7 @@ TaskSummary TaskRunner::Run(const TaskJob &job, IOperationExecutor &executor,
 	};
 	for (size_t step = 0; step < job.steps.size() && !stopped && !cancelled(); ++step) {
 		const OperationRequest &request = job.steps[step];
-		const size_t targets = IsLocalOperation(request.operation) ? 1 : count;
+		const size_t targets = !RequiresEnumeratedDevice(request) ? 1 : count;
 		for (size_t target = 0; target < targets && !stopped && !cancelled(); ++target)
 			run(request, step, target);
 	}

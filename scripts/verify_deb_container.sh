@@ -10,10 +10,15 @@ else
 	DEB=$(ls -t "$ROOT"/build-deb/build/*.deb "$ROOT"/build/*.deb 2>/dev/null | head -1 || true)
 fi
 if [ -z "${DEB:-}" ] || [ ! -f "$DEB" ]; then
-	echo "error: 找不到 .deb，请先运行 scripts/package_deb.sh。" >&2
+	echo "error: no .deb found; run scripts/package_deb.sh first." >&2
 	exit 1
 fi
 DEB=$(CDPATH= cd -- "$(dirname -- "$DEB")" && pwd)/$(basename -- "$DEB")
+
+if dpkg-deb -f "$DEB" Depends 2>/dev/null | grep -qE "libzip|libxml2"; then
+	echo "error: $DEB depends on a distribution library (libzip, libxml2) that must be linked statically." >&2
+	exit 1
+fi
 
 if [ "$#" -ge 1 ]; then
 	RELEASES=$*
@@ -30,7 +35,7 @@ if command -v docker >/dev/null 2>&1; then
 elif command -v podman >/dev/null 2>&1; then
 	ENGINE=podman
 else
-	echo "error: 未找到 docker 或 podman。" >&2
+	echo "error: docker or podman not found." >&2
 	exit 1
 fi
 
@@ -41,7 +46,7 @@ STATUS=0
 for REL in $RELEASES; do
 	echo
 	echo "==================================================================="
-	echo ">> 验证 ubuntu:$REL"
+	echo ">> Verifying ubuntu:$REL"
 	echo "==================================================================="
 	if "$ENGINE" run --rm \
 		-e DEB_NAME="$DEB_NAME" \
@@ -61,9 +66,9 @@ for REL in $RELEASES; do
 			ls -l /tmp/shot.png
 			echo "OK"
 		'; then
-		echo ">> ubuntu:$REL: 通过"
+		echo ">> ubuntu:$REL: PASS"
 	else
-		echo ">> ubuntu:$REL: 失败" >&2
+		echo ">> ubuntu:$REL: FAIL" >&2
 		STATUS=1
 	fi
 done

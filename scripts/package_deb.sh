@@ -1,9 +1,9 @@
 #!/bin/sh
-# 构建 Debian/Ubuntu 的 .deb。
+# Build the Debian/Ubuntu .deb.
 #
-#   scripts/package_deb.sh [BUILD_DIR] [IMAGE]   容器构建（默认，基线 Ubuntu 22.04）
+#   scripts/package_deb.sh [BUILD_DIR] [IMAGE]   container build (default, Ubuntu 22.04 baseline)
 #   UPGRADE_TOOL_NATIVE_DEB=1 scripts/package_deb.sh [BUILD_DIR]
-#                                                本机构建，产物只适用于当前发行版
+#                                                native build, artifact matches only the current distribution
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -11,22 +11,22 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 report() {
 	DEB=$(ls -t "$1"/build/*.deb "$1"/*.deb 2>/dev/null | head -1 || true)
 	if [ -z "${DEB:-}" ]; then
-		echo "error: 未生成 .deb。" >&2
+		echo "error: no .deb was produced." >&2
 		exit 1
 	fi
 
 	echo
-	echo ">> 产物: $DEB"
+	echo ">> Artifact: $DEB"
 	echo ">> Depends:"
 	dpkg-deb -f "$DEB" Depends 2>/dev/null || true
 }
 
-# 宿主机工具链直接构建，快捷但产物的 libc/libstdc++ 基线即宿主机版本。
+# Build directly with the host toolchain; fast, but the libc/libstdc++ baseline is the host's version.
 build_native() {
 	BUILD_DIR=${1:-"$ROOT/build"}
-	echo "warning: 本机构建，产出的 .deb 只适用于当前发行版。" >&2
+	echo "warning: native build; the resulting .deb only matches the current distribution." >&2
 	if ! command -v dpkg-shlibdeps >/dev/null 2>&1; then
-		echo "error: 需要 dpkg-dev（提供 dpkg-shlibdeps），请先 apt install dpkg-dev。" >&2
+		echo "error: dpkg-dev (providing dpkg-shlibdeps) is required; run apt install dpkg-dev." >&2
 		exit 1
 	fi
 
@@ -37,7 +37,7 @@ build_native() {
 	report "$BUILD_DIR"
 }
 
-# 在 Ubuntu 22.04 + Qt 6.2 容器内构建，产物可安装在 Ubuntu 22.04 及更新的版本上。
+# Build inside an Ubuntu 22.04 + Qt 6.2 container; the artifact installs on Ubuntu 22.04 and newer.
 build_container() {
 	BUILD_DIR=${1:-"$ROOT/build-deb"}
 	IMAGE=${2:-upgrade-tool-deb-builder:22.04}
@@ -51,7 +51,7 @@ build_container() {
 	elif command -v podman >/dev/null 2>&1; then
 		ENGINE=podman
 	else
-		echo "error: 未找到 docker 或 podman。" >&2
+		echo "error: docker or podman not found." >&2
 		exit 1
 	fi
 
@@ -60,10 +60,10 @@ build_container() {
 		chown -R "$RUN_UID:$RUN_GID" "$BUILD_DIR"
 	fi
 
-	echo ">> 构建镜像 $IMAGE（Ubuntu 22.04 + Qt 6.2）"
+	echo ">> Building image $IMAGE (Ubuntu 22.04 + Qt 6.2)"
 	"$ENGINE" build -t "$IMAGE" -f "$ROOT/scripts/deb/Dockerfile" "$ROOT/scripts/deb"
 
-	echo ">> 容器内编译并打包"
+	echo ">> Compiling and packaging inside the container"
 	"$ENGINE" run --rm \
 		--user "$RUN_UID:$RUN_GID" \
 		-e HOME=/tmp \

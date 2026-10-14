@@ -95,8 +95,8 @@ int main(int argc, char **argv) {
         QKeyEvent tab(QEvent::KeyPress,Qt::Key_Tab,Qt::NoModifier);
         QGuiApplication::sendEvent(window,&tab);
         CHECK(window->activeFocusItem() && window->activeFocusItem()!=verify);
-        CHECK(!find("awRawAdvanced")->property("checked").toBool());
-        CHECK(!find("awConvertAdvanced")->property("checked").toBool());
+        CHECK(!find("awRawAdvanced")->property("expanded").toBool());
+        CHECK(!find("awConvertAdvanced")->property("expanded").toBool());
         // The handoff keeps the raw boot package independent and selects tools.
         const auto rawFirmware=controller.allwinnerStates()[0].toMap()["firmware"];
         auto *firmwarePage=find("AllwinnerFirmwarePage");

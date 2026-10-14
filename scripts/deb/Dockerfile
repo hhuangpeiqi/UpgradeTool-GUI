@@ -9,12 +9,14 @@ RUN apt-get update \
         dpkg-dev \
         file \
         git \
+        zlib1g-dev \
         libgl-dev \
         libegl-dev \
         libqt6opengl6-dev \
         libxkbcommon-dev \
         libvulkan-dev \
         qt6-base-dev \
+        libqt6serialport6-dev \
         qt6-declarative-dev \
         qt6-declarative-dev-tools \
         qt6-l10n-tools \

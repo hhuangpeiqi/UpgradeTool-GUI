@@ -83,62 +83,59 @@ AllwinnerWorkspace {
             onActivated: page.saveSetting("target", currentIndex)
         }
     }
-    AppCheckBox {
-        id: advanced
+    DisclosureSection {
         objectName: "awConvertAdvanced"
-        focusPolicy: Qt.StrongFocus
-        text: qsTr("Advanced options")
-    }
-    GridLayout {
-        visible: advanced.checked
-        Layout.fillWidth: true
-        columns: 2
-        columnSpacing: 12
-        rowSpacing: 10
-        enabled: !app.busy
-        Text { text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppTextField {
-            id: offset
+        title: qsTr("Advanced options")
+        GridLayout {
             Layout.fillWidth: true
-            text: page.setting("logicOffset", "")
-            placeholderText: qsTr("Leave empty to auto-detect (0x hex allowed)")
-            onEditingFinished: page.saveSetting("logicOffset", text)
-        }
-        Text { visible: target.currentIndex === 0; text: qsTr("U-Boot offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppTextField {
-            id: uboot
-            visible: target.currentIndex === 0
-            Layout.fillWidth: true
-            text: page.setting("ubootOffset", "")
-            placeholderText: qsTr("Leave empty to auto-detect")
-            onEditingFinished: page.saveSetting("ubootOffset", text)
-        }
-        Text { visible: target.currentIndex === 0; text: qsTr("NOR capacity (MiB)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppTextField {
-            id: nor
-            visible: target.currentIndex === 0
-            Layout.fillWidth: true
-            text: page.setting("norMiB", "16")
-            placeholderText: qsTr("Default 16")
-            onEditingFinished: page.saveSetting("norMiB", text)
-        }
-        Text { visible: target.currentIndex !== 0; text: qsTr("GPT target capacity"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppTextField {
-            id: capacity
-            visible: target.currentIndex !== 0
-            Layout.fillWidth: true
-            text: page.setting("storageSize", "auto")
-            placeholderText: qsTr("auto or 8GB / 512MB")
-            onEditingFinished: page.saveSetting("storageSize", text)
-        }
-        Text { visible: target.currentIndex !== 0; text: qsTr("Secure boot components"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppComboBox {
-            id: secure
-            visible: target.currentIndex !== 0
-            Layout.fillWidth: true
-            model: [qsTr("Auto detect"), "TOC0 / TOC1", "Boot0 / BOOTPKG"]
-            currentIndex: Number(page.setting("secure", 0))
-            onActivated: page.saveSetting("secure", currentIndex)
+            columns: 2
+            columnSpacing: 12
+            rowSpacing: 10
+            enabled: !app.busy
+            Text { text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppTextField {
+                id: offset
+                Layout.fillWidth: true
+                text: page.setting("logicOffset", "")
+                placeholderText: qsTr("Leave empty to auto-detect (0x hex allowed)")
+                onEditingFinished: page.saveSetting("logicOffset", text)
+            }
+            Text { visible: target.currentIndex === 0; text: qsTr("U-Boot offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppTextField {
+                id: uboot
+                visible: target.currentIndex === 0
+                Layout.fillWidth: true
+                text: page.setting("ubootOffset", "")
+                placeholderText: qsTr("Leave empty to auto-detect")
+                onEditingFinished: page.saveSetting("ubootOffset", text)
+            }
+            Text { visible: target.currentIndex === 0; text: qsTr("NOR capacity (MiB)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppTextField {
+                id: nor
+                visible: target.currentIndex === 0
+                Layout.fillWidth: true
+                text: page.setting("norMiB", "16")
+                placeholderText: qsTr("Default 16")
+                onEditingFinished: page.saveSetting("norMiB", text)
+            }
+            Text { visible: target.currentIndex !== 0; text: qsTr("GPT target capacity"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppTextField {
+                id: capacity
+                visible: target.currentIndex !== 0
+                Layout.fillWidth: true
+                text: page.setting("storageSize", "auto")
+                placeholderText: qsTr("auto or 8GB / 512MB")
+                onEditingFinished: page.saveSetting("storageSize", text)
+            }
+            Text { visible: target.currentIndex !== 0; text: qsTr("Secure boot components"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppComboBox {
+                id: secure
+                visible: target.currentIndex !== 0
+                Layout.fillWidth: true
+                model: [qsTr("Auto detect"), "TOC0 / TOC1", "Boot0 / BOOTPKG"]
+                currentIndex: Number(page.setting("secure", 0))
+                onActivated: page.saveSetting("secure", currentIndex)
+            }
         }
     }
     KeyValueTable {

@@ -31,7 +31,7 @@ AppDialog {
             color: Theme.textPrimary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
-            text: app.vendor === 0 ? qsTr("The current user (non-root) has not installed the Rockchip udev rules; the device may be inaccessible.") : qsTr("The current user (non-root) has not installed the Allwinner FEL/FES udev rules; the device may be inaccessible.")
+            text: app.vendor === 2 ? qsTr("Qualcomm USB access requires udev rules.") : app.vendor === 0 ? qsTr("The current user (non-root) has not installed the Rockchip udev rules; the device may be inaccessible.") : qsTr("The current user (non-root) has not installed the Allwinner FEL/FES udev rules; the device may be inaccessible.")
         }
 
         Text {

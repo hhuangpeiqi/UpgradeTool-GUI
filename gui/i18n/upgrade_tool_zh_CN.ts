@@ -10,14 +10,8 @@
     </message>
     <message>
         <location line="+14"/>
-        <source>Firmware flashing tool for Rockchip and Allwinner devices.
-Credits:
-rockchip-linux/rkdeveloptool (GPL-2.0).
-OpenixCLI libefex (MIT).</source>
-        <translation>瑞芯微与全志设备固件刷写工具。
-参考鸣谢：
-rockchip-linux/rkdeveloptool (GPL-2.0)。
-OpenixCLI libefex (MIT)。</translation>
+        <source>Firmware flashing tool for embedded devices.</source>
+        <translation>嵌入式设备固件刷写工具。</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -615,11 +609,13 @@ OpenixCLI libefex (MIT)。</translation>
     </message>
     <message>
         <location line="+16"/>
+        <location line="+1"/>
         <source>Batch flash</source>
         <translation>批量刷写</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-1"/>
+        <location line="+1"/>
         <source>Start Flashing</source>
         <translation>开始刷写</translation>
     </message>
@@ -670,12 +666,12 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>存储介质</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+12"/>
         <source>Advanced options</source>
         <translation>高级选项</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+7"/>
         <source>Write method</source>
         <translation>写入方式</translation>
     </message>
@@ -700,12 +696,14 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>留空自动匹配（可填 0x 十六进制）</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
+        <location line="+1"/>
         <source>Batch flash</source>
         <translation>批量刷写</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-1"/>
+        <location line="+1"/>
         <source>Start Flashing</source>
         <translation>开始刷写</translation>
     </message>
@@ -773,12 +771,12 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>SD 卡</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+7"/>
         <source>Advanced options</source>
         <translation>高级选项</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+7"/>
         <source>Logic offset (sectors)</source>
         <translation>逻辑偏移（扇区）</translation>
     </message>
@@ -828,7 +826,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>自动检测</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+15"/>
         <source>Read Info Again</source>
         <translation>重新读取信息</translation>
     </message>
@@ -884,27 +882,27 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>AppFilePicker</name>
     <message>
-        <location filename="../qml/components/AppFilePicker.qml" line="+212"/>
+        <location filename="../qml/components/AppFilePicker.qml" line="+58"/>
         <source>Directory created</source>
         <translation>已创建目录</translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+1"/>
         <source>Enter a file name</source>
         <translation>请输入文件名</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+1"/>
         <source>File name cannot contain &quot;/&quot;</source>
         <translation>文件名不能包含 “/”</translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+304"/>
         <source>Location</source>
         <translation>位置</translation>
     </message>
     <message>
-        <location line="+162"/>
+        <location line="+163"/>
         <source>/absolute/path</source>
         <translation>/绝对/路径</translation>
     </message>
@@ -935,12 +933,12 @@ OpenixCLI libefex (MIT)。</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+209"/>
+        <location line="+210"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="-203"/>
+        <location line="-204"/>
         <source>Create</source>
         <translation>创建</translation>
     </message>
@@ -950,7 +948,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>搜索当前目录…</translation>
     </message>
     <message>
-        <location line="+123"/>
+        <location line="+124"/>
         <source>No matches found</source>
         <translation>未找到匹配项</translation>
     </message>
@@ -985,7 +983,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>文件类型</translation>
     </message>
     <message>
-        <location line="+32"/>
+        <location line="+38"/>
         <source>Select this directory</source>
         <translation>选择该目录</translation>
     </message>
@@ -998,6 +996,11 @@ OpenixCLI libefex (MIT)。</translation>
         <location line="+0"/>
         <source>Select</source>
         <translation>选择</translation>
+    </message>
+    <message>
+        <location line="-47"/>
+        <source>%1 file(s) selected</source>
+        <translation>已选择 %1 个文件</translation>
     </message>
 </context>
 <context>
@@ -1124,6 +1127,64 @@ OpenixCLI libefex (MIT)。</translation>
         <location line="+0"/>
         <source>All files (*)</source>
         <translation>所有文件 (*)</translation>
+    </message>
+</context>
+<context>
+    <name>EdlSwitchDialog</name>
+    <message>
+        <location filename="../qml/dialogs/EdlSwitchDialog.qml" line="+58"/>
+        <source>Automatic</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Automatic (recognized interfaces)</source>
+        <translation>自动（已识别接口）</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Cancel switch</source>
+        <translation>取消切换</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location line="-32"/>
+        <source>Device</source>
+        <translation>设备</translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>Switch</source>
+        <translation>切换</translation>
+    </message>
+    <message>
+        <location line="-21"/>
+        <source>Diagnostic interface</source>
+        <translation>诊断接口</translation>
+    </message>
+    <message>
+        <location line="-52"/>
+        <source>Switch to EDL</source>
+        <translation>切换到 EDL</translation>
+    </message>
+    <message>
+        <location line="+48"/>
+        <source>Diagnostic port (DIAG)</source>
+        <translation>诊断口（DIAG）</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <location line="-22"/>
+        <source>Switch method</source>
+        <translation>切换方式</translation>
     </message>
 </context>
 <context>
@@ -1378,7 +1439,7 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>Main</name>
     <message>
-        <location filename="../qml/Main.qml" line="+212"/>
+        <location filename="../qml/Main.qml" line="+238"/>
         <source>Preferences…</source>
         <translation>首选项…</translation>
     </message>
@@ -1403,12 +1464,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>批量选择…</translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Usage</source>
-        <translation>用法</translation>
-    </message>
-    <message>
-        <location line="+2"/>
+        <location line="+9"/>
         <source>Log</source>
         <translation>日志</translation>
     </message>
@@ -1427,6 +1483,56 @@ OpenixCLI libefex (MIT)。</translation>
     <name>Operations</name>
     <message>
         <location filename="../OperationSpec.cpp" line="+16"/>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Partition Operations</source>
+        <translation>分区操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Chip Info</source>
+        <translation>芯片信息</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Reset</source>
+        <translation>重启</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>RAM Dump</source>
+        <translation>内存转储</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sahara Kickstart</source>
+        <translation>Sahara 启动</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Create ZIP</source>
+        <translation>生成 ZIP</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Create Sahara Archive</source>
+        <translation>生成 Sahara 归档</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Create VIP Digests</source>
+        <translation>生成 VIP 摘要</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>UFS Provisioning</source>
+        <translation>UFS 配置</translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Allwinner Firmware Flash</source>
         <translation>全志固件刷写</translation>
     </message>
@@ -1629,6 +1735,11 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>当前用户（非 root）没有安装全志 FEL/FES udev 规则，设备可能无法访问。</translation>
     </message>
     <message>
+        <location line="+0"/>
+        <source>Qualcomm USB access requires udev rules.</source>
+        <translation>访问高通 USB 设备需要安装 udev 规则。</translation>
+    </message>
+    <message>
         <location line="+9"/>
         <source>Click &quot;Install udev rules&quot; below and enter the password when prompted; or run manually in a terminal:</source>
         <translation>点击下方「安装 udev 规则」，按提示输入密码即可修复；也可在终端手动执行：</translation>
@@ -1655,11 +1766,13 @@ OpenixCLI libefex (MIT)。</translation>
     </message>
     <message>
         <location line="+6"/>
+        <location line="+1"/>
         <source>Installing…</source>
         <translation>安装中…</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-1"/>
+        <location line="+1"/>
         <source>Install udev rules</source>
         <translation>安装 udev 规则</translation>
     </message>
@@ -1667,7 +1780,7 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../backend/AppController.cpp" line="+71"/>
+        <location filename="../backend/AppController.cpp" line="+90"/>
         <source>Invalid or out-of-range parameter</source>
         <translation>参数无效或超出范围</translation>
     </message>
@@ -1963,6 +2076,733 @@ OpenixCLI libefex (MIT)。</translation>
     </message>
 </context>
 <context>
+    <name>QualcommBackend</name>
+    <message>
+        <location filename="../../core/qualcomm/QualcommBackend.cpp" line="+63"/>
+        <source>Invalid Qualcomm operation</source>
+        <translation>无效的高通操作</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Invalid or conflicting Qualcomm options</source>
+        <translation>高通参数无效或存在冲突</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Device node cannot be combined with a transport selection</source>
+        <translation>设备节点不能与传输方式选择同时使用</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>UFS provisioning requires UFS storage</source>
+        <translation>UFS 配置需要选择 UFS 存储</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Select a digest output directory</source>
+        <translation>请选择摘要输出目录</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Selected Qualcomm device is missing or ambiguous</source>
+        <translation>所选高通设备已断开或无法唯一识别</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Selected device does not use the requested transport</source>
+        <translation>所选设备与指定传输方式不匹配</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Qualcomm device identity is too long</source>
+        <translation>高通设备标识过长</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Qualcomm operation failed</source>
+        <translation>高通操作失败</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommFlashPage</name>
+    <message>
+        <location filename="../qml/pages/QualcommFlashPage.qml" line="+19"/>
+        <source>No device in EDL mode</source>
+        <translation>未检测到 EDL 模式设备</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ready · simulation</source>
+        <translation>就绪 · 模拟执行</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Ready · %1 XML</source>
+        <translation>就绪 · %1 个 XML</translation>
+    </message>
+    <message>
+        <location line="-2"/>
+        <source>Select a programmer and load XML first</source>
+        <translation>请先选择引导程序并加载 XML</translation>
+    </message>
+    <message>
+        <location line="-8"/>
+        <source>Qualcomm Download</source>
+        <translation>高通下载</translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Build</source>
+        <translation>固件</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Build type</source>
+        <translation>固件类型</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Flat Build</source>
+        <translation>Flat Build</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Meta / Package Build</source>
+        <translation>Meta / Package Build</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Programmer / Loader</source>
+        <translation>引导程序 / 加载器</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Package file</source>
+        <translation>固件包</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Build package (*.zip, *.json or *.xml)</source>
+        <translation>固件包（*.zip、*.json 或 *.xml）</translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Optional selector inside the package</source>
+        <translation>包内可选的 selector</translation>
+    </message>
+    <message>
+        <location line="-24"/>
+        <source>Build package</source>
+        <translation>固件包</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Build (*.zip *.json *.xml)</source>
+        <translation>固件包 (*.zip *.json *.xml)</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Selector</source>
+        <translation>selector</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Firmware XML</source>
+        <translation>固件 XML</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Load XML…</source>
+        <translation>加载 XML…</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Operation</source>
+        <translation>操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Partition</source>
+        <translation>分区</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Image</source>
+        <translation>镜像</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Sector</source>
+        <translation>起始扇区</translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Simulate download</source>
+        <translation>模拟执行</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Select a valid programmer and XML set first</source>
+        <translation>请先选择有效的引导程序和 XML 文件</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
+        <translation>未检测到设备，请让设备进入 EDL(9008) 模式，或使用“切换到 EDL”</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommOptions</name>
+    <message>
+        <location filename="../qml/components/QualcommOptions.qml" line="+34"/>
+        <source>Storage</source>
+        <translation>存储类型</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Transport</source>
+        <translation>传输方式</translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Storage slot</source>
+        <translation>存储槽位</translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>VIP tables</source>
+        <translation>VIP 摘要表</translation>
+    </message>
+    <message>
+        <location line="-62"/>
+        <source>Skip reset</source>
+        <translation>完成后不重启</translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>LUN / slot number; empty uses the device default</source>
+        <translation>LUN / 槽位号；留空则使用设备默认值</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Transfer chunk</source>
+        <translation>传输块大小</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Bytes per transfer; empty uses the device default</source>
+        <translation>每次传输的字节数；留空则使用设备默认值</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Directory holding signed VIP digest tables</source>
+        <translation>存放已签名 VIP 摘要表的目录</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Skip matching SHA256</source>
+        <translation>跳过 SHA256 相同的分区</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Allow missing images</source>
+        <translation>允许缺失镜像</translation>
+    </message>
+    <message>
+        <location line="-62"/>
+        <source>Debug log</source>
+        <translation>调试日志</translation>
+    </message>
+    <message>
+        <location line="+69"/>
+        <source>Allow fusing</source>
+        <translation>允许熔丝写入</translation>
+    </message>
+    <message>
+        <location line="-76"/>
+        <source>Dry run</source>
+        <translation>模拟执行</translation>
+    </message>
+    <message>
+        <location line="-70"/>
+        <source>Advanced options</source>
+        <translation>高级选项</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommPartitionsPage</name>
+    <message>
+        <location filename="../qml/pages/QualcommPartitionsPage.qml" line="+17"/>
+        <source>Add a programmer and at least one operation</source>
+        <translation>请添加引导程序和至少一个操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No device in EDL mode</source>
+        <translation>未检测到 EDL 模式设备</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ready · %1 operation(s)</source>
+        <translation>就绪 · %1 个操作</translation>
+    </message>
+    <message>
+        <location line="-9"/>
+        <source>Partition Tools</source>
+        <translation>分区工具</translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <location line="+45"/>
+        <source>Read</source>
+        <translation>读取</translation>
+    </message>
+    <message>
+        <location line="-45"/>
+        <location line="+45"/>
+        <source>Write</source>
+        <translation>写入</translation>
+    </message>
+    <message>
+        <location line="-45"/>
+        <location line="+45"/>
+        <source>Erase</source>
+        <translation>擦除</translation>
+    </message>
+    <message>
+        <location line="-45"/>
+        <source>Firehose reset</source>
+        <translation>Firehose 重启</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Address</source>
+        <translation>地址</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Binary file</source>
+        <translation>二进制文件</translation>
+    </message>
+    <message>
+        <location line="-3"/>
+        <source>LUN, LUN/sector, LUN/sector+count, or a partition name</source>
+        <translation>LUN、LUN/扇区、LUN/扇区+数量，或分区名</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Output file for the read data</source>
+        <translation>保存读取数据的输出文件</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Binary image to write</source>
+        <translation>待写入的二进制镜像</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Operations</source>
+        <translation>操作列表</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Reset</source>
+        <translation>重启</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Execute</source>
+        <translation>执行</translation>
+    </message>
+    <message>
+        <location line="-7"/>
+        <source>Firehose reset must be the last operation</source>
+        <translation>Firehose 重启必须是最后一项操作</translation>
+    </message>
+    <message>
+        <location line="-75"/>
+        <source>Programmer / Loader</source>
+        <translation>引导程序 / 加载器</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Operation</source>
+        <translation>操作</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Action</source>
+        <translation>操作类型</translation>
+    </message>
+    <message>
+        <location line="+71"/>
+        <source>Simulate</source>
+        <translation>模拟执行</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Add a valid programmer and at least one operation first</source>
+        <translation>请先添加有效的引导程序和至少一项操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
+        <translation>未检测到设备，请让设备进入 EDL(9008) 模式，或使用“切换到 EDL”</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommPathRow</name>
+    <message>
+        <location filename="../qml/components/QualcommPathRow.qml" line="+32"/>
+        <source>Select a directory</source>
+        <translation>选择目录</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Enter a path or browse for a file</source>
+        <translation>输入路径或浏览文件</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Browse…</source>
+        <translation>浏览…</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommProgrammer</name>
+    <message>
+        <location filename="../qml/components/QualcommProgrammer.qml" line="+18"/>
+        <source>Programmer input</source>
+        <translation>引导程序来源</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Programmer file</source>
+        <translation>引导程序文件</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Sahara image mapping</source>
+        <translation>Sahara 镜像映射</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Programmer</source>
+        <translation>引导程序</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>FireHose Programmer (*firehose*.mbn *firehose*.elf)</source>
+        <translation>FireHose 引导程序 (*firehose*.mbn *firehose*.elf)</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Firehose programmer (*firehose*.mbn or *firehose*.elf)</source>
+        <translation>Firehose 引导程序（*firehose*.mbn 或 *firehose*.elf）</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>One mapping per line - ID:path, e.g. 13:/path/prog_firehose_ddr.elf</source>
+        <translation>每行一个映射 - ID:路径，例如 13:/path/prog_firehose_ddr.elf</translation>
+    </message>
+    <message>
+        <location line="-9"/>
+        <source>Sahara images (ID:path)</source>
+        <translation>Sahara 镜像（ID:路径）</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommToolsPage</name>
+    <message>
+        <location filename="../qml/pages/QualcommToolsPage.qml" line="+28"/>
+        <source>No device in EDL mode</source>
+        <translation>未检测到 EDL 模式设备</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ready</source>
+        <translation>就绪</translation>
+    </message>
+    <message>
+        <location line="-19"/>
+        <source>Maintenance &amp; Offline Tools</source>
+        <translation>维护与离线工具</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <location line="+7"/>
+        <source>Operation</source>
+        <translation>操作</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Chip info</source>
+        <translation>芯片信息</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Reset</source>
+        <translation>重启</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>RAM dump</source>
+        <translation>内存转储</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Sahara kickstart</source>
+        <translation>Sahara 引导</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Create ZIP</source>
+        <translation>生成 ZIP</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Create Sahara archive</source>
+        <translation>生成 Sahara 归档</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Create VIP digests</source>
+        <translation>生成 VIP 摘要</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>UFS provisioning</source>
+        <translation>UFS 配置</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Input type</source>
+        <translation>输入类型</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Programmer / Sahara images</source>
+        <translation>引导程序 / Sahara 镜像</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Input</source>
+        <translation>输入</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Selector</source>
+        <translation>selector</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Optional selector inside the package</source>
+        <translation>包内可选的 selector</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Output</source>
+        <translation>输出路径</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Digest directory</source>
+        <translation>摘要输出目录</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Segment filter</source>
+        <translation>内存段筛选</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Comma-separated file patterns, e.g. DDR*.bin</source>
+        <translation>逗号分隔的文件模式，例如 DDR*.bin</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Device node</source>
+        <translation>设备节点</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Load XML…</source>
+        <translation>加载 XML…</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Lock UFS configuration</source>
+        <translation>锁定 UFS 配置</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Execute</source>
+        <translation>执行</translation>
+    </message>
+    <message>
+        <location line="-92"/>
+        <source>Flat Build</source>
+        <translation>Flat Build</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Meta / Package Build</source>
+        <translation>Meta / Package Build</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Build package</source>
+        <translation>固件包</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Build (*.zip *.json *.xml)</source>
+        <translation>固件包 (*.zip *.json *.xml)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Build package (*.zip, *.json or *.xml)</source>
+        <translation>固件包（*.zip、*.json 或 *.xml）</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Path to the contents.xml</source>
+        <translation>contents.xml 的路径</translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Output directory for the RAM dump</source>
+        <translation>内存转储的输出目录</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Output ZIP file</source>
+        <translation>输出 ZIP 文件</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Output Sahara archive file</source>
+        <translation>输出 Sahara 归档文件</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Output directory for the VIP digest tables</source>
+        <translation>VIP 摘要表的输出目录</translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Serial node, e.g. /dev/ttyUSB0 (Auto transport only)</source>
+        <translation>串口节点，例如 /dev/ttyUSB0（仅自动传输方式）</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>UFS configuration XML</source>
+        <translation>UFS 配置 XML</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>XML</source>
+        <translation>XML</translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Simulate</source>
+        <translation>模拟执行</translation>
+    </message>
+    <message>
+        <location line="-136"/>
+        <location line="+141"/>
+        <source>Complete the required inputs first</source>
+        <translation>请先填写必填项</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
+        <translation>未检测到设备，请让设备进入 EDL(9008) 模式，或使用“切换到 EDL”</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommWorkspace</name>
+    <message>
+        <location filename="../qml/components/QualcommWorkspace.qml" line="+85"/>
+        <source>Switch settings…</source>
+        <translation>切换设置…</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Switch to EDL</source>
+        <translation>切换到 EDL</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommXmlList</name>
+    <message>
+        <location filename="../qml/components/QualcommXmlList.qml" line="+91"/>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <location line="+46"/>
+        <source>Load XML</source>
+        <translation>加载 XML</translation>
+    </message>
+    <message>
+        <location line="-19"/>
+        <source>Select patch XML</source>
+        <translation>选择 patch XML</translation>
+    </message>
+    <message>
+        <location line="-75"/>
+        <source>No XML loaded. Use Load XML… to choose rawprogram and patch files.</source>
+        <translation>尚未加载 XML。点击「加载 XML…」选择 rawprogram 与 patch 文件。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No XML loaded. Use Load XML… to choose a UFS configuration file.</source>
+        <translation>尚未加载 XML。点击「加载 XML…」选择 UFS 配置文件。</translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Patch</source>
+        <translation>Patch</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>RawProgram</source>
+        <translation>RawProgram</translation>
+    </message>
+    <message>
+        <location line="+41"/>
+        <source>Select rawprogram XML</source>
+        <translation>选择 rawprogram XML</translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Skip patch</source>
+        <translation>跳过 patch</translation>
+    </message>
+</context>
+<context>
     <name>SettingsDialog</name>
     <message>
         <location filename="../qml/dialogs/SettingsDialog.qml" line="+9"/>
@@ -2035,8 +2875,8 @@ OpenixCLI libefex (MIT)。</translation>
     </message>
     <message>
         <location line="+12"/>
-        <source>Boolean keys are written as true/false; empty text fields are not written. Reload discards unsaved changes.</source>
-        <translation>布尔键写入 true/false；留空的文本框键不会写入文件。重新加载会丢弃未保存的修改。</translation>
+        <source>Boolean keys are written as true/false; Reload discards unsaved changes.</source>
+        <translation>布尔键写入 true/false；重新加载会丢弃未保存的修改。</translation>
     </message>
     <message>
         <location line="+13"/>
@@ -2062,12 +2902,12 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>StatusBar</name>
     <message>
-        <location filename="../qml/components/StatusBar.qml" line="+86"/>
+        <location filename="../qml/components/StatusBar.qml" line="+87"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+18"/>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
@@ -2093,7 +2933,7 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="../qml/components/TopBar.qml" line="+37"/>
+        <location filename="../qml/components/TopBar.qml" line="+49"/>
         <source>Rockchip</source>
         <translation>瑞芯微</translation>
     </message>
@@ -2103,7 +2943,12 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>全志</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+0"/>
+        <source>Qualcomm</source>
+        <translation>高通</translation>
+    </message>
+    <message>
+        <location line="+10"/>
         <source>Download Image</source>
         <translation>下载镜像</translation>
     </message>
@@ -2111,6 +2956,11 @@ OpenixCLI libefex (MIT)。</translation>
         <location line="+0"/>
         <source>Raw Image Flash</source>
         <translation>裸镜像刷写</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Partition Tools</source>
+        <translation>分区工具</translation>
     </message>
     <message>
         <location line="+7"/>
@@ -2123,9 +2973,19 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>固件刷写</translation>
     </message>
     <message>
+        <location line="+0"/>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
         <location line="+7"/>
         <source>Advanced</source>
         <translation>高级功能</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Tools</source>
+        <translation>工具</translation>
     </message>
     <message>
         <location line="+10"/>
@@ -2139,31 +2999,8 @@ OpenixCLI libefex (MIT)。</translation>
     </message>
     <message>
         <location line="+7"/>
-        <source>Help</source>
-        <translation>帮助</translation>
-    </message>
-</context>
-<context>
-    <name>UsageDialog</name>
-    <message>
-        <location filename="../qml/dialogs/UsageDialog.qml" line="+9"/>
-        <source>Usage Help</source>
-        <translation>使用帮助</translation>
-    </message>
-    <message>
-        <location line="+15"/>
-        <source>Select a device, then run the operation on the matching page. Rockchip devices must be in Rockusb mode (Loader or Maskrom), and Allwinner devices in FEL / FES mode; make sure the USB connection is good.</source>
-        <translation>选择设备后，在对应功能页执行操作。瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式，请确认 USB 连接正常。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>The system must have the matching udev rules installed.</source>
-        <translation>系统需安装对应 udev 规则。</translation>
-    </message>
-    <message>
-        <location line="+94"/>
-        <source>Close</source>
-        <translation>关闭</translation>
+        <source>More</source>
+        <translation>更多</translation>
     </message>
 </context>
 <context>
@@ -2289,647 +3126,29 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>gui::AppController</name>
     <message>
-        <location filename="../backend/AppController.cpp" line="+96"/>
-        <location line="+401"/>
-        <location line="+497"/>
+        <location filename="../backend/AppController.cpp" line="+125"/>
+        <location line="+928"/>
         <source>Select the split package directory (with parameter.txt, per-partition .img and Loader .bin).</source>
         <translation>请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。</translation>
     </message>
     <message>
-        <location line="-897"/>
-        <location line="+402"/>
-        <location line="+570"/>
+        <location line="-927"/>
+        <location line="+1006"/>
         <source>Select firmware.</source>
         <translation>请选择固件。</translation>
     </message>
     <message>
-        <location line="-971"/>
+        <location line="-1005"/>
         <source>Ready</source>
         <translation>就绪</translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+27"/>
         <source>Application started</source>
         <translation>应用已启动</translation>
     </message>
     <message>
-        <location line="+66"/>
-        <source>Rockchip devices must be in Rockusb mode (Loader or Maskrom) and Allwinner devices in FEL / FES mode, with the matching udev rules installed.</source>
-        <translation>瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式，且系统已安装对应 udev 规则。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>The status bar scans automatically; if nothing appears, click &quot;Refresh&quot; and check the device mode and udev permissions.</source>
-        <translation>底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式与 udev 权限。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Edit and save config.ini, switch theme and language, reload, and install udev rules in one click.</source>
-        <translation>编辑并保存 config.ini、切换主题与语言、重新加载、一键安装 udev 规则。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Confirm Rockchip is in Rockusb mode (Loader or Maskrom) and Allwinner in FEL / FES mode, then reconnect the device after installing the udev rules.</source>
-        <translation>瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，并已安装 udev 规则后重新插拔。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Rockchip devices must be in Rockusb mode (Loader or Maskrom) and Allwinner devices in FEL / FES mode.</source>
-        <translation>瑞芯微设备需处于 Rockusb 模式（Loader 或 Maskrom），全志设备需处于 FEL / FES 模式。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>The status bar scans automatically; if nothing appears, click &quot;Refresh&quot; and check the device mode, USB connection, and whether another program is using it.</source>
-        <translation>底部状态栏会自动扫描设备；没有出现时点击「刷新」，并确认设备模式、USB 连接以及是否被其他程序占用。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Edit and save config.ini, switch theme and language, then reload.</source>
-        <translation>编辑并保存 config.ini、切换主题与语言、重新加载。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Confirm Rockchip is in Rockusb mode (Loader or Maskrom) and Allwinner in FEL / FES mode; check the USB connection, close other programs using the device, then reconnect.</source>
-        <translation>瑞芯微确认处于 Rockusb 模式（Loader 或 Maskrom）、全志确认处于 FEL / FES 模式，检查 USB 连接并关闭占用设备的其他程序后重新插拔。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>General</source>
-        <translation>通用</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Rockchip</source>
-        <translation>瑞芯微</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Allwinner</source>
-        <translation>全志</translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Getting Started</source>
-        <translation>快速上手</translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>① Connect the device</source>
-        <translation>① 连接设备</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>② Select the device</source>
-        <translation>② 选择设备</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Choose the target in the status bar dropdown; to flash several at once, use &quot;Device → Batch Select…&quot;.</source>
-        <translation>在底部设备栏的下拉框中选择目标设备；要同时烧录多台，用标题栏「设备 → 批量选择…」。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>③ Run the operation</source>
-        <translation>③ 执行操作</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Open the matching page, choose the file or parameters, then click &quot;Execute&quot; / &quot;Upgrade&quot; / &quot;Start Flashing&quot;; progress, speed and ETA show at the bottom, and you can &quot;Cancel&quot; anytime.</source>
-        <translation>切到对应功能页，选好文件或参数后点击「执行」/「升级」/「开始刷写」；进度、速率与预计剩余显示在底部，随时可「取消」。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>④ Check the result</source>
-        <translation>④ 查看结果</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>The result appears in the page hint area; raw engine output is written to the log file (see &quot;Help → Log&quot; for the directory).</source>
-        <translation>中文结论显示在页面提示区，引擎原始输出写入日志文件（「帮助 → 日志」查看目录）。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Download Image</source>
-        <translation>下载镜像</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Download partition by partition using parameter.txt in the split package directory.</source>
-        <translation>按分体包目录内的 parameter.txt 分区表逐分区下载。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+10"/>
-        <source>Browse…</source>
-        <translation>浏览…</translation>
-    </message>
-    <message>
-        <location line="-10"/>
-        <source>Select the split package directory; it must contain parameter.txt, the per-partition images and the Loader.</source>
-        <translation>选择分体包目录，目录内需包含 parameter.txt、各分区镜像与 Loader。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Path column</source>
-        <translation>路径列</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Double-click a row to specify the image file for that partition manually.</source>
-        <translation>双击某一行可手动指定该分区的镜像文件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Checkbox</source>
-        <translation>勾选框</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Select the partitions to download; the header checkbox selects or clears all.</source>
-        <translation>勾选要下载的分区；表头勾选框可全选或全不选。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+31"/>
-        <source>Switch</source>
-        <translation>切换</translation>
-    </message>
-    <message>
-        <location line="-31"/>
-        <source>Switch an ADB-mode device to Loader mode (ADB must be installed on the host).</source>
-        <translation>把 ADB 模式的设备切到 Loader 模式（主机需安装 ADB）。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Clear</source>
-        <translation>清空</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Clear the current directory and partition selection.</source>
-        <translation>清除当前目录与分区选择。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+9"/>
-        <source>Reboot device when done</source>
-        <translation>烧录完成后重启设备</translation>
-    </message>
-    <message>
-        <location line="-9"/>
-        <source>Reboot the device after the queue finishes.</source>
-        <translation>队列结束后自动重启设备。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Execute</source>
-        <translation>执行</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Download each checked partition image in turn.</source>
-        <translation>按勾选的分区逐个下载镜像。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Upgrade Firmware</source>
-        <translation>升级固件</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Upgrade the full firmware package; the UI parses and shows firmware info.</source>
-        <translation>整包固件升级，界面会解析并显示固件信息。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Select a full .img firmware package.</source>
-        <translation>选择 .img 整包固件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Firmware Info</source>
-        <translation>固件信息</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Show firmware version, Loader version, chip info, build time and signature.</source>
-        <translation>显示固件版本、Loader 版本、芯片信息、构建时间与签名。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>View Firmware Info</source>
-        <translation>查看固件信息</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Re-parse and show firmware info.</source>
-        <translation>重新解析并显示固件信息。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Extract Firmware…</source>
-        <translation>解包固件…</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Extract the firmware to a chosen directory.</source>
-        <translation>把固件解包到指定目录。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Check to reboot the device automatically after the upgrade.</source>
-        <translation>勾选表示升级完成后自动重启设备。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Upgrade</source>
-        <translation>升级</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Flash the whole package; per-partition filtering is not supported.</source>
-        <translation>整包烧录；不支持按分区过滤。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <location line="+29"/>
-        <source>Advanced</source>
-        <translation>高级功能</translation>
-    </message>
-    <message>
-        <location line="-28"/>
-        <source>Device operations needing parameters; results fill the result table.</source>
-        <translation>需要具体参数的设备操作，结果回填到结果表。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Read buttons</source>
-        <translation>读取类按钮</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Read Flash ID / Flash info / Chip info / Capability / Secure mode / OTP / serial number.</source>
-        <translation>读取 Flash ID / Flash 信息 / Chip 信息 / Capability / 安全模式 / OTP / 序列号。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Test Device / Reset Device / Switch Storage / Switch Device</source>
-        <translation>测试设备 / 重启设备 / 切换存储 / 切换设备</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Run the corresponding operation on the current device.</source>
-        <translation>对当前设备执行对应操作。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Download Boot</source>
-        <translation>下载 Boot</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Download Boot using the &quot;Boot&quot; file path above.</source>
-        <translation>配合上方「Boot」文件路径下载 Boot。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Erase All</source>
-        <translation>擦除所有</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Erase the device Flash.</source>
-        <translation>擦除设备 Flash。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Export COM Log</source>
-        <translation>导出串口日志</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Save the current device&apos;s COM log to a file.</source>
-        <translation>把当前设备的串口日志保存到文件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Write Serial</source>
-        <translation>写入序列号</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Write the contents of the &quot;Serial&quot; field to the device.</source>
-        <translation>把「序列号」输入框中的内容写入设备。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>LBA / Sector</source>
-        <translation>LBA / 扇区</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>After entering the start sector and count, you can &quot;Export Image&quot; or &quot;Erase Sectors&quot;.</source>
-        <translation>输入起始扇区与扇区数后，可「导出镜像」或「擦除扇区」。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Expert Parameters</source>
-        <translation>专业操作参数</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Write LBA / Write Sector / Erase Block / Run System / Reset Pipe; each needs its own parameters.</source>
-        <translation>写入 LBA / 写入扇区 / 擦除块 / 运行系统 / 重置管道，需填写各自参数。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Raw Image Flash</source>
-        <translation>裸镜像刷写</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Write a single image to the chosen storage medium.</source>
-        <translation>把单个镜像写入指定存储介质。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Boot package</source>
-        <translation>引导固件包</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Select the boot package (IMAGEWTY .img) that determines the partition layout and boot components.</source>
-        <translation>选择引导固件包（IMAGEWTY .img），用于确定分区布局与引导组件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Image to write</source>
-        <translation>待写入镜像</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Select the image file to write.</source>
-        <translation>选择要写入的镜像文件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Storage medium</source>
-        <translation>存储介质</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Choose SD / eMMC, UFS or SPI NOR.</source>
-        <translation>选择 SD / eMMC、UFS 或 SPI NOR。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+18"/>
-        <source>Advanced options</source>
-        <translation>高级选项</translation>
-    </message>
-    <message>
-        <location line="-18"/>
-        <source>Set the write method (from sector 0 / at logic offset) and the logic offset (sectors, empty to auto-detect).</source>
-        <translation>设置写入方式（从扇区 0 写入 / 按逻辑偏移写入）与逻辑偏移（扇区，可留空自动匹配）。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Switch the device to FEL via ADB; when a T3 Buildroot is detected the compatible entry is used automatically, or choose &quot;Alternate&quot; manually.</source>
-        <translation>通过 ADB 把设备切到 FEL；识别到 T3 Buildroot 时自动使用兼容入口，也可手选「备选」。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+9"/>
-        <source>Start Flashing</source>
-        <translation>开始刷写</translation>
-    </message>
-    <message>
-        <location line="-9"/>
-        <source>Write the selected image to the target medium.</source>
-        <translation>把所选镜像写入目标介质。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Flash Firmware</source>
-        <translation>固件刷写</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Flash the full firmware package; the UI parses and shows firmware info.</source>
-        <translation>整包固件刷写，界面会解析并显示固件信息。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Firmware package</source>
-        <translation>固件包</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Select an IMAGEWTY firmware package (.img).</source>
-        <translation>选择 IMAGEWTY 固件包（.img）。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Flash Mode</source>
-        <translation>刷写模式</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Flash selected partitions / Keep user data / Erase partitions then flash / Full erase then flash.</source>
-        <translation>按所选分区刷写 / 保留用户数据 / 分区擦除后刷写 / 全盘擦除后刷写。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>After Finish</source>
-        <translation>完成动作</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Reboot, power off or shut down after flashing; default is reboot.</source>
-        <translation>刷写结束后重启、断电或关机，默认重启。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Verify after write</source>
-        <translation>写入后校验</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>When checked, the write is verified; a verification failure stops the task.</source>
-        <translation>勾选后写入完成会校验，校验失败会停止任务。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Partition list</source>
-        <translation>分区列表</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>When &quot;Flash selected partitions&quot; is chosen, check the partitions to flash.</source>
-        <translation>「按所选分区刷写」时勾选要刷写的分区。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Flash according to the settings.</source>
-        <translation>按设置执行刷写。</translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>View firmware offline, extract, convert programmer images, and reboot the device.</source>
-        <translation>离线查看固件、解包、程序器镜像转换，以及重启设备。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>View partitions and embedded files</source>
-        <translation>查看分区与嵌入文件</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Expand to show the firmware&apos;s partition table and embedded files.</source>
-        <translation>展开显示固件的分区表与内嵌文件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Extract Firmware</source>
-        <translation>解包固件</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Choose an output directory and extract the current firmware into it.</source>
-        <translation>选择输出目录并把当前固件解包到该目录。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Programmer Image Convert</source>
-        <translation>程序器镜像转换</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Set the output image and target medium (SPI NOR / SD card / eMMC / SD NAND / UFS).</source>
-        <translation>设置输出镜像与目标介质（SPI NOR / SD 卡 / eMMC / SD NAND / UFS）。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Logic offset, U-Boot offset, NOR capacity, GPT target capacity, secure boot components.</source>
-        <translation>逻辑偏移、U-Boot 偏移、NOR 容量、GPT 目标容量、安全启动组件。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Read Info Again / Convert Image</source>
-        <translation>重新读取信息 / 转换镜像</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Re-parse firmware info / generate the programmer image.</source>
-        <translation>重新解析固件信息 / 生成程序器镜像。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Reboot Device</source>
-        <translation>重启设备</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Reboot an Allwinner device in FES mode; FEL mode is not supported.</source>
-        <translation>让处于 FES 模式的全志设备重启；FEL 模式不支持。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Config and Device menus</source>
-        <translation>配置与设备菜单</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>The dropdown menus on the right of the title bar.</source>
-        <translation>标题栏右侧的下拉菜单。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Config → Preferences…</source>
-        <translation>配置 → 首选项…</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Config → Generate GPT…</source>
-        <translation>配置 → 生成 GPT…</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Rockchip only: generate a GPT image from parameter.txt.</source>
-        <translation>仅瑞芯微：由 parameter.txt 生成 GPT 镜像。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Device → Device Info…</source>
-        <translation>设备 → 设备信息…</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Allwinner only: view current device info.</source>
-        <translation>仅全志：查看当前设备信息。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Device → Refresh</source>
-        <translation>设备 → 刷新</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Rescan the currently connected devices.</source>
-        <translation>重新扫描当前连接的设备。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Device → Batch Select…</source>
-        <translation>设备 → 批量选择…</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Check multiple devices to run the same operation in order; &quot;Continue on failure&quot; is available.</source>
-        <translation>勾选多台设备，按顺序执行同一操作，可勾选「失败继续」。</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>FAQ</source>
-        <translation>常见问题</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>No device ever appears</source>
-        <translation>底部一直没有设备</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>The &quot;Switch&quot; button is grayed out</source>
-        <translation>「切换」按钮置灰</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>ADB is not installed on the host, or no ADB device was detected.</source>
-        <translation>主机未安装 ADB，或未检测到 ADB 设备。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Button grayed out with an unsupported notice</source>
-        <translation>按钮置灰并提示不支持</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>&quot;The current engine does not support this feature&quot; means the operation is not implemented yet.</source>
-        <translation>提示「当前引擎不支持该功能」，表示该操作暂未实现。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Clicking &quot;Cancel&quot; during execution</source>
-        <translation>执行中点「取消」</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>It counts as &quot;Cancelled&quot;, not a failure, and stops the current operation and the remaining queue.</source>
-        <translation>属于「已取消」而非失败，会停止当前操作与后续队列。</translation>
-    </message>
-    <message>
-        <location line="+53"/>
+        <location line="+90"/>
         <source>Home</source>
         <translation>主目录</translation>
     </message>
@@ -2959,7 +3178,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>根目录</translation>
     </message>
     <message>
-        <location line="+58"/>
+        <location line="+93"/>
         <source>Batch: %1 selected / %2 current</source>
         <translation>批量: 已选 %1 台 / 当前 %2 台</translation>
     </message>
@@ -3004,7 +3223,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>、</translation>
     </message>
     <message>
-        <location line="+199"/>
+        <location line="+236"/>
         <source>Cancelling…</source>
         <translation>正在取消…</translation>
     </message>
@@ -3014,12 +3233,12 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>请先选择设备</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+20"/>
         <source>Start: %1</source>
         <translation>开始：%1</translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+39"/>
         <source>Numeric parameter invalid or out of range</source>
         <translation>数值参数无效或超出范围</translation>
     </message>
@@ -3039,15 +3258,14 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>未选择设备</translation>
     </message>
     <message>
-        <location line="+20"/>
-        <location line="+22"/>
-        <location line="+105"/>
-        <location line="+14"/>
+        <location line="+21"/>
+        <location line="+32"/>
+        <location line="+125"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location line="-141"/>
+        <location line="-157"/>
         <source>Operation complete</source>
         <translation>操作完成</translation>
     </message>
@@ -3057,7 +3275,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>操作失败，详见日志</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+8"/>
         <source>Cancelled.</source>
         <translation>已取消。</translation>
     </message>
@@ -3072,24 +3290,24 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>下载完成。</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Download finished with failures. Failed devices were not rebooted automatically.</source>
         <translation>下载结束，存在失败。失败设备未自动重启。</translation>
     </message>
     <message>
-        <location line="+8"/>
-        <location line="+11"/>
+        <location line="+12"/>
+        <location line="+15"/>
         <source>Batch finished: %1 succeeded, %2 failed</source>
         <translation>批量结束：成功 %1 台，失败 %2 台</translation>
     </message>
     <message>
-        <location line="-10"/>
-        <location line="+11"/>
+        <location line="-14"/>
+        <location line="+15"/>
         <source>, remaining operations cancelled</source>
         <translation>，已取消后续操作</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+19"/>
         <source>Running %1/%2: %3</source>
         <translation>正在执行 %1/%2：%3</translation>
     </message>
@@ -3099,7 +3317,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>，设备 %1/%2 %3</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+35"/>
         <source>%1  %2%</source>
         <translation>%1  %2%</translation>
     </message>
@@ -3119,28 +3337,32 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>  剩余 %1</translation>
     </message>
     <message>
-        <location line="+42"/>
-        <location line="+14"/>
+        <location line="+55"/>
         <source>done</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+94"/>
         <source>%1, size %2, LBA 0x%3</source>
         <translation>%1，大小 %2，LBA 0x%3</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="-53"/>
         <source>Download failed; see the log.</source>
         <translation>下载失败，详见日志。</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-893"/>
+        <source>Switching…</source>
+        <translation>正在切换…</translation>
+    </message>
+    <message>
+        <location line="+894"/>
         <source>Download failed: %1</source>
         <translation>下载失败：%1</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+8"/>
         <source>Reboot command sent.</source>
         <translation>已发送重启指令。</translation>
     </message>
@@ -3160,7 +3382,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>重启设备失败</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+8"/>
         <source>Upgrade succeeded; device rebooted.</source>
         <translation>升级成功，设备已重启。</translation>
     </message>
@@ -3170,7 +3392,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>升级成功，设备未重启。</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+5"/>
         <source>Upgrade failed; see the log.</source>
         <translation>升级失败，详见日志。</translation>
     </message>
@@ -3180,7 +3402,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>升级失败：%1</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+8"/>
         <source>Extraction succeeded.</source>
         <translation>解包成功。</translation>
     </message>
@@ -3190,17 +3412,17 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>解包失败。</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>Failed to read firmware info.</source>
         <translation>读取固件信息失败。</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+24"/>
         <source>Firmware info read successfully.</source>
         <translation>固件信息读取成功。</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+11"/>
         <source>%1 failed: %2</source>
         <translation>%1 失败：%2</translation>
     </message>
@@ -3220,12 +3442,12 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>未找到 parameter.txt 或解析失败：%1</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+25"/>
         <source>Parsed %2 entries from %1; check them and click &quot;Execute&quot; to download one by one.</source>
         <translation>已从 %1 解析 %2 个条目，勾选后点「执行」逐条下载。</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
         <source>Cleared.</source>
         <translation>已清空。</translation>
     </message>
@@ -3235,12 +3457,12 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>请先勾选条目并指定镜像文件。</translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+29"/>
         <source>Invalid firmware.</source>
         <translation>固件无效。</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <source>Firmware loaded with %1 partitions.</source>
         <translation>固件已加载，共 %1 个分区。</translation>
     </message>
@@ -3267,7 +3489,7 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>正在读取固件信息…</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+19"/>
         <source>No ADB device detected; cannot switch.</source>
         <translation>未检测到 ADB 设备，无法切换。</translation>
     </message>
@@ -3299,17 +3521,17 @@ OpenixCLI libefex (MIT)。</translation>
         <translation>请填写输入 parameter 与输出 GPT</translation>
     </message>
     <message>
-        <location line="+141"/>
+        <location line="+142"/>
         <source>Check the file paths and parameters for this operation; numbers must be in range</source>
         <translation>请检查当前操作的文件路径与参数，数值须在有效范围内</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+4"/>
         <source>Connect and select an Allwinner device first</source>
         <translation>请先连接并选择全志设备</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+6"/>
         <source>Running: %1</source>
         <translation>正在执行：%1</translation>
     </message>
@@ -3318,11 +3540,27 @@ OpenixCLI libefex (MIT)。</translation>
         <source>Select an online Allwinner device first</source>
         <translation>请先选择在线的全志设备</translation>
     </message>
+    <message>
+        <location line="-1383"/>
+        <location line="+668"/>
+        <source>Simulation: %1</source>
+        <translation>模拟执行：%1</translation>
+    </message>
+    <message>
+        <location line="-98"/>
+        <source>Simulation only; no device will be flashed</source>
+        <translation>仅模拟执行，不会刷写设备</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Simulation</source>
+        <translation>模拟执行</translation>
+    </message>
 </context>
 <context>
     <name>gui::ConfigStore</name>
     <message>
-        <location filename="../backend/ConfigStore.cpp" line="+121"/>
+        <location filename="../backend/ConfigStore.cpp" line="+128"/>
         <source>Loaded: %1</source>
         <translation>已加载: %1</translation>
     </message>
@@ -3370,32 +3608,32 @@ OpenixCLI libefex (MIT)。</translation>
 <context>
     <name>gui::DirModel</name>
     <message>
-        <location filename="../backend/DirModel.cpp" line="+168"/>
+        <location filename="../backend/DirModel.cpp" line="+169"/>
         <source>Directory name cannot be empty</source>
         <translation>目录名不能为空</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+4"/>
         <source>Invalid directory name</source>
         <translation>目录名不合法</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+6"/>
         <source>Current directory does not exist</source>
         <translation>当前目录不存在</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+4"/>
         <source>A file or directory with the same name already exists</source>
         <translation>同名文件或目录已存在</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+4"/>
         <source>Failed to create directory</source>
         <translation>创建目录失败</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+18"/>
         <source>Directory does not exist</source>
         <translation>目录不存在</translation>
     </message>
@@ -3403,6 +3641,137 @@ OpenixCLI libefex (MIT)。</translation>
         <location line="+8"/>
         <source>Cannot read the directory (permission denied)</source>
         <translation>无法读取该目录（权限不足）</translation>
+    </message>
+</context>
+<context>
+    <name>gui::EdlRunner</name>
+    <message>
+        <location filename="../EdlTransport.cpp" line="+254"/>
+        <location line="+7"/>
+        <source>ADB command cancelled or timed out.</source>
+        <translation>ADB 命令已取消或超时。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>ADB failed: %1</source>
+        <translation>ADB 执行失败：%1</translation>
+    </message>
+    <message>
+        <location line="+65"/>
+        <source>Cannot initialize USB.</source>
+        <translation>无法初始化 USB。</translation>
+    </message>
+    <message>
+        <location filename="../EdlRunner.cpp" line="+104"/>
+        <source>Checking the selected device…</source>
+        <translation>正在检查所选设备…</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>DIAG verification failed: %1</source>
+        <translation>DIAG 验证失败：%1</translation>
+    </message>
+    <message>
+        <location filename="../EdlTransport.cpp" line="+23"/>
+        <source>Diagnostic USB write failed: %1</source>
+        <translation>诊断 USB 写入失败：%1</translation>
+    </message>
+    <message>
+        <location line="-39"/>
+        <source>Diagnostic write timed out or was cancelled.</source>
+        <translation>诊断口写入超时或已取消。</translation>
+    </message>
+    <message>
+        <location filename="../EdlRunner.cpp" line="-36"/>
+        <source>Discovering diagnostic ports and ADB devices…</source>
+        <translation>正在查找诊断口和 ADB 设备…</translation>
+    </message>
+    <message>
+        <location line="+45"/>
+        <location line="+6"/>
+        <source>EDL request could not be sent: %1</source>
+        <translation>无法发送 EDL 切换请求：%1</translation>
+    </message>
+    <message>
+        <location line="-15"/>
+        <source>Invalid or unsupported version response</source>
+        <translation>版本响应无效或不受支持</translation>
+    </message>
+    <message>
+        <location line="-15"/>
+        <source>No matching switch endpoint is available. Refresh the device list.</source>
+        <translation>没有可用的匹配接口，请刷新设备列表。</translation>
+    </message>
+    <message>
+        <location filename="../EdlTransport.cpp" line="+9"/>
+        <location line="+38"/>
+        <source>No valid DIAG response (timeout, disconnect or CRC error).</source>
+        <translation>未收到有效 DIAG 响应（超时、断连或 CRC 错误）。</translation>
+    </message>
+    <message>
+        <location filename="../EdlRunner.cpp" line="+45"/>
+        <source>Request sent, but the target USB location could not be identified; success cannot be confirmed.</source>
+        <translation>请求已发送，但无法识别目标 USB 位置，不能确认切换成功。</translation>
+    </message>
+    <message>
+        <location line="-12"/>
+        <source>Request sent; waiting for the target device in 9008 mode…</source>
+        <translation>请求已发送，正在等待目标设备进入 9008 模式…</translation>
+    </message>
+    <message>
+        <location line="-47"/>
+        <source>Select a device. Unknown interfaces require a successful DIAG query.</source>
+        <translation>请选择设备。未知接口必须先通过 DIAG 查询。</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Select one diagnostic interface before switching.</source>
+        <translation>切换前请选择一个诊断接口。</translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>Sending ADB EDL request…</source>
+        <translation>正在发送 ADB EDL 切换请求…</translation>
+    </message>
+    <message>
+        <location line="-8"/>
+        <source>Sending DIAG EDL request…</source>
+        <translation>正在发送 DIAG EDL 切换请求…</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>Switch cancelled. A reboot already sent cannot be undone.</source>
+        <translation>已取消等待切换。已经发送的重启请求无法撤销。</translation>
+    </message>
+    <message>
+        <location line="-13"/>
+        <source>Target device detected in 9008 mode.</source>
+        <translation>已检测到目标设备进入 9008 模式。</translation>
+    </message>
+    <message>
+        <location line="-12"/>
+        <source>The device rejected the DIAG EDL request.</source>
+        <translation>设备拒绝了 DIAG EDL 切换请求。</translation>
+    </message>
+    <message>
+        <location filename="../EdlTransport.cpp" line="+14"/>
+        <source>The selected ADB device is disconnected or unauthorized.</source>
+        <translation>所选 ADB 设备已断开或未授权。</translation>
+    </message>
+    <message>
+        <location line="-71"/>
+        <source>The selected diagnostic port is no longer available.</source>
+        <translation>所选诊断口已不可用。</translation>
+    </message>
+    <message>
+        <location filename="../EdlRunner.cpp" line="+20"/>
+        <source>The target device did not appear in 9008 mode before the timeout.</source>
+        <translation>等待超时，未检测到目标设备进入 9008 模式。</translation>
+    </message>
+    <message>
+        <location line="-36"/>
+        <source>Verifying the selected DIAG interface…</source>
+        <translation>正在验证所选 DIAG 接口…</translation>
     </message>
 </context>
 <context>
@@ -3471,6 +3840,121 @@ OpenixCLI libefex (MIT)。</translation>
         <location line="+0"/>
         <source>Extract Firmware</source>
         <translation>解包固件</translation>
+    </message>
+</context>
+<context>
+    <name>gui::QualcommController</name>
+    <message>
+        <location filename="../backend/QualcommController.cpp" line="+110"/>
+        <location line="+62"/>
+        <source>Cannot open %1</source>
+        <translation>无法打开 %1</translation>
+    </message>
+    <message>
+        <location line="-49"/>
+        <location line="+63"/>
+        <source>%1:%2: %3</source>
+        <translation>%1:%2: %3</translation>
+    </message>
+    <message>
+        <location line="+116"/>
+        <source>Invalid numeric parameter or image mapping</source>
+        <translation>数值参数或镜像映射无效</translation>
+    </message>
+    <message>
+        <location line="-135"/>
+        <source>Select exactly one UFS provisioning XML</source>
+        <translation>请选择且仅选择一个 UFS 配置 XML</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>UFS configuration and ordinary flashing XML require separate tasks</source>
+        <translation>UFS 配置与普通刷写 XML 必须分开执行</translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>Invalid Qualcomm operation</source>
+        <translation>无效的高通操作</translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Select a readable build package</source>
+        <translation>请选择可读取的固件包</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Invalid, duplicate or unreadable Sahara image mapping</source>
+        <translation>Sahara 镜像映射无效、ID 重复或文件不可读取</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Select Sahara images</source>
+        <translation>请选择 Sahara 镜像</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Select a readable programmer</source>
+        <translation>请选择可读取的引导程序</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Select XML files</source>
+        <translation>请选择 XML 文件</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Add partition operations</source>
+        <translation>请添加分区操作</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Invalid partition operation</source>
+        <translation>无效的分区操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Firehose reset must be the last operation</source>
+        <translation>Firehose 重启必须是最后一项操作</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Specify an address and a file for read/write operations</source>
+        <translation>请指定地址及读写操作使用的文件</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Select a readable image to write</source>
+        <translation>请选择可读取的待写入镜像</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Select an output path</source>
+        <translation>请选择输出路径</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Select a digest output directory</source>
+        <translation>请选择摘要输出目录</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Device node requires Auto transport</source>
+        <translation>使用设备节点时，请将传输方式设为 Auto</translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <location line="-214"/>
+        <source>%1 is not a valid %2 XML</source>
+        <translation>%1 不是有效的 %2 XML</translation>
+    </message>
+    <message>
+        <location line="-17"/>
+        <source>Select at least one rawprogram XML</source>
+        <translation>请至少选择一个 rawprogram XML</translation>
     </message>
 </context>
 </TS>

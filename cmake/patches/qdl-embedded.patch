@@ -1,0 +1,970 @@
+--- a/src/qdl.c
++++ b/src/qdl.c
+@@ -4,6 +4,7 @@
+  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+  * All rights reserved.
+  */
++#include "qdl_bridge.h"
+ #include <ctype.h>
+ #include <errno.h>
+ #include <fcntl.h>
+@@ -37,6 +38,7 @@
+ 
+ bool qdl_debug;
+ 
++#ifndef QDL_EMBEDDED
+ static int qdl_list(FILE *out)
+ {
+ 	struct qdl_device_desc *usb_devices;
+@@ -429,6 +431,8 @@
+ 	return ret;
+ }
+ 
++#endif
++
+ static int qdl_ensure_configured(struct list_head *ops, enum qdl_storage_type storage_type)
+ {
+ 	struct firehose_op *op;
+@@ -527,6 +531,7 @@
+ 	return 0;
+ }
+ 
++#ifndef QDL_EMBEDDED
+ static int qdl_create_zip(int argc, char **argv)
+ {
+ 	struct sahara_image images[MAPPING_SZ] = {};
+@@ -614,6 +619,8 @@
+ 
+ 	return ret ? 1 : 0;
+ }
++
++#endif
+ 
+ static int qdl_determine_bootable(struct list_head *ops)
+ {
+@@ -673,8 +680,7 @@
+ 			snprintf(hex + i * 2, 3, "%02x", op->digest[i]);
+ 		hex[SHA256_DIGEST_STRING_LENGTH - 1] = '\0';
+ 
+-		printf("%s\n", hex);
+-		fflush(stdout);
++		qtq_item("SHA256", hex);
+ 	}
+ }
+ 
+@@ -684,6 +690,7 @@
+  * Argument value errors ux_diex() out as before; returns 0 on success or -1 when
+  * a load helper fails and the caller should clean up.
+  */
++#ifndef QDL_EMBEDDED
+ static int qdl_build_op_list(int argc, char **argv, int start,
+ 			     struct qdl_opts *opts,
+ 			     struct list_head *ops,
+@@ -954,3 +961,5 @@
+ 
+ 	return qdl_flash(argc, argv);
+ }
++
++#endif
+--- a/include/qdl.h
++++ b/include/qdl.h
+@@ -167,7 +167,10 @@
+ struct qdl_device_desc {
+ 	int vid;
+ 	int pid;
+-	char serial[16];
++	char serial[128];
++	unsigned int bus;
++	unsigned char ports[8];
++	int port_count;
+ };
+ 
+ struct qdl_device_desc *usb_list(unsigned int *devices_found);
+@@ -180,7 +183,7 @@
+  */
+ struct qud_device_desc {
+ 	unsigned int pid;
+-	char serial[64];
++	char serial[128];
+ 	char path[64];
+ };
+ 
+--- a/src/programmer.c
++++ b/src/programmer.c
+@@ -7,6 +7,7 @@
+  * onto the Sahara image table, and reading and writing the CPIO-based
+  * programmer archives that carry multi-image boot chains.
+  */
++#include "qdl_bridge.h"
+ #include <ctype.h>
+ #include <errno.h>
+ #include <libgen.h>
+@@ -37,13 +38,15 @@
+ 	char c_check[8];
+ };
+ 
+-static uint32_t parse_ascii_hex32(const char *s)
++static int parse_ascii_hex32(const char *s, uint32_t *out)
+ {
+ 	uint32_t x = 0;
+ 
+ 	for (int i = 0; i < 8; i++) {
+-		if (!isxdigit(s[i]))
+-			ux_die(1, "non-hex-digit found in archive header");
++		if (!isxdigit((unsigned char)s[i])) {
++			ux_err("non-hex-digit found in archive header\n");
++			return -1;
++		}
+ 
+ 		if (s[i] <= '9')
+ 			x = (x << 4) | (s[i] - '0');
+@@ -51,7 +54,8 @@
+ 			x = (x << 4) | (10 + (s[i] | 32) - 'a');
+ 	}
+ 
+-	return x;
++	*out = x;
++	return 0;
+ }
+ 
+ /**
+@@ -71,8 +75,8 @@
+ int decode_programmer_archive(struct sahara_image *blob, struct sahara_image *images)
+ {
+ 	struct cpio_newc_header *hdr;
+-	size_t filesize;
+-	size_t namesize;
++	uint32_t filesize;
++	uint32_t namesize;
+ 	char name[128];
+ 	char *save;
+ 	char *tok;
+@@ -95,8 +99,9 @@
+ 			goto err;
+ 		}
+ 
+-		filesize = parse_ascii_hex32(hdr->c_filesize);
+-		namesize = parse_ascii_hex32(hdr->c_namesize);
++		if (qtq_cancelled() || parse_ascii_hex32(hdr->c_filesize, &filesize) < 0 ||
++		    parse_ascii_hex32(hdr->c_namesize, &namesize) < 0)
++			goto err;
+ 
+ 		ptr += sizeof(*hdr);
+ 		if (ptr + namesize > end || ptr + filesize + namesize > end) {
+@@ -124,25 +129,29 @@
+ 			goto err;
+ 		}
+ 		id = strtoul(tok, NULL, 0);
+-		if (id <= 0 || id >= MAPPING_SZ) {
++		if (id <= 0 || id >= MAPPING_SZ || images[id].ptr) {
+ 			ux_err("invalid image id \"%s\" in programmer archive\n", tok);
+ 			goto err;
+ 		}
+ 
+ 		ptr += namesize;
+ 		ptr = ALIGN_UP(ptr, 4);
++		if (ptr > end || filesize > (size_t)(end - ptr)) goto err;
+ 
+ 		tok = strtok_r(NULL, ":", &save);
+ 		if (tok)
+ 			images[id].name = strdup(tok);
+ 		images[id].len = filesize;
+-		images[id].ptr = malloc(filesize);
++		images[id].ptr = malloc(filesize ? filesize : 1);
++		if (!images[id].ptr || (tok && !images[id].name)) goto err;
+ 		memcpy(images[id].ptr, ptr, filesize);
+ 
+ 		ptr += filesize;
+ 		ptr = ALIGN_UP(ptr, 4);
+ 	}
+ 
++	free(blob->name);
++	blob->name = NULL;
+ 	free(blob->ptr);
+ 	blob->ptr = NULL;
+ 	blob->len = 0;
+@@ -151,6 +160,8 @@
+ 
+ err:
+ 	sahara_images_free(images, MAPPING_SZ);
++	free(blob->name);
++	blob->name = NULL;
+ 	free(blob->ptr);
+ 	blob->ptr = NULL;
+ 	blob->len = 0;
+@@ -196,11 +207,12 @@
+ 				return -1;
+ 			}
+ 
+-			if (id <= 0 || id >= MAPPING_SZ) {
++			if (id <= 0 || id >= MAPPING_SZ || images[id].ptr) {
+ 				ux_err("invalid image id \"%s\"\n", pair);
+ 				return -1;
+ 			}
+ 
++			if (*tail != ':' || images[id].ptr) return -1;
+ 			filename = &tail[1];
+ 			ret = load_sahara_image(NULL, filename, &images[id]);
+ 			if (ret < 0)
+@@ -310,6 +322,7 @@
+ 	}
+ 
+ 	for (i = 1; i < MAPPING_SZ; i++) {
++		if (qtq_cancelled()) goto out_close;
+ 		if (!images[i].ptr)
+ 			continue;
+ 
+--- a/src/sim.c
++++ b/src/sim.c
+@@ -2,6 +2,7 @@
+ /*
+  * Copyright (c) 2025, Qualcomm Innovation Center, Inc. All rights reserved.
+  */
++#include "qdl_bridge.h"
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -97,12 +98,10 @@
+ 	struct sim_response *resp;
+ 
+ 	resp = malloc(sizeof(*resp));
+-	if (!resp)
+-		ux_die(1, "sim: failed to allocate response entry");
++	if (!resp) { qtq_error(); return; }
+ 
+ 	resp->data = strdup(xml);
+-	if (!resp->data)
+-		ux_die(1, "sim: failed to duplicate response string");
++	if (!resp->data) { free(resp); qtq_error(); return; }
+ 
+ 	resp->len = strlen(xml);
+ 	resp->next = NULL;
+@@ -402,7 +401,15 @@
+ 	return 0;
+ }
+ 
+-static void sim_close(struct qdl_device *qdl __unused) {}
++static void sim_close(struct qdl_device *qdl)
++{
++    struct qdl_device_sim *sim = container_of(qdl, struct qdl_device_sim, base);
++    while (sim->resp_head) {
++        struct sim_response *next = sim->resp_head->next;
++        free(sim->resp_head->data); free(sim->resp_head); sim->resp_head = next;
++    }
++    sim->resp_tail = NULL;
++}
+ 
+ /*
+  * sim_read() - serve the next queued XML response or raw-out data
+--- a/src/gpt.c
++++ b/src/gpt.c
+@@ -333,3 +333,15 @@
+ 
+ 	return 0;
+ }
++
++/* Release device-specific cached GPT data between embedded sessions. */
++void qtq_gpt_clear(void)
++{
++    while (gpt_partitions) {
++        struct gpt_partition *next = gpt_partitions->next;
++        free((void *)gpt_partitions->name);
++        free(gpt_partitions);
++        gpt_partitions = next;
++    }
++    gpt_partitions_last = NULL;
++}
+--- a/src/io.c
++++ b/src/io.c
+@@ -2,6 +2,7 @@
+ /*
+  * Copyright (c) 2025, Qualcomm Innovation Center, Inc. All rights reserved.
+  */
++#include "qdl_bridge.h"
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -40,6 +41,8 @@
+ 
+ int qdl_open(struct qdl_device *qdl, const char *serial)
+ {
++	if (qtq_cancelled()) return -ECANCELED;
++	if (qtq_failed()) return -ENOMEM;
+ 	return qdl->open(qdl, serial);
+ }
+ 
+@@ -64,6 +67,8 @@
+  */
+ int qdl_read(struct qdl_device *qdl, void *buf, size_t len, unsigned int timeout)
+ {
++	if (qtq_cancelled()) return -ECANCELED;
++	if (qtq_failed()) return -ENOMEM;
+ 	size_t available;
+ 	size_t copy;
+ 
+@@ -138,5 +143,7 @@
+  */
+ int qdl_write(struct qdl_device *qdl, const void *buf, size_t len, unsigned int timeout)
+ {
++	if (qtq_cancelled()) return -ECANCELED;
++	if (qtq_failed()) return -ENOMEM;
+ 	return qdl->write(qdl, buf, len, timeout);
+ }
+--- a/src/auto.c
++++ b/src/auto.c
+@@ -10,6 +10,7 @@
+  * inner.
+  */
+ 
++#include "qdl_bridge.h"
+ #include <errno.h>
+ #include <stdbool.h>
+ #include <stdlib.h>
+@@ -63,6 +64,7 @@
+ #endif
+ 
+ 	for (;;) {
++		if (qtq_cancelled()) goto fail;
+ 		ret = usb_open_once(usb_dev, serial, &visible);
+ 		if (ret == 0) {
+ #ifdef _WIN32
+--- a/src/usb.c
++++ b/src/usb.c
+@@ -23,6 +23,7 @@
+  * open path above and usb_list(), which reads descriptors without
+  * claiming anything.
+  */
++#include "qdl_bridge.h"
+ #include <sys/types.h>
+ #include <errno.h>
+ #include <fcntl.h>
+@@ -41,6 +42,9 @@
+ struct qdl_device_usb {
+ 	struct qdl_device base;
+ 	struct libusb_device_handle *usb_handle;
++	struct libusb_context *context;
++	int claimed_interface;
++	int detached;
+ 
+ 	int in_ep;
+ 	int out_ep;
+@@ -70,7 +74,9 @@
+  * Returns the number of candidates seen up to and including the one
+  * @cb stopped at, or -EIO if the bus could not be enumerated.
+  */
+-static int usb_enumerate_edl_devices(usb_edl_device_cb_t cb, void *data)
++static bool qtq_has_edl_interface(libusb_device *dev);
++
++static int usb_enumerate_edl_devices(libusb_context *context, usb_edl_device_cb_t cb, void *data)
+ {
+ 	struct libusb_device_descriptor desc;
+ 	struct libusb_device **devs;
+@@ -78,7 +84,7 @@
+ 	ssize_t n;
+ 	int i;
+ 
+-	n = libusb_get_device_list(NULL, &devs);
++	n = libusb_get_device_list(context, &devs);
+ 	if (n < 0) {
+ 		ux_err("failed to list USB devices: %s\n", libusb_strerror(n));
+ 		return -EIO;
+@@ -87,7 +93,7 @@
+ 	for (i = 0; devs[i]; i++) {
+ 		if (libusb_get_device_descriptor(devs[i], &desc) < 0)
+ 			continue;
+-		if (!usb_is_edl_device(&desc))
++		if (!usb_is_edl_device(&desc) || !qtq_has_edl_interface(devs[i]))
+ 			continue;
+ 
+ 		visible++;
+@@ -223,6 +229,20 @@
+ 	return true;
+ }
+ 
++static bool qtq_has_edl_interface(libusb_device *dev)
++{
++    struct libusb_config_descriptor *config;
++    struct usb_edl_interface edl;
++    bool found = false;
++    int i, j;
++    if (libusb_get_active_config_descriptor(dev, &config) < 0) return false;
++    for (i = 0; i < config->bNumInterfaces && !found; ++i)
++        for (j = 0; j < config->interface[i].num_altsetting && !found; ++j)
++            found = usb_match_edl_interface(&config->interface[i].altsetting[j], &edl);
++    libusb_free_config_descriptor(config);
++    return found;
++}
++
+ /*
+  * Device-level match, run on an opened EDL candidate: the unit must
+  * carry the serial the user asked for (if any) and expose an EDL
+@@ -269,9 +289,12 @@
+ {
+ 	struct libusb_device_handle *handle;
+ 	struct usb_edl_interface edl;
+-	int ifc_num;
+-	int ret;
+-
++	int ifc_num = -1;
++	int ret;
++
++	unsigned char ports[8];
++	int port_count = libusb_get_port_numbers(dev, ports, sizeof(ports));
++	if (!qtq_match_usb(libusb_get_bus_number(dev), ports, port_count)) return 0;
+ 	ret = libusb_open(dev, &handle);
+ 	if (ret < 0) {
+ 		ux_warnx("unable to open USB device");
+@@ -281,7 +304,7 @@
+ 	if (!usb_match_device(handle, desc, serial, &ifc_num, &edl))
+ 		goto close;
+ 
+-	libusb_detach_kernel_driver(handle, ifc_num);
++	qdl->detached = libusb_detach_kernel_driver(handle, ifc_num) == 0;
+ 
+ 	ret = libusb_claim_interface(handle, ifc_num);
+ 	if (ret < 0) {
+@@ -290,6 +313,7 @@
+ 	}
+ 
+ 	qdl->usb_handle = handle;
++	qdl->claimed_interface = ifc_num;
+ 	qdl->in_ep = edl.in_ep;
+ 	qdl->out_ep = edl.out_ep;
+ 	qdl->in_maxpktsize = edl.in_maxpktsize;
+@@ -308,6 +332,7 @@
+ 	return 1;
+ 
+ close:
++	if (qdl->detached && ifc_num >= 0) { libusb_attach_kernel_driver(handle, ifc_num); qdl->detached = 0; }
+ 	libusb_close(handle);
+ 	return 0;
+ }
+@@ -373,15 +398,16 @@
+ 	if (visible_out)
+ 		*visible_out = 0;
+ 
+-	ret = libusb_init(NULL);
++	ret = libusb_init(&qdl_usb->context);
+ 	if (ret < 0) {
+ 		ux_err("failed to initialize libusb: %s\n", libusb_strerror(ret));
+ 		return -EIO;
+ 	}
+ 
+-	visible = usb_enumerate_edl_devices(usb_open_cb, &ctx);
++	visible = usb_enumerate_edl_devices(qdl_usb->context, usb_open_cb, &ctx);
+ 	if (visible < 0) {
+-		libusb_exit(NULL);
++		libusb_exit(qdl_usb->context);
++		qdl_usb->context = NULL;
+ 		return -EIO;
+ 	}
+ 
+@@ -400,7 +426,8 @@
+ 		return 0;
+ 	}
+ 
+-	libusb_exit(NULL);
++	libusb_exit(qdl_usb->context);
++		qdl_usb->context = NULL;
+ 
+ 	return visible == 0 ? -ENODEV : -EBUSY;
+ }
+@@ -412,6 +439,7 @@
+ 	int ret;
+ 
+ 	for (;;) {
++		if (qtq_cancelled()) return -ECANCELED;
+ 		ret = usb_open_once(qdl, serial, &visible);
+ 		if (ret == 0)
+ 			return 0;
+@@ -461,15 +489,16 @@
+ 	}
+ 	entry = &ctx->result[ctx->count];
+ 
+-	if (libusb_open(dev, &handle) < 0)
+-		return 0;
+-
+-	if (!usb_read_serial(handle, desc, entry->serial, sizeof(entry->serial)))
+-		memcpy(entry->serial, "(none)", sizeof("(none)"));
++	entry->serial[0] = 0;
++	if (libusb_open(dev, &handle) == 0) {
++		usb_read_serial(handle, desc, entry->serial, sizeof(entry->serial));
++		libusb_close(handle);
++	}
++	entry->bus = libusb_get_bus_number(dev);
++	entry->port_count = libusb_get_port_numbers(dev, entry->ports, sizeof(entry->ports));
+ 
+ 	entry->vid = desc->idVendor;
+ 	entry->pid = desc->idProduct;
+-	libusb_close(handle);
+ 	ctx->count++;
+ 
+ 	return 0;
+@@ -478,16 +507,17 @@
+ struct qdl_device_desc *usb_list(unsigned int *devices_found)
+ {
+ 	struct usb_list_ctx ctx = { 0 };
+-	int ret;
+-
+-	ret = libusb_init(NULL);
++	struct libusb_context *context = NULL;
++	int ret;
++
++	ret = libusb_init(&context);
+ 	if (ret < 0) {
+ 		ux_err("failed to initialize libusb: %s\n", libusb_strerror(ret));
+ 		return NULL;
+ 	}
+ 
+-	ret = usb_enumerate_edl_devices(usb_list_cb, &ctx);
+-	libusb_exit(NULL);
++	ret = usb_enumerate_edl_devices(context, usb_list_cb, &ctx);
++	libusb_exit(context);
+ 
+ 	if (ret < 0) {
+ 		free(ctx.result);
+@@ -503,8 +533,49 @@
+ {
+ 	struct qdl_device_usb *qdl_usb = container_of(qdl, struct qdl_device_usb, base);
+ 
+-	libusb_close(qdl_usb->usb_handle);
+-	libusb_exit(NULL);
++	if (qdl_usb->usb_handle) {
++        libusb_release_interface(qdl_usb->usb_handle, qdl_usb->claimed_interface);
++        if (qdl_usb->detached) libusb_attach_kernel_driver(qdl_usb->usb_handle, qdl_usb->claimed_interface);
++        libusb_close(qdl_usb->usb_handle);
++        qdl_usb->usb_handle = NULL;
++        qdl_usb->detached = 0;
++    }
++    if (qdl_usb->context) { libusb_exit(qdl_usb->context); qdl_usb->context = NULL; }
++}
++
++static void LIBUSB_CALL qtq_usb_complete(struct libusb_transfer *transfer)
++{
++    *(int *)transfer->user_data = 1;
++}
++static int qtq_usb_bulk(struct qdl_device_usb *usb, unsigned char endpoint,
++                        unsigned char *data, int length, int *actual, unsigned int timeout)
++{
++    struct libusb_transfer *transfer = libusb_alloc_transfer(0);
++    int done = 0, ret;
++    bool cancelling = false;
++    if (!transfer) return LIBUSB_ERROR_NO_MEM;
++    libusb_fill_bulk_transfer(transfer, usb->usb_handle, endpoint, data, length,
++                             qtq_usb_complete, &done, timeout);
++    ret = libusb_submit_transfer(transfer);
++    if (ret) { libusb_free_transfer(transfer); return ret; }
++    while (!done) {
++        struct timeval tick = { .tv_sec = 0, .tv_usec = 100000 };
++        if (qtq_cancelled() && !cancelling) {
++            libusb_cancel_transfer(transfer);
++            cancelling = true;
++        }
++        libusb_handle_events_timeout_completed(usb->context, &tick, &done);
++    }
++    if (actual) *actual = transfer->actual_length;
++    switch (transfer->status) {
++    case LIBUSB_TRANSFER_COMPLETED: ret = 0; break;
++    case LIBUSB_TRANSFER_TIMED_OUT: ret = LIBUSB_ERROR_TIMEOUT; break;
++    case LIBUSB_TRANSFER_NO_DEVICE: ret = LIBUSB_ERROR_NO_DEVICE; break;
++    case LIBUSB_TRANSFER_CANCELLED: ret = LIBUSB_ERROR_INTERRUPTED; break;
++    default: ret = LIBUSB_ERROR_IO; break;
++    }
++    libusb_free_transfer(transfer);
++    return ret;
+ }
+ 
+ static int usb_read(struct qdl_device *qdl, void *buf, size_t len, unsigned int timeout)
+@@ -513,7 +584,7 @@
+ 	int actual;
+ 	int ret;
+ 
+-	ret = libusb_bulk_transfer(qdl_usb->usb_handle, qdl_usb->in_ep, buf, len, &actual, timeout);
++	ret = qtq_usb_bulk(qdl_usb, qdl_usb->in_ep, buf, len, &actual, timeout);
+ 	if (ret == LIBUSB_ERROR_NO_DEVICE)
+ 		return -ENODEV;
+ 	if (ret != 0 && ret != LIBUSB_ERROR_TIMEOUT)
+@@ -524,7 +595,7 @@
+ 
+ 	/* If what we read equals the endpoint's Max Packet Size, consume the ZLP explicitly */
+ 	if (len == (size_t)actual && !(actual % qdl_usb->in_maxpktsize)) {
+-		ret = libusb_bulk_transfer(qdl_usb->usb_handle, qdl_usb->in_ep,
++		ret = qtq_usb_bulk(qdl_usb, qdl_usb->in_ep,
+ 					   NULL, 0, NULL, timeout);
+ 		if (ret)
+ 			ux_warnx("Unable to read ZLP: %s", libusb_strerror(ret));
+@@ -546,7 +617,7 @@
+ 	while (len > 0) {
+ 		xfer = (len > qdl_usb->out_chunk_size) ? qdl_usb->out_chunk_size : len;
+ 
+-		ret = libusb_bulk_transfer(qdl_usb->usb_handle, qdl_usb->out_ep, data,
++		ret = qtq_usb_bulk(qdl_usb, qdl_usb->out_ep, data,
+ 					   xfer, &actual, timeout);
+ 		if (ret != 0 && ret != LIBUSB_ERROR_TIMEOUT) {
+ 			ux_warnx("bulk write failed: %s", libusb_strerror(ret));
+@@ -561,7 +632,7 @@
+ 	}
+ 
+ 	if (len_orig % qdl_usb->out_maxpktsize == 0) {
+-		ret = libusb_bulk_transfer(qdl_usb->usb_handle, qdl_usb->out_ep, NULL,
++		ret = qtq_usb_bulk(qdl_usb, qdl_usb->out_ep, NULL,
+ 					   0, &actual, timeout);
+ 		if (ret < 0)
+ 			return -EIO;
+--- a/src/qud.c
++++ b/src/qud.c
+@@ -11,6 +11,7 @@
+  * bulk pipes.
+  */
+ 
++#include "qdl_bridge.h"
+ #include <errno.h>
+ #include <stdbool.h>
+ #include <stdio.h>
+@@ -385,8 +386,8 @@
+ 		}
+ 
+ 		for (i = 0; i < found && i < (int)ARRAY_SIZE(matches); i++) {
+-			if (!serial || serial[0] == '\0' ||
+-			    _stricmp(matches[i].serial, serial) == 0) {
++			if (qtq_match_qud(matches[i].path) && (!serial || serial[0] == '\0' ||
++			    _stricmp(matches[i].serial, serial) == 0)) {
+ 				path = matches[i].path;
+ 				break;
+ 			}
+@@ -445,7 +446,19 @@
+ 		return -EIO;
+ 	}
+ 
+-	wait = WaitForSingleObject(ev, timeout_ms);
++	DWORD elapsed = 0;
++    do {
++        DWORD slice = timeout_ms - elapsed;
++        if (slice > 100) slice = 100;
++        wait = WaitForSingleObject(ev, slice);
++        elapsed += slice;
++        if (qtq_cancelled()) {
++            CancelIoEx(h, &ovl);
++            GetOverlappedResult(h, &ovl, &done, TRUE);
++            CloseHandle(ev);
++            return -ECANCELED;
++        }
++    } while (wait == WAIT_TIMEOUT && elapsed < timeout_ms);
+ 	if (wait == WAIT_TIMEOUT) {
+ 		CancelIoEx(h, &ovl);
+ 		/* Drain the cancellation so the OVERLAPPED isn't reused live. */
+--- a/src/file.c
++++ b/src/file.c
+@@ -2,7 +2,9 @@
+ /*
+  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  */
++#include "qdl_bridge.h"
+ #include <fcntl.h>
++#include <errno.h>
+ #include <stdlib.h>
+ #include <unistd.h>
+ 
+@@ -105,6 +107,7 @@
+ 
+ ssize_t qdl_file_read(struct qdl_file *file, void *buf, size_t len)
+ {
++	if (qtq_cancelled()) return -ECANCELED;
+ 	switch (file->type) {
+ 	case QDL_FILE_TYPE_UNKNOWN:
+ 		break;
+--- a/src/firehose.c
++++ b/src/firehose.c
+@@ -4,6 +4,7 @@
+  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+  * All rights reserved.
+  */
++#include "qdl_bridge.h"
+ #include "list.h"
+ #include <sys/stat.h>
+ #include <sys/time.h>
+@@ -311,6 +312,7 @@
+ 	for (;;) {
+ 		/* Reserve one byte for the NUL terminator written below. */
+ 		n = qdl_read(qdl, buf, sizeof(buf) - 1, 100);
++		if (n < 0 && n != -ETIMEDOUT && n != -EIO && n != -ENODEV) return n;
+ 
+ 		/* Timeout after seeing a response, we're done waiting for logs */
+ 		if (n == -ETIMEDOUT && resp >= 0)
+@@ -1295,7 +1297,7 @@
+ 
+ 			memcpy((char *)out_buf + out_offset, buf, copy);
+ 			out_offset += copy;
+-		} else {
++		} else if (fd >= 0) {
+ 			n = write(fd, buf, want);
+ 
+ 			if (n < 0 || (size_t)n != want) {
+@@ -1346,6 +1348,10 @@
+ {
+ 	int ret;
+ 	int fd;
++
++	/* Simulated reads exercise the protocol without touching output files. */
++	if (qtq_simulating())
++		return firehose_issue_read(qdl, op, -1, NULL, 0, false);
+ 
+ 	fd = open(op->filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
+ 	if (fd < 0) {
+@@ -1821,6 +1827,8 @@
+ 	int ret;
+ 
+ 	list_for_each_entry(op, ops, node) {
++		if (qtq_cancelled()) return -ECANCELED;
++		qtq_progress("Firehose", 0, 0);
+ 		switch (op->type) {
+ 		case FIREHOSE_OP_CONFIGURE:
+ 			ret = firehose_detect_and_configure(qdl, false, op->storage_type, 5);
+@@ -1878,7 +1886,8 @@
+ 				ux_info("%d patches applied\n", patch_idx);
+ 			break;
+ 		case FIREHOSE_OP_SET_BOOTABLE:
+-			firehose_set_bootable(qdl, op->partition);
++			ret = firehose_set_bootable(qdl, op->partition);
++		if (ret < 0) return ret;
+ 			break;
+ 		case FIREHOSE_OP_RESET:
+ 			ret = firehose_reset(qdl);
+--- a/src/sahara.c
++++ b/src/sahara.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2016-2017, Linaro Ltd.
+  * All rights reserved.
+  */
++#include "qdl_bridge.h"
+ #include <sys/types.h>
+ #include <ctype.h>
+ #include <dirent.h>
+@@ -1144,6 +1145,11 @@
+ 		return -1;
+ 	}
+ 
++    char result_buf[80];
++    snprintf(result_buf, sizeof(result_buf), "%u", version); qtq_item("Sahara version", result_buf);
++    if (have_serial) { snprintf(result_buf, sizeof(result_buf), "0x%08x", serial); qtq_item("Chip serial", result_buf); }
++    if (have_hwid) { snprintf(result_buf, sizeof(result_buf), "0x%016" PRIx64, hwid); qtq_item("HW ID", result_buf); }
++    if (pkhash) qtq_item("OEM PK hash", pkhash);
+ 	ux_info("Sahara protocol version: %u\n", version);
+ 	if (have_serial)
+ 		ux_info("Chip serial number:      0x%08x\n", serial);
+@@ -1409,7 +1415,7 @@
+ 	 * banner instead of a Sahara HELLO, skip Sahara entirely. Disabled
+ 	 * in ramdump mode, where Sahara is the only valid protocol.
+ 	 */
+-	const bool detect_firehose = !ramdump_path;
++	const bool detect_firehose = !ramdump_path && !qtq_require_sahara();
+ 	bool first_read = true;
+ 	struct sahara_pkt *pkt;
+ 	char buf[4096];
+--- a/src/zipper.c
++++ b/src/zipper.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  */
+ #define _GNU_SOURCE
++#include "qdl_bridge.h"
+ #include <limits.h>
+ #include <libgen.h>
+ #include <errno.h>
+@@ -862,6 +863,12 @@
+ 	flashmap_json_appendf(json, "}\n");
+ 
+ 	return json->error ? -1 : 0;
++}
++
++static int qtq_zip_cancel(zip_t *archive, void *state)
++{
++    (void)archive; (void)state;
++    return qtq_cancelled();
+ }
+ 
+ int zipper_write(const char *filename, struct list_head *ops, struct sahara_image *images)
+@@ -1037,6 +1044,7 @@
+ 						      NULL, (void *)filename) < 0)
+ 		ux_debug("unable to register zip close progress callback\n");
+ 
++	zip_register_cancel_callback_with_state(zip, qtq_zip_cancel, NULL, NULL);
+ 	if (zip_close(zip) < 0) {
+ 		ux_err("failed to finalize output zip\n");
+ 		zip_discard(zip);
+--- a/src/sahara_config.c
++++ b/src/sahara_config.c
+@@ -58,6 +58,7 @@
+ 	doc = xmlReadMemory(blob->ptr, blob->len, blob->name, NULL, 0);
+ 	if (!doc) {
+ 		ux_err("failed to parse sahara_config in \"%s\"\n", blob->name);
++		sahara_images_free(blob, 1);
+ 		return -1;
+ 	}
+ 
+@@ -90,7 +91,7 @@
+ 		image_id = attr_as_unsigned(image_node, "image_id", &errors);
+ 		image_path = attr_as_string(image_node, "image_path", &errors);
+ 
+-		if (image_id == 0 || image_id >= MAPPING_SZ || errors || !image_path) {
++		if (image_id == 0 || image_id >= MAPPING_SZ || errors || !image_path || images[image_id].ptr) {
+ 			ux_err("invalid sahara_config image in \"%s\"\n", blob->name);
+ 			free((void *)image_path);
+ 			goto err_free_doc;
+@@ -127,6 +128,8 @@
+ 	xmlFreeDoc(doc);
+ 	free(blob_name_buf);
+ 
++	free(blob->name);
++	blob->name = NULL;
+ 	free(blob->ptr);
+ 	blob->ptr = NULL;
+ 	blob->len = 0;
+@@ -135,6 +138,8 @@
+ 
+ err_free_doc:
+ 	sahara_images_free(images, MAPPING_SZ);
++	free(blob->name);
++	blob->name = NULL;
+ 	free(blob->ptr);
+ 	blob->ptr = NULL;
+ 	blob->len = 0;
+--- a/src/ufs.c
++++ b/src/ufs.c
+@@ -169,7 +169,7 @@
+ 			continue;
+ 		}
+ 
+-		if (xmlGetProp(node, (xmlChar *)"bNumberLU")) {
++		if (xmlHasProp(node, (xmlChar *)"bNumberLU")) {
+ 			if (!ufs->common) {
+ 				ufs->common = ufs_parse_common_params(node,
+ 								      finalize_provisioning);
+@@ -186,7 +186,7 @@
+ 				retval = -EINVAL;
+ 				break;
+ 			}
+-		} else if (xmlGetProp(node, (xmlChar *)"LUNum")) {
++		} else if (xmlHasProp(node, (xmlChar *)"LUNum")) {
+ 			ufs_body_tmp = ufs_parse_body(node);
+ 			if (ufs_body_tmp) {
+ 				list_append(&ufs->bodies, &ufs_body_tmp->node);
+@@ -196,7 +196,7 @@
+ 				retval = -EINVAL;
+ 				break;
+ 			}
+-		} else if (xmlGetProp(node, (xmlChar *)"commit")) {
++		} else if (xmlHasProp(node, (xmlChar *)"commit")) {
+ 			if (!ufs->epilogue) {
+ 				ufs->epilogue = ufs_parse_epilogue(node);
+ 				if (ufs->epilogue)
+--- a/src/program.c
++++ b/src/program.c
+@@ -261,7 +261,7 @@
+ 
+ 	if (is_nand) {
+ 		program->pages_per_block = attr_as_unsigned(node, "PAGES_PER_BLOCK", &errors);
+-		if (xmlGetProp(node, (xmlChar *)"last_sector")) {
++		if (xmlHasProp(node, (xmlChar *)"last_sector")) {
+ 			program->last_sector = attr_as_unsigned(node, "last_sector", &errors);
+ 		}
+ 	} else {
+--- a/src/util.c
++++ b/src/util.c
+@@ -319,7 +319,7 @@
+ {
+ 	struct qdl_file file;
+ 	size_t len;
+-	void *ptr;
++	void *ptr = NULL;
+ 	int ret;
+ 
+ 	ret = qdl_file_open(zip, filename, &file);
+@@ -333,6 +333,7 @@
+ 		goto err_close;
+ 
+ 	image->name = strdup(filename);
++	if (!image->name) goto err_close;
+ 	image->ptr = ptr;
+ 	image->len = len;
+ 
+@@ -341,6 +342,7 @@
+ 	return 0;
+ 
+ err_close:
++	free(ptr);
+ 	qdl_file_close(&file);
+ 	return -1;
+ }
+--- a/src/vip.h
++++ b/src/vip.h
+@@ -60,6 +60,6 @@
+ void vip_gen_chunk_init(struct qdl_device *qdl);
+ void vip_gen_chunk_update(struct qdl_device *qdl, const void *buf, size_t len);
+ void vip_gen_chunk_store(struct qdl_device *qdl);
+-void vip_gen_finalize(struct qdl_device *qdl);
++int vip_gen_finalize(struct qdl_device *qdl, bool complete);
+ 
+ #endif /* __VIP_H__ */
+--- a/src/vip.c
++++ b/src/vip.c
+@@ -2,6 +2,7 @@
+ /*
+  * Copyright (c) 2025, Qualcomm Innovation Center, Inc. All rights reserved.
+  */
++#include "qdl_bridge.h"
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <limits.h>
+@@ -346,24 +347,23 @@
+ 	return ret;
+ }
+ 
+-void vip_gen_finalize(struct qdl_device *qdl)
+-{
+-	struct vip_table_generator *vip_gen;
+-
+-	vip_gen = sim_get_vip_generator(qdl);
+-	if (!vip_gen)
+-		return;
+-
+-	if (vip_gen->digest_table_fd)
+-		fclose(vip_gen->digest_table_fd);
+-
+-	ux_debug("VIP: digests written: %lu\n", vip_gen->digest_num_written);
+-
+-	if (create_chained_tables(vip_gen) < 0)
+-		ux_err("VIP: failed to create the table of digests\n");
+-
+-	free(vip_gen);
+-	sim_set_digest_generation(false, qdl, NULL);
++int vip_gen_finalize(struct qdl_device *qdl, bool complete)
++{
++    struct vip_table_generator *gen = sim_get_vip_generator(qdl);
++    int ret = 0;
++    if (!gen) return 0;
++    if (!gen->digest_table_fd) ret = -EIO;
++    else if (fclose(gen->digest_table_fd)) ret = -EIO;
++    if (complete && !ret && !qtq_cancelled()) ret = create_chained_tables(gen);
++    if (ret) ux_err("VIP: failed to create the table of digests\n");
++    if (!complete || ret || qtq_cancelled()) {
++        char path[PATH_MAX];
++        snprintf(path, sizeof(path), "%s/%s", gen->path, DIGEST_TABLE_TO_SIGN_FILE);
++        remove(path);
++    }
++    free(gen);
++    sim_set_digest_generation(false, qdl, NULL);
++    return ret;
+ }
+ 
+ int vip_transfer_init(struct qdl_device *qdl, const char *vip_table_path)
+--- a/src/input_type.c
++++ b/src/input_type.c
+@@ -49,6 +49,7 @@
+ 	}
+ 
+ 	root = xmlDocGetRootElement(doc);
++	if (!root) { xmlFreeDoc(doc); return -EINVAL; }
+ 	if (!xmlStrcmp(root->name, (xmlChar *)"patches")) {
+ 		type = QDL_FILE_PATCH;
+ 	} else if (!xmlStrcmp(root->name, (xmlChar *)"data")) {

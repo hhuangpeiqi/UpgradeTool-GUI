@@ -152,7 +152,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("Boolean keys are written as true/false; empty text fields are not written. Reload discards unsaved changes.")
+        text: qsTr("Boolean keys are written as true/false; Reload discards unsaved changes.")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal

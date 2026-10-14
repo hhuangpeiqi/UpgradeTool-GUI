@@ -11,12 +11,41 @@ ComboBox {
     font.pixelSize: Theme.fontNormal
     hoverEnabled: true
 
+    // A vertical ListView reports contentWidth == -1, so the popup cannot size
+    // itself from the delegate's content; measure the widest label instead.
+    function longestLabel() {
+        var m = control.model;
+        if (!m || m.length === undefined)
+            return "";
+        var longest = "";
+        for (var i = 0; i < m.length; ++i) {
+            var s = String(m[i]);
+            if (s.length > longest.length)
+                longest = s;
+        }
+        return longest;
+    }
+
+    TextMetrics {
+        id: labelMetrics
+        font: control.font
+        text: control.longestLabel()
+    }
+
+    // Grow to fit the labels, but never past the window edge.
+    readonly property real popupWidth: {
+        var limit = Overlay.overlay ? Overlay.overlay.width - 24 : 560;
+        return Math.min(Math.max(control.width, limit),
+                        Math.max(control.width, labelMetrics.advanceWidth + 24));
+    }
+
     delegate: ItemDelegate {
         id: itemDelegate
-        width: control.width
+        width: control.popup.width - 2
         height: 32
 
         contentItem: Text {
+            id: labelText
             text: modelData
             color: Theme.textPrimary
             font.family: Theme.fontFamily
@@ -24,6 +53,7 @@ ComboBox {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
             leftPadding: 10
+            rightPadding: 10
         }
 
         background: Rectangle {
@@ -32,6 +62,9 @@ ComboBox {
         }
 
         highlighted: control.highlightedIndex === index
+
+        ToolTip.visible: itemDelegate.hovered && labelText.truncated
+        ToolTip.text: modelData
     }
 
     indicator: Image {
@@ -63,7 +96,7 @@ ComboBox {
 
     popup: Popup {
         y: control.height + 2
-        width: control.width
+        width: control.popupWidth
         implicitHeight: Math.min(contentItem.implicitHeight + 2, 320)
         padding: 1
 

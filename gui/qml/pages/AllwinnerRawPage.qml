@@ -32,35 +32,32 @@ AllwinnerWorkspace {
             onActivated: page.saveSetting("rawStorage", currentIndex)
         }
     }
-    AppCheckBox {
-        id: advanced
+    DisclosureSection {
         objectName: "awRawAdvanced"
-        focusPolicy: Qt.StrongFocus
-        text: qsTr("Advanced options")
-    }
-    GridLayout {
-        visible: advanced.checked
-        Layout.fillWidth: true
-        columns: 2
-        columnSpacing: 12
-        rowSpacing: 10
-        enabled: !app.busy
-        Text { text: qsTr("Write method"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppComboBox {
-            id: mode
+        title: qsTr("Advanced options")
+        GridLayout {
             Layout.fillWidth: true
-            model: [qsTr("Write from sector 0 (Command)"), qsTr("Write at logic offset (Logic offset)")]
-            currentIndex: Number(page.setting("rawMode", 1))
-            onActivated: page.saveSetting("rawMode", currentIndex)
-        }
-        Text { visible: mode.currentIndex === 1; text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppTextField {
-            id: offset
-            visible: mode.currentIndex === 1
-            Layout.fillWidth: true
-            placeholderText: qsTr("Leave empty to auto-detect (0x hex allowed)")
-            text: page.setting("logicOffset", "")
-            onEditingFinished: page.saveSetting("logicOffset", text)
+            columns: 2
+            columnSpacing: 12
+            rowSpacing: 10
+            enabled: !app.busy
+            Text { text: qsTr("Write method"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppComboBox {
+                id: mode
+                Layout.fillWidth: true
+                model: [qsTr("Write from sector 0 (Command)"), qsTr("Write at logic offset (Logic offset)")]
+                currentIndex: Number(page.setting("rawMode", 1))
+                onActivated: page.saveSetting("rawMode", currentIndex)
+            }
+            Text { visible: mode.currentIndex === 1; text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppTextField {
+                id: offset
+                visible: mode.currentIndex === 1
+                Layout.fillWidth: true
+                placeholderText: qsTr("Leave empty to auto-detect (0x hex allowed)")
+                text: page.setting("logicOffset", "")
+                onEditingFinished: page.saveSetting("logicOffset", text)
+            }
         }
     }
     actions: [

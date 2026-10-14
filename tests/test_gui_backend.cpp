@@ -279,20 +279,34 @@ int main(int argc, char **argv) {
         CHECK(legacy.allwinnerSettings()["page2/logicOffset"]=="0x2000");
     }
 
-	// Usage help is refreshed when the effective language changes; the QML view
-	// relies on usageHelpChanged because the model comes from C++ rather than
-	// from qsTr bindings that retranslate() would re-evaluate.
+	// A Qualcomm device can re-enumerate into another mode (DIAG 0x9091 -> EDL
+	// 0x9008) on the same USB port, keeping index/mode/key but changing
+	// vid/pid/serial. The cached list must be rebuilt so the next task does not
+	// target the pre-switch identity and get rejected as disconnected.
 	{
 		gui::AppController controller(NULL);
-		int helpRefreshes = 0;
-		QObject::connect(&controller, &gui::AppController::usageHelpChanged,
-		                 &application, [&helpRefreshes] { ++helpRefreshes; });
-		CHECK(!controller.usageHelp().isEmpty());
-		controller.language()->setMode("en");
-		controller.language()->setMode("zh_CN");
-		CHECK(helpRefreshes >= 1);
-		CHECK(!controller.usageHelp().isEmpty());
-		controller.language()->setMode("auto");
+		controller.setVendor(2);
+		QVariantMap diag{{"vendor", 2}, {"index", 1}, {"mode", "EDL / USB"},
+		                 {"key", "qualcomm:0::1-3"}, {"vid", 0x05c6}, {"pid", 0x9091},
+		                 {"serial", "45B448E1"}, {"bus", 1}, {"ports", QVariantList{3}}};
+		CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+			Q_ARG(QVariantList, QVariantList{diag})));
+		CHECK(controller.devices().size() == 1);
+		CHECK(controller.devices()[0].toMap()["serial"].toString() == "45B448E1");
+		// A DIAG-mode unit is listed but is not an EDL target yet.
+		CHECK(!controller.hasEdlDevice());
+		// The dropdown shows the identity up front so the switch is visible.
+		CHECK(controller.deviceLabels().first().contains("05c6:9091"));
+		CHECK(controller.deviceLabels().first().contains("SN:45B448E1"));
+		QVariantMap edl = diag; edl["pid"] = 0x9008; edl["serial"] = QString();
+		CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+			Q_ARG(QVariantList, QVariantList{edl})));
+		CHECK(controller.devices().size() == 1);
+		CHECK(controller.devices()[0].toMap()["serial"].toString().isEmpty());
+		CHECK(controller.devices()[0].toMap()["pid"].toUInt() == 0x9008);
+		CHECK(controller.hasEdlDevice());
+		CHECK(controller.deviceLabels().first().contains("05c6:9008"));
+		CHECK(!controller.deviceLabels().first().contains("SN:"));
 	}
 
 	// Changing the effective language retranslates the UI, which rebuilds the

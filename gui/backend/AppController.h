@@ -2,6 +2,9 @@
 #define GUI_APP_CONTROLLER_H
 
 #include <QElapsedTimer>
+#include <map>
+#include "gui/backend/QualcommController.h"
+#include "gui/EdlRunner.h"
 #include "gui/EngineWorker.h"
 #include <QObject>
 #include <QString>
@@ -30,6 +33,8 @@ class AppController : public QObject, public Retranslatable
 {
 	Q_OBJECT
 
+    Q_PROPERTY(gui::QualcommController *qualcomm READ qualcomm CONSTANT)
+    Q_PROPERTY(gui::EdlRunner *edl READ edl CONSTANT)
     Q_PROPERTY(QVariantList allwinnerStates READ allwinnerStates NOTIFY allwinnerChanged)
     Q_PROPERTY(int vendor READ vendor WRITE setVendor NOTIFY vendorChanged)
     Q_PROPERTY(QString allwinnerFirmware READ allwinnerFirmware WRITE setAllwinnerFirmware NOTIFY allwinnerChanged)
@@ -41,6 +46,7 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(QStringList deviceLabels READ deviceLabels NOTIFY devicesChanged)
 	Q_PROPERTY(QString deviceStatusText READ deviceStatusText NOTIFY devicesChanged)
 	Q_PROPERTY(bool hasDevice READ hasDevice NOTIFY devicesChanged)
+	Q_PROPERTY(bool hasEdlDevice READ hasEdlDevice NOTIFY devicesChanged)
 	Q_PROPERTY(int deviceIndex READ deviceIndex WRITE setDeviceIndex NOTIFY deviceIndexChanged)
 
 	Q_PROPERTY(bool permissionBlocked READ permissionBlocked NOTIFY permissionChanged)
@@ -85,7 +91,6 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(QString advancedHint READ advancedHint NOTIFY advancedStateChanged)
 	Q_PROPERTY(bool advancedHintError READ advancedHintError NOTIFY advancedStateChanged)
 	Q_PROPERTY(QStringList storages READ storages CONSTANT)
-	Q_PROPERTY(QVariantList usageHelp READ usageHelp NOTIFY usageHelpChanged)
 	Q_PROPERTY(QVariantList standardPlaces READ standardPlaces NOTIFY standardPlacesChanged)
 
 public:
@@ -95,6 +100,11 @@ public:
 	// Rebuilds every cached translated string when the UI language changes.
 	// Driven by LanguageManager's registry, not by per-feature refresh calls.
 	void retranslate() override;
+
+    QualcommController *qualcomm() { return m_qualcomm; }
+    EdlRunner *edl() { return m_edl; }
+    Q_INVOKABLE void refreshEdl();
+    Q_INVOKABLE void switchToEdl(const QString &target, int method, const QString &endpoint);
 
     int vendor() const { return m_vendor; }
     void setVendor(int);
@@ -116,6 +126,7 @@ public:
 	QStringList deviceLabels() const;
 	QString deviceStatusText() const { return m_strDeviceStatus; }
 	bool hasDevice() const { return !m_devices.isEmpty(); }
+	bool hasEdlDevice() const;
 
 	int deviceIndex() const { return m_iDeviceIndex; }
 	void setDeviceIndex(int iIndex);
@@ -168,7 +179,6 @@ public:
 	Q_INVOKABLE QString logDir() const;
 	Q_INVOKABLE QString homeDir() const;
 	QVariantList standardPlaces() const { return m_standardPlaces.value(); }
-	QVariantList usageHelp() const { return m_usageHelp.value(); }
 	Q_INVOKABLE void logLine(const QString &strText);
 	Q_INVOKABLE QString lastDir(const QString &strKey) const;
 	Q_INVOKABLE void rememberPath(const QString &strKey, const QString &strPath);
@@ -225,7 +235,6 @@ signals:
 	void imageStateChanged();
 	void firmwareStateChanged();
 	void advancedStateChanged();
-	void usageHelpChanged();
 	void standardPlacesChanged();
 
 	void toastRequested(const QString &strText, bool bError);
@@ -233,7 +242,12 @@ signals:
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
 
 private:
+    EdlRunner *m_edl = nullptr;
+    QString m_edlPath;
+    int m_edlBus = 0;
+    QVector<int> m_edlPorts;
     int m_vendor = 0;
+    QualcommController *m_qualcomm;
     CRKLog *m_diskLog = nullptr;
     QVariantList m_allDevices;
     struct AllwinnerState {
@@ -247,9 +261,9 @@ private:
     // Contexts: 0 raw boot package, 1 firmware flashing, 2 offline tools, 3 device info.
     AllwinnerState m_allwinner[4];
     int m_allwinnerContext = 1;
-    QString m_vendorSelection[2];
-    QStringList m_vendorBatch[2];
-    bool m_vendorContinue[2] = { false, false };
+    std::map<int,QString> m_vendorSelection;
+    std::map<int,QStringList> m_vendorBatch;
+    std::map<int,bool> m_vendorContinue;
 private slots:
 	void onThreadStarted();
 	void onDevicesReady(const QVariantList &devices);
@@ -277,7 +291,6 @@ private:
 	void SetFirmwareHint(TranslatableText::Factory factory, bool bError);
 	void SetAdvancedHint(TranslatableText::Factory factory, bool bError);
 	void SetAllwinnerHint(int context, TranslatableText::Factory factory, bool bError);
-	QVariantList BuildUsageHelp() const;
 	QVariantList BuildStandardPlaces() const;
 	TranslatableText::Factory AwHint(const core::OperationResult &result);
 	void ApplyAllwinnerInspectResult(int context, const core::OperationResult &result);
@@ -298,7 +311,6 @@ private:
 	KeyValueModel *m_pResults;
 
 	QVariantList m_devices;
-	Translatable<QVariantList> m_usageHelp;
 	Translatable<QVariantList> m_standardPlaces;
 	Translatable<QVariantList> m_firmwareInfo;
 	QString m_strDeviceStatus;

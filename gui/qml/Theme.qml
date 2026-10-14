@@ -52,6 +52,10 @@ QtObject {
     property color toastOkBg: dark ? "#22332A" : "#EAF6EE"
     property color toastOkBorder: dark ? "#33543F" : "#B9E0C6"
 
+    // Shared label column width so every form row in a workspace lines up.
+    // Chosen to fit the longest label ("Programmer input") on one line.
+    readonly property int formLabelWidth: 132
+
     readonly property int radius: 8
     readonly property int controlRadius: 6
     readonly property int windowRadius: 10

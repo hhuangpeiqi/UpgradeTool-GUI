@@ -44,6 +44,16 @@ public:
 		AllwinnerExtract = static_cast<int>(core::Operation::AllwinnerExtract),
 		AllwinnerDeviceInfo = static_cast<int>(core::Operation::AllwinnerDeviceInfo),
 		AllwinnerReboot = static_cast<int>(core::Operation::AllwinnerReboot),
+		QualcommFlash = static_cast<int>(core::Operation::QualcommFlash),
+		QualcommRaw = static_cast<int>(core::Operation::QualcommRaw),
+		QualcommChipInfo = static_cast<int>(core::Operation::QualcommChipInfo),
+		QualcommReset = static_cast<int>(core::Operation::QualcommReset),
+		QualcommRamdump = static_cast<int>(core::Operation::QualcommRamdump),
+		QualcommKickstart = static_cast<int>(core::Operation::QualcommKickstart),
+		QualcommCreateZip = static_cast<int>(core::Operation::QualcommCreateZip),
+		QualcommCreateArchive = static_cast<int>(core::Operation::QualcommCreateArchive),
+		QualcommCreateDigests = static_cast<int>(core::Operation::QualcommCreateDigests),
+		QualcommProvision = static_cast<int>(core::Operation::QualcommProvision),
 		Count = static_cast<int>(core::Operation::Count)
 	};
 	Q_ENUM(Id)

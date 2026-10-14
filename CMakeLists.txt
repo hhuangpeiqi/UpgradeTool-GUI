@@ -4,7 +4,6 @@ if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
 endif()
 project(UpgradeTool-GUI C CXX)
 
-# Keep runnable targets at the build root; multi-config generators append the configuration.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 set(CMAKE_CXX_STANDARD 11)
@@ -101,6 +100,8 @@ add_library(efex STATIC
 set_target_properties(efex PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES)
 target_include_directories(efex PUBLIC third_party/libefex/includes)
 
+include(cmake/Qdl.cmake)
+
 add_library(upgradetool STATIC
   lib/crc.cpp
   lib/RKLog.cpp
@@ -123,23 +124,22 @@ add_library(upgradetool STATIC
   core/FirmwareService.cpp
   core/TaskRunner.cpp
   core/Backend.cpp
+  core/qualcomm/QualcommBackend.cpp
   core/allwinner/Firmware.cpp
   core/allwinner/Transport.cpp
   core/allwinner/Convert.cpp
   core/allwinner/AllwinnerBackend.cpp
 )
 target_include_directories(upgradetool PUBLIC lib ${CMAKE_SOURCE_DIR})
-target_link_libraries(upgradetool PUBLIC efex usb1)
+target_link_libraries(upgradetool PUBLIC efex usb1 qdl_embedded)
 
 option(UPGRADE_TOOL_TESTS "Build the unit tests" OFF)
 if(UPGRADE_TOOL_TESTS)
   enable_testing()
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2 SerialPort)
 target_link_libraries(upgradetool PUBLIC Qt6::Core)
-# Qt 6.8's OpenGL wrapper still adds AGL, absent from recent Apple SDKs.
-# Adjust only the imported target in this project; leave the Qt installation intact.
 if(APPLE AND TARGET WrapOpenGL::WrapOpenGL)
   get_target_property(_qt_opengl_links WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES)
   list(FILTER _qt_opengl_links EXCLUDE REGEX "AGL(\\.framework)?$")
@@ -149,7 +149,7 @@ endif()
 add_subdirectory(gui)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  install(FILES scripts/99-rk-rockusb-all.rules scripts/99-allwinner.rules
+  install(FILES scripts/99-rk-rockusb-all.rules scripts/99-allwinner.rules scripts/99-qualcomm.rules
           DESTINATION share/upgrade_tool)
   install(PROGRAMS scripts/install-udev.sh
           DESTINATION share/upgrade_tool)
@@ -158,6 +158,14 @@ install(FILES config.ini
         DESTINATION share/upgrade_tool)
 install(FILES third_party/libefex/LICENSE core/allwinner/LICENSE.OpenixCLI
         DESTINATION share/doc/upgrade-tool/allwinner)
+install(FILES third_party/qdl/LICENSE
+        DESTINATION share/doc/upgrade-tool/qualcomm)
+install(FILES third_party/libzip/LICENSE
+        DESTINATION share/doc/upgrade-tool/qualcomm RENAME LICENSE.libzip)
+install(FILES third_party/libxml2/Copyright
+        DESTINATION share/doc/upgrade-tool/qualcomm RENAME LICENSE.libxml2)
+install(FILES third_party/libusb/COPYING
+        DESTINATION share/doc/upgrade-tool RENAME LICENSE.libusb)
 install(FILES README.md README.zh-CN.md
         DESTINATION share/doc/upgrade-tool)
 
@@ -168,7 +176,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(CPACK_PACKAGE_NAME "upgrade-tool")
   set(CPACK_PACKAGE_VERSION "${UPGRADE_TOOL_VERSION}")
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-      "UpgradeTool-GUI (Qt6 GUI) for Rockchip and Allwinner USB firmware flashing")
+      "UpgradeTool-GUI (Qt6 GUI) for Rockchip, Allwinner and Qualcomm USB firmware flashing")
   set(CPACK_PACKAGE_CONTACT "UpgradeTool-GUI maintainers")
   set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/rockchip-linux/rkdeveloptool")
   set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/lib/license.txt")
@@ -185,7 +193,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         OUTPUT_STRIP_TRAILING_WHITESPACE
         COMMAND_ERROR_IS_FATAL ANY)
     else()
-      # Match CPackDeb's default when dpkg is unavailable.
       set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE i386)
     endif()
   endif()
@@ -197,10 +204,19 @@ endif()
 
 if(UPGRADE_TOOL_TESTS)
   if(UNIX)
+    add_executable(test_qualcomm_node tests/test_qualcomm_node.cpp)
+    target_link_libraries(test_qualcomm_node PRIVATE qdl_embedded Qt6::Core Threads::Threads)
+    add_test(NAME test_qualcomm_node COMMAND test_qualcomm_node)
+    set_tests_properties(test_qualcomm_node PROPERTIES TIMEOUT 20)
     add_executable(test_platform_path tests/test_platform_path.cpp)
     target_link_libraries(test_platform_path PRIVATE upgradetool)
     add_test(NAME test_platform_path COMMAND test_platform_path)
   endif()
+
+  add_executable(test_qualcomm tests/test_qualcomm.cpp)
+  target_link_libraries(test_qualcomm PRIVATE upgradetool)
+  add_test(NAME test_qualcomm COMMAND test_qualcomm)
+  set_tests_properties(test_qualcomm PROPERTIES TIMEOUT 90)
 
   add_executable(test_rkdisk tests/test_rkdisk.cpp)
   target_link_libraries(test_rkdisk PRIVATE upgradetool)

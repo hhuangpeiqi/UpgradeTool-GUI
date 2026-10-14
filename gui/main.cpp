@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
     int vendor = 0;
 	for (int i = 1; i < argc; i++) {
 		if (qstrcmp(argv[i], "--vendor") == 0 && i + 1 < argc)
-            vendor = qstrcmp(argv[++i], "allwinner") == 0 ? 1 : 0;
+            { ++i; vendor = qstrcmp(argv[i], "qualcomm") == 0 ? 2 : qstrcmp(argv[i], "allwinner") == 0 ? 1 : 0; }
         else if (qstrcmp(argv[i], "--lang") == 0 && i + 1 < argc)
 			strLanguage = QString::fromLocal8Bit(argv[++i]);
 		else if (qstrcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
@@ -101,8 +101,11 @@ int main(int argc, char *argv[])
 
 		if (!strImageDir.isEmpty())
 			controller.setImageDir(strImageDir);
-		if (!strFirmware.isEmpty())
-			vendor == 1 ? controller.setAllwinnerContextFirmware(qBound(0, iTab, 2), strFirmware) : controller.setFirmware(strFirmware);
+		if (!strFirmware.isEmpty()) {
+			if(vendor == 2) controller.qualcomm()->loadFirmware(strFirmware);
+            else if(vendor == 1) controller.setAllwinnerContextFirmware(qBound(0, iTab, 2), strFirmware);
+            else controller.setFirmware(strFirmware);
+        }
 
 		if (!strScreenshot.isEmpty()) {
 			QTimer::singleShot(1500, &app, [&engine, strScreenshot]() {

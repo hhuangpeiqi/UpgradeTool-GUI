@@ -28,7 +28,7 @@ public:
 	int count() const { return m_lines.size(); }
 
 	void Append(const QString &strText, bool bError);
-	void Clear();
+	Q_INVOKABLE void clear();
 
 signals:
 	void countChanged();

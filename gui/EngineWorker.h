@@ -5,6 +5,7 @@
 #include "core/TaskRunner.h"
 #include "core/Backend.h"
 #include "core/allwinner/AllwinnerBackend.h"
+#include "core/qualcomm/QualcommBackend.h"
 #include "core/UpgradeObserver.h"
 class CRKLog;
 class CRKScan;
@@ -32,6 +33,7 @@ private:
 	CRKScan *m_pScan;
 	std::unique_ptr<core::RockchipBackend> m_rockchip;
 	core::allwinner::AllwinnerBackend m_allwinner;
+	core::qualcomm::QualcommBackend m_qualcomm;
 	core::BackendRegistry m_backends;
 	core::IUpgradeObserver *m_observer = nullptr;
 };

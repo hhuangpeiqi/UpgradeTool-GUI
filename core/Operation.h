@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace core {
-enum class Vendor { Rockchip, Allwinner };
+enum class Vendor { Rockchip, Allwinner, Qualcomm };
 enum class Operation {
 	FirmwareUpgrade,
 	FirmwareExtract,
@@ -46,6 +46,16 @@ enum class Operation {
 	AllwinnerExtract,
 	AllwinnerDeviceInfo,
 	AllwinnerReboot,
+	QualcommFlash,
+	QualcommRaw,
+	QualcommChipInfo,
+	QualcommReset,
+	QualcommRamdump,
+	QualcommKickstart,
+	QualcommCreateZip,
+	QualcommCreateArchive,
+	QualcommCreateDigests,
+	QualcommProvision,
 	Count
 };
 
@@ -78,10 +88,31 @@ struct AllwinnerOptions {
     uint64_t logicOffset = 0, ubootOffset = 0, norMiB = 16;
     std::string storageSize = "auto";
 };
+enum class QualcommStorage { Emmc = 1, Nand, Ufs, Nvme, Spinor };
+enum class QualcommTransport { Auto = -1, Usb = 0, Qud = 2 };
+enum class QualcommRawType { Read, Write, Erase, Sha256, Reset };
+struct QualcommRawOperation {
+    QualcommRawType type = QualcommRawType::Read;
+    std::string address, file;
+};
+struct QualcommImage { unsigned int id = 13; std::string file; };
+struct QualcommOptions {
+    std::string programmer, package, selector, includeDir, output, filter, node, vipTables, digestDir;
+    std::vector<std::string> xml;
+    std::vector<QualcommRawOperation> raw;
+    std::vector<QualcommImage> images;
+    QualcommStorage storage = QualcommStorage::Ufs;
+    QualcommTransport transport = QualcommTransport::Auto;
+    int slot = -1;
+    long chunkSize = 0;
+    bool packageBuild = false, debug = false, dryRun = false, allowMissing = false;
+    bool allowFusing = false, finalize = false, skipReset = false, skipblock = false;
+};
 struct OperationRequest {
 	Operation operation = Operation::Count;
 	Vendor vendor = Vendor::Rockchip;
 	AllwinnerOptions allwinner;
+	QualcommOptions qualcomm;
 	FileRequest file;
 	LbaRequest lba;
 	SectorRequest sector;
@@ -100,6 +131,8 @@ struct DeviceIdentity {
 	std::string serial;
 	uint32_t location = 0;
 	Vendor vendor = Vendor::Rockchip;
+	std::string devicePath;
+	QualcommTransport transport = QualcommTransport::Auto;
 	uint8_t bus = 0;
 	std::vector<uint8_t> ports;
 };
@@ -107,7 +140,15 @@ struct DeviceIdentity {
 inline bool IsLocalOperation(Operation op)
 {
 	return op == Operation::FirmwareInfo || op == Operation::FirmwareExtract || op == Operation::CreateGpt ||
-        op == Operation::AllwinnerInspect || op == Operation::AllwinnerExtract || op == Operation::AllwinnerConvert;
+        op == Operation::AllwinnerInspect || op == Operation::AllwinnerExtract || op == Operation::AllwinnerConvert ||
+        op == Operation::QualcommCreateZip || op == Operation::QualcommCreateArchive ||
+        op == Operation::QualcommCreateDigests;
+}
+
+inline bool RequiresEnumeratedDevice(const OperationRequest &r)
+{
+    return !IsLocalOperation(r.operation) && !(r.vendor == Vendor::Qualcomm &&
+        (r.qualcomm.dryRun || (r.operation == Operation::QualcommKickstart && !r.qualcomm.node.empty())));
 }
 
 using Cancellation = std::shared_ptr<std::atomic<bool> >;

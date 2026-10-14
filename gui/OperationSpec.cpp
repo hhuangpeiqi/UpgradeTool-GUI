@@ -13,6 +13,17 @@ QString Tr(const char *szText)
 
 QString OperationName(core::Operation operation) {
 	switch (operation) {
+	case core::Operation::QualcommFlash: return Tr(QT_TRANSLATE_NOOP("Operations", "Download"));
+	case core::Operation::QualcommRaw: return Tr(QT_TRANSLATE_NOOP("Operations", "Partition Operations"));
+	case core::Operation::QualcommChipInfo: return Tr(QT_TRANSLATE_NOOP("Operations", "Chip Info"));
+	case core::Operation::QualcommReset: return Tr(QT_TRANSLATE_NOOP("Operations", "Reset"));
+	case core::Operation::QualcommRamdump: return Tr(QT_TRANSLATE_NOOP("Operations", "RAM Dump"));
+	case core::Operation::QualcommKickstart: return Tr(QT_TRANSLATE_NOOP("Operations", "Sahara Kickstart"));
+	case core::Operation::QualcommCreateZip: return Tr(QT_TRANSLATE_NOOP("Operations", "Create ZIP"));
+	case core::Operation::QualcommCreateArchive: return Tr(QT_TRANSLATE_NOOP("Operations", "Create Sahara Archive"));
+	case core::Operation::QualcommCreateDigests: return Tr(QT_TRANSLATE_NOOP("Operations", "Create VIP Digests"));
+	case core::Operation::QualcommProvision: return Tr(QT_TRANSLATE_NOOP("Operations", "UFS Provisioning"));
+
 	case core::Operation::AllwinnerFlash: return Tr(QT_TRANSLATE_NOOP("Operations", "Allwinner Firmware Flash"));
 	case core::Operation::AllwinnerRaw: return Tr(QT_TRANSLATE_NOOP("Operations", "Allwinner Raw Image Flash"));
 	case core::Operation::AllwinnerConvert: return Tr(QT_TRANSLATE_NOOP("Operations", "Programmer Image Convert"));

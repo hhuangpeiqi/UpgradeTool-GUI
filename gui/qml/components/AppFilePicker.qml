@@ -16,6 +16,18 @@ AppDialog {
     property string pending: ""
     property string persistKey: ""
     property url defaultFolder: ""
+    // Explicit per-request location takes precedence over navigation history.
+    property url initialFolder: ""
+    readonly property string currentFolder: dirModel.rootPath
+    property bool multiple: false
+    property var selectedFiles: []
+    property var selectedPaths: []
+    // Anchor row for Shift-click range selection in multiple mode.
+    property int selectionAnchor: -1
+    property string skipText: ""
+    property var validateSelection: null
+    property string selectionError: ""
+    signal skipped()
     property var nameFilters: []
     property string defaultSuffix: ""
 
@@ -41,6 +53,7 @@ AppDialog {
     enum Hint { None, Created, EnterName, SlashInName, ModelError }
     property int hint: AppFilePicker.Hint.None
     hintText: {
+        if (selectionError !== "") return selectionError;
         switch (hint) {
         case AppFilePicker.Hint.Created:     return qsTr("Directory created");
         case AppFilePicker.Hint.EnterName:   return qsTr("Enter a file name");
@@ -49,7 +62,7 @@ AppDialog {
         default:                             return "";
         }
     }
-    hintError: hint === AppFilePicker.Hint.EnterName
+    hintError: selectionError !== "" || hint === AppFilePicker.Hint.EnterName
                || hint === AppFilePicker.Hint.SlashInName
                || hint === AppFilePicker.Hint.ModelError
 
@@ -131,6 +144,9 @@ AppDialog {
             return;
         dirModel.rootPath = path;
         selectedPath = "";
+        selectedPaths = [];
+        selectionAnchor = -1;
+        selectionError = "";
         selectedIsDir = false;
         editingPath = false;
         pathField.text = dirModel.rootPath;
@@ -178,10 +194,14 @@ AppDialog {
     }
 
     function reset() {
+        selectedFiles = [];
         hint = AppFilePicker.Hint.None;
         editingPath = false;
         creatingFolder = false;
         selectedPath = "";
+        selectedPaths = [];
+        selectionAnchor = -1;
+        selectionError = "";
         selectedIsDir = false;
         activeFilter = 0;
         hiddenBox.checked = false;
@@ -189,7 +209,9 @@ AppDialog {
         applyFilter();
         clearSearch();
         var start = "";
-        if (persistKey !== "" && app.lastDir(persistKey) !== "")
+        if (initialFolder.toString() !== "")
+            start = app.toLocalPath(initialFolder.toString());
+        else if (persistKey !== "" && app.lastDir(persistKey) !== "")
             start = app.lastDir(persistKey);
         else if (defaultFolder.toString() !== "")
             start = app.toLocalPath(defaultFolder.toString());
@@ -205,7 +227,40 @@ AppDialog {
         dirModel.refresh();
     }
 
-    function selectEntry(name, path, isDir) {
+    function selectEntry(name, path, isDir, modifiers) {
+        selectionError = "";
+        // Resolve the row from the path so the handler does not depend on the
+        // delegate's implicit index context property.
+        var rowIndex = -1;
+        for (var r = 0; r < dirModel.count; ++r)
+            if (dirModel.pathAt(r) === path) { rowIndex = r; break; }
+        if (multiple && !folderMode && !saveMode && !isDir) {
+            // Native-dialog selection: a plain click picks one file, Ctrl
+            // toggles a single row and Shift extends from the anchor. A plain
+            // click on an already selected row keeps the set so that a
+            // following double-click can confirm the whole selection.
+            var paths = selectedPaths.slice();
+            if ((modifiers & Qt.ShiftModifier) && selectionAnchor >= 0 && rowIndex >= 0) {
+                var first = Math.min(selectionAnchor, rowIndex);
+                var last = Math.max(selectionAnchor, rowIndex);
+                paths = [];
+                for (var row = first; row <= last; ++row)
+                    if (!dirModel.isDirAt(row)) paths.push(dirModel.pathAt(row));
+            } else if (modifiers & Qt.ControlModifier) {
+                var index = paths.indexOf(path);
+                if (index < 0) paths.push(path); else paths.splice(index, 1);
+                selectionAnchor = rowIndex;
+            } else if (paths.indexOf(path) < 0) {
+                paths = [path];
+                selectionAnchor = rowIndex;
+            }
+            selectedPaths = paths;
+            selectedPath = path;
+            selectedIsDir = false;
+            fileField.text = "";
+            return;
+        }
+        selectionAnchor = rowIndex;
         selectedPath = path;
         selectedIsDir = isDir;
         hint = AppFilePicker.Hint.None;
@@ -222,7 +277,13 @@ AppDialog {
             selectedPath = path;
             selectedIsDir = false;
             fileField.text = name;
-            if (!saveMode)
+            if (multiple) {
+                // A double-click confirms the whole current selection so the
+                // rawprogram and patch pickers behave like QFIL's.
+                if (selectedPaths.indexOf(path) < 0) selectedPaths = selectedPaths.concat([path]);
+                fileField.text = "";
+                confirmAccept();
+            } else if (!saveMode)
                 confirmAccept();
         }
     }
@@ -237,6 +298,16 @@ AppDialog {
     }
 
     function confirmAccept() {
+        selectionError = "";
+        if (multiple && !folderMode && !saveMode && selectedPaths.length > 0 && fileField.text.trim() === "") {
+            if (validateSelection) selectionError = validateSelection(selectedPaths);
+            if (selectionError !== "") return;
+            selectedFiles = selectedPaths.map(function(path) { return app.pathUrl(path); });
+            selectedFile = selectedFiles[0];
+            accepted();
+            close();
+            return;
+        }
         if (folderMode) {
             var dir = (selectedIsDir && selectedPath !== "")
                     ? selectedPath : dirModel.rootPath;
@@ -265,6 +336,12 @@ AppDialog {
                 }
                 selectedFile = app.pathUrl(full);
             }
+        }
+        if (!folderMode) {
+            var paths = [app.toLocalPath(selectedFile)];
+            if (validateSelection) selectionError = validateSelection(paths);
+            if (selectionError !== "") return;
+            selectedFiles = [selectedFile];
         }
         accepted();
         close();
@@ -644,7 +721,7 @@ AppDialog {
                             width: entryList.width
                             height: 30
                             radius: 4
-                            color: root.selectedPath === path
+                            color: (root.multiple && !isDir ? root.selectedPaths.indexOf(path) >= 0 : root.selectedPath === path)
                                    ? Theme.selected
                                    : (entryMouse.containsMouse ? Theme.hover : "transparent")
 
@@ -676,7 +753,7 @@ AppDialog {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.selectEntry(name, path, isDir)
+                                onClicked: function(mouse) { root.selectEntry(name, path, isDir, mouse.modifiers); }
                                 onDoubleClicked: root.activateEntry(name, path, isDir)
                             }
                         }
@@ -717,7 +794,7 @@ AppDialog {
             visible: !root.folderMode
             Layout.fillWidth: true
             Layout.preferredHeight: root.rowHeight
-            placeholderText: root.saveMode ? qsTr("Enter or choose a file to save") : qsTr("Select File")
+            placeholderText: root.multiple && root.selectedPaths.length > 0 ? qsTr("%1 file(s) selected").arg(root.selectedPaths.length) : root.saveMode ? qsTr("Enter or choose a file to save") : qsTr("Select File")
             onAccepted: root.confirmAccept()
         }
 
@@ -752,6 +829,12 @@ AppDialog {
             Layout.alignment: Qt.AlignVCenter
             text: qsTr("Cancel")
             onClicked: root.close()
+        }
+
+        SecondaryButton {
+            visible: root.skipText !== ""
+            text: root.skipText
+            onClicked: { root.skipped(); root.close(); }
         }
 
         PrimaryButton {

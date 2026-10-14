@@ -42,7 +42,25 @@ namespace {
 
 const int kScanIntervalMs = 1000;
 
+bool QualcommSimulation(const core::TaskJob &job)
+{
+    if (job.steps.empty()) return false;
+    const auto &r = job.steps.front();
+    return r.vendor == core::Vendor::Qualcomm && (r.qualcomm.dryRun ||
+        r.operation == core::Operation::QualcommCreateDigests);
+}
+
 const char *kLastFirmwareKey = "firmware/last";
+
+// The QUD backend reports the kernel handle ("\\.\COM5") while the pre-switch
+// native enumeration reports the bare name ("COM5"). Compare the device itself,
+// not its escaping, when matching the device that just entered 9008 mode.
+QString DevicePathKey(const QString &path)
+{
+    QString key = path.trimmed();
+    if (key.startsWith(QStringLiteral("\\\\.\\"))) key.remove(0, 4);
+    return key.toUpper();
+}
 
 QString FormatRate(double dPerSec)
 {
@@ -192,9 +210,41 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	connect(m_pWorker, &EngineWorker::devicesReady, this, &AppController::onDevicesReady);
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
 	connect(m_pWorker, &EngineWorker::stepStarted, this, &AppController::onStepStarted);
+    m_qualcomm = new QualcommController(this);
+    m_edl = new EdlRunner(this);
+    connect(m_edl, &EdlRunner::started, this, [this] {
+        m_bSwitching = true; emit switchingChanged(); SetBusy(true);
+        SetProgress(-1, tr("Switching…"));
+    });
+    connect(m_edl, &EdlRunner::changed, this, [this] {
+        if (m_edl->running()) {
+            SetProgress(-1, m_edl->message());
+            AppendLog(m_edl->message(), false);
+        }
+    });
+    connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const QString &path, int bus, const QVector<int> &ports) {
+        m_bSwitching = false; emit switchingChanged(); SetBusy(false);
+        SetProgress(ok ? 100 : 0, message); AppendLog(message, !ok);
+        if (ok) { m_edlPath = path; m_edlBus = bus; m_edlPorts = ports; }
+        // Force the next device list to be rebuilt so the device that just
+        // entered 9008 mode is re-read with its fresh identity instead of the
+        // pre-switch one.
+        m_strDeviceSignature = QStringLiteral("changed");
+        emit requestScan(); emit toastRequested(message, !ok);
+    });
+    connect(m_qualcomm, &QualcommController::executeRequested, this, [this](const core::OperationRequest &request) {
+        if(m_vendor != 2 || m_bBusy) return;
+        core::TaskJob job; job.steps.push_back(request); StartJob(job);
+    });
+    connect(m_qualcomm, &QualcommController::errorRequested, this, [this](const QString &message) { emit toastRequested(message,true); });
+    connect(this, &AppController::busyChanged, this, [this] { m_qualcomm->setLocked(m_bBusy); });
 	connect(m_pObserver, &QtObserver::outputReceived, this, &AppController::onOutput);
     connect(m_pObserver, &QtObserver::stageProgressReceived, this, [this](const QString &stage,long long total,long long current,int overall) {
-        onProgress(stage,total,current,current == 0 ? CALL_FIRST : CALL_MIDDLE);
+        if(m_vendor == 2) {
+            m_strProgressSpeed=stage;
+            SetProgress(total > 0 ? qBound(0, static_cast<int>(100.0 * current / total), 100) : -1,
+                        QualcommSimulation(m_job) ? tr("Simulation: %1").arg(stage) : stage);
+        } else onProgress(stage,total,current,current == 0 ? CALL_FIRST : CALL_MIDDLE);
         if(overall >= 0) SetProgress(overall, m_strProgressText);
     });
 	connect(m_pObserver, &QtObserver::progressReceived, this, &AppController::onProgress);
@@ -230,10 +280,10 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 
 	// Single source of truth for retranslation: every cached string owner
 	// registers here so LanguageManager refreshes them all on a language switch.
-	m_usageHelp.Set([this] { return BuildUsageHelp(); });
 	m_standardPlaces.Set([this] { return BuildStandardPlaces(); });
 	m_pLanguage->registerRetranslatable(this);
 	m_pLanguage->registerRetranslatable(m_pConfig);
+    m_pLanguage->registerRetranslatable(m_qualcomm);
 
 	m_strFwVersion = m_strFwLoader = m_strFwChip = m_strFwBuild = m_strFwSign = QString("-");
 
@@ -266,6 +316,7 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 
 AppController::~AppController()
 {
+    delete m_edl; m_edl = nullptr;
 	m_job.cancelled->store(true);
 	m_pObserver->CancelSelection();
 	emit requestAbort();
@@ -291,129 +342,6 @@ QString AppController::toolVersion() const
 QString AppController::logDir() const
 {
 	return QString::fromStdString(platform::GetUserLogDir());
-}
-
-QVariantList AppController::BuildUsageHelp() const
-{
-	struct MakeItem {
-		static QVariantMap Run(const QString &strName, const QString &strDesc)
-		{
-			QVariantMap map;
-			map["name"] = strName;
-			map["desc"] = strDesc;
-			return map;
-		}
-	};
-	struct MakeGroup {
-		static QVariantMap Run(const QString &strVendor, const QString &strTitle,
-		                       const QString &strNote, const QVariantList &items)
-		{
-			QVariantMap map;
-			map["vendor"] = strVendor;
-			map["title"] = strTitle;
-			map["note"] = strNote;
-			map["items"] = items;
-			return map;
-		}
-	};
-
-#ifdef Q_OS_LINUX
-	const QString connectionNote = tr("Rockchip devices must be in Rockusb mode (Loader or Maskrom) and Allwinner devices in FEL / FES mode, with the matching udev rules installed.");
-	const QString connectionHelp = tr("The status bar scans automatically; if nothing appears, click \"Refresh\" and check the device mode and udev permissions.");
-	const QString preferencesHelp = tr("Edit and save config.ini, switch theme and language, reload, and install udev rules in one click.");
-	const QString missingHelp = tr("Confirm Rockchip is in Rockusb mode (Loader or Maskrom) and Allwinner in FEL / FES mode, then reconnect the device after installing the udev rules.");
-#else
-	const QString connectionNote = tr("Rockchip devices must be in Rockusb mode (Loader or Maskrom) and Allwinner devices in FEL / FES mode.");
-	const QString connectionHelp = tr("The status bar scans automatically; if nothing appears, click \"Refresh\" and check the device mode, USB connection, and whether another program is using it.");
-	const QString preferencesHelp = tr("Edit and save config.ini, switch theme and language, then reload.");
-	const QString missingHelp = tr("Confirm Rockchip is in Rockusb mode (Loader or Maskrom) and Allwinner in FEL / FES mode; check the USB connection, close other programs using the device, then reconnect.");
-#endif
-	const QString vendorCommon = tr("General");
-	const QString vendorRk = tr("Rockchip");
-	const QString vendorAw = tr("Allwinner");
-
-	QVariantList groups;
-
-	groups.append(MakeGroup::Run(vendorCommon, tr("Getting Started"),
-		connectionNote,
-		QVariantList()
-		<< MakeItem::Run(tr("① Connect the device"), connectionHelp)
-		<< MakeItem::Run(tr("② Select the device"), tr("Choose the target in the status bar dropdown; to flash several at once, use \"Device → Batch Select…\"."))
-		<< MakeItem::Run(tr("③ Run the operation"), tr("Open the matching page, choose the file or parameters, then click \"Execute\" / \"Upgrade\" / \"Start Flashing\"; progress, speed and ETA show at the bottom, and you can \"Cancel\" anytime."))
-		<< MakeItem::Run(tr("④ Check the result"), tr("The result appears in the page hint area; raw engine output is written to the log file (see \"Help → Log\" for the directory)."))));
-
-	groups.append(MakeGroup::Run(vendorRk, tr("Download Image"),
-		tr("Download partition by partition using parameter.txt in the split package directory."), QVariantList()
-		<< MakeItem::Run(tr("Browse…"), tr("Select the split package directory; it must contain parameter.txt, the per-partition images and the Loader."))
-		<< MakeItem::Run(tr("Path column"), tr("Double-click a row to specify the image file for that partition manually."))
-		<< MakeItem::Run(tr("Checkbox"), tr("Select the partitions to download; the header checkbox selects or clears all."))
-		<< MakeItem::Run(tr("Switch"), tr("Switch an ADB-mode device to Loader mode (ADB must be installed on the host)."))
-		<< MakeItem::Run(tr("Clear"), tr("Clear the current directory and partition selection."))
-		<< MakeItem::Run(tr("Reboot device when done"), tr("Reboot the device after the queue finishes."))
-		<< MakeItem::Run(tr("Execute"), tr("Download each checked partition image in turn."))));
-
-	groups.append(MakeGroup::Run(vendorRk, tr("Upgrade Firmware"),
-		tr("Upgrade the full firmware package; the UI parses and shows firmware info."), QVariantList()
-		<< MakeItem::Run(tr("Browse…"), tr("Select a full .img firmware package."))
-		<< MakeItem::Run(tr("Firmware Info"), tr("Show firmware version, Loader version, chip info, build time and signature."))
-		<< MakeItem::Run(tr("View Firmware Info"), tr("Re-parse and show firmware info."))
-		<< MakeItem::Run(tr("Extract Firmware…"), tr("Extract the firmware to a chosen directory."))
-		<< MakeItem::Run(tr("Reboot device when done"), tr("Check to reboot the device automatically after the upgrade."))
-		<< MakeItem::Run(tr("Upgrade"), tr("Flash the whole package; per-partition filtering is not supported."))));
-
-	groups.append(MakeGroup::Run(vendorRk, tr("Advanced"),
-		tr("Device operations needing parameters; results fill the result table."), QVariantList()
-		<< MakeItem::Run(tr("Read buttons"), tr("Read Flash ID / Flash info / Chip info / Capability / Secure mode / OTP / serial number."))
-		<< MakeItem::Run(tr("Test Device / Reset Device / Switch Storage / Switch Device"), tr("Run the corresponding operation on the current device."))
-		<< MakeItem::Run(tr("Download Boot"), tr("Download Boot using the \"Boot\" file path above."))
-		<< MakeItem::Run(tr("Erase All"), tr("Erase the device Flash."))
-		<< MakeItem::Run(tr("Export COM Log"), tr("Save the current device's COM log to a file."))
-		<< MakeItem::Run(tr("Write Serial"), tr("Write the contents of the \"Serial\" field to the device."))
-		<< MakeItem::Run(tr("LBA / Sector"), tr("After entering the start sector and count, you can \"Export Image\" or \"Erase Sectors\"."))
-		<< MakeItem::Run(tr("Expert Parameters"), tr("Write LBA / Write Sector / Erase Block / Run System / Reset Pipe; each needs its own parameters."))));
-
-	groups.append(MakeGroup::Run(vendorAw, tr("Raw Image Flash"),
-		tr("Write a single image to the chosen storage medium."), QVariantList()
-		<< MakeItem::Run(tr("Boot package"), tr("Select the boot package (IMAGEWTY .img) that determines the partition layout and boot components."))
-		<< MakeItem::Run(tr("Image to write"), tr("Select the image file to write."))
-		<< MakeItem::Run(tr("Storage medium"), tr("Choose SD / eMMC, UFS or SPI NOR."))
-		<< MakeItem::Run(tr("Advanced options"), tr("Set the write method (from sector 0 / at logic offset) and the logic offset (sectors, empty to auto-detect)."))
-		<< MakeItem::Run(tr("Switch"), tr("Switch the device to FEL via ADB; when a T3 Buildroot is detected the compatible entry is used automatically, or choose \"Alternate\" manually."))
-		<< MakeItem::Run(tr("Start Flashing"), tr("Write the selected image to the target medium."))));
-
-	groups.append(MakeGroup::Run(vendorAw, tr("Flash Firmware"),
-		tr("Flash the full firmware package; the UI parses and shows firmware info."), QVariantList()
-		<< MakeItem::Run(tr("Firmware package"), tr("Select an IMAGEWTY firmware package (.img)."))
-		<< MakeItem::Run(tr("Flash Mode"), tr("Flash selected partitions / Keep user data / Erase partitions then flash / Full erase then flash."))
-		<< MakeItem::Run(tr("After Finish"), tr("Reboot, power off or shut down after flashing; default is reboot."))
-		<< MakeItem::Run(tr("Verify after write"), tr("When checked, the write is verified; a verification failure stops the task."))
-		<< MakeItem::Run(tr("Partition list"), tr("When \"Flash selected partitions\" is chosen, check the partitions to flash."))
-		<< MakeItem::Run(tr("Start Flashing"), tr("Flash according to the settings."))));
-
-	groups.append(MakeGroup::Run(vendorAw, tr("Advanced"),
-		tr("View firmware offline, extract, convert programmer images, and reboot the device."), QVariantList()
-		<< MakeItem::Run(tr("View partitions and embedded files"), tr("Expand to show the firmware's partition table and embedded files."))
-		<< MakeItem::Run(tr("Extract Firmware"), tr("Choose an output directory and extract the current firmware into it."))
-		<< MakeItem::Run(tr("Programmer Image Convert"), tr("Set the output image and target medium (SPI NOR / SD card / eMMC / SD NAND / UFS)."))
-		<< MakeItem::Run(tr("Advanced options"), tr("Logic offset, U-Boot offset, NOR capacity, GPT target capacity, secure boot components."))
-		<< MakeItem::Run(tr("Read Info Again / Convert Image"), tr("Re-parse firmware info / generate the programmer image."))
-		<< MakeItem::Run(tr("Reboot Device"), tr("Reboot an Allwinner device in FES mode; FEL mode is not supported."))));
-
-	groups.append(MakeGroup::Run(vendorCommon, tr("Config and Device menus"),
-		tr("The dropdown menus on the right of the title bar."), QVariantList()
-		<< MakeItem::Run(tr("Config → Preferences…"), preferencesHelp)
-		<< MakeItem::Run(tr("Config → Generate GPT…"), tr("Rockchip only: generate a GPT image from parameter.txt."))
-		<< MakeItem::Run(tr("Device → Device Info…"), tr("Allwinner only: view current device info."))
-		<< MakeItem::Run(tr("Device → Refresh"), tr("Rescan the currently connected devices."))
-		<< MakeItem::Run(tr("Device → Batch Select…"), tr("Check multiple devices to run the same operation in order; \"Continue on failure\" is available."))));
-
-	groups.append(MakeGroup::Run(vendorCommon, tr("FAQ"), QString(), QVariantList()
-		<< MakeItem::Run(tr("No device ever appears"), missingHelp)
-		<< MakeItem::Run(tr("The \"Switch\" button is grayed out"), tr("ADB is not installed on the host, or no ADB device was detected."))
-		<< MakeItem::Run(tr("Button grayed out with an unsupported notice"), tr("\"The current engine does not support this feature\" means the operation is not implemented yet."))
-		<< MakeItem::Run(tr("Clicking \"Cancel\" during execution"), tr("It counts as \"Cancelled\", not a failure, and stops the current operation and the remaining queue."))));
-
-	return groups;
 }
 
 void AppController::logLine(const QString &strText)
@@ -515,12 +443,47 @@ QStringList AppController::deviceLabels() const
 	QStringList list;
 	for (int i = 0; i < m_devices.size(); i++) {
 		QVariantMap map = m_devices[i].toMap();
-		list << QString("#%1 [%2] %3")
+		QString strLabel = QString("#%1 [%2] %3")
 			.arg(map["index"].toInt())
 			.arg(map["mode"].toString())
 			.arg(map["key"].toString());
+		// A Qualcomm device can re-enumerate into another mode (DIAG 0x9091 <->
+		// EDL 0x9008) on the same USB port, keeping mode and key; show the
+		// identity up front so the switch is visible even when the label is
+		// elided.
+		if (map.value("vendor", 0).toInt() == 2) {
+			const QString strIdentity = QString("%1:%2")
+				.arg(map["vid"].toUInt(), 4, 16, QChar('0'))
+				.arg(map["pid"].toUInt(), 4, 16, QChar('0'));
+			const QString strSerial = map["serial"].toString();
+			strLabel = QString("#%1 %2%3 [%4] %5")
+				.arg(map["index"].toInt())
+				.arg(strIdentity)
+				.arg(strSerial.isEmpty() ? QString() : QStringLiteral(" SN:") + strSerial)
+				.arg(map["mode"].toString())
+				.arg(map["key"].toString());
+		}
+		list << strLabel;
 	}
 	return list;
+}
+
+
+bool AppController::hasEdlDevice() const
+{
+	if (m_vendor != 2)
+		return false;
+	// Qualcomm is enumerated by vendor id, so a unit in DIAG, ADB or MTP mode
+	// is listed too. Only the Sahara/Firehose PIDs can actually be opened by
+	// the flasher: 0x9008 (EDL) and 0x900e (crash-dump / RAM dump). Gate the
+	// device operations on those so the primary action follows what the
+	// backend can really run instead of merely what is plugged in.
+	for (const auto &entry : m_devices) {
+		const unsigned int pid = entry.toMap().value("pid").toUInt();
+		if (pid == 0x9008 || pid == 0x900e)
+			return true;
+	}
+	return false;
 }
 
 
@@ -534,7 +497,7 @@ void AppController::SetDeviceStatus()
 		return;
 	}
 
-	// 按 rockusb 模式聚合，保持设备出现顺序
+	// Aggregate by rockusb mode, preserving device discovery order
 	QStringList strModes;
 	QMap<QString, int> mapCount;
 	for (int i = 0; i < m_devices.size(); i++) {
@@ -554,8 +517,8 @@ void AppController::SetDeviceStatus()
 		             : tr("Found %1 %2 device(s)").arg(iCount).arg(strModes[i]));
 	}
 
-	// 没有当前厂商的刷机模式设备时，提示共用的 ADB 状态
-	if (strParts.isEmpty()) {
+	// No device in the current vendor's flashing mode; report the shared ADB status
+	if (strParts.isEmpty() && m_vendor != 2) {
 		if (!m_bAdbKnown)
 			strParts << tr("Detecting ADB…");
 		else if (!m_bAdbAvailable)
@@ -645,7 +608,6 @@ void AppController::retranslate()
 		state.hint.retranslate();
 	if (m_firmwareInfo.bound())
 		m_pFirmwareEntries->SetItems(m_firmwareInfo.value());
-	m_usageHelp.retranslate();
 	m_standardPlaces.retranslate();
 
 	SetDeviceStatus();
@@ -655,7 +617,6 @@ void AppController::retranslate()
 	emit advancedStateChanged();
 	emit allwinnerChanged();
 	emit felSwitchStateChanged();
-	emit usageHelpChanged();
 	emit standardPlacesChanged();
 }
 
@@ -668,19 +629,42 @@ void AppController::onThreadStarted()
 void AppController::onDevicesReady(const QVariantList &incoming)
 {
     m_allDevices = incoming;
+    QString edlKey;
+    if (m_vendor == 2 && (!m_edlPath.isEmpty() || !m_edlPorts.isEmpty())) {
+        for (const auto &entry : incoming) {
+            const auto d = entry.toMap();
+            if (d.value("vendor").toInt() != 2) continue;
+            QVector<int> ports; for (const auto &p : d.value("ports").toList()) ports.append(p.toInt());
+            if ((!m_edlPath.isEmpty() && DevicePathKey(d.value("devicePath").toString()) == DevicePathKey(m_edlPath)) ||
+                (!m_edlPorts.isEmpty() && d.value("bus").toInt() == m_edlBus && ports == m_edlPorts)) {
+                edlKey = d.value("key").toString(); break;
+            }
+        }
+        if (!edlKey.isEmpty()) { m_edlPath.clear(); m_edlPorts.clear(); }
+    }
     QVariantList devices;
     for(const auto &d:incoming) if(d.toMap().value("vendor",0).toInt()==m_vendor) devices.append(d);
 	QStringList strSignature;
 	for (int i = 0; i < devices.size(); i++) {
 		QVariantMap map = devices[i].toMap();
-		strSignature << QString("%1:%2:%3")
+		// The identity fields are part of the signature: a Qualcomm device can
+		// re-enumerate into another mode (DIAG 0x9091 <-> EDL 0x9008) on the same
+		// USB port, keeping index/mode/key but changing vid/pid/serial. Without
+		// them the cached target would keep a stale serial and the next task
+		// would be rejected as disconnected before it started.
+		strSignature << QString("%1:%2:%3:%4:%5:%6")
 			.arg(map["index"].toInt())
 			.arg(map["mode"].toString())
-			.arg(map["key"].toString());
+			.arg(map["key"].toString())
+			.arg(map["vid"].toUInt())
+			.arg(map["pid"].toUInt())
+			.arg(map["serial"].toString());
 	}
 	QString strNewSignature = strSignature.join('\n');
-	if (strNewSignature == m_strDeviceSignature)
-		return;
+	if (strNewSignature == m_strDeviceSignature) {
+        if (!edlKey.isEmpty()) setDeviceIndex(m_deviceKeys.indexOf(edlKey));
+        return;
+    }
 	m_strDeviceSignature = strNewSignature;
 
 	QString strPrevious = m_vendorSelection[m_vendor];
@@ -692,7 +676,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 	for (int i = 0; i < devices.size(); i++)
 		m_deviceKeys << devices[i].toMap()["key"].toString();
 
-	int iSelected = m_deviceKeys.indexOf(strPrevious);
+	int iSelected = m_deviceKeys.indexOf(edlKey.isEmpty() ? strPrevious : edlKey);
 	if (iSelected < 0 && !devices.isEmpty())
 		iSelected = 0;
 
@@ -775,6 +759,7 @@ void AppController::cancel()
 	if (!m_bBusy)
 		return;
 	if (m_bSwitching) {
+        if (m_edl->running()) { m_edl->cancel(); return; }
 		m_pAdb->CancelSwitch();
 		return;
 	}
@@ -801,7 +786,7 @@ QVariantList AppController::BatchTargets() const
 void AppController::StartJob(core::TaskJob job)
 {
 	if (m_bBusy || job.steps.empty()) return;
-	const bool local = core::IsLocalOperation(job.steps.front().operation);
+	const bool local = !core::RequiresEnumeratedDevice(job.steps.front());
 	if (!local) {
 		QVariantList targets;
 		if (m_bBatchMode) targets = BatchTargets();
@@ -811,6 +796,8 @@ void AppController::StartJob(core::TaskJob job)
 			QVariantMap map = value.toMap();
 			core::DeviceIdentity identity;
 			identity.serial = map["serial"].toString().toStdString();
+            identity.devicePath=map["devicePath"].toString().toStdString();
+            identity.transport=static_cast<core::QualcommTransport>(map.value("transport",-1).toInt());
 			identity.location = map["locationId"].toUInt();
             identity.vendor = static_cast<core::Vendor>(map.value("vendor",0).toInt());
             identity.bus = static_cast<uint8_t>(map["bus"].toUInt());
@@ -825,6 +812,10 @@ void AppController::StartJob(core::TaskJob job)
 	m_pObserver->BeginSelectionSession();
 	SetBusy(true); ResetProgress();
 	AppendLog(tr("Start: %1").arg(OperationName(m_runningOperation)), false);
+    if (QualcommSimulation(m_job)) {
+        AppendLog(tr("Simulation only; no device will be flashed"), false);
+        SetProgress(-1, tr("Simulation"));
+    }
 	emit requestExecute(m_job);
 }
 
@@ -920,6 +911,7 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 		return cancelled ? tr("Cancelled") : ok ? tr("Operation complete") : tr("Operation failed; see the log");
 	};
 	QString text = statusText();
+    if (QualcommSimulation(m_job)) text = tr("Simulation: %1").arg(text);
 	AppendLog(text, !ok && !cancelled);
 	if (m_bQueueActive) {
 		m_bQueueActive = false;
@@ -945,7 +937,7 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 		if (m_runningOperation == core::Operation::FirmwareUpgrade) SetFirmwareHint(batchText, !ok && !cancelled);
 		else if (m_runningOperation != core::Operation::LoaderUpgrade && m_runningOperation != core::Operation::DownloadImage) SetAdvancedHint(batchText, !ok && !cancelled);
 	}
-    if(m_runningOperation >= core::Operation::AllwinnerFlash && m_runningOperation < core::Operation::Count) {
+    if(m_runningOperation >= core::Operation::AllwinnerFlash && m_runningOperation <= core::Operation::AllwinnerReboot) {
         auto &state = m_allwinner[m_allwinnerContext];
         state.error = !ok && !cancelled;
         if(cancelled) state.hint.Set([] { return tr("Cancelled"); });
@@ -959,7 +951,8 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
         }
         emit allwinnerChanged();
     }
-	SetProgress(ok ? 100 : m_iProgressValue, text);
+	if (m_vendor == 2) m_strProgressSpeed.clear();
+	SetProgress(ok ? 100 : qMax(0, m_iProgressValue), text);
 	m_bCancelRequested = false;
 	emit toastRequested(text, !ok && !cancelled);
 }
@@ -983,9 +976,9 @@ void AppController::onStepStarted(int step, int target, int total, const QString
 
 void AppController::onOutput(int iLevel, const QString &strText)
 {
-	if(m_vendor == 1) {
+	if(m_vendor != 0) {
         AppendLog(strText, iLevel == static_cast<int>(core::LogLevel::Error));
-        if(m_diskLog) m_diskLog->Record("[Allwinner] %s", strText.toUtf8().constData());
+        if(m_diskLog) m_diskLog->Record("[%s] %s", m_vendor == 2 ? "Qualcomm" : "Allwinner", strText.toUtf8().constData());
         return;
     }
     // Rockchip engine records its own detailed log.
@@ -1079,7 +1072,12 @@ TranslatableText::Factory AppController::AwHint(const core::OperationResult &res
 
 void AppController::onOperationResult(const core::OperationResult &result)
 {
-    if(result.operation >= core::Operation::AllwinnerFlash && result.operation < core::Operation::Count) {
+    if(result.operation >= core::Operation::QualcommFlash && result.operation <= core::Operation::QualcommProvision) {
+        if (result.status == core::OperationStatus::Failed && !result.diagnostic.empty())
+            onOutput(static_cast<int>(core::LogLevel::Error), QString::fromStdString(result.diagnostic));
+        m_qualcomm->applyResult(result); return;
+    }
+    if(result.operation >= core::Operation::AllwinnerFlash && result.operation <= core::Operation::AllwinnerReboot) {
         if(result.operation == core::Operation::AllwinnerInspect) { ApplyAllwinnerInspectResult(m_allwinnerContext, result); return; }
         auto &state = m_allwinner[m_allwinnerContext];
         QVariantList items;
@@ -1347,6 +1345,15 @@ void AppController::showFirmwareInfo()
 }
 
 
+void AppController::refreshEdl()
+{
+    if (m_vendor == 2 && !m_bBusy) m_edl->refresh(m_pAdb->AdbPath());
+}
+void AppController::switchToEdl(const QString &target, int method, const QString &endpoint)
+{
+    if (m_vendor == 2 && !m_bBusy) m_edl->start(target, method, endpoint, m_pAdb->AdbPath());
+}
+
 void AppController::switchToLoader()
 {
 	if (m_bBusy || m_bSwitching)
@@ -1471,10 +1478,10 @@ void AppController::createGpt(const QString &strInput, const QString &strOutput)
 
 void AppController::setVendor(int vendor)
 {
-    if(m_bBusy || vendor<0 || vendor>1 || vendor==m_vendor) return;
+    if(m_bBusy || vendor<0 || vendor>2 || vendor==m_vendor) return;
     m_vendorSelection[m_vendor] = m_iDeviceIndex >= 0 ? m_deviceKeys.value(m_iDeviceIndex) : QString();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
-    m_vendor=vendor; m_pConfig->setUsbVendor(vendor == 1 ? "1f3a" : "2207");
+    m_vendor=vendor; m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
     m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();
     m_devices.clear(); m_deviceKeys.clear(); m_iDeviceIndex=-1; m_strDeviceSignature=QStringLiteral("changed");
     m_batchKeys=m_vendorBatch[m_vendor]; m_bBatchContinue=m_vendorContinue[m_vendor]; m_bBatchMode=m_batchKeys.size()>1;
@@ -1553,7 +1560,7 @@ void AppController::ensureAllwinnerContext(int context)
 
 void AppController::runAllwinner(int operation,const QVariantMap &p)
 {
-    if(m_bBusy || m_vendor!=1 || operation<static_cast<int>(core::Operation::AllwinnerFlash) || operation>=static_cast<int>(core::Operation::Count)) return;
+    if(m_bBusy || m_vendor!=1 || operation<static_cast<int>(core::Operation::AllwinnerFlash) || operation>static_cast<int>(core::Operation::AllwinnerReboot)) return;
     core::OperationRequest r; r.operation=static_cast<core::Operation>(operation); r.vendor=core::Vendor::Allwinner;
     bool contextOk=true;
     const int context=r.operation==core::Operation::AllwinnerDeviceInfo ? 3 : p.value("context",1).toInt(&contextOk);

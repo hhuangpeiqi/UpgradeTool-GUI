@@ -3,12 +3,12 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 if [ "$(uname -s)" != Darwin ]; then
-    echo "error: macOS 打包需要在 Mac 上运行。" >&2
+    echo "error: macOS packaging must run on a Mac." >&2
     exit 1
 fi
 if ! diskutil image create from --help >/dev/null 2>&1 || \
    ! diskutil image attach --help >/dev/null 2>&1; then
-    echo "error: macOS 打包需要支持 diskutil image create/attach 的系统，请升级 macOS。" >&2
+    echo "error: macOS packaging requires a system with diskutil image create/attach; upgrade macOS." >&2
     exit 1
 fi
 QT_ROOT=${QT_ROOT:-}
@@ -23,7 +23,11 @@ if [ -z "$QT_ROOT" ] && command -v brew >/dev/null 2>&1; then
     QT_ROOT=$(brew --prefix qt 2>/dev/null || true)
 fi
 if [ ! -x "$QT_ROOT/bin/macdeployqt" ]; then
-    echo "error: 未找到 Qt6，请设置 QT_ROOT 指向 Qt 的 macos 目录。" >&2
+    echo "error: Qt6 not found; set QT_ROOT to Qt's macos directory." >&2
+    exit 1
+fi
+if [ ! -f "$QT_ROOT/lib/cmake/Qt6SerialPort/Qt6SerialPortConfig.cmake" ]; then
+    echo "error: install the SerialPort module for the current Qt." >&2
     exit 1
 fi
 BUILD_DIR=${1:-"$ROOT/build-macos"}
@@ -46,7 +50,7 @@ cleanup() {
     if [ "$MOUNTED" = 1 ]; then
         if ! diskutil eject "$MOUNT_DIR"; then
             if ! diskutil eject force "$MOUNT_DIR"; then
-                echo "error: 无法卸载 ${MOUNT_DIR}；保留临时文件以便手动清理。" >&2
+                echo "error: could not unmount ${MOUNT_DIR}; keeping temporary files for manual cleanup." >&2
                 return
             fi
         fi
@@ -65,6 +69,7 @@ cp "$ROOT/lib/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.
 cp "$ROOT/third_party/libusb/COPYING" "$APP/Contents/Resources/licenses/libusb-LGPL-2.1.txt"
 cp "$ROOT/third_party/libefex/LICENSE" "$APP/Contents/Resources/licenses/libefex-MIT.txt"
 cp "$ROOT/core/allwinner/LICENSE.OpenixCLI" "$APP/Contents/Resources/licenses/OpenixCLI-MIT.txt"
+cp "$ROOT/third_party/qdl/LICENSE" "$APP/Contents/Resources/licenses/qdl-BSD-3-Clause.txt"
 if [ -d "$QT_ROOT/../../Licenses" ]; then
     ditto "$QT_ROOT/../../Licenses" "$APP/Contents/Resources/licenses/Qt"
 fi
@@ -99,11 +104,11 @@ mkdir -p "$MOUNT_DIR"
 diskutil image attach --mountPoint "$MOUNT_DIR" "$WRITABLE_DMG"
 MOUNTED=1
 if ! osascript "$ROOT/scripts/macos/layout_dmg.applescript" "$MOUNT_DIR"; then
-    echo "error: 无法设置 DMG 布局，请检查 Finder 自动化权限。" >&2
+    echo "error: could not set the DMG layout; check Finder automation permissions." >&2
     exit 1
 fi
 if [ ! -s "$MOUNT_DIR/.DS_Store" ]; then
-    echo "error: Finder 未保存 DMG 布局。" >&2
+    echo "error: Finder did not save the DMG layout." >&2
     exit 1
 fi
 sync

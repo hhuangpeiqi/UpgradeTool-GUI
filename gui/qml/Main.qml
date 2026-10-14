@@ -18,7 +18,7 @@ ApplicationWindow {
     flags: nativeWindow ? Qt.Window : (Qt.Window | Qt.FramelessWindowHint)
 
     property int currentPage: 1
-    property var vendorPages: [1, 1]
+    property var vendorPages: [1, 1, 1]
     property int previousVendor: 0
 
     Binding {
@@ -49,6 +49,20 @@ ApplicationWindow {
     readonly property int cornerRadius:
         (nativeWindow || visibility === Window.Maximized || visibility === Window.FullScreen)
         ? 0 : Theme.windowRadius
+
+    function openEdlDialog() {
+        edlDialog.open();
+        app.refreshEdl();
+    }
+
+    // Switch straight away with the device, method and interface last confirmed
+    // in the switch dialog; fall back to the first discovered target.
+    function switchEdl() {
+        var target = edlDialog.confirmedTargetId;
+        if (target === "" && app.edl.targets.length > 0)
+            target = app.edl.targets[0].id;
+        app.switchToEdl(target, edlDialog.confirmedMethod, edlDialog.confirmedEndpointId);
+    }
 
     function toggleActionMenu(menu, source) {
         if (menu.visible) {
@@ -141,7 +155,7 @@ ApplicationWindow {
                 onTabRequested: (index) => window.currentPage = index
                 onConfigClicked: (source) => window.toggleActionMenu(configMenu, source)
                 onDeviceClicked: (source) => window.toggleActionMenu(deviceMenu, source)
-                onHelpClicked: (source) => window.toggleActionMenu(helpMenu, source)
+                onMoreClicked: (source) => window.toggleActionMenu(moreMenu, source)
             }
 
             Item {
@@ -169,6 +183,18 @@ ApplicationWindow {
                             }
                         }
                         AllwinnerToolsPage {}
+                        QualcommPartitionsPage {
+                            onSwitchConfigRequested: window.openEdlDialog()
+                            onSwitchEdlRequested: window.switchEdl()
+                        }
+                        QualcommFlashPage {
+                            onSwitchConfigRequested: window.openEdlDialog()
+                            onSwitchEdlRequested: window.switchEdl()
+                        }
+                        QualcommToolsPage {
+                            onSwitchConfigRequested: window.openEdlDialog()
+                            onSwitchEdlRequested: window.switchEdl()
+                        }
                     }
 
                     LogPanel {
@@ -233,8 +259,7 @@ ApplicationWindow {
     }
 
     AppMenu {
-        id: helpMenu
-        AppMenuItem { text: qsTr("Usage"); onTriggered: usageDialog.open() }
+        id: moreMenu
         AppMenuItem {
             text: qsTr("Log")
             onTriggered: toast.show(qsTr("Log directory: %1").arg(app.logDir()), false)
@@ -243,12 +268,13 @@ ApplicationWindow {
     }
 
     AllwinnerDeviceDialog { id: allwinnerDeviceDialog }
+    EdlSwitchDialog { id: edlDialog }
 
     Toast {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: (window.nativeWindow ? 0 : Theme.titleBarHeight) + 14
+        anchors.topMargin: (window.nativeWindow ? 0 : Theme.titleBarHeight) + Theme.navBarHeight + 12
         z: 2000
     }
 
@@ -281,7 +307,6 @@ ApplicationWindow {
     StorageSelectDialog { id: storageDialog }
     GptDialog { id: gptDialog }
     AboutDialog { id: aboutDialog }
-    UsageDialog { id: usageDialog }
     AdbDeviceDialog { id: adbDialog }
     PermissionDialog {
         id: permissionDialog

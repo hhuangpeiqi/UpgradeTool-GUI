@@ -7,10 +7,20 @@ Item {
 
     property int currentIndex: 0
 
+    // Qualcomm reuses the first two tabs for a different purpose (partition
+    // work and downloading), so the icons follow the tab's meaning per vendor
+    // instead of the slot index.
+    readonly property url partitionIcon: root.currentIndex === 0
+        ? (app.vendor === 2 ? Icons.chipBlue : Icons.downloadBlue)
+        : (app.vendor === 2 ? Icons.chipGray : Icons.downloadGray)
+    readonly property url downloadIcon: root.currentIndex === 1
+        ? (app.vendor === 2 ? Icons.downloadBlue : Icons.chipBlue)
+        : (app.vendor === 2 ? Icons.downloadGray : Icons.chipGray)
+
     signal tabRequested(int index)
     signal configClicked(Item source)
     signal deviceClicked(Item source)
-    signal helpClicked(Item source)
+    signal moreClicked(Item source)
 
     implicitHeight: Theme.navBarHeight
 
@@ -33,29 +43,34 @@ Item {
         spacing: 4
 
         AppComboBox {
+            id: vendorSelector
+            objectName: "vendorSelector"
             Layout.preferredWidth: 170
-            model: [qsTr("Rockchip"), qsTr("Allwinner")]
+            model: [qsTr("Rockchip"), qsTr("Allwinner"), qsTr("Qualcomm")]
             currentIndex: app.vendor
+            onModelChanged: Qt.callLater(function() {
+                vendorSelector.currentIndex = Qt.binding(function() { return app.vendor; });
+            })
             enabled: !app.busy
             onActivated: (index) => app.vendor = index
         }
 
         NavButton {
-            text: app.vendor === 0 ? qsTr("Download Image") : qsTr("Raw Image Flash")
-            iconSource: root.currentIndex === 0 ? Icons.downloadBlue : Icons.downloadGray
+            text: app.vendor === 2 ? qsTr("Partition Tools") : app.vendor === 0 ? qsTr("Download Image") : qsTr("Raw Image Flash")
+            iconSource: root.partitionIcon
             selected: root.currentIndex === 0
             onClicked: root.tabRequested(0)
         }
 
         NavButton {
-            text: app.vendor === 0 ? qsTr("Upgrade Firmware") : qsTr("Flash Firmware")
-            iconSource: root.currentIndex === 1 ? Icons.chipBlue : Icons.chipGray
+            text: app.vendor === 2 ? qsTr("Download") : app.vendor === 0 ? qsTr("Upgrade Firmware") : qsTr("Flash Firmware")
+            iconSource: root.downloadIcon
             selected: root.currentIndex === 1
             onClicked: root.tabRequested(1)
         }
 
         NavButton {
-            text: qsTr("Advanced")
+            text: app.vendor === 2 ? qsTr("Tools") : qsTr("Advanced")
             iconSource: root.currentIndex === 2 ? Icons.gearBlue : Icons.gearGray
             selected: root.currentIndex === 2
             onClicked: root.tabRequested(2)
@@ -78,10 +93,10 @@ Item {
         }
 
         NavAction {
-            id: helpAction
-            text: qsTr("Help")
-            iconSource: Icons.helpGray
-            onClicked: root.helpClicked(helpAction)
+            id: moreAction
+            text: qsTr("More")
+            iconSource: Icons.moreGray
+            onClicked: root.moreClicked(moreAction)
         }
     }
 }

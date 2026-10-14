@@ -55,13 +55,14 @@ EdgeRoundedRect {
         AppProgressBar {
             Layout.fillWidth: true
             Layout.maximumWidth: 560
-            Layout.minimumWidth: 220
+            Layout.minimumWidth: root.width >= 1200 ? 220 : 140
             Layout.alignment: Qt.AlignVCenter
             value: root.progressValue / 100.0
+            indeterminate: root.busy && root.progressValue < 0
         }
 
         Text {
-            text: root.progressValue + "%"
+            text: root.progressValue < 0 ? "" : root.progressValue + "%"
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontMedium
@@ -72,6 +73,7 @@ EdgeRoundedRect {
 
         Text {
             text: root.progressSpeed
+            visible: root.width >= 1200
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontMedium
@@ -90,7 +92,8 @@ EdgeRoundedRect {
         }
 
         DeviceComboBox {
-            Layout.preferredWidth: 300
+            objectName: "deviceCombo"
+            Layout.preferredWidth: root.width >= 1200 ? 300 : 220
             model: root.deviceLabels
             currentIndex: root.deviceLabels.length > 0 ? root.deviceIndex : -1
             enabled: root.deviceLabels.length > 0
@@ -98,6 +101,7 @@ EdgeRoundedRect {
         }
 
         SecondaryButton {
+            objectName: "statusRefresh"
             text: qsTr("Refresh")
             iconSource: Icons.refreshBlue
             implicitHeight: 34

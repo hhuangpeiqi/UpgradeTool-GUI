@@ -2,23 +2,54 @@
 
 **English** | [中文](README.zh-CN.md)
 
-Firmware flashing tool for Rockchip (Loader / Maskrom) and Allwinner (FEL / FES) devices, built with Qt6 Quick/QML.
+Firmware flashing tool for Rockchip (Loader / Maskrom), Allwinner (FEL / FES), and Qualcomm (EDL) devices, built with Qt6 Quick/QML.
 
 ![Light theme](docs/gui.png)
 ![Dark theme](docs/gui-dark.png)
 
+## Supported devices
+
+| Vendor | Flashing modes | Pages (1 / 2 / 3) | USB ID |
+|---|---|---|---|
+| Rockchip | Loader, Maskrom | Download Image / Upgrade Firmware / Advanced | VID `2207` |
+| Allwinner | FEL, FES | Raw Image Flash / Flash Firmware / Advanced | `1f3a:efe8` |
+| Qualcomm | EDL (9008) | Partition Tools / Download / Tools | VID `05c6` |
+
 ## Features
+
+Shared by all vendors:
+
+- Automatic device scan, batch flashing (one vendor per batch, in device order), task progress, cancel, and logging.
+- Chinese and English UI, light and dark themes.
+
+**Rockchip**
 
 - Full firmware upgrade, info parsing, and unpacking.
 - Boot download and loader upgrade, flashing images by `parameter.txt` partitions.
 - Device, flash, chip, OTP, secure-mode, and partition-table queries.
 - LBA read/write, sector write, block erase, image export.
 - Serial number read/write, serial log export, GPT generation.
-- Automatic device scan, batch flashing, task progress, cancel, and logging.
+
+**Allwinner**
+
+- Unencrypted IMAGEWTY v1/v2/v3 inspection and unpacking.
+- Bare-image and firmware flashing with four modes: partition, keep user data, partition erase, full erase.
+- Switch to FEL over ADB from the flashing pages.
+- Offline programmer-image conversion for SPI NOR, SD card, eMMC, SD NAND, and UFS.
+- Device information and reboot in FES mode.
+
+**Qualcomm**
+
+- qdl-based Sahara and Firehose protocol, with no separate qdl executable.
+- Partition tools using qdl addresses, plus Flat Build download from rawprogram and patch XML.
+- Switch to EDL (9008) from DIAG ports or authorized ADB devices.
+- Dry-run simulation, UFS provisioning, and package creation (zip, archive, digests).
 
 ## Usage
 
-Pick a vendor, connect a device in flashing mode, then select the target in the bottom device bar. Batch flashing is limited to one vendor and runs in device order. The UI language follows the system by default; switch between Chinese and English in **Config → Preferences…**.
+Pick a vendor, connect a device in flashing mode, then select the target in the bottom device bar. The UI language follows the system by default; switch between Chinese and English in **Config → Preferences…**.
+
+### Rockchip
 
 | Page | Action |
 |---|---|
@@ -27,11 +58,29 @@ Pick a vendor, connect a device in flashing mode, then select the target in the 
 | Advanced | Query device info, read/write serial numbers, export logs or images, erase storage. |
 | Config | Edit config, generate GPT, install Linux device rules, switch theme. |
 
-Allwinner workspaces are bare-image flashing, firmware flashing, and advanced features. Advanced supports offline inspection, unpacking, programmer image conversion, and rebooting the device in FES mode; device info is under the **Device** menu. Unencrypted IMAGEWTY v1/v2/v3 parsing and unpacking are supported, with four flash modes: partition, keep user data, erase partition, and full erase (defaults: full erase, verification on, reboot when done; a failed verification stops the task).
+### Allwinner
 
-Allwinner bare-image and firmware pages can switch to FEL over ADB. The standard `efex` entry is used by default, a compatible T3 Buildroot entry is auto-detected, or you can force the alternative. After switching, the target USB port is checked to confirm the result; flashing does not start automatically. Bare-image flashing needs a board-matched IMAGEWTY boot firmware and always uses full erase, no verification, reboot when done. Image conversion supports SPI NOR, SD card, eMMC, SD NAND, and UFS, reads the DTB offset and secure-boot flag automatically, and needs no device.
+| Page | Action |
+|---|---|
+| Raw Image Flash | Select a board-matched IMAGEWTY boot firmware and the image to write, with an optional write method (Command / logic offset) and logic offset; always full erase, no verification, reboot when done. |
+| Flash Firmware | Select a firmware package and a flash mode (partition / keep user data / partition erase / full erase), with optional verification after write; defaults are full erase, verification on, reboot when done, and a failed verification stops the task. |
+| Advanced | View partitions and embedded files, extract firmware, reboot the device in FES mode, convert programmer images (SPI NOR / SD card / eMMC / SD NAND / UFS). |
+| Device menu | Query device information. |
 
-Startup arguments:
+The two flashing pages can switch to FEL over ADB: the standard `efex` entry is used by default, a compatible T3 Buildroot entry is auto-detected, or you can force the alternative. After switching, the target USB port is checked to confirm the result, and flashing does not start automatically. Image conversion reads the DTB offset and secure-boot flag automatically and needs no device.
+
+### Qualcomm
+
+| Page | Action |
+|---|---|
+| Partition Tools | Select a programmer, then add read / write / erase / SHA256 / reset operations by qdl address (`LUN`, `LUN/sector`, `LUN/sector+count`, a partition name, or `LUN/partition-name`) and run them in order; an explicit Firehose reset must be last. |
+| Download | Select the build type (Flat Build / Meta) and programmer, then load rawprogram and patch XML with **Load XML** (or **Skip patch**) and click **Download**; use **Ctrl/Shift-click** to select several LUN files, and re-running **Load XML** replaces the previous selection. |
+| Tools | Chip info, reset, RAM dump, Sahara kickstart, create ZIP / Sahara archive / VIP digests, and UFS provisioning. |
+| Switch settings… / Switch to EDL | Choose the device, switch method, and diagnostic interface (DIAG or authorized ADB), then move the device into EDL (9008) mode. |
+
+The **Load XML** dialog opens in the programmer's folder and the loaded list is read-only. DIAG is not restricted to PID 9091; unknown interfaces can be selected manually but must pass a read-only DIAG query. Qualcomm inputs are session-only and are not written to the configuration. Enabling **Dry run** simulates qdl without accessing a device or writing read-output files; it does not prove hardware support, so validate a real flash and boot separately. A switch attempt is not retried, and success is confirmed only when the device re-enumerates at the same USB location.
+
+### Command-line arguments
 
 ```sh
 ./build/upgrade_tool_gui --firmware /path/to/update.img
@@ -39,9 +88,17 @@ Startup arguments:
 ./build/upgrade_tool_gui --vendor allwinner --firmware /path/to/allwinner.img
 ```
 
-`--vendor` defaults to `rockchip`; the other value is `allwinner`. Rockchip `--tab`: `0` Download Image, `1` Upgrade Firmware (default), `2` Advanced; Allwinner uses bare-image flashing, firmware flashing, and advanced features in that order. `--firmware` loads a firmware package into the selected page. `--lang` defaults to `auto` (follow the system) and also accepts `zh` or `en`.
+`--vendor` defaults to `rockchip`; other values are `allwinner` and `qualcomm`. `--tab` defaults to `1` and selects the page in vendor order:
 
-### Device permissions
+| `--vendor` | `--tab 0` | `--tab 1` (default) | `--tab 2` |
+|---|---|---|---|
+| `rockchip` | Download Image | Upgrade Firmware | Advanced |
+| `allwinner` | Raw Image Flash | Flash Firmware | Advanced |
+| `qualcomm` | Partition Tools | Download | Tools |
+
+`--firmware` loads a firmware package into the selected page. `--lang` defaults to `auto` (follow the system) and also accepts `zh` or `en`.
+
+## Device permissions
 
 **Linux**: Install the udev rules from **Config**, or run:
 
@@ -49,15 +106,15 @@ Startup arguments:
 sudo scripts/install-udev.sh
 ```
 
-The `.deb` installs both vendor rule sets automatically. The Allwinner USB ID is `1f3a:efe8`; if you see a permission error, install the rules and reconnect the device. A device is recognized when the device bar shows `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom`.
+The `.deb` installs all vendor rule sets automatically. If you see a permission error, install the rules and reconnect the device. A Rockchip device is recognized when the device bar shows `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom`.
 
 **macOS**: No extra USB driver is needed. ADB is optional, to switch an Android device to Loader.
 
-**Windows**: Use [Zadig](https://zadig.akeo.ie/) to install the WinUSB driver for Rockchip VID `2207` or Allwinner `1f3a:efe8` devices. Not yet verified on real Windows.
+**Windows**: Use [Zadig](https://zadig.akeo.ie/) to install the WinUSB driver for Rockchip VID `2207` or Allwinner `1f3a:efe8` devices. Qualcomm also supports the official QDLoader COM driver through the QUD backend. Not yet verified on real Windows.
 
 ## Build
 
-Requires CMake 3.21.1+, a C++11 compiler, and Qt6 (Core, Gui, Quick, QuickControls2). libusb is statically linked through a submodule; no separate install is needed.
+Requires CMake 3.21.1+, Git, GNU C11/C++11 compilers, and Qt6 (Core, Gui, Quick, QuickControls2, SerialPort). libusb, libzip and libxml2 are statically linked through submodules; zlib comes from the system.
 
 Fetch submodules before the first build:
 
@@ -65,12 +122,14 @@ Fetch submodules before the first build:
 git submodule update --init --recursive
 ```
 
+The Qualcomm backend compiles qdl from `third_party/qdl`: CMake copies the upstream sources into the build tree and applies `cmake/patches/qdl-embedded.patch`, which drops the CLI entry points, adds callbacks and cancellation, replaces fatal parser exits, and gives USB transfers a separate libusb context, so no qdl executable is required. When the submodule revision changes, rebase that patch and re-run the test and packaging checks; never bypass a patch application failure.
+
 ### Linux
 
 Debian / Ubuntu:
 
 ```sh
-sudo apt install cmake g++ qt6-base-dev qt6-declarative-dev qt6-l10n-tools qt6-tools-dev-tools \
+sudo apt install cmake git g++ zlib1g-dev qt6-base-dev qt6-serialport-dev qt6-declarative-dev qt6-l10n-tools qt6-tools-dev-tools \
   qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
   qml6-module-qtquick-templates qml6-module-qtquick-window \
   qml6-module-qtqml-workerscript qt6-qpa-plugins
@@ -151,4 +210,14 @@ The config format is `key=value`, with lines starting with `#` as comments. The 
 
 ## License
 
-The protocol and device core are derived from `rockchip-linux/rkdeveloptool` under GPL-2.0; see [lib/license.txt](lib/license.txt). The bundled libusb is under LGPL-2.1. Allwinner support references OpenixCLI, with the protocol core from libefex, both under MIT; see [core/allwinner/README.md](core/allwinner/README.md) and [third_party/libefex/README.md](third_party/libefex/README.md).
+| Component / source | License | Reference |
+|---|---|---|
+| rkdeveloptool | GPL-2.0 | [lib/license.txt](lib/license.txt) |
+| libusb | LGPL-2.1 | `third_party/libusb/COPYING` |
+| OpenixCLI | MIT | [core/allwinner/LICENSE.OpenixCLI](core/allwinner/LICENSE.OpenixCLI) |
+| libefex | MIT | [third_party/libefex/README.md](third_party/libefex/LICENSE) |
+| qdl | BSD-3-Clause | [third_party/qdl/LICENSE](third_party/qdl/LICENSE) |
+| libzip | BSD-3-Clause | `third_party/libzip/LICENSE` |
+| libxml2 | MIT | `third_party/libxml2/Copyright` |
+
+The license files and READMEs of the bundled third-party components take precedence.
