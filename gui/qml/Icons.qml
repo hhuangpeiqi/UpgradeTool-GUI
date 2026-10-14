@@ -36,6 +36,9 @@ QtObject {
                                       : Qt.resolvedUrl("icons/search-gray.svg")
     readonly property url playWhite: Qt.resolvedUrl("icons/play-white.svg")
     readonly property url switchBlue: Qt.resolvedUrl("icons/switch-blue.svg")
+    readonly property url plusGray: Theme.dark
+                                    ? Qt.resolvedUrl("icons/plus-gray-dark.svg")
+                                    : Qt.resolvedUrl("icons/plus-gray.svg")
     readonly property url trashGray: Theme.dark
                                      ? Qt.resolvedUrl("icons/trash-gray-dark.svg")
                                      : Qt.resolvedUrl("icons/trash-gray.svg")

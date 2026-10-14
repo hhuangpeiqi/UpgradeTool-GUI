@@ -75,7 +75,8 @@ QualcommWorkspace {
     FormSection {
         visible: !page.packageBuild
         title: qsTr("Firmware XML")
-        headerActions: SecondaryButton {
+        headerActions: PrimaryButton {
+            iconSource: Icons.folderWhite
             objectName: "qcLoadXml"
             text: qsTr("Load XML…")
             onClicked: xmlList.loadXml()
@@ -130,6 +131,7 @@ QualcommWorkspace {
     QualcommOptions { context: page.context; packageBuild: page.packageBuild }
     actions: [
         PrimaryButton {
+            iconSource: Icons.playWhite
             objectName: "qcDownload"
             text: page.settings.dryRun ? qsTr("Simulate download") : qsTr("Download")
             enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommFlash].allowed)

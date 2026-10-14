@@ -32,7 +32,7 @@ RowLayout {
                                                : root.pickerMode === AppFilePicker.OpenFolder ? qsTr("Select a directory") : qsTr("Enter a path or browse for a file")
         onTextEdited: { app.qualcomm.setContextValue(root.context, root.settingKey, text.trim()); root.edited(text.trim()); }
     }
-    SecondaryButton { text: qsTr("Browse…"); focusPolicy: Qt.StrongFocus; onClicked: picker.open() }
+    PrimaryButton { text: qsTr("Browse…"); iconSource: Icons.folderWhite; focusPolicy: Qt.StrongFocus; onClicked: picker.open() }
     AppFilePicker {
         id: picker
         objectName: "qcPathPicker-" + root.settingKey

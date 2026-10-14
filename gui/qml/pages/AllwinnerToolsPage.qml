@@ -41,6 +41,7 @@ AllwinnerWorkspace {
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Choose a directory and extract…")
+            iconSource: Icons.folderGray
             enabled: !app.busy && page.valid
             onClicked: extractPicker.open()
         }
@@ -53,6 +54,7 @@ AllwinnerWorkspace {
             focusPolicy: Qt.StrongFocus
             objectName: "awReboot"
             text: qsTr("Reboot Device")
+            iconSource: Icons.refreshBlue
             enabled: !app.busy && app.vendor === 1 && app.hasDevice
             onClicked: page.execute(Operations.AllwinnerReboot)
         }
@@ -148,11 +150,13 @@ AllwinnerWorkspace {
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Read Info Again")
+            iconSource: Icons.refreshBlue
             enabled: !app.busy && page.firmware !== ""
             onClicked: page.execute(Operations.AllwinnerInspect)
         },
         Item { Layout.fillWidth: true },
         PrimaryButton {
+            iconSource: Icons.playWhite
             focusPolicy: Qt.StrongFocus
             objectName: "awConvertStart"
             text: qsTr("Convert Image")

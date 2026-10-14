@@ -26,7 +26,7 @@ RowLayout {
         selectByMouse: true
         onEditingFinished: root.edited(text.trim())
     }
-    SecondaryButton { focusPolicy: Qt.StrongFocus; text: qsTr("Browse…"); onClicked: picker.open() }
+    PrimaryButton { focusPolicy: Qt.StrongFocus; text: qsTr("Browse…"); iconSource: Icons.folderWhite; onClicked: picker.open() }
     AppFilePicker {
         id: picker
         titleText: root.caption

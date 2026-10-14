@@ -141,7 +141,8 @@ QualcommWorkspace {
     FormSection {
         visible: page.showXml
         title: page.context === "provision" ? qsTr("UFS configuration XML") : qsTr("XML")
-        headerActions: SecondaryButton {
+        headerActions: PrimaryButton {
+            iconSource: Icons.folderWhite
             objectName: "qcLoadXml"
             text: qsTr("Load XML…")
             onClicked: toolXml.loadXml()
@@ -153,6 +154,7 @@ QualcommWorkspace {
     KeyValueTable { Layout.fillWidth: true; Layout.preferredHeight: 160; model: page.results; visible: page.results.count > 0 }
     actions: [
         PrimaryButton {
+            iconSource: Icons.playWhite
             objectName: "qcToolStart"
             text: page.context === "provision" && page.settings.dryRun ? qsTr("Simulate") : qsTr("Execute")
             enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[page.operationIds[page.selectedTool]].allowed)

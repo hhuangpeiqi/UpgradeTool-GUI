@@ -62,6 +62,7 @@ AllwinnerWorkspace {
     }
     actions: [
         PrimaryButton {
+            iconSource: Icons.playWhite
             focusPolicy: Qt.StrongFocus
             objectName: "awRawStart"
             text: app.batchMode ? qsTr("Batch flash") : qsTr("Start Flashing")

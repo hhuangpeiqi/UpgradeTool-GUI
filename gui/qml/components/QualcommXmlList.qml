@@ -89,6 +89,7 @@ ColumnLayout {
                 objectName: "qcXmlRowRemove-" + root.context
                 visible: root.showRowActions
                 text: qsTr("Remove")
+                iconSource: Icons.trashGray
                 onClicked: app.qualcomm.removeXml(index, root.context)
             }
         }

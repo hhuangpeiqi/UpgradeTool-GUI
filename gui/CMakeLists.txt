@@ -167,6 +167,7 @@ set(_icon_files
   icons/play-white.svg
   icons/switch-blue.svg
   icons/trash-gray.svg
+  icons/plus-gray.svg
   icons/device-gray.svg
   icons/inbox-gray.svg
   icons/check-white.svg
@@ -180,6 +181,7 @@ set(_icon_files
   icons/file-gray-dark.svg
   icons/search-gray-dark.svg
   icons/trash-gray-dark.svg
+  icons/plus-gray-dark.svg
   icons/device-gray-dark.svg
   icons/inbox-gray-dark.svg
   icons/caret-gray-dark.svg

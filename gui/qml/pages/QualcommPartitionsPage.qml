@@ -60,6 +60,7 @@ QualcommWorkspace {
             Item { Layout.fillWidth: true }
             SecondaryButton {
                 text: qsTr("Add")
+                iconSource: Icons.plusGray
                 enabled: (page.operations.length === 0 || page.operations[page.operations.length - 1].type !== 4) && (address.text.trim().length > 0 || page.selectedAction === 4) && (page.selectedAction > 1 || Boolean(page.settings.rawFile))
                 onClicked: {
                     var rows = page.operations.slice();
@@ -85,7 +86,7 @@ QualcommWorkspace {
                     Text { text: modelData.address + (modelData.type < 2 ? "  ·  " + modelData.file : ""); color: Theme.textPrimary; elide: Text.ElideMiddle; Layout.fillWidth: true; font.family: Theme.fontFamily }
                     SecondaryButton { text: "↑"; enabled: index > 0 && modelData.type !== 4; onClicked: { var rows = page.operations.slice(); var row = rows.splice(index, 1)[0]; rows.splice(index - 1, 0, row); page.operations = rows; } }
                     SecondaryButton { text: "↓"; enabled: index + 1 < page.operations.length && page.operations[index + 1].type !== 4; onClicked: { var rows = page.operations.slice(); var row = rows.splice(index, 1)[0]; rows.splice(index + 1, 0, row); page.operations = rows; } }
-                    SecondaryButton { text: qsTr("Remove"); onClicked: { var rows = page.operations.slice(); rows.splice(index, 1); page.operations = rows; } }
+                    SecondaryButton { text: qsTr("Remove"); iconSource: Icons.trashGray; onClicked: { var rows = page.operations.slice(); rows.splice(index, 1); page.operations = rows; } }
                 }
             }
         }
@@ -95,6 +96,7 @@ QualcommWorkspace {
     KeyValueTable { Layout.fillWidth: true; Layout.preferredHeight: 140; model: page.results; visible: page.results.count > 0 }
     actions: [
         PrimaryButton {
+            iconSource: Icons.playWhite
             objectName: "qcRawStart"
             text: page.settings.dryRun ? qsTr("Simulate") : qsTr("Execute")
             enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommRaw].allowed)
