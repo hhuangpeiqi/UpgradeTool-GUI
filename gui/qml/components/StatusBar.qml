@@ -12,6 +12,8 @@ EdgeRoundedRect {
     property int progressValue: 0
     property string progressSpeed: ""
     property bool busy: false
+    property bool hasDevice: false
+    property bool hasAdbDevice: false
     property int cornerRadius: Theme.windowRadius
 
     signal refreshClicked()
@@ -36,26 +38,56 @@ EdgeRoundedRect {
         anchors.rightMargin: 16
         spacing: 14
 
-        Image {
-            source: Icons.deviceGray
-            sourceSize.width: 22
-            sourceSize.height: 22
-            Layout.alignment: Qt.AlignVCenter
-        }
-
-        Text {
-            id: statusLabel
-            objectName: "statusSummary"
-            text: root.statusText
-            color: Theme.textPrimary
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontMedium
-            elide: Text.ElideRight
+        Rectangle {
+            id: statusBadge
+            objectName: "deviceStatusBadge"
+            implicitHeight: 34
+            implicitWidth: statusLabel.implicitWidth + 48
+            radius: Theme.controlRadius
+            color: root.hasDevice ? Theme.toastOkBg
+                                  : root.hasAdbDevice ? Theme.primarySoft : Theme.fieldDisabled
+            border.width: 1
+            border.color: root.hasDevice ? Theme.toastOkBorder
+                                         : root.hasAdbDevice ? Theme.primary : Theme.borderStrong
             Layout.fillWidth: true
-            Layout.minimumWidth: 0
+            Layout.minimumWidth: Math.min(180, root.width * 0.25)
             Layout.preferredWidth: Math.min(implicitWidth, root.width * 0.25)
             Layout.maximumWidth: root.width * 0.25
             Layout.alignment: Qt.AlignVCenter
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 8
+
+                Image {
+                    source: Icons.deviceGray
+                    sourceSize.width: 20
+                    sourceSize.height: 20
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                Text {
+                    id: statusLabel
+                    objectName: "statusSummary"
+                    text: root.statusText
+                    color: {
+                        if (root.hasDevice)
+                            return Theme.success;
+                        if (root.hasAdbDevice)
+                            return Theme.dark ? Qt.lighter(Theme.primary, 1.5) : Theme.primary;
+                        return Theme.textSecondary;
+                    }
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontMedium
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.alignment: Qt.AlignVCenter
+                }
+            }
 
             HoverHandler { id: statusHover }
             ToolTip {
@@ -94,7 +126,10 @@ EdgeRoundedRect {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontMedium
             elide: Text.ElideRight
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
             Layout.preferredWidth: 260
+            Layout.maximumWidth: 260
             Layout.alignment: Qt.AlignVCenter
             horizontalAlignment: Text.AlignLeft
         }

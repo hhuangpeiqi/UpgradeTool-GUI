@@ -189,6 +189,8 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 cornerRadius: window.cornerRadius
                 statusText: app.deviceStatusText
+                hasDevice: app.hasDevice
+                hasAdbDevice: app.vendor !== 2 && app.adbReady
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
                 progressValue: app.progressValue

@@ -14,6 +14,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <QImage>
+#include <QColor>
 #include <QMouseEvent>
 #include <QSettings>
 #include <QVariantList>
@@ -435,6 +436,7 @@ int main(int argc,char **argv) {
             CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
                 Q_ARG(QVariantList, interfaces)));
             auto *summary = window->findChild<QQuickItem *>("statusSummary"); CHECK(summary);
+            auto *badge = window->findChild<QQuickItem *>("deviceStatusBadge"); CHECK(badge);
             auto *tooltip = window->findChild<QObject *>("statusSummaryTooltip"); CHECK(tooltip);
             auto *progress = window->findChild<QQuickItem *>("statusProgress"); CHECK(progress);
             auto *cancel = window->findChild<QQuickItem *>("statusCancel"); CHECK(cancel);
@@ -496,6 +498,70 @@ int main(int argc,char **argv) {
                 MovePointer(window, summary->mapToScene(QPointF(summary->width()/2, summary->height()/2)));
                 CHECK(Await([&]{return !tooltip->property("visible").toBool();}));
                 MovePointer(window, QPointF(2, 2));
+            }
+            if (badge && summary && progress && refresh) {
+                for (const QString &language : {QStringLiteral("en"), QStringLiteral("zh")}) {
+                    controller.language()->setMode(language);
+                    for (const QString &theme : {QStringLiteral("light"), QStringLiteral("dark")}) {
+                        controller.theme()->setMode(theme);
+                        controller.setVendor(2);
+                        CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                            Q_ARG(QVariantList, interfaces)));
+                        CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
+                            Q_ARG(QStringList, QStringList{QStringLiteral("board")})));
+                        const QColor deviceColor = summary->property("color").value<QColor>();
+                        const QColor deviceBackground = badge->property("color").value<QColor>();
+                        CHECK(deviceColor.green() > deviceColor.red() && deviceColor.green() > deviceColor.blue());
+
+                        auto inspectStatus = [&](const QString &state) {
+                            for (int width : {1024, 1300}) {
+                                window->setWidth(width);
+                                CHECK(Await([&] {
+                                    return window->width() == width
+                                        && badge->width() >= 180 && badge->width() <= width * 0.25 + 1
+                                        && progress->width() >= (width >= 1200 ? 220 : 140)
+                                        && badge->mapToScene(QPointF(badge->width(), 0)).x()
+                                            <= progress->mapToScene(QPointF(0, 0)).x()
+                                        && refresh->mapToScene(QPointF(refresh->width(), 0)).x() <= width;
+                                }));
+                                CHECK(summary->property("text").toString() == controller.deviceStatusText());
+                                if (argc > 2) {
+                                    QDir output(QString::fromLocal8Bit(argv[2])); CHECK(QDir().mkpath(output.path()));
+                                    QElapsedTimer frame; frame.start(); Await([&]{return frame.elapsed() > 100;});
+                                    CHECK(window->grabWindow().save(output.filePath(
+                                        QString("status-%1-%2-%3-%4.png").arg(language, theme, state).arg(width))));
+                                }
+                            }
+                        };
+                        inspectStatus("device");
+                        controller.setBatchTargets({QStringLiteral("interface-%1").arg(QTQ_DIAG),
+                                                    QStringLiteral("interface-%1").arg(QTQ_EDL)}, true);
+                        CHECK(controller.batchMode());
+                        CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                            Q_ARG(QVariantList, QVariantList{})));
+                        CHECK(controller.batchSelected() == 2 && !controller.hasDevice());
+                        const QColor noDeviceBackground = badge->property("color").value<QColor>();
+                        CHECK(noDeviceBackground != deviceBackground);
+                        inspectStatus("batch-disconnected");
+                        controller.clearBatch();
+                        inspectStatus("none");
+
+                        controller.setVendor(0);
+                        CHECK(controller.adbReady() && !controller.hasDevice());
+                        const QColor adbColor = summary->property("color").value<QColor>();
+                        const QColor adbBackground = badge->property("color").value<QColor>();
+                        CHECK(adbColor.blue() > adbColor.red() && adbColor.blue() > adbColor.green());
+                        CHECK(adbBackground != deviceBackground && adbBackground != noDeviceBackground);
+                        inspectStatus("adb");
+                        CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
+                            Q_ARG(QStringList, QStringList{})));
+                        CHECK(badge->property("color").value<QColor>() == noDeviceBackground);
+                        inspectStatus("adb-disconnected");
+                    }
+                }
+                controller.language()->setMode("en");
+                controller.theme()->setMode("light");
+                controller.setVendor(2);
             }
             CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
                 Q_ARG(QVariantList, originalDevices)));
