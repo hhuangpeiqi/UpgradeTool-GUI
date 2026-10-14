@@ -24,8 +24,13 @@ void EngineWorker::scanDevices()
                 map["index"] = dev.index; map["vid"] = dev.vid; map["pid"] = dev.pid;
                 map["locationId"] = dev.identity.location; map["usbType"] = dev.usbType;
                 map["mode"] = QString::fromStdString(dev.mode); map["serial"] = QString::fromStdString(dev.identity.serial);
+                map["deviceInstance"]=QString::fromStdString(dev.identity.deviceInstance);
                 map["devicePath"]=QString::fromStdString(dev.identity.devicePath);
                 map["transport"]=static_cast<int>(dev.identity.transport);
+                map["qualcommMode"] = static_cast<int>(dev.qualcommMode); map["accessError"] = dev.accessError;
+                map["usbAddress"] = dev.identity.usbAddress;
+                map["interfaceNumber"] = dev.identity.interfaceNumber; map["alternate"] = dev.identity.alternate;
+                map["inEndpoint"] = dev.identity.inEndpoint; map["outEndpoint"] = dev.identity.outEndpoint;
                 map["vendor"] = static_cast<int>(dev.identity.vendor); map["bus"] = dev.identity.bus;
                 QVariantList ports; QStringList labels;
                 for (auto p : dev.identity.ports) { ports.append(p); labels.append(QString::number(p)); }
@@ -33,6 +38,9 @@ void EngineWorker::scanDevices()
                 map["key"] = dev.identity.vendor == core::Vendor::Rockchip
                     ? QString::number(dev.identity.location,16) + ":" + QString::fromStdString(dev.identity.serial)
                     : (dev.identity.vendor == core::Vendor::Qualcomm ? "qualcomm:" + QString::number(static_cast<int>(dev.identity.transport)) + ":" + QString::fromStdString(dev.identity.devicePath) + ":" : "allwinner:") + QString::number(dev.identity.bus) + "-" + labels.join('.');
+                if(dev.identity.vendor == core::Vendor::Qualcomm)
+                    map["key"] = map["key"].toString() + ":if" + QString::number(dev.identity.interfaceNumber) +
+                        ":alt" + QString::number(dev.identity.alternate);
                 list.append(map);
             }
         } catch(const std::exception &e) {

@@ -12,12 +12,6 @@ QualcommWorkspace {
     property int selectedAction: 0
     // Touch settings so the binding recomputes on every controller change.
     readonly property bool valid: { app.qualcomm.settings; return app.qualcomm.canRun(Operations.QualcommRaw, {rawOperations: page.operations}) }
-    summary: {
-        if (app.busy) return "";
-        if (!page.valid) return qsTr("Add a programmer and at least one operation");
-        if (app.qualcomm.needsDevice(Operations.QualcommRaw) && !app.hasDevice) return qsTr("No device in EDL mode");
-        return qsTr("Ready · %1 operation(s)").arg(page.operations.length);
-    }
     readonly property bool deviceRequired: { app.qualcomm.settings; return app.qualcomm.needsDevice(Operations.QualcommRaw) }
     FormSection {
         title: qsTr("Programmer / Loader")
@@ -103,12 +97,12 @@ QualcommWorkspace {
         PrimaryButton {
             objectName: "qcRawStart"
             text: page.settings.dryRun ? qsTr("Simulate") : qsTr("Execute")
-            enabled: !app.busy && page.valid && (!page.deviceRequired || app.hasEdlDevice)
+            enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommRaw].allowed)
             onClicked: app.qualcomm.run(Operations.QualcommRaw, {rawOperations: page.operations})
 
             ToolTip.visible: hovered && !enabled && !app.busy
             ToolTip.text: !page.valid ? qsTr("Add a valid programmer and at least one operation first")
-                                       : qsTr("No device detected. Connect the device in EDL (9008) mode or use \"Switch to EDL\"")
+                                       : app.qualcommEligibility[Operations.QualcommRaw].reason
         }
     ]
 }

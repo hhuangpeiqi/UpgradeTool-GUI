@@ -1,5 +1,6 @@
 import UpgradeTool
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 EdgeRoundedRect {
@@ -43,16 +44,31 @@ EdgeRoundedRect {
         }
 
         Text {
+            id: statusLabel
+            objectName: "statusSummary"
             text: root.statusText
             color: Theme.textPrimary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontMedium
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            Layout.preferredWidth: Math.min(implicitWidth, root.width * 0.25)
+            Layout.maximumWidth: root.width * 0.25
             Layout.alignment: Qt.AlignVCenter
+
+            HoverHandler { id: statusHover }
+            ToolTip {
+                objectName: "statusSummaryTooltip"
+                visible: statusHover.hovered && statusLabel.truncated
+                text: root.statusText
+            }
         }
 
         Item { Layout.fillWidth: true }
 
         AppProgressBar {
+            objectName: "statusProgress"
             Layout.fillWidth: true
             Layout.maximumWidth: 560
             Layout.minimumWidth: root.width >= 1200 ? 220 : 140
@@ -84,6 +100,7 @@ EdgeRoundedRect {
         }
 
         SecondaryButton {
+            objectName: "statusCancel"
             text: qsTr("Cancel")
             enabled: root.busy
             implicitHeight: 34

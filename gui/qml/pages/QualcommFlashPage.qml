@@ -11,14 +11,6 @@ QualcommWorkspace {
     readonly property bool packageBuild: Boolean(page.settings.packageBuild || false)
     // Touch settings so the binding recomputes on every controller change.
     readonly property bool valid: { app.qualcomm.settings; return app.qualcomm.canRun(Operations.QualcommFlash) }
-    // Action-bar hint: state or the next step, kept short so the primary
-    // action reads at a glance.
-    summary: {
-        if (app.busy) return "";
-        if (!page.valid) return qsTr("Select a programmer and load XML first");
-        if (app.qualcomm.needsDevice(Operations.QualcommFlash) && !app.hasDevice) return qsTr("No device in EDL mode");
-        return page.settings.dryRun ? qsTr("Ready · simulation") : qsTr("Ready · %1 XML").arg(page.xmlFiles.length);
-    }
     readonly property bool deviceRequired: { app.qualcomm.settings; return app.qualcomm.needsDevice(Operations.QualcommFlash) }
     FormSection {
         title: qsTr("Build")
@@ -140,12 +132,12 @@ QualcommWorkspace {
         PrimaryButton {
             objectName: "qcDownload"
             text: page.settings.dryRun ? qsTr("Simulate download") : qsTr("Download")
-            enabled: !app.busy && page.valid && (!page.deviceRequired || app.hasEdlDevice)
+            enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommFlash].allowed)
             onClicked: app.qualcomm.run(Operations.QualcommFlash)
 
             ToolTip.visible: hovered && !enabled && !app.busy
             ToolTip.text: !page.valid ? qsTr("Select a valid programmer and XML set first")
-                                       : qsTr("No device detected. Connect the device in EDL (9008) mode or use \"Switch to EDL\"")
+                                       : app.qualcommEligibility[Operations.QualcommFlash].reason
         }
     ]
 }

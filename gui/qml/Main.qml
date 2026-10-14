@@ -50,20 +50,6 @@ ApplicationWindow {
         (nativeWindow || visibility === Window.Maximized || visibility === Window.FullScreen)
         ? 0 : Theme.windowRadius
 
-    function openEdlDialog() {
-        edlDialog.open();
-        app.refreshEdl();
-    }
-
-    // Switch straight away with the device, method and interface last confirmed
-    // in the switch dialog; fall back to the first discovered target.
-    function switchEdl() {
-        var target = edlDialog.confirmedTargetId;
-        if (target === "" && app.edl.targets.length > 0)
-            target = app.edl.targets[0].id;
-        app.switchToEdl(target, edlDialog.confirmedMethod, edlDialog.confirmedEndpointId);
-    }
-
     function toggleActionMenu(menu, source) {
         if (menu.visible) {
             menu.close();
@@ -183,18 +169,9 @@ ApplicationWindow {
                             }
                         }
                         AllwinnerToolsPage {}
-                        QualcommPartitionsPage {
-                            onSwitchConfigRequested: window.openEdlDialog()
-                            onSwitchEdlRequested: window.switchEdl()
-                        }
-                        QualcommFlashPage {
-                            onSwitchConfigRequested: window.openEdlDialog()
-                            onSwitchEdlRequested: window.switchEdl()
-                        }
-                        QualcommToolsPage {
-                            onSwitchConfigRequested: window.openEdlDialog()
-                            onSwitchEdlRequested: window.switchEdl()
-                        }
+                        QualcommPartitionsPage {}
+                        QualcommFlashPage {}
+                        QualcommToolsPage {}
                     }
 
                     LogPanel {
@@ -269,6 +246,10 @@ ApplicationWindow {
 
     AllwinnerDeviceDialog { id: allwinnerDeviceDialog }
     EdlSwitchDialog { id: edlDialog }
+    Connections {
+        target: app.edl
+        function onSelectionRequested() { edlDialog.openSelection(); }
+    }
 
     Toast {
         id: toast

@@ -68,7 +68,31 @@
 +#endif
 --- a/include/qdl.h
 +++ b/include/qdl.h
-@@ -167,7 +167,10 @@
+@@ -147,27 +147,21 @@
+ int usb_open_once(struct qdl_device *qdl, const char *serial, int *visible_out);
+ int qud_probe_present(void);
+ 
+-/*
+- * EDL device identity, shared by all transport backends: Qualcomm's
+- * vendor id. Product ids are deliberately not filtered - EDL, crash-mode
+- * and ramdump devices enumerate with a growing set of ids that no
+- * allowlist keeps up with. The libusb backend requires a matching
+- * vendor-specific interface (see usb_match_edl_interface() in usb.c)
+- * before a device is opened; on Windows the QDLoader driver binding
+- * performs the equivalent selection before the QUD backend sees the
+- * device.
+- */
++/* Embedded identity policy is shared with discovery and the operation gate. */
++#include "DevicePolicy.h"
+ #define QUALCOMM_VID 0x05c6
+-
+-static inline bool qdl_is_edl_device(unsigned int vid, unsigned int pid __unused)
++static inline bool qdl_is_edl_device(unsigned int vid, unsigned int pid)
+ {
+-	return vid == QUALCOMM_VID;
++    return qtq_download_identity(vid, pid);
+ }
+ 
  struct qdl_device_desc {
  	int vid;
  	int pid;
@@ -80,15 +104,17 @@
  };
  
  struct qdl_device_desc *usb_list(unsigned int *devices_found);
-@@ -180,7 +183,7 @@
+@@ -180,8 +174,9 @@
   */
  struct qud_device_desc {
  	unsigned int pid;
 -	char serial[64];
 +	char serial[128];
  	char path[64];
++    char instance[256];
  };
  
+ struct qud_device_desc *qud_list(unsigned int *devices_found);
 --- a/src/programmer.c
 +++ b/src/programmer.c
 @@ -7,6 +7,7 @@
@@ -377,10 +403,77 @@
  			continue;
  
  		visible++;
-@@ -223,6 +229,20 @@
- 	return true;
+@@ -115,25 +121,8 @@
+ 			    const struct libusb_device_descriptor *desc,
+ 			    char *out, size_t out_len)
+ {
+-	char buf[128];
+-	char *p;
+-	int ret;
+-
+-	ret = libusb_get_string_descriptor_ascii(handle, desc->iProduct, (unsigned char *)buf, sizeof(buf));
+-	if (ret < 0) {
+-		ux_warnx("failed to read iProduct descriptor: %s", libusb_strerror(ret));
+-		return false;
+-	}
+-
+-	p = strstr(buf, "_SN:");
+-	if (!p)
+-		return false;
+-
+-	p += strlen("_SN:");
+-	p[strcspn(p, " _")] = '\0';
+-
+-	snprintf(out, out_len, "%s", p);
+-	return true;
++    qtq_read_usb_serial(handle,desc->iSerialNumber,desc->iProduct,desc->idVendor,out,out_len);
++    return out[0] != 0;
  }
  
+ static bool usb_match_serial(struct libusb_device_handle *handle, const char *serial,
+@@ -172,22 +161,6 @@
+ 	const struct libusb_endpoint_descriptor *endpoint;
+ 	uint8_t type;
+ 	int l;
+-
+-	if (ifc->bInterfaceClass != 0xff)
+-		return false;
+-
+-	if (ifc->bInterfaceSubClass != 0xff)
+-		return false;
+-
+-	/*
+-	 * Sahara is identified by bInterfaceProtocol 0x10, 0x11, or 0x13
+-	 * on modern devices, and 0xff on older targets.
+-	 */
+-	if (ifc->bInterfaceProtocol != 0xff &&
+-	    ifc->bInterfaceProtocol != 0x10 &&
+-	    ifc->bInterfaceProtocol != 0x11 &&
+-	    ifc->bInterfaceProtocol != 0x13)
+-		return false;
+ 
+ 	edl->in_ep = -1;
+ 	edl->out_ep = -1;
+@@ -210,17 +183,23 @@
+ 		}
+ 	}
+ 
+-	/*
+-	 * A matching interface is only usable if it exposes both a bulk
+-	 * IN and a bulk OUT endpoint with a non-zero max packet size.
+-	 * Without this check a malformed descriptor leads to a division
+-	 * by zero (out_maxpktsize == 0) or transfers on endpoint -1.
+-	 */
+-	if (edl->in_ep < 0 || edl->out_ep < 0 ||
+-	    !edl->in_maxpktsize || !edl->out_maxpktsize)
+-		return false;
+-
+-	return true;
++    return qtq_download_interface(ifc->bInterfaceClass, ifc->bInterfaceSubClass,
++        ifc->bInterfaceProtocol, edl->in_ep, edl->out_ep,
++        edl->in_maxpktsize, edl->out_maxpktsize);
++}
++
 +static bool qtq_has_edl_interface(libusb_device *dev)
 +{
 +    struct libusb_config_descriptor *config;
@@ -393,29 +486,64 @@
 +            found = usb_match_edl_interface(&config->interface[i].altsetting[j], &edl);
 +    libusb_free_config_descriptor(config);
 +    return found;
-+}
-+
+ }
+ 
  /*
-  * Device-level match, run on an opened EDL candidate: the unit must
-  * carry the serial the user asked for (if any) and expose an EDL
-@@ -269,9 +289,12 @@
+@@ -232,7 +211,7 @@
+ static bool usb_match_device(struct libusb_device_handle *handle,
+ 			     const struct libusb_device_descriptor *desc,
+ 			     const char *serial,
+-			     int *ifc_num, struct usb_edl_interface *edl)
++			     int *ifc_num, int *alternate, struct usb_edl_interface *edl)
+ {
+ 	const struct libusb_interface_descriptor *ifc;
+ 	struct libusb_config_descriptor *config;
+@@ -249,14 +228,17 @@
+ 		return false;
+ 	}
+ 
+-	for (k = 0; k < config->bNumInterfaces && !found; k++) {
+-		ifc = config->interface[k].altsetting;
+-
+-		if (usb_match_edl_interface(ifc, edl)) {
+-			*ifc_num = ifc->bInterfaceNumber;
+-			found = true;
+-		}
+-	}
++    for (k = 0; k < config->bNumInterfaces && !found; ++k) {
++        for (int alt = 0; alt < config->interface[k].num_altsetting && !found; ++alt) {
++            ifc = &config->interface[k].altsetting[alt];
++            if (usb_match_edl_interface(ifc, edl) &&
++                qtq_match_interface(ifc->bInterfaceNumber, ifc->bAlternateSetting, edl->in_ep, edl->out_ep)) {
++                *ifc_num = ifc->bInterfaceNumber;
++                *alternate = ifc->bAlternateSetting;
++                found = true;
++            }
++        }
++    }
+ 
+ 	libusb_free_config_descriptor(config);
+ 
+@@ -269,19 +251,23 @@
  {
  	struct libusb_device_handle *handle;
  	struct usb_edl_interface edl;
 -	int ifc_num;
--	int ret;
--
-+	int ifc_num = -1;
-+	int ret;
-+
++	int ifc_num = -1, alternate = 0;
+ 	int ret;
+ 
 +	unsigned char ports[8];
 +	int port_count = libusb_get_port_numbers(dev, ports, sizeof(ports));
-+	if (!qtq_match_usb(libusb_get_bus_number(dev), ports, port_count)) return 0;
++	if (!qtq_match_usb(libusb_get_bus_number(dev), ports, port_count,
++        desc->idVendor, desc->idProduct, libusb_get_device_address(dev))) return 0;
  	ret = libusb_open(dev, &handle);
  	if (ret < 0) {
  		ux_warnx("unable to open USB device");
-@@ -281,7 +304,7 @@
- 	if (!usb_match_device(handle, desc, serial, &ifc_num, &edl))
+ 		return 0;
+ 	}
+ 
+-	if (!usb_match_device(handle, desc, serial, &ifc_num, &edl))
++	if (!usb_match_device(handle, desc, serial, &ifc_num, &alternate, &edl))
  		goto close;
  
 -	libusb_detach_kernel_driver(handle, ifc_num);
@@ -423,15 +551,20 @@
  
  	ret = libusb_claim_interface(handle, ifc_num);
  	if (ret < 0) {
-@@ -290,6 +313,7 @@
+@@ -289,7 +275,12 @@
+ 		goto close;
  	}
  
++    if (alternate && libusb_set_interface_alt_setting(handle, ifc_num, alternate)) {
++        libusb_release_interface(handle, ifc_num);
++        goto close;
++    }
  	qdl->usb_handle = handle;
 +	qdl->claimed_interface = ifc_num;
  	qdl->in_ep = edl.in_ep;
  	qdl->out_ep = edl.out_ep;
  	qdl->in_maxpktsize = edl.in_maxpktsize;
-@@ -308,6 +332,7 @@
+@@ -308,6 +299,7 @@
  	return 1;
  
  close:
@@ -439,7 +572,7 @@
  	libusb_close(handle);
  	return 0;
  }
-@@ -373,15 +398,16 @@
+@@ -373,15 +365,16 @@
  	if (visible_out)
  		*visible_out = 0;
  
@@ -459,7 +592,7 @@
  		return -EIO;
  	}
  
-@@ -400,7 +426,8 @@
+@@ -400,7 +393,8 @@
  		return 0;
  	}
  
@@ -469,7 +602,7 @@
  
  	return visible == 0 ? -ENODEV : -EBUSY;
  }
-@@ -412,6 +439,7 @@
+@@ -412,11 +406,13 @@
  	int ret;
  
  	for (;;) {
@@ -477,7 +610,13 @@
  		ret = usb_open_once(qdl, serial, &visible);
  		if (ret == 0)
  			return 0;
-@@ -461,15 +489,16 @@
+ 		if (ret == -EIO)
+ 			return -1;
++        if (qtq_target_pinned()) return -ENODEV;
+ 
+ 		if (visible != visible_prev) {
+ 			if (visible == 0) {
+@@ -461,15 +457,16 @@
  	}
  	entry = &ctx->result[ctx->count];
  
@@ -500,16 +639,14 @@
  	ctx->count++;
  
  	return 0;
-@@ -478,16 +507,17 @@
+@@ -478,16 +475,17 @@
  struct qdl_device_desc *usb_list(unsigned int *devices_found)
  {
  	struct usb_list_ctx ctx = { 0 };
--	int ret;
--
--	ret = libusb_init(NULL);
 +	struct libusb_context *context = NULL;
-+	int ret;
-+
+ 	int ret;
+ 
+-	ret = libusb_init(NULL);
 +	ret = libusb_init(&context);
  	if (ret < 0) {
  		ux_err("failed to initialize libusb: %s\n", libusb_strerror(ret));
@@ -523,7 +660,7 @@
  
  	if (ret < 0) {
  		free(ctx.result);
-@@ -503,8 +533,49 @@
+@@ -503,8 +501,49 @@
  {
  	struct qdl_device_usb *qdl_usb = container_of(qdl, struct qdl_device_usb, base);
  
@@ -575,7 +712,7 @@
  }
  
  static int usb_read(struct qdl_device *qdl, void *buf, size_t len, unsigned int timeout)
-@@ -513,7 +584,7 @@
+@@ -513,7 +552,7 @@
  	int actual;
  	int ret;
  
@@ -584,7 +721,7 @@
  	if (ret == LIBUSB_ERROR_NO_DEVICE)
  		return -ENODEV;
  	if (ret != 0 && ret != LIBUSB_ERROR_TIMEOUT)
-@@ -524,7 +595,7 @@
+@@ -524,7 +563,7 @@
  
  	/* If what we read equals the endpoint's Max Packet Size, consume the ZLP explicitly */
  	if (len == (size_t)actual && !(actual % qdl_usb->in_maxpktsize)) {
@@ -593,7 +730,7 @@
  					   NULL, 0, NULL, timeout);
  		if (ret)
  			ux_warnx("Unable to read ZLP: %s", libusb_strerror(ret));
-@@ -546,7 +617,7 @@
+@@ -546,7 +585,7 @@
  	while (len > 0) {
  		xfer = (len > qdl_usb->out_chunk_size) ? qdl_usb->out_chunk_size : len;
  
@@ -602,7 +739,7 @@
  					   xfer, &actual, timeout);
  		if (ret != 0 && ret != LIBUSB_ERROR_TIMEOUT) {
  			ux_warnx("bulk write failed: %s", libusb_strerror(ret));
-@@ -561,7 +632,7 @@
+@@ -561,7 +600,7 @@
  	}
  
  	if (len_orig % qdl_usb->out_maxpktsize == 0) {
@@ -621,18 +758,98 @@
  #include <errno.h>
  #include <stdbool.h>
  #include <stdio.h>
-@@ -385,8 +386,8 @@
- 		}
+@@ -194,16 +195,9 @@
+  */
+ static bool win_match_edl_interface(HDEVINFO devinfo, SP_DEVINFO_DATA *info)
+ {
+-	static const char * const edl_ids[] = {
+-		"USB\\Class_FF&SubClass_FF&Prot_10",
+-		"USB\\Class_FF&SubClass_FF&Prot_11",
+-		"USB\\Class_FF&SubClass_FF&Prot_13",
+-		"USB\\Class_FF&SubClass_FF&Prot_FF",
+-	};
+ 	char ids[1024];
+ 	DWORD type = 0;
+ 	const char *p;
+-	size_t i;
  
- 		for (i = 0; i < found && i < (int)ARRAY_SIZE(matches); i++) {
+ 	if (!SetupDiGetDeviceRegistryPropertyA(devinfo, info,
+ 					       SPDRP_COMPATIBLEIDS, &type,
+@@ -213,12 +207,8 @@
+ 		return false;
+ 
+ 	/* REG_MULTI_SZ: walk the NUL-separated entries */
+-	for (p = ids; *p; p += strlen(p) + 1) {
+-		for (i = 0; i < ARRAY_SIZE(edl_ids); i++) {
+-			if (!_stricmp(p, edl_ids[i]))
+-				return true;
+-		}
+-	}
++    for (p = ids; *p; p += strlen(p) + 1)
++        if (qtq_download_compatible_id(p)) return true;
+ 
+ 	return false;
+ }
+@@ -275,6 +265,7 @@
+ 
+ 		if (count < out_max) {
+ 			out[count].pid = pid;
++            snprintf(out[count].instance, sizeof(out[count].instance), "%s", instance_id);
+ 			if (!win_read_iproduct_sn(devinfo, &info,
+ 						  out[count].serial,
+ 						  sizeof(out[count].serial)))
+@@ -365,39 +356,17 @@
+ 	int found;
+ 	int i;
+ 
+-	/* Allow an explicit \\.\COMx (or COMx) path via --serial. */
+-	if (serial && (serial[0] == '\\' ||
+-		       (strlen(serial) >= 3 &&
+-			(serial[0] == 'C' || serial[0] == 'c') &&
+-			(serial[1] == 'O' || serial[1] == 'o') &&
+-			(serial[2] == 'M' || serial[2] == 'm')))) {
+-		path = serial;
+-	} else {
+-		found = win_enumerate_qcom(matches, ARRAY_SIZE(matches));
+-		if (found < 0) {
+-			ux_err("qud: SetupDiGetClassDevs failed (error %lu)\n",
+-			       (unsigned long)GetLastError());
+-			return -1;
+-		}
+-		if (found == 0) {
+-			ux_err("qud: no Qualcomm COM ports found\n");
+-			return -1;
+-		}
+-
+-		for (i = 0; i < found && i < (int)ARRAY_SIZE(matches); i++) {
 -			if (!serial || serial[0] == '\0' ||
 -			    _stricmp(matches[i].serial, serial) == 0) {
-+			if (qtq_match_qud(matches[i].path) && (!serial || serial[0] == '\0' ||
-+			    _stricmp(matches[i].serial, serial) == 0)) {
- 				path = matches[i].path;
- 				break;
- 			}
-@@ -445,7 +446,19 @@
+-				path = matches[i].path;
+-				break;
+-			}
+-		}
+-
+-		if (!path) {
+-			ux_err("qud: no Qualcomm device matching serial \"%s\"\n",
+-			       serial);
+-			return -1;
+-		}
+-	}
++    /* Explicit COM paths still go through present-device/PID validation. */
++    found = win_enumerate_qcom(matches, ARRAY_SIZE(matches));
++    if (found < 0) return -1;
++    for (i = 0; i < found && i < (int)ARRAY_SIZE(matches); ++i) {
++        if (!qtq_match_qud(matches[i].path, matches[i].pid, matches[i].serial, matches[i].instance)) continue;
++        if (serial && serial[0] && _stricmp(matches[i].serial, serial) &&
++            _stricmp(matches[i].path, serial)) continue;
++        path = matches[i].path;
++        break;
++    }
++    if (!path) { ux_err("qud: selected download interface is no longer present\n"); return -1; }
+ 
+ 	h = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL,
+ 			OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+@@ -445,7 +414,19 @@
  		return -EIO;
  	}
  
@@ -752,15 +969,50 @@
  	ux_info("Sahara protocol version: %u\n", version);
  	if (have_serial)
  		ux_info("Chip serial number:      0x%08x\n", serial);
-@@ -1409,7 +1415,7 @@
+@@ -1409,8 +1415,9 @@
  	 * banner instead of a Sahara HELLO, skip Sahara entirely. Disabled
  	 * in ramdump mode, where Sahara is the only valid protocol.
  	 */
 -	const bool detect_firehose = !ramdump_path;
 +	const bool detect_firehose = !ramdump_path && !qtq_require_sahara();
  	bool first_read = true;
++    bool recovery_sent = false;
  	struct sahara_pkt *pkt;
  	char buf[4096];
+ 	char tmp[32];
+@@ -1440,11 +1447,12 @@
+ 				 * message and report an error, which will
+ 				 * trigger below detection of a <?xml response.
+ 				 */
+-				if (qdl->dev_type == QDL_DEVICE_QUD || qdl->dev_type == QDL_DEVICE_AUTO) {
++				if (!recovery_sent && (qdl->dev_type == QDL_DEVICE_QUD || qdl->dev_type == QDL_DEVICE_AUTO)) {
++                    recovery_sent = true;
+ 					sahara_send_hello_resp(qdl, SAHARA_VERSION, 0);
+ 					continue;
+ 				}
+-				ux_info("SAHARA: no HELLO received; assuming Firehose programmer is already running\n");
++				ux_info("SAHARA: no HELLO received; attempting Firehose handshake\n");
+ 				return 0;
+ 			}
+ 			ux_err("SAHARA: failed to read request from device\n");
+@@ -1458,6 +1466,7 @@
+ 		}
+ 		first_read = false;
+ 
++        if (n < 8) { ux_err("SAHARA: truncated packet header\n"); return -EINVAL; }
+ 		pkt = (struct sahara_pkt *)buf;
+ 		if ((uint32_t)n != pkt->length) {
+ 			ux_err("SAHARA: request length not matching received request\n");
+@@ -1466,6 +1475,9 @@
+ 
+ 		switch (pkt->cmd) {
+ 		case SAHARA_HELLO_CMD:
++            if (pkt->length != SAHARA_HELLO_LENGTH) {
++                ux_err("SAHARA: invalid HELLO length\n"); return -EINVAL;
++            }
+ 			if (sahara_hello(qdl, pkt) < 0)
+ 				return -1;
+ 			break;
 --- a/src/zipper.c
 +++ b/src/zipper.c
 @@ -3,6 +3,7 @@

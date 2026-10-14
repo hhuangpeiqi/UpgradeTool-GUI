@@ -22,12 +22,6 @@ QualcommWorkspace {
     readonly property bool showNode: page.selectedTool === 3 && Qt.platform.os !== "windows"
     readonly property bool showInput: page.packageBuild || page.showProgrammer || page.showOutput || page.showDigestDir || page.showFilter || page.showNode
     readonly property bool showXml: (page.selectedTool === 6 && !page.packageBuild) || page.selectedTool === 7
-    summary: {
-        if (app.busy) return "";
-        if (!page.valid) return qsTr("Complete the required inputs first");
-        if (page.deviceRequired && !app.hasDevice) return qsTr("No device in EDL mode");
-        return qsTr("Ready");
-    }
     FormSection {
         title: qsTr("Operation")
         GridLayout {
@@ -161,12 +155,12 @@ QualcommWorkspace {
         PrimaryButton {
             objectName: "qcToolStart"
             text: page.context === "provision" && page.settings.dryRun ? qsTr("Simulate") : qsTr("Execute")
-            enabled: !app.busy && page.valid && (!page.deviceRequired || app.hasEdlDevice)
+            enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[page.operationIds[page.selectedTool]].allowed)
             onClicked: app.qualcomm.run(page.operationIds[page.selectedTool])
 
             ToolTip.visible: hovered && !enabled && !app.busy
             ToolTip.text: !page.valid ? qsTr("Complete the required inputs first")
-                                       : qsTr("No device detected. Connect the device in EDL (9008) mode or use \"Switch to EDL\"")
+                                       : app.qualcommEligibility[page.operationIds[page.selectedTool]].reason
         }
     ]
 }

@@ -1,5 +1,5 @@
-# qdl treats any 05c6 device as an EDL candidate, so the whole vendor ID is
-# granted access. Other vendors' OEM IDs need their own rule.
+# Discovery reads Qualcomm DIAG, ADB and download interface descriptors.
+# Grant vendor access for discovery; the operation policy selects flash targets.
 SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", MODE="0666", TAG+="uaccess"
 # Diagnostic serial nodes for maintained Qualcomm/OEM device IDs.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="9091", MODE="0660", GROUP="dialout", TAG+="uaccess"

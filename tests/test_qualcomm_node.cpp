@@ -37,8 +37,8 @@ int main(int argc,char **argv) {
     const std::string loader=dir.filePath("loader.mbn").toStdString();
     { QFile f(QString::fromStdString(loader)); CHECK(f.open(QIODevice::WriteOnly)); CHECK(f.write(image)==image.size()); }
     // 0 success with small chunks, 1 blocked write cancellation, 2 read timeout,
-    // 3 peer disconnect, 4 partial write timeout, 5 cancelled idle read.
-    for (int scenario=0;scenario<6;++scenario) {
+    // 3 peer disconnect, 4 partial write timeout, 5 cancelled idle read, 6 malformed HELLO.
+    for (int scenario=0;scenario<7;++scenario) {
         int master=posix_openpt(O_RDWR|O_NOCTTY|O_NONBLOCK); CHECK(master>=0); if(master<0) continue;
         CHECK(grantpt(master)==0); CHECK(unlockpt(master)==0); std::string node=ptsname(master);
         State state;
@@ -51,6 +51,7 @@ int main(int argc,char **argv) {
             while(!state.ready && !state.done) std::this_thread::sleep_for(std::chrono::milliseconds(1));
             if(state.done) return;
             if(scenario==2) return;
+            if(scenario==6) { state.peerOk=Send(master,Packet({1,8})); return; }
             if(scenario==5) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); state.cancel=true; return; }
             if(scenario==3) { close(master); return; }
             auto greeting=Packet({1,48,2,1,4096,0,0,0,0,0,0,0});

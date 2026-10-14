@@ -2,7 +2,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <QMap>
-#include <QSet>
+#include <utility>
 namespace gui {
 namespace {
 quint16 crc(const QByteArray &data) {
@@ -53,13 +53,65 @@ bool EdlRunner::sameLocation(const EdlEndpoint &a, const EdlEndpoint &b) {
 EdlRunner::EdlRunner(QObject *parent) : EdlRunner(DefaultEdlHooks(), 45000, parent) {}
 EdlRunner::EdlRunner(EdlHooks hooks, int waitMs, QObject *parent)
     : QObject(parent), m_hooks(std::move(hooks)), m_waitMs(waitMs) {}
-EdlRunner::~EdlRunner() { cancel(); if (m_thread) { m_thread->wait(); delete m_thread; } }
+EdlRunner::~EdlRunner() {
+    cancel();
+    if (m_discoveryCancel) m_discoveryCancel->store(true);
+    if (m_discoveryThread) { m_discoveryThread->wait(); delete m_discoveryThread; }
+    if (m_thread) { m_thread->wait(); delete m_thread; }
+}
 void EdlRunner::cancel() { if (m_cancel) m_cancel->store(true); }
-void EdlRunner::setMessage(const QString &message) { m_message = message; emit changed(); }
+void EdlRunner::setState(State state) { m_state = state; emit changed(); }
+void EdlRunner::setMessage(const QString &message) { m_message = message; emit messageChanged(); emit changed(); }
+void EdlRunner::reject(const QString &message) { setMessage(message); emit errorOccurred(message); }
+void EdlRunner::setMethod(int method) {
+    if (running() || (method != Diag && method != Adb) || method == m_method) return;
+    m_method = method;
+    rebuildTargets(); emit changed();
+}
+QString EdlRunner::unavailableReason() const {
+    if (running()) return tr("Switching device to EDL mode…");
+    if (!m_discovered) return tr("Discovering diagnostic ports and ADB devices…");
+    if (!m_targets.isEmpty()) return {};
+    return m_method == Diag ? tr("No diagnostic interface detected")
+                            : tr("No authorized ADB device detected; check ADB and USB debugging");
+}
+bool EdlRunner::eligible(const EdlEndpoint &e) const {
+    if (qtq_download_identity(e.vid,e.pid)) return false;
+    if (m_method == Adb) return e.kind == EdlEndpoint::Adb && !e.serial.isEmpty();
+    // Host UARTs are not diagnostic candidates. Unknown USB interfaces remain
+    // selectable, but require explicit selection and a valid DIAG version reply.
+    return e.kind != EdlEndpoint::Adb && (e.suggested ||
+        (e.vid != 0 && (!e.location.isEmpty() || !e.ports.isEmpty())));
+}
+QVector<EdlEndpoint> EdlRunner::selectedEndpoints(const QString &targetId, const QString &endpointId) const {
+    QVector<EdlEndpoint> selected;
+    for (const auto &e : m_endpoints) {
+        if (!eligible(e) || targetKey(e) != targetId) continue;
+        const bool matches = endpointId.isEmpty() ? (m_method == Adb || e.suggested) : e.id == endpointId;
+        if (matches) selected.append(e);
+    }
+    return selected;
+}
+bool EdlRunner::canStart(const QString &targetId, const QString &endpointId) const {
+    return ready() && selectedEndpoints(targetId, endpointId).size() == 1;
+}
+void EdlRunner::requestSwitch(const QString &adbPath) {
+    if (running()) return;
+    if (!ready()) { reject(unavailableReason()); return; }
+    // Prefer recognized DIAG devices, but never guess between recognized targets.
+    QVariantList preferred;
+    for (const auto &value : m_targets)
+        if (value.toMap().value("suggested").toBool()) preferred.append(value);
+    if (preferred.size() == 1) {
+        const QString target = preferred.first().toMap().value("id").toString();
+        if (canStart(target, {})) { start(target, m_method, {}, adbPath); return; }
+    }
+    emit selectionRequested();
+}
 void EdlRunner::rebuildTargets() {
     QMap<QString, QVariantMap> groups;
     for (const auto &e : m_endpoints) {
-        if (e.edl) continue;
+        if (!eligible(e)) continue;
         const QString key = targetKey(e);
         auto &group = groups[key];
         group["id"] = key;
@@ -70,76 +122,113 @@ void EdlRunner::rebuildTargets() {
         group["endpoints"] = endpoints;
         group["suggested"] = group.value("suggested").toBool() || e.suggested || e.kind == EdlEndpoint::Adb;
     }
-    m_targets.clear();
+    QVariantList targets;
     for (bool suggested : {true, false})
-        for (const auto &group : groups) if (group.value("suggested").toBool() == suggested) m_targets.append(group);
+        for (const auto &group : groups) if (group.value("suggested").toBool() == suggested) targets.append(group);
+    if (targets == m_targets) return;
+    m_targets = targets;
+    emit targetsChanged();
 }
 void EdlRunner::refresh(const QString &adbPath) {
-    if (m_thread || m_running) return;
-    m_discovering = true; m_cancel = std::make_shared<std::atomic_bool>(false);
-    setMessage(tr("Discovering diagnostic ports and ADB devices…"));
+    if (m_discoveryThread || running()) return;
+    m_discovering = true;
+    const auto cancel = std::make_shared<std::atomic_bool>(false);
+    m_discoveryCancel = cancel;
+    const auto generation = m_generation;
     auto endpoints = std::make_shared<QVector<EdlEndpoint>>();
     auto error = std::make_shared<QString>();
-    m_thread = QThread::create([=] { *endpoints = m_hooks.discover(adbPath, m_cancel, *error); });
-    connect(m_thread, &QThread::finished, this, [=] {
-        m_thread->deleteLater(); m_thread = nullptr;
-        m_endpoints = *endpoints; rebuildTargets(); emit targetsChanged(); m_discovering = false;
-        setMessage(error->isEmpty() ? tr("Select a device. Unknown interfaces require a successful DIAG query.") : *error);
+    m_discoveryThread = QThread::create([=] { *endpoints = m_hooks.discover(adbPath, cancel, *error); });
+    connect(m_discoveryThread, &QThread::finished, this, [=] {
+        m_discoveryThread->deleteLater(); m_discoveryThread = nullptr;
+        m_discovering = false;
+        if (!cancel->load() && generation == m_generation && !running()) {
+            m_endpoints = *endpoints; m_discovered = true; m_discoveryError = *error;
+            rebuildTargets();
+        }
+        emit changed();
     });
-    m_thread->start();
+    emit changed();
+    m_discoveryThread->start();
 }
 void EdlRunner::start(const QString &targetId, int method, const QString &endpointId, const QString &adbPath) {
-    if (m_thread || m_running || method < 0 || method > 2) return;
-    QVector<EdlEndpoint> diag, adb;
-    for (const auto &e : m_endpoints) {
-        if (e.edl || targetKey(e) != targetId) continue;
-        if (e.kind == EdlEndpoint::Adb) adb.append(e);
-        else if (e.id == endpointId || (endpointId.isEmpty() && e.suggested)) diag.append(e);
+    if (running()) return;
+    if (method != m_method || !canStart(targetId, endpointId)) {
+        reject(tr("No matching switch endpoint is available. Refresh the device list.")); return;
     }
-    if (method != 2 && diag.size() > 1) { setMessage(tr("Select one diagnostic interface before switching.")); return; }
-    if ((method == 1 && diag.isEmpty()) || (method == 2 && adb.size() != 1) || (diag.isEmpty() && adb.size() != 1)) {
-        setMessage(tr("No matching switch endpoint is available. Refresh the device list.")); return;
-    }
-    m_running = true; m_cancel = std::make_shared<std::atomic_bool>(false);
-    setMessage(tr("Checking the selected device…")); emit started();
+    const auto selected = selectedEndpoints(targetId, endpointId).first();
+    ++m_generation;
+    if (m_discoveryCancel) m_discoveryCancel->store(true);
+    const auto cancel = std::make_shared<std::atomic_bool>(false);
+    m_cancel = cancel;
+    setState(Checking);
+    emit started(); setMessage(tr("Checking the selected device…"));
     struct Result { bool ok = false; QString message; EdlEndpoint edl; };
     auto result = std::make_shared<Result>();
     m_thread = QThread::create([=] {
-        auto progress = [this](const QString &text) { QMetaObject::invokeMethod(this, [this,text] { setMessage(text); }, Qt::QueuedConnection); };
-        EdlEndpoint target; bool useDiag = method != 2 && !diag.isEmpty(); QString error;
-        if (useDiag) {
-            target = diag.first(); progress(tr("Verifying the selected DIAG interface…"));
-            bool sent = false;
-            const auto response = m_hooks.exchange(target, QByteArray(1, char(0)), m_cancel, error, sent);
-            if (!validVersion(response)) {
-                if (method == 0 && adb.size() == 1 && !m_cancel->load()) useDiag = false;
-                else { result->message = tr("DIAG verification failed: %1").arg(error.isEmpty() ? tr("Invalid or unsupported version response") : error); return; }
+        auto progress = [this](State state, const QString &text) {
+            QMetaObject::invokeMethod(this, [this,state,text] {
+                if (running()) { setState(state); setMessage(text); }
+            }, Qt::QueuedConnection);
+        };
+        QString error;
+        EdlEndpoint target;
+        bool found = false;
+        const auto fresh = m_hooks.discover(adbPath, cancel, error);
+        if (cancel->load()) return;
+        for (const auto &e : fresh) {
+            if (!qtq_download_identity(e.vid,e.pid) && e.id == selected.id && targetKey(e) == targetId &&
+                e.kind == selected.kind && e.vid == selected.vid && e.pid == selected.pid &&
+                e.bus == selected.bus && e.ports == selected.ports &&
+                e.instance == selected.instance && e.serial == selected.serial && e.interfaceNumber == selected.interfaceNumber &&
+                e.alternate == selected.alternate && e.path == selected.path &&
+                e.in == selected.in && e.out == selected.out && e.address == selected.address &&
+                e.downloadInterface == selected.downloadInterface) {
+                if (found) { result->message = tr("The selected switch endpoint is no longer available. Refresh and select it again."); return; }
+                target = e; found = true;
             }
         }
-        if (m_cancel->load()) return;
-        // Revalidate the selected identity immediately before sending a reboot.
+        if (!found) { result->message = tr("The selected switch endpoint is no longer available. Refresh and select it again."); return; }
+        const bool useDiag = method == Diag;
+        std::unique_ptr<DiagSession> session;
         if (useDiag) {
-            progress(tr("Sending DIAG EDL request…"));
+            progress(Verifying, tr("Verifying the selected DIAG interface…"));
+            session = m_hooks.openDiag(target, cancel, error);
+            if (!session) { result->message = tr("DIAG verification failed: %1").arg(error); return; }
             bool sent = false;
-            const auto reply = m_hooks.exchange(target, QByteArray::fromHex("4b650100"), m_cancel, error, sent);
+            const auto response = session->exchange(QByteArray(1, char(0)), cancel, error, sent);
+            if (!validVersion(response)) {
+                result->message = tr("DIAG verification failed: %1").arg(error.isEmpty() ? tr("Invalid or unsupported version response") : error); return;
+            }
+        }
+        if (cancel->load()) return;
+        if (useDiag) {
+            progress(Sending, tr("Sending DIAG EDL request…"));
+            bool sent = false;
+            const auto reply = session->exchange(QByteArray::fromHex("4b650100"), cancel, error, sent);
             if (!sent) { result->message = tr("EDL request could not be sent: %1").arg(error); return; }
             if (!reply.isEmpty() && !reply.startsWith(QByteArray::fromHex("4b650100"))) {
                 result->message = tr("The device rejected the DIAG EDL request."); return;
             }
         } else {
-            target = adb.first(); progress(tr("Sending ADB EDL request…"));
-            if (!m_hooks.reboot(adbPath, target.serial, m_cancel, error)) { result->message = tr("EDL request could not be sent: %1").arg(error); return; }
+            progress(Sending, tr("Sending ADB EDL request…"));
+            if (!m_hooks.reboot(adbPath, target.serial, cancel, error)) { result->message = tr("EDL request could not be sent: %1").arg(error); return; }
         }
-        if (m_cancel->load()) return;
-        progress(tr("Request sent; waiting for the target device in 9008 mode…"));
+        if (cancel->load()) return;
+        session.reset();
+        progress(Waiting, tr("Request sent; waiting for the target device in 9008 mode…"));
         QElapsedTimer timer; timer.start();
         do {
-            for (const auto &e : m_hooks.scan()) {
-                if (e.edl && sameLocation(target, e)) {
-                    result->ok = true; result->edl = e; result->message = tr("Target device detected in 9008 mode."); return;
-                }
+            QVector<EdlEndpoint> matches;
+            for (const auto &e : m_hooks.scan())
+                if (e.mode() == QTQ_EDL && sameLocation(target, e)) matches.append(e);
+            if (matches.size() > 1) {
+                result->message = tr("Multiple EDL interfaces appeared at the target location; refresh and select one explicitly."); return;
             }
-            if (m_cancel->load()) return;
+            if (matches.size() == 1) {
+                result->ok = true; result->edl = matches.first();
+                result->message = tr("Target device detected in 9008 mode."); return;
+            }
+            if (cancel->load()) return;
             QThread::msleep(100);
         } while (timer.elapsed() < m_waitMs);
         result->message = target.location.isEmpty() && target.ports.isEmpty()
@@ -148,10 +237,13 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         if (!error.isEmpty()) result->message += "\n" + error;
     });
     connect(m_thread, &QThread::finished, this, [=] {
-        m_thread->deleteLater(); m_thread = nullptr; m_running = false;
-        if (m_cancel->load()) { result->ok = false; result->message = tr("Switch cancelled. A reboot already sent cannot be undone."); }
+        m_thread->deleteLater(); m_thread = nullptr;
+        if (cancel->load()) { result->ok = false; result->message = tr("Switch cancelled. A reboot already sent cannot be undone."); }
+        m_endpoints.clear(); m_targets.clear(); m_discovered = false;
+        setState(cancel->load() ? Cancelled : result->ok ? Completed : Failed);
+        emit targetsChanged();
         setMessage(result->message);
-        emit finished(result->ok, result->message, result->edl.path, result->edl.bus, result->edl.ports);
+        emit finished(result->ok, result->message, result->edl);
     });
     m_thread->start();
 }

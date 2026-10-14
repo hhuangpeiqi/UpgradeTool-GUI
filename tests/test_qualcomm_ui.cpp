@@ -1,3 +1,4 @@
+#include "tests/FakeDiagSession.h"
 #include "gui/backend/AppController.h"
 #include "gui/backend/DirModel.h"
 #include "gui/OperationSpec.h"
@@ -13,6 +14,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <QImage>
+#include <QMouseEvent>
 #include <QSettings>
 #include <QVariantList>
 #include <libusb.h>
@@ -25,6 +27,11 @@ template<class F> bool Await(F predicate) {
     QElapsedTimer timer; timer.start();
     while(!predicate() && timer.elapsed()<8000) { QCoreApplication::processEvents(); QThread::msleep(5); }
     return predicate();
+}
+static void MovePointer(QQuickWindow *window, const QPointF &position) {
+    QMouseEvent event(QEvent::MouseMove, position, window->mapToGlobal(position.toPoint()),
+        Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(window, &event);
 }
 static void Write(const QString &path,const QByteArray &data) { QFile f(path); CHECK(f.open(QIODevice::WriteOnly)); CHECK(f.write(data)==data.size()); }
 int main(int argc,char **argv) {
@@ -45,7 +52,38 @@ int main(int argc,char **argv) {
     Write(fixture.filePath("rawprogram_CN.xml"),raw); Write(fixture.filePath("rawprogram_US.xml"),raw);
     Write(fixture.filePath("patch0.xml"),"<patches/>");
     {
-        gui::AppController controller(nullptr);
+        // Device discovery and switching are fully simulated; never reboot host devices.
+        std::atomic<int> endpointMask(0), diagSwitches(0), adbSwitches(0);
+        std::atomic_bool requestSent(false), showEdl(true);
+        gui::EdlEndpoint diag;
+        diag.id = "diag:board"; diag.label = "Board diagnostic interface";
+        diag.location = "usb:1-2"; diag.vid = 0x05c6; diag.pid = 0x9091; diag.suggested = true;
+        auto adb = diag; adb.kind = gui::EdlEndpoint::Adb; adb.id = "adb:board"; adb.serial = "board";
+        auto edl = diag; edl.downloadInterface = true; edl.vid=0x05c6; edl.pid = 0x9008;
+        gui::EdlHooks hooks;
+        hooks.discover = [&](const QString &, const gui::EdlCancel &, QString &) {
+            QVector<gui::EdlEndpoint> endpoints;
+            const int mask = endpointMask.load();
+            if (mask & 1) endpoints.append(diag);
+            if (mask & 2) endpoints.append(adb);
+            if (mask & 4) { auto second = diag; second.id = "diag:second-port"; endpoints.append(second); }
+            if (mask & 8) { auto second = diag; second.id = "diag:other-board"; second.location = "usb:1-3"; endpoints.append(second); }
+            if (mask & 16) { auto unknown = diag; unknown.suggested = false; endpoints.append(unknown); }
+            return endpoints;
+        };
+        hooks.openDiag = FakeDiagFactory([&](const gui::EdlEndpoint &, const QByteArray &request, const gui::EdlCancel &, QString &, bool &sent) {
+            sent = true;
+            if (request == QByteArray(1, 0)) return QByteArray(55, 0);
+            ++diagSwitches; requestSent = true; return request;
+        });
+        hooks.reboot = [&](const QString &, const QString &serial, const gui::EdlCancel &, QString &) {
+            CHECK(serial == "board"); ++adbSwitches; requestSent = true; return true;
+        };
+        hooks.scan = [&] { return requestSent.load() && showEdl.load() ? QVector<gui::EdlEndpoint>{edl} : QVector<gui::EdlEndpoint>{}; };
+        gui::AppController controller(nullptr, hooks, 5000);
+        // Keep periodic and vendor-triggered hardware scans from replacing the
+        // device snapshots injected by these UI tests.
+        CHECK(QObject::disconnect(&controller, SIGNAL(requestScan()), nullptr, nullptr));
         CHECK(Await([&]{return !controller.busy();})); controller.setVendor(2); controller.ignorePermission();
         auto *qc=controller.qualcomm();
         controller.language()->setMode("zh");
@@ -77,20 +115,165 @@ int main(int argc,char **argv) {
         CHECK(rawStart && !rawStart->isEnabled());
         auto *toolStart = window->findChild<QQuickItem *>("qcToolStart");
         CHECK(toolStart && !toolStart->isEnabled());
+        {
+            auto update=[&](const QVariantList &devices) {
+                CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList,devices)));
+            };
+            QVariantMap diag{{"vendor",2},{"index",1},{"key","diag"},{"vid",0x05c6},{"pid",0x9091},{"qualcommMode",QTQ_DIAG}};
+            auto edl=diag; edl["key"]="edl"; edl["index"]=2; edl["pid"]=0x9008; edl["qualcommMode"]=QTQ_EDL;
+            update({diag,edl}); controller.setDeviceIndex(0);
+            CHECK(!download->isEnabled());
+            controller.setDeviceIndex(1); CHECK(download->isEnabled());
+            edl["qualcommMode"]=QTQ_DUMP; edl["pid"]=0x900e; update({diag,edl});
+            CHECK(!download->isEnabled());
+            edl["qualcommMode"]=QTQ_EDL; edl["pid"]=0x9008; edl["accessError"]=-3; update({diag,edl});
+            CHECK(!download->isEnabled());
+            update({});
+        }
         auto *loadXml = window->findChild<QObject *>("qcLoadXml");
         auto *programPicker = window->findChild<QObject *>("qcProgramPicker");
         auto *patchPicker = window->findChild<QObject *>("qcPatchPicker");
         CHECK(loadXml && programPicker && patchPicker);
-        auto *switchEdl = window->findChild<QQuickItem *>("qcSwitchEdl"); CHECK(switchEdl && switchEdl->isEnabled());
-        auto *switchConfig = window->findChild<QObject *>("qcSwitchConfig"); CHECK(switchConfig);
-        // "Switch method…" opens the dialog, while "Switch" switches straight away
-        // with the last configuration confirmed in that dialog. With no device
-        // discovered it must report the missing endpoint instead of starting a job.
-        if (switchEdl) {
-            QMetaObject::invokeMethod(switchEdl, "clicked");
-            CHECK(!controller.busy());
-            CHECK(!controller.edl()->message().isEmpty());
+        auto *qcPage = window->findChild<QObject *>("QualcommFlashPage"); CHECK(qcPage);
+        auto *switchEdl = qcPage->findChild<QQuickItem *>("qcSwitchEdl"); CHECK(switchEdl && !switchEdl->isEnabled());
+        CHECK(!window->findChild<QObject *>("qcSwitchConfig"));
+        auto *switchMethod = qcPage->findChild<QQuickItem *>("qcSwitchMethod"); CHECK(switchMethod);
+        auto *edlDialog = window->findChild<QObject *>("qcEdlDialog"); CHECK(edlDialog);
+        auto *edlDevice = edlDialog->findChild<QObject *>("qcEdlDevice"); CHECK(edlDevice);
+        auto *edlPort = edlDialog->findChild<QObject *>("qcEdlPort"); CHECK(edlPort);
+        auto *edlStart = edlDialog->findChild<QQuickItem *>("qcEdlStart"); CHECK(edlStart);
+        auto refreshSwitch = [&] {
+            CHECK(Await([&]{ return !controller.edl()->discovering(); }));
+            controller.refreshEdl();
+            CHECK(Await([&]{ return !controller.edl()->discovering(); }));
+            QCoreApplication::processEvents();
+        };
+        refreshSwitch();
+        CHECK(!controller.edl()->ready());
+        QString switchError;
+        auto switchErrorConnection = QObject::connect(&controller, &gui::AppController::toastRequested, &application,
+            [&](const QString &text, bool error) { if (error) switchError = text; });
+        controller.requestEdlSwitch();
+        CHECK(!controller.busy() && !switchError.isEmpty());
+        QObject::disconnect(switchErrorConnection);
+        auto *switchTooltip = qcPage->findChild<QObject *>("qcSwitchTooltip"); CHECK(switchTooltip);
+        auto *startTooltip = edlDialog->findChild<QObject *>("qcEdlStartTooltip"); CHECK(startTooltip);
+        auto hoverButton = [&](QQuickItem *button, QObject *tooltip, const QString &expected) {
+            QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed() > 60;});
+            CHECK(!button->isEnabled());
+            MovePointer(window, button->mapToScene(QPointF(button->width()/2, button->height()/2)));
+            CHECK(Await([&]{ return tooltip->property("visible").toBool(); }));
+            CHECK(tooltip->property("text").toString().contains(expected));
+            MovePointer(window, QPointF(2, 2));
+            CHECK(Await([&]{ return !tooltip->property("visible").toBool(); }));
+        };
+        hoverButton(switchEdl, switchTooltip, QStringLiteral("No diagnostic interface"));
+        controller.edl()->setMethod(gui::EdlRunner::Adb);
+        hoverButton(switchEdl, switchTooltip, QStringLiteral("No authorized ADB device"));
+        controller.edl()->setMethod(gui::EdlRunner::Diag);
+        controller.language()->setMode("zh");
+        hoverButton(switchEdl, switchTooltip, QStringLiteral("未检测到诊断接口"));
+        controller.language()->setMode("en");
+        // First entry discovers candidates without ever opening a settings dialog.
+        endpointMask = 1;
+        CHECK(Await([&]{ return switchEdl->isEnabled(); })); // automatic polling
+        MovePointer(window, switchEdl->mapToScene(QPointF(switchEdl->width()/2, switchEdl->height()/2)));
+        QElapsedTimer hover; hover.start(); Await([&]{return hover.elapsed() > 60;});
+        CHECK(!switchTooltip->property("visible").toBool());
+        MovePointer(window, QPointF(2, 2));
+        QMetaObject::invokeMethod(switchEdl, "clicked");
+        CHECK(controller.busy() && !switchEdl->isEnabled());
+        CHECK(!edlDialog->property("visible").toBool());
+        CHECK(Await([&]{ return !controller.busy(); }));
+        CHECK(diagSwitches == 1 && adbSwitches == 0);
+        refreshSwitch();
+        // ADB availability is independent of the diagnostic candidates.
+        endpointMask = 2; refreshSwitch();
+        CHECK(!switchEdl->isEnabled());
+        controller.edl()->setMethod(gui::EdlRunner::Adb);
+        CHECK(switchEdl->isEnabled());
+        CHECK(switchMethod->property("selectedIndex").toInt() == 1);
+        QMetaObject::invokeMethod(switchEdl, "clicked");
+        CHECK(Await([&]{ return !controller.busy(); }));
+        CHECK(diagSwitches == 1 && adbSwitches == 1);
+        controller.edl()->setMethod(gui::EdlRunner::Diag);
+        // Ambiguous ports require explicit selection, which unplugging invalidates.
+        endpointMask = 5; refreshSwitch();
+        QMetaObject::invokeMethod(switchEdl, "clicked");
+        CHECK(Await([&]{ return edlDialog->property("visible").toBool(); }));
+        CHECK(!edlStart->isEnabled());
+        hoverButton(edlStart, startTooltip, QStringLiteral("Select one diagnostic interface"));
+        edlPort->setProperty("currentIndex", 1);
+        QMetaObject::invokeMethod(edlPort, "activated", Q_ARG(int, 1));
+        CHECK(edlStart->isEnabled());
+        refreshSwitch();
+        CHECK(edlStart->isEnabled() && edlPort->property("currentIndex").toInt() == 1);
+        // Losing the chosen port cannot select the other port automatically.
+        endpointMask = 4; refreshSwitch();
+        CHECK(!edlStart->isEnabled());
+        endpointMask = 0; refreshSwitch();
+        CHECK(!edlStart->isEnabled() && !switchEdl->isEnabled());
+        QMetaObject::invokeMethod(edlDialog, "close");
+        // Multiple devices never silently choose the first one.
+        endpointMask = 9; refreshSwitch();
+        QMetaObject::invokeMethod(switchEdl, "clicked");
+        CHECK(Await([&]{ return edlDialog->property("visible").toBool(); }));
+        CHECK(edlDevice->property("currentIndex").toInt() == -1 && !edlStart->isEnabled());
+        hoverButton(edlStart, startTooltip, QStringLiteral("Select a device first"));
+        edlDevice->setProperty("currentIndex", 0);
+        QMetaObject::invokeMethod(edlDevice, "activated", Q_ARG(int, 0));
+        CHECK(edlStart->isEnabled());
+        QMetaObject::invokeMethod(edlDialog, "close");
+        CHECK(diagSwitches == 1); // closing a selection never switches
+        // An unknown USB interface must be explicitly chosen even when unique.
+        endpointMask = 16; refreshSwitch();
+        QMetaObject::invokeMethod(switchEdl, "clicked");
+        CHECK(Await([&]{ return edlDialog->property("visible").toBool(); }));
+        CHECK(!edlStart->isEnabled());
+        edlPort->setProperty("currentIndex", 1);
+        QMetaObject::invokeMethod(edlPort, "activated", Q_ARG(int, 1));
+        CHECK(edlStart->isEnabled());
+        QMetaObject::invokeMethod(edlStart, "clicked");
+        CHECK(Await([&]{ return !controller.busy(); }));
+        CHECK(diagSwitches == 2);
+        // Switching must preserve action geometry without additional status rows.
+        endpointMask = 1; showEdl = false; refreshSwitch();
+        window->setWidth(1024); window->setHeight(640);
+        for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
+            controller.language()->setMode(language);
+            controller.theme()->setMode(theme);
+            for (int page = 0; page < 3; ++page) {
+                window->setProperty("currentPage", page);
+                auto *workspace = window->findChild<QQuickItem *>(page == 0 ? "QualcommPartitionsPage" : page == 1 ? "QualcommFlashPage" : "QualcommToolsPage");
+                auto *button = workspace->findChild<QQuickItem *>("qcSwitchEdl");
+                auto *primary = workspace->findChild<QQuickItem *>(page == 0 ? "qcRawStart" : page == 1 ? "qcDownload" : "qcToolStart");
+                QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed() > 60;});
+                const QPointF before = button->mapToScene(QPointF());
+                const QPointF primaryBefore = primary->mapToScene(QPointF());
+                requestSent = false;
+                QMetaObject::invokeMethod(button, "clicked");
+                CHECK(controller.busy());
+                CHECK(Await([&]{ return requestSent.load(); }));
+                layout.restart(); Await([&]{return layout.elapsed() > 60;});
+                CHECK(qAbs(before.x() - button->mapToScene(QPointF()).x()) < 1);
+                CHECK(qAbs(before.y() - button->mapToScene(QPointF()).y()) < 1);
+                CHECK(qAbs(primaryBefore.x() - primary->mapToScene(QPointF()).x()) < 1);
+                CHECK(button->mapToScene(QPointF(button->width(), 0)).x() <= primary->mapToScene(QPointF()).x());
+                CHECK(primary->mapToScene(QPointF(primary->width(), 0)).x() <= workspace->mapToScene(QPointF(workspace->width(), 0)).x());
+                CHECK(!primary->isEnabled() && !button->isEnabled());
+                if (argc > 2) {
+                    QDir output(QString::fromLocal8Bit(argv[2])); CHECK(QDir().mkpath(output.path()));
+                    CHECK(window->grabWindow().save(output.filePath(QString("qualcomm-switching-%1-%2-%3.png").arg(language, theme).arg(page))));
+                }
+                controller.cancel(); CHECK(Await([&]{ return !controller.busy(); }));
+                refreshSwitch();
+            }
         }
+        controller.language()->setMode("en");
+        controller.theme()->setMode("light");
+        window->setProperty("currentPage", 1);
+        window->setWidth(1300); window->setHeight(780);
+        showEdl = true; endpointMask = 0; refreshSwitch();
         if (loadXml && programPicker && patchPicker) {
             controller.rememberPath("qualcomm/flash/rawprogram", temporary.path());
             const auto oldFiles = qc->xmlFiles();
@@ -162,10 +345,9 @@ int main(int argc,char **argv) {
         CHECK(submitted.steps.front().qualcomm.xml.size()==2);
         auto *flashPage=window->findChild<QObject *>("QualcommFlashPage"); CHECK(flashPage);
         auto *dryRun=flashPage ? flashPage->findChild<QQuickItem *>("qcDryRun") : nullptr; CHECK(dryRun);
-        // The action bar carries a state hint, so the footer reads as the
-        // primary action instead of blending into the form.
-        auto *actionSummary=flashPage ? flashPage->findChild<QObject *>("qcActionSummary") : nullptr; CHECK(actionSummary);
-        CHECK(actionSummary && !actionSummary->property("text").toString().isEmpty());
+        CHECK(!window->findChild<QObject *>("qcActionSummary"));
+        CHECK(!window->findChild<QObject *>("qcSwitchHint"));
+        CHECK(edlDialog->property("hintText").toString().isEmpty());
         // The target and the common options now share the Advanced options
         // disclosure, so it has to be expanded before they are visible.
         CHECK(flashPage && !flashPage->findChild<QObject *>("qcOptions"));
@@ -242,6 +424,83 @@ int main(int argc,char **argv) {
         window->setWidth(1024); window->setHeight(640);
         auto *refresh=window->findChild<QQuickItem *>("statusRefresh"); CHECK(refresh);
         CHECK(Await([&]{return refresh && refresh->mapToScene(QPointF(refresh->width(),0)).x() <= window->width();}));
+        {
+            const auto originalDevices = controller.devices();
+            QVariantList interfaces;
+            for (int mode : {QTQ_DIAG, QTQ_ADB, QTQ_UNKNOWN, QTQ_EDL, QTQ_DUMP}) {
+                interfaces.append(QVariantMap{{"vendor", 2}, {"index", mode + 1},
+                    {"qualcommMode", mode}, {"mode", QStringLiteral("details / USB IF %1").arg(mode)},
+                    {"key", QStringLiteral("interface-%1").arg(mode)}});
+            }
+            CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                Q_ARG(QVariantList, interfaces)));
+            auto *summary = window->findChild<QQuickItem *>("statusSummary"); CHECK(summary);
+            auto *tooltip = window->findChild<QObject *>("statusSummaryTooltip"); CHECK(tooltip);
+            auto *progress = window->findChild<QQuickItem *>("statusProgress"); CHECK(progress);
+            auto *cancel = window->findChild<QQuickItem *>("statusCancel"); CHECK(cancel);
+            auto *combo = window->findChild<QQuickItem *>("deviceCombo"); CHECK(combo);
+            auto *vendorSelector = window->findChild<QObject *>("vendorSelector"); CHECK(vendorSelector);
+            CHECK(QMetaObject::invokeMethod(&controller, "onAdbAvailabilityChanged", Qt::DirectConnection,
+                Q_ARG(bool, true), Q_ARG(QString, QString())));
+            CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
+                Q_ARG(QStringList, QStringList{QStringLiteral("board")})));
+            if (summary && tooltip && progress && cancel && combo && refresh) {
+                for (const QString &language : {QStringLiteral("en"), QStringLiteral("zh")}) {
+                    controller.language()->setMode(language);
+                    const QString qualcommStatus = controller.deviceStatusText();
+                    CHECK(qualcommStatus.contains(QStringLiteral("DIAG *1")));
+                    CHECK(!qualcommStatus.contains(QStringLiteral("DIAG candidate")));
+                    CHECK(!qualcommStatus.contains(QStringLiteral("DIAG 候选")));
+                    if (vendorSelector) {
+                        for (int vendor : {0, 1, 2, 0, 1, 2}) {
+                            CHECK(QMetaObject::invokeMethod(vendorSelector, "activated", Q_ARG(int, vendor)));
+                            const QString expected = vendor == 2 ? qualcommStatus
+                                : language == QStringLiteral("en") ? QStringLiteral("ADB device found")
+                                    : QStringLiteral("发现 ADB 设备");
+                            CHECK(controller.deviceStatusText() == expected);
+                            CHECK(Await([&] {
+                                return summary->property("text").toString() == expected
+                                    && tooltip->property("text").toString() == expected
+                                    && vendorSelector->property("currentIndex").toInt() == vendor
+                                    && combo->property("count").toInt() == (vendor == 2 ? interfaces.size() : 0);
+                            }));
+                        }
+                    }
+                    for (int width : {1024, 1300}) {
+                        window->setWidth(width);
+                        CHECK(Await([&] {
+                            return summary->property("text").toString() == controller.deviceStatusText()
+                                && summary->property("truncated").toBool()
+                                && summary->width() > 0
+                                && summary->width() <= window->width() * 0.25 + 1
+                                && progress->width() >= (width >= 1200 ? 220 : 140)
+                                && refresh->mapToScene(QPointF(refresh->width(), 0)).x() <= window->width();
+                        }));
+                        const QList<QQuickItem *> controls{summary, progress, cancel, combo, refresh};
+                        for (int i = 1; i < controls.size(); ++i) {
+                            CHECK(controls[i-1]->mapToScene(QPointF(controls[i-1]->width(), 0)).x()
+                                <= controls[i]->mapToScene(QPointF(0, 0)).x());
+                        }
+                        MovePointer(window, summary->mapToScene(QPointF(summary->width()/2, summary->height()/2)));
+                        CHECK(Await([&]{return tooltip->property("visible").toBool();}));
+                        CHECK(tooltip->property("text").toString() == controller.deviceStatusText());
+                        MovePointer(window, QPointF(2, 2));
+                        CHECK(Await([&]{return !tooltip->property("visible").toBool();}));
+                    }
+                }
+                controller.language()->setMode("en");
+                CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                    Q_ARG(QVariantList, QVariantList{})));
+                CHECK(Await([&]{return summary->property("text").toString() == QStringLiteral("No device found")
+                    && !summary->property("truncated").toBool();}));
+                MovePointer(window, summary->mapToScene(QPointF(summary->width()/2, summary->height()/2)));
+                CHECK(Await([&]{return !tooltip->property("visible").toBool();}));
+                MovePointer(window, QPointF(2, 2));
+            }
+            CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                Q_ARG(QVariantList, originalDevices)));
+            window->setWidth(1024);
+        }
         {
             // Long device labels must widen the popup instead of being clipped:
             // a vertical ListView reports contentWidth == -1, so the popup has

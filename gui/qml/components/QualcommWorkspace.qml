@@ -12,12 +12,7 @@ Card {
     readonly property var preview: { app.qualcomm.preview; return app.qualcomm.previewFor(context); }
     readonly property var results: app.qualcomm.resultsFor(context)
     default property alias content: body.data
-    property alias actions: buttons.data
-    // One-line readiness/status hint shown at the start of the action bar, so
-    // the page reads as a task with a clear next step instead of a form.
-    property string summary: ""
-    signal switchConfigRequested()
-    signal switchEdlRequested()
+    property alias actions: pageActions.data
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 18
@@ -62,37 +57,42 @@ Card {
             color: Theme.border
         }
         RowLayout {
-            id: buttons
             spacing: 10
             Layout.fillWidth: true
-            Text {
-                id: summaryText
-                objectName: "qcActionSummary"
-                text: root.summary
-                visible: text !== ""
-                color: Theme.textSecondary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontNormal
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                HoverHandler { id: summaryHover }
-                ToolTip.visible: summaryHover.hovered && summaryText.truncated
-                ToolTip.text: root.summary
+            QualcommComboBox {
+                objectName: "qcSwitchMethod"
+                Layout.preferredWidth: 100
+                model: ["DIAG", "ADB"]
+                selectedIndex: app.edl.method - 1
+                enabled: !app.busy
+                onActivated: app.edl.method = currentIndex + 1
             }
-            SecondaryButton {
-                objectName: "qcSwitchConfig"
-                text: qsTr("Switch settings…")
-                enabled: !app.busy && !app.edl.discovering
-                onClicked: root.switchConfigRequested()
+            Item {
+                implicitWidth: switchButton.implicitWidth
+                implicitHeight: switchButton.implicitHeight
+                SecondaryButton {
+                    id: switchButton
+                    objectName: "qcSwitchEdl"
+                    anchors.fill: parent
+                    text: qsTr("Switch to EDL")
+                    iconSource: Icons.switchBlue
+                    busy: app.edl.running
+                    enabled: !app.busy && app.edl.ready
+                    onClicked: app.requestEdlSwitch()
+                }
+                // Observe the enabled wrapper so a disabled button still gets a tooltip.
+                HoverHandler { id: switchHover }
+                ToolTip {
+                    objectName: "qcSwitchTooltip"
+                    visible: switchHover.hovered && !switchButton.enabled && !app.busy
+                    text: app.edl.unavailableReason +
+                        (app.edl.discoveryError !== "" ? "\n" + app.edl.discoveryError : "")
+                }
             }
-            SecondaryButton {
-                objectName: "qcSwitchEdl"
-                text: qsTr("Switch to EDL")
-                iconSource: Icons.switchBlue
-                busy: app.edl.running
-                enabled: !app.busy && !app.edl.discovering
-                onClicked: root.switchEdlRequested()
+            Item { Layout.fillWidth: true }
+            RowLayout {
+                id: pageActions
+                spacing: 10
             }
         }
     }

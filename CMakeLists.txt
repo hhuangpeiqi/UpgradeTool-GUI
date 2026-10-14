@@ -213,6 +213,11 @@ if(UPGRADE_TOOL_TESTS)
     add_test(NAME test_platform_path COMMAND test_platform_path)
   endif()
 
+  add_executable(test_qualcomm_policy tests/test_qualcomm_policy.cpp)
+  target_link_libraries(test_qualcomm_policy PRIVATE upgradetool)
+  add_test(NAME test_qualcomm_policy COMMAND test_qualcomm_policy)
+  set_tests_properties(test_qualcomm_policy PROPERTIES TIMEOUT 10)
+
   add_executable(test_qualcomm tests/test_qualcomm.cpp)
   target_link_libraries(test_qualcomm PRIVATE upgradetool)
   add_test(NAME test_qualcomm COMMAND test_qualcomm)

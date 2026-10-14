@@ -2,12 +2,15 @@
 #define CORE_BACKEND_H
 #include "core/UpgradeObserver.h"
 #include <memory>
+#include "core/qualcomm/DevicePolicy.h"
 namespace core {
 struct DeviceDescriptor {
     DeviceIdentity identity;
     unsigned vid = 0, pid = 0;
     int index = 0, usbType = 0;
     std::string mode;
+    qtq_mode qualcommMode = QTQ_UNKNOWN;
+    int accessError = 0;
 };
 class IDeviceBackend {
 public:

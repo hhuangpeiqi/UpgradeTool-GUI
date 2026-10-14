@@ -87,6 +87,7 @@ foreach(source IN LISTS QDL_SOURCES)
 endforeach()
 add_library(qdl_embedded STATIC ${QDL_SOURCE_FILES}
   "${CMAKE_SOURCE_DIR}/core/qualcomm/qdl_bridge.c"
+  "${CMAKE_SOURCE_DIR}/core/qualcomm/Discovery.c"
   "${CMAKE_SOURCE_DIR}/core/qualcomm/qdl_ux.c")
 set_target_properties(qdl_embedded PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS YES)
 target_include_directories(qdl_embedded PRIVATE "${QDL_EMBEDDED_DIR}/include" "${QDL_EMBEDDED_DIR}/src")

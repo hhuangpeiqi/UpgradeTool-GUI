@@ -33,6 +33,7 @@
 #include "core/UpgradeObserver.h"
 #include "core/Version.h"
 #include "core/allwinner/Firmware.h"
+#include "core/qualcomm/OperationPolicy.h"
 #include "Config.h"
 #include "platform/PlatformPath.h"
 
@@ -156,6 +157,9 @@ QString PromptText(int prompt, bool &failed)
 }
 
 AppController::AppController(CRKLog *pLog, QObject *parent)
+    : AppController(pLog, DefaultEdlHooks(), 45000, parent) {}
+
+AppController::AppController(CRKLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent)
 	: QObject(parent),
 	  m_pWorker(new EngineWorker(pLog)),
 	  m_pObserver(new QtObserver(this)),
@@ -211,26 +215,25 @@ AppController::AppController(CRKLog *pLog, QObject *parent)
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
 	connect(m_pWorker, &EngineWorker::stepStarted, this, &AppController::onStepStarted);
     m_qualcomm = new QualcommController(this);
-    m_edl = new EdlRunner(this);
+    m_edl = new EdlRunner(std::move(edlHooks), edlWaitMs, this);
+    connect(m_edl, &EdlRunner::errorOccurred, this, [this](const QString &message) {
+        AppendLog(message, true); emit toastRequested(message, true);
+    });
     connect(m_edl, &EdlRunner::started, this, [this] {
         m_bSwitching = true; emit switchingChanged(); SetBusy(true);
         SetProgress(-1, tr("Switching…"));
     });
-    connect(m_edl, &EdlRunner::changed, this, [this] {
+    connect(m_edl, &EdlRunner::messageChanged, this, [this] {
         if (m_edl->running()) {
             SetProgress(-1, m_edl->message());
             AppendLog(m_edl->message(), false);
         }
     });
-    connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const QString &path, int bus, const QVector<int> &ports) {
+    connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint) {
         m_bSwitching = false; emit switchingChanged(); SetBusy(false);
         SetProgress(ok ? 100 : 0, message); AppendLog(message, !ok);
-        if (ok) { m_edlPath = path; m_edlBus = bus; m_edlPorts = ports; }
-        // Force the next device list to be rebuilt so the device that just
-        // entered 9008 mode is re-read with its fresh identity instead of the
-        // pre-switch one.
-        m_strDeviceSignature = QStringLiteral("changed");
-        emit requestScan(); emit toastRequested(message, !ok);
+        m_pendingEdl = ok ? endpoint : EdlEndpoint();
+        emit requestScan(); refreshEdl(); emit toastRequested(message, !ok);
     });
     connect(m_qualcomm, &QualcommController::executeRequested, this, [this](const core::OperationRequest &request) {
         if(m_vendor != 2 || m_bBusy) return;
@@ -469,21 +472,29 @@ QStringList AppController::deviceLabels() const
 }
 
 
-bool AppController::hasEdlDevice() const
+QVariantMap AppController::qualcommEligibility() const
 {
-	if (m_vendor != 2)
-		return false;
-	// Qualcomm is enumerated by vendor id, so a unit in DIAG, ADB or MTP mode
-	// is listed too. Only the Sahara/Firehose PIDs can actually be opened by
-	// the flasher: 0x9008 (EDL) and 0x900e (crash-dump / RAM dump). Gate the
-	// device operations on those so the primary action follows what the
-	// backend can really run instead of merely what is plugged in.
-	for (const auto &entry : m_devices) {
-		const unsigned int pid = entry.toMap().value("pid").toUInt();
-		if (pid == 0x9008 || pid == 0x900e)
-			return true;
-	}
-	return false;
+    QVariantList targets;
+    if(m_vendor == 2) {
+        if(m_bBatchMode) targets=BatchTargets();
+        else if(m_iDeviceIndex >= 0 && m_iDeviceIndex < m_devices.size()) targets.append(m_devices[m_iDeviceIndex]);
+    }
+    QVariantMap result;
+    for(int op=int(core::Operation::QualcommFlash);op<=int(core::Operation::QualcommProvision);++op) {
+        QString reason;
+        if(targets.isEmpty()) reason=tr("Select a device first");
+        else if(m_bBatchMode && targets.size()!=m_batchKeys.size())
+            reason=tr("A selected device is no longer available; refresh and select the targets again");
+        for(const auto &target:targets) {
+            if(!reason.isEmpty()) break;
+            const auto map=target.toMap();
+            reason=core::qualcomm::EligibilityReason(static_cast<core::Operation>(op),
+                static_cast<qtq_mode>(map.value("qualcommMode",QTQ_UNKNOWN).toInt()),map.value("accessError").toInt());
+            if(!reason.isEmpty()) break;
+        }
+        result[QString::number(op)]=QVariantMap{{"allowed",reason.isEmpty()},{"reason",reason}};
+    }
+    return result;
 }
 
 
@@ -497,7 +508,27 @@ void AppController::SetDeviceStatus()
 		return;
 	}
 
-	// Aggregate by rockusb mode, preserving device discovery order
+	if (m_vendor == 2) {
+		QList<int> modes;
+		QMap<int, int> counts;
+		for (const auto &value : m_devices) {
+			const int mode = value.toMap().value("qualcommMode", QTQ_UNKNOWN).toInt();
+			if (!counts.contains(mode)) modes.append(mode);
+			++counts[mode];
+		}
+		QStringList parts;
+		for (int mode : modes) {
+			const QString label = QCoreApplication::translate("QualcommBackend",
+				core::qualcomm::ModeLabel(static_cast<qtq_mode>(mode)));
+			parts << tr("%1 *%2").arg(label).arg(counts[mode]);
+		}
+		m_strDeviceStatus = parts.isEmpty() ? tr("No device found")
+			: tr("Interfaces found: %1").arg(parts.join(tr(", ")));
+		emit devicesChanged();
+		return;
+	}
+
+	// Aggregate by mode, preserving device discovery order.
 	QStringList strModes;
 	QMap<QString, int> mapCount;
 	for (int i = 0; i < m_devices.size(); i++) {
@@ -597,6 +628,7 @@ void AppController::SetAllwinnerHint(int context, TranslatableText::Factory fact
 
 void AppController::retranslate()
 {
+    m_edl->retranslate();
 	// The single rebuild path: every cached tr() string in this controller is
 	// regenerated here, then the matching NOTIFY signals are emitted so QML
 	// reads the new text immediately.
@@ -630,42 +662,38 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 {
     m_allDevices = incoming;
     QString edlKey;
-    if (m_vendor == 2 && (!m_edlPath.isEmpty() || !m_edlPorts.isEmpty())) {
+    if (m_vendor == 2 && m_pendingEdl.mode() == QTQ_EDL) {
+        QStringList matches;
+        const auto &expected=m_pendingEdl;
         for (const auto &entry : incoming) {
-            const auto d = entry.toMap();
-            if (d.value("vendor").toInt() != 2) continue;
-            QVector<int> ports; for (const auto &p : d.value("ports").toList()) ports.append(p.toInt());
-            if ((!m_edlPath.isEmpty() && DevicePathKey(d.value("devicePath").toString()) == DevicePathKey(m_edlPath)) ||
-                (!m_edlPorts.isEmpty() && d.value("bus").toInt() == m_edlBus && ports == m_edlPorts)) {
-                edlKey = d.value("key").toString(); break;
+            const auto d=entry.toMap();
+            if(d.value("vendor").toInt()!=2 || d.value("qualcommMode").toInt()!=QTQ_EDL ||
+                d.value("vid").toUInt()!=expected.vid || d.value("pid").toUInt()!=expected.pid) continue;
+            QVector<int> ports; for(const auto &p:d.value("ports").toList()) ports.append(p.toInt());
+            if(d.value("transport",-1).toInt()==int(core::QualcommTransport::Qud) && !expected.path.isEmpty()) {
+                if(DevicePathKey(d.value("devicePath").toString())!=DevicePathKey(expected.path)) continue;
+                if(!expected.instance.isEmpty()) {
+                    if(d.value("deviceInstance").toString()!=expected.instance) continue;
+                } else if(expected.serial.isEmpty() || d.value("serial").toString()!=expected.serial) continue;
+            } else {
+                if(expected.ports.isEmpty() || d.value("bus").toInt()!=expected.bus || ports!=expected.ports) continue;
+                if(d.value("usbAddress").toUInt()!=expected.address ||
+                    d.value("interfaceNumber",-1).toInt()!=expected.interfaceNumber ||
+                    d.value("alternate").toInt()!=expected.alternate) continue;
+                if(!expected.serial.isEmpty() && d.value("serial").toString()!=expected.serial) continue;
             }
+            matches.append(d.value("key").toString());
         }
-        if (!edlKey.isEmpty()) { m_edlPath.clear(); m_edlPorts.clear(); }
+        if(matches.size()==1) edlKey=matches.first();
+        if(!matches.isEmpty()) m_pendingEdl={};
     }
     QVariantList devices;
     for(const auto &d:incoming) if(d.toMap().value("vendor",0).toInt()==m_vendor) devices.append(d);
-	QStringList strSignature;
-	for (int i = 0; i < devices.size(); i++) {
-		QVariantMap map = devices[i].toMap();
-		// The identity fields are part of the signature: a Qualcomm device can
-		// re-enumerate into another mode (DIAG 0x9091 <-> EDL 0x9008) on the same
-		// USB port, keeping index/mode/key but changing vid/pid/serial. Without
-		// them the cached target would keep a stale serial and the next task
-		// would be rejected as disconnected before it started.
-		strSignature << QString("%1:%2:%3:%4:%5:%6")
-			.arg(map["index"].toInt())
-			.arg(map["mode"].toString())
-			.arg(map["key"].toString())
-			.arg(map["vid"].toUInt())
-			.arg(map["pid"].toUInt())
-			.arg(map["serial"].toString());
-	}
-	QString strNewSignature = strSignature.join('\n');
-	if (strNewSignature == m_strDeviceSignature) {
+    // Compare complete snapshots, including mode, access and interface incarnation.
+    if (devices == m_devices) {
         if (!edlKey.isEmpty()) setDeviceIndex(m_deviceKeys.indexOf(edlKey));
         return;
     }
-	m_strDeviceSignature = strNewSignature;
 
 	QString strPrevious = m_vendorSelection[m_vendor];
 	if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceKeys.size())
@@ -677,7 +705,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 		m_deviceKeys << devices[i].toMap()["key"].toString();
 
 	int iSelected = m_deviceKeys.indexOf(edlKey.isEmpty() ? strPrevious : edlKey);
-	if (iSelected < 0 && !devices.isEmpty())
+	if (iSelected < 0 && !devices.isEmpty() && (m_vendor != 2 || strPrevious.isEmpty()))
 		iSelected = 0;
 
 	if (iSelected != m_iDeviceIndex) {
@@ -686,7 +714,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 	}
 
 
-	if (m_bBatchMode) {
+	if (m_bBatchMode && m_vendor != 2) {
 		QStringList strAlive;
 		for (int i = 0; i < m_batchKeys.size(); i++)
 			if (m_deviceKeys.contains(m_batchKeys[i]))
@@ -717,7 +745,7 @@ void AppController::setDeviceIndex(int iIndex)
 	if (m_bBusy) return;
 	if (iIndex < -1 || iIndex >= m_devices.size())
 		return;
-	if (iIndex == m_iDeviceIndex)
+	if (iIndex == m_iDeviceIndex && !m_bBatchMode)
 		return;
 
 	if (m_bBatchMode) {
@@ -725,6 +753,7 @@ void AppController::setDeviceIndex(int iIndex)
 		m_batchKeys.clear();
 		emit batchModeChanged();
 	}
+	m_pendingEdl = {};
 	m_iDeviceIndex = iIndex;
     m_vendorSelection[m_vendor] = iIndex >= 0 ? m_deviceKeys.value(iIndex) : QString();
 	emit deviceIndexChanged();
@@ -736,6 +765,7 @@ void AppController::refresh()
 {
 	if (m_bBusy) return;
 	emit requestScan();
+    refreshEdl();
 }
 
 void AppController::retryPermission()
@@ -792,10 +822,27 @@ void AppController::StartJob(core::TaskJob job)
 		if (m_bBatchMode) targets = BatchTargets();
 		else if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_devices.size()) targets.append(m_devices[m_iDeviceIndex]);
 		if (targets.isEmpty()) { emit toastRequested(tr("Select a device first"), true); return; }
+        if(job.steps.front().vendor==core::Vendor::Qualcomm) {
+            if(m_bBatchMode && targets.size()!=m_batchKeys.size()) {
+                emit toastRequested(tr("A selected device is no longer available; refresh and select the targets again"),true); return;
+            }
+            for(const auto &value:targets) {
+                const auto map=value.toMap();
+                for(const auto &step:job.steps) {
+                    const auto reason=core::qualcomm::EligibilityReason(step.operation,
+                        static_cast<qtq_mode>(map.value("qualcommMode",QTQ_UNKNOWN).toInt()),map.value("accessError").toInt());
+                    if(!reason.isEmpty()) { emit toastRequested(reason,true); return; }
+                }
+            }
+        }
 		for (const auto &value : targets) {
 			QVariantMap map = value.toMap();
 			core::DeviceIdentity identity;
+			identity.vid=map["vid"].toUInt(); identity.pid=map["pid"].toUInt(); identity.usbAddress=map["usbAddress"].toUInt();
+            identity.interfaceNumber=map.value("interfaceNumber",-1).toInt(); identity.alternate=map["alternate"].toInt();
+            identity.inEndpoint=map["inEndpoint"].toInt(); identity.outEndpoint=map["outEndpoint"].toInt();
 			identity.serial = map["serial"].toString().toStdString();
+            identity.deviceInstance=map["deviceInstance"].toString().toStdString();
             identity.devicePath=map["devicePath"].toString().toStdString();
             identity.transport=static_cast<core::QualcommTransport>(map.value("transport",-1).toInt());
 			identity.location = map["locationId"].toUInt();
@@ -1353,6 +1400,10 @@ void AppController::switchToEdl(const QString &target, int method, const QString
 {
     if (m_vendor == 2 && !m_bBusy) m_edl->start(target, method, endpoint, m_pAdb->AdbPath());
 }
+void AppController::requestEdlSwitch()
+{
+    if (m_vendor == 2 && !m_bBusy) m_edl->requestSwitch(m_pAdb->AdbPath());
+}
 
 void AppController::switchToLoader()
 {
@@ -1483,10 +1534,14 @@ void AppController::setVendor(int vendor)
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
     m_vendor=vendor; m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
     m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();
-    m_devices.clear(); m_deviceKeys.clear(); m_iDeviceIndex=-1; m_strDeviceSignature=QStringLiteral("changed");
+    m_devices.clear(); m_deviceKeys.clear(); m_iDeviceIndex=-1;
     m_batchKeys=m_vendorBatch[m_vendor]; m_bBatchContinue=m_vendorContinue[m_vendor]; m_bBatchMode=m_batchKeys.size()>1;
     emit vendorChanged(); emit deviceIndexChanged(); emit batchModeChanged();
-    onDevicesReady(m_allDevices); refresh();
+    onDevicesReady(m_allDevices);
+    // Empty snapshots skip onDevicesReady's update path, but a vendor change
+    // still needs to rebuild the status and notify the device bindings.
+    if (m_devices.isEmpty()) SetDeviceStatus();
+    refresh();
 }
 QVariantMap AppController::allwinnerSettings() const
 {

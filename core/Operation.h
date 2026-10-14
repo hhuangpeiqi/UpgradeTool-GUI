@@ -128,10 +128,13 @@ struct OperationRequest {
 };
 
 struct DeviceIdentity {
+    // Qualcomm interface incarnation. Zero IDs retain unspecified-target semantics.
+    unsigned int vid = 0, pid = 0, usbAddress = 0;
+    int interfaceNumber = -1, alternate = 0, inEndpoint = 0, outEndpoint = 0;
 	std::string serial;
 	uint32_t location = 0;
 	Vendor vendor = Vendor::Rockchip;
-	std::string devicePath;
+	std::string devicePath, deviceInstance;
 	QualcommTransport transport = QualcommTransport::Auto;
 	uint8_t bus = 0;
 	std::vector<uint8_t> ports;

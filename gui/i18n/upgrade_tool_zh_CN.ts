@@ -1186,6 +1186,22 @@
         <source>Switch method</source>
         <translation>切换方式</translation>
     </message>
+    <message>
+        <source>Select switch target</source>
+        <translation>选择切换目标</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Select a device first</source>
+        <translation>请先选择设备</translation>
+    </message>
+    <message>
+        <source>Select one diagnostic interface before switching.</source>
+        <translation>请先选择一个诊断接口再切换。</translation>
+    </message>
 </context>
 <context>
     <name>FilePathRow</name>
@@ -2121,6 +2137,34 @@
         <location line="+11"/>
         <source>Qualcomm operation failed</source>
         <translation>高通操作失败</translation>
+    </message>
+    <message>
+        <source>Crash-dump mode only supports RAM dump; switch to EDL (9008) for this operation</source>
+        <translation>崩溃转储模式仅支持内存转储；执行此操作请先切换到 EDL（9008）</translation>
+    </message>
+    <message>
+        <source>The selected interface is not an EDL (9008) target</source>
+        <translation>所选接口不是 EDL（9008）目标</translation>
+    </message>
+    <message>
+        <source>The selected interface cannot be opened; check permissions and the USB driver</source>
+        <translation>无法打开所选接口，请检查访问权限及 USB 驱动</translation>
+    </message>
+    <message>
+        <source>EDL</source>
+        <translation>EDL</translation>
+    </message>
+    <message>
+        <source>Crash-dump candidate</source>
+        <translation>崩溃转储候选</translation>
+    </message>
+    <message>
+        <source>DIAG</source>
+        <translation>DIAG</translation>
+    </message>
+    <message>
+        <source>Unknown mode</source>
+        <translation>未知模式</translation>
     </message>
 </context>
 <context>
@@ -3188,6 +3232,14 @@
         <translation>发现 %1 设备</translation>
     </message>
     <message>
+        <source>Interfaces found: %1</source>
+        <translation>发现接口：%1</translation>
+    </message>
+    <message>
+        <source>%1 *%2</source>
+        <translation>%1 *%2</translation>
+    </message>
+    <message>
         <location line="+1"/>
         <source>Found %1 %2 device(s)</source>
         <translation>发现 %1 台 %2 设备</translation>
@@ -3556,6 +3608,10 @@
         <source>Simulation</source>
         <translation>模拟执行</translation>
     </message>
+    <message>
+        <source>A selected device is no longer available; refresh and select the targets again</source>
+        <translation>所选设备已不可用，请刷新后重新选择目标设备</translation>
+    </message>
 </context>
 <context>
     <name>gui::ConfigStore</name>
@@ -3772,6 +3828,30 @@
         <location line="-36"/>
         <source>Verifying the selected DIAG interface…</source>
         <translation>正在验证所选 DIAG 接口…</translation>
+    </message>
+    <message>
+        <source>Switching device to EDL mode…</source>
+        <translation>正在切换设备到 EDL 模式…</translation>
+    </message>
+    <message>
+        <source>No diagnostic interface detected</source>
+        <translation>未检测到诊断接口</translation>
+    </message>
+    <message>
+        <source>No authorized ADB device detected; check ADB and USB debugging</source>
+        <translation>未检测到已授权的 ADB 设备，请检查 ADB 和 USB 调试</translation>
+    </message>
+    <message>
+        <source>The selected switch endpoint is no longer available. Refresh and select it again.</source>
+        <translation>所选切换接口已失效，请刷新后重新选择。</translation>
+    </message>
+    <message>
+        <source>Cannot enumerate USB devices.</source>
+        <translation>无法枚举 USB 设备。</translation>
+    </message>
+    <message>
+        <source>Multiple EDL interfaces appeared at the target location; refresh and select one explicitly.</source>
+        <translation>目标位置出现多个 EDL 接口，请刷新后明确选择其中一个。</translation>
     </message>
 </context>
 <context>

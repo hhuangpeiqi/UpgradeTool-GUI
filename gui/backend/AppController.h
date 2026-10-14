@@ -46,7 +46,7 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(QStringList deviceLabels READ deviceLabels NOTIFY devicesChanged)
 	Q_PROPERTY(QString deviceStatusText READ deviceStatusText NOTIFY devicesChanged)
 	Q_PROPERTY(bool hasDevice READ hasDevice NOTIFY devicesChanged)
-	Q_PROPERTY(bool hasEdlDevice READ hasEdlDevice NOTIFY devicesChanged)
+	Q_PROPERTY(QVariantMap qualcommEligibility READ qualcommEligibility NOTIFY devicesChanged)
 	Q_PROPERTY(int deviceIndex READ deviceIndex WRITE setDeviceIndex NOTIFY deviceIndexChanged)
 
 	Q_PROPERTY(bool permissionBlocked READ permissionBlocked NOTIFY permissionChanged)
@@ -95,6 +95,7 @@ class AppController : public QObject, public Retranslatable
 
 public:
 	explicit AppController(CRKLog *pLog, QObject *parent = NULL);
+    AppController(CRKLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent = nullptr);
 	~AppController();
 
 	// Rebuilds every cached translated string when the UI language changes.
@@ -104,6 +105,7 @@ public:
     QualcommController *qualcomm() { return m_qualcomm; }
     EdlRunner *edl() { return m_edl; }
     Q_INVOKABLE void refreshEdl();
+    Q_INVOKABLE void requestEdlSwitch();
     Q_INVOKABLE void switchToEdl(const QString &target, int method, const QString &endpoint);
 
     int vendor() const { return m_vendor; }
@@ -126,7 +128,7 @@ public:
 	QStringList deviceLabels() const;
 	QString deviceStatusText() const { return m_strDeviceStatus; }
 	bool hasDevice() const { return !m_devices.isEmpty(); }
-	bool hasEdlDevice() const;
+	QVariantMap qualcommEligibility() const;
 
 	int deviceIndex() const { return m_iDeviceIndex; }
 	void setDeviceIndex(int iIndex);
@@ -243,9 +245,7 @@ signals:
 
 private:
     EdlRunner *m_edl = nullptr;
-    QString m_edlPath;
-    int m_edlBus = 0;
-    QVector<int> m_edlPorts;
+    EdlEndpoint m_pendingEdl;
     int m_vendor = 0;
     QualcommController *m_qualcomm;
     CRKLog *m_diskLog = nullptr;
@@ -315,7 +315,6 @@ private:
 	Translatable<QVariantList> m_firmwareInfo;
 	QString m_strDeviceStatus;
 	QStringList m_deviceKeys;
-	QString m_strDeviceSignature;
 	int m_iDeviceIndex;
 
 	bool m_bPermissionBlocked;

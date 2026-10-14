@@ -1,5 +1,6 @@
 #include "core/qualcomm/QualcommBackend.h"
 #include "core/DeviceSelection.h"
+#include "core/qualcomm/OperationPolicy.h"
 #include "qdl_bridge.h"
 #include <QCoreApplication>
 #include <QFileInfo>
@@ -44,12 +45,18 @@ std::vector<DeviceDescriptor> QualcommBackend::Scan() {
     std::vector<DeviceDescriptor> devices;
     for (size_t i = 0; i < count; ++i) {
         DeviceDescriptor d;
+        d.identity.deviceInstance = rows[i].instance;
         d.identity.vendor = Vendor::Qualcomm; d.identity.serial = rows[i].serial;
         d.identity.bus = rows[i].bus; d.identity.devicePath = rows[i].path;
         d.identity.transport = static_cast<QualcommTransport>(rows[i].backend);
         d.identity.ports.assign(rows[i].ports, rows[i].ports + rows[i].port_count);
         d.vid = rows[i].vid; d.pid = rows[i].pid; d.index = static_cast<int>(i + 1);
-        d.mode = rows[i].backend == 2 ? std::string("EDL / ") + rows[i].path : "EDL / USB";
+        d.identity.vid = d.vid; d.identity.pid = d.pid; d.identity.usbAddress = rows[i].address;
+        d.identity.interfaceNumber = rows[i].interface_number; d.identity.alternate = rows[i].alternate;
+        d.identity.inEndpoint = rows[i].in; d.identity.outEndpoint = rows[i].out;
+        d.qualcommMode = rows[i].mode; d.accessError = rows[i].access_error;
+        d.mode = Tr(ModeLabel(d.qualcommMode)) + " / " +
+            (rows[i].backend == 2 ? rows[i].path : "USB IF " + std::to_string(rows[i].interface_number));
         devices.push_back(d);
     }
     qtq_free_devices(rows);
@@ -106,9 +113,17 @@ OperationResult QualcommBackend::Execute(const OperationRequest &request, const 
         int matched=MatchDevice(identities,target);
         if (matched < 0) return fail(matched == -2 ? ErrorCode::DeviceAmbiguous : ErrorCode::DeviceMissing, QT_TRANSLATE_NOOP("QualcommBackend", "Selected Qualcomm device is missing or ambiguous"));
         const auto &identity=identities[matched];
+        const auto reason = EligibilityReason(request.operation, devices[matched].qualcommMode, devices[matched].accessError);
+        if (!reason.isEmpty()) return fail(ErrorCode::UnsupportedDevice, reason.toUtf8().constData());
         if (o.transport != QualcommTransport::Auto && o.transport != identity.transport)
             return fail(ErrorCode::InvalidInput, QT_TRANSLATE_NOOP("QualcommBackend", "Selected device does not use the requested transport"));
+        if(identity.deviceInstance.size() >= sizeof(r.target.instance))
+            return fail(ErrorCode::InvalidInput, QT_TRANSLATE_NOOP("QualcommBackend", "Qualcomm device identity is too long"));
+        std::snprintf(r.target.instance,sizeof(r.target.instance),"%s",identity.deviceInstance.c_str());
         r.target.backend=static_cast<int>(identity.transport);
+        r.target.vid=identity.vid; r.target.pid=identity.pid; r.target.address=identity.usbAddress;
+        r.target.interface_number=identity.interfaceNumber; r.target.alternate=identity.alternate;
+        r.target.in=identity.inEndpoint; r.target.out=identity.outEndpoint;
         r.target.bus=identity.bus; r.target.port_count=identity.ports.size();
         if (identity.ports.size() > sizeof(r.target.ports) || identity.serial.size() >= sizeof(r.target.serial))
             return fail(ErrorCode::InvalidInput, QT_TRANSLATE_NOOP("QualcommBackend", "Qualcomm device identity is too long"));

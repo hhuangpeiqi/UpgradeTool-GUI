@@ -18,6 +18,7 @@ static int allocation_failed;
 extern void qtq_gpt_clear(void);
 int qtq_cancelled(void) { return qtq_hooks.cancelled && qtq_hooks.cancelled(qtq_hooks.user); }
 int qtq_simulating(void) { return active && (active->dry_run || active->digest_dir); }
+int qtq_target_pinned(void) { return active && active->target.vid; }
 int qtq_require_sahara(void) { return active && active->command == QTQ_KICKSTART; }
 int qtq_failed(void) { return allocation_failed; }
 void qtq_error(void) { allocation_failed = 1; }
@@ -25,45 +26,73 @@ void qtq_item(const char *label, const char *value)
 { if (qtq_hooks.item) qtq_hooks.item(qtq_hooks.user, label, value); }
 void qtq_progress(const char *stage, uint64_t current, uint64_t total)
 { if (qtq_hooks.progress) qtq_hooks.progress(qtq_hooks.user, stage, current, total); }
-int qtq_match_usb(unsigned int bus, const unsigned char *ports, int count)
+int qtq_match_usb(unsigned int bus, const unsigned char *ports, int count,
+                  unsigned int vid, unsigned int pid, unsigned int address)
 {
-    if (!active || !active->target.port_count) return 1;
-    return bus == active->target.bus && count == (int)active->target.port_count &&
-           !memcmp(ports, active->target.ports, (size_t)count);
+    if (!qtq_download_identity(vid, pid)) return 0;
+    if (!active) return 1;
+    const struct qtq_device *target = &active->target;
+    if (!qtq_operation_allowed(qtq_classify(vid,pid,1,0,0), active->command == QTQ_RAMDUMP)) return 0;
+    if (target->vid && (vid != target->vid || pid != target->pid)) return 0;
+    if (target->address && (target->address != address || target->bus != bus)) return 0;
+    return !target->port_count || (bus == target->bus && count == (int)target->port_count &&
+           !memcmp(ports, target->ports, (size_t)count));
 }
-int qtq_match_qud(const char *path)
-{ return !active || !active->target.path[0] || !strcmp(path, active->target.path); }
+int qtq_match_interface(int number, int alternate, int in, int out)
+{
+    if (!active || active->target.interface_number < 0) return 1;
+    const struct qtq_device *target = &active->target;
+    return number == target->interface_number && alternate == target->alternate &&
+           in == target->in && out == target->out;
+}
+int qtq_match_qud(const char *path, unsigned int pid, const char *serial, const char *instance)
+{
+    if (!qtq_download_identity(0x05c6, pid)) return 0;
+    if (!active) return 1;
+    if (!qtq_operation_allowed(qtq_classify(0x05c6,pid,1,0,0), active->command == QTQ_RAMDUMP)) return 0;
+    return (!active->target.pid || pid == active->target.pid) &&
+        (!active->target.path[0] || !strcmp(path, active->target.path)) &&
+        (!active->target.serial[0] || !strcmp(serial, active->target.serial)) &&
+        (!active->target.instance[0] || !strcmp(instance, active->target.instance));
+}
 void qtq_defaults(struct qtq_request *r)
 {
     memset(r, 0, sizeof(*r));
     r->storage = QDL_STORAGE_UFS;
     r->slot = UINT_MAX;
     r->target.backend = -1;
+    r->target.interface_number = -1;
 }
 void qtq_free_devices(struct qtq_device *devices) { free(devices); }
 int qtq_scan(struct qtq_device **devices, size_t *count)
 {
-    unsigned int nu = 0, nq = 0;
-    struct qdl_device_desc *u = usb_list(&nu);
+    size_t nu = 0; unsigned int nq = 0;
+    struct qtq_usb_endpoint *u = NULL;
+    int error = qtq_discover_usb(&u, &nu);
+    if (error) return error;
     struct qud_device_desc *q = qud_list(&nq);
     struct qtq_device *rows = calloc(nu + nq + 1, sizeof(*rows));
     if (!rows) { free(u); free(q); return -ENOMEM; }
-    for (unsigned int i = 0; i < nu; ++i) {
-        rows[i].vid = u[i].vid; rows[i].pid = u[i].pid; rows[i].bus = u[i].bus;
-        rows[i].port_count = u[i].port_count > 0 ? (unsigned int)u[i].port_count : 0;
-        memcpy(rows[i].ports, u[i].ports, sizeof(rows[i].ports));
-        snprintf(rows[i].serial, sizeof(rows[i].serial), "%s", u[i].serial);
-        rows[i].backend = QDL_DEVICE_USB;
+    size_t used = 0;
+    for (size_t i = 0; i < nu; ++i) {
+        const struct qtq_device *device = &u[i].device;
+        if (device->vid != QUALCOMM_VID && device->mode != QTQ_DIAG) continue;
+        rows[used++] = *device;
     }
     for (unsigned int i = 0; i < nq; ++i) {
-        struct qtq_device *row = &rows[nu + i];
+        struct qtq_device *row = &rows[used++];
         row->vid = QUALCOMM_VID; row->pid = q[i].pid; row->backend = QDL_DEVICE_QUD;
+        row->interface_number = -1;
+        /* QUD enumeration validates the compatible interface IDs. */
+        row->mode = qtq_classify(row->vid, row->pid, 1, 0, 0);
         snprintf(row->serial, sizeof(row->serial), "%s", q[i].serial);
         snprintf(row->path, sizeof(row->path), "%s", q[i].path);
+        snprintf(row->instance, sizeof(row->instance), "%s", q[i].instance);
     }
-    free(u); free(q); *devices = rows; *count = nu + nq;
+    free(u); free(q); *devices = rows; *count = used;
     return 0;
 }
+
 static int load_images(const struct qtq_request *r, struct sahara_image *images)
 {
     if (r->image_count) {
@@ -278,6 +307,10 @@ int qtq_execute(const struct qtq_request *r, const struct qtq_callbacks *callbac
         free(filename);
         if (!ret && !qtq_cancelled()) ret = zipper_write(r->output, &ops, images);
         goto cleanup;
+    }
+    if (!qtq_simulating() && !(r->node && *r->node) && r->target.vid &&
+        !qtq_operation_allowed(qtq_classify(r->target.vid,r->target.pid,1,0,0), r->command==QTQ_RAMDUMP)) {
+        ux_err("Selected interface does not support this operation\n"); ret=-ENODEV; goto cleanup;
     }
     if (r->node && *r->node) {
         if (r->command != QTQ_KICKSTART || r->target.serial[0] || r->target.backend != -1 || r->dry_run || r->digest_dir) goto cleanup;
