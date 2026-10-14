@@ -15,15 +15,17 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: 10
 
-    Rectangle {
+    Control {
         id: header
         Layout.fillWidth: true
         implicitHeight: 32
-        radius: Theme.controlRadius
-        color: headerArea.containsMouse ? Theme.hover : "transparent"
-        activeFocusOnTab: true
-        border.width: activeFocus ? 1 : 0
-        border.color: Theme.primary
+        focusPolicy: Qt.TabFocus
+        background: Rectangle {
+            radius: Theme.controlRadius
+            color: headerArea.containsMouse ? Theme.hover : "transparent"
+            border.width: header.visualFocus ? 1 : 0
+            border.color: Theme.primary
+        }
 
         function toggle() { root.expanded = !root.expanded; }
 
@@ -54,7 +56,11 @@ ColumnLayout {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: { header.forceActiveFocus(); header.toggle(); }
+            onClicked: {
+                header.focusReason = Qt.MouseFocusReason;
+                header.forceActiveFocus(Qt.MouseFocusReason);
+                header.toggle();
+            }
         }
 
         Keys.onSpacePressed: header.toggle()

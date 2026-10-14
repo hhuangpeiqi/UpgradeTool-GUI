@@ -1,5 +1,6 @@
 import UpgradeTool
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // A compact single-choice control for two or three mutually exclusive options.
@@ -10,7 +11,7 @@ import QtQuick.Layouts
 // it sits in a form row without looking like a different design system.
 // The API mirrors QualcommComboBox (model / selectedIndex / activated) so the
 // call sites and the controller wiring are unchanged.
-Rectangle {
+Control {
     id: root
 
     property var model: []
@@ -41,17 +42,19 @@ Rectangle {
     implicitHeight: 38
     // The inner layout is inset by the 1px border on each side.
     implicitWidth: segmentRow.implicitWidth + 2
-    radius: Theme.controlRadius
-    color: root.enabled ? Theme.card : Theme.fieldDisabled
-    border.width: 1
-    border.color: !root.enabled ? Theme.border
-                                : activeFocus ? Theme.primary
-                                              : rootHover.hovered ? Theme.borderStrong : Theme.border
+    background: Rectangle {
+        radius: Theme.controlRadius
+        color: root.enabled ? Theme.card : Theme.fieldDisabled
+        border.width: 1
+        border.color: !root.enabled ? Theme.border
+                                   : root.visualFocus ? Theme.primary
+                                                      : rootHover.hovered ? Theme.borderStrong : Theme.border
+    }
     // Clip the flat segment fills to the container's rounded corners: the
     // control uses a single radius instead of nesting rounded segments.
     clip: true
 
-    activeFocusOnTab: true
+    focusPolicy: Qt.TabFocus
     Keys.onLeftPressed: root.select(root.currentIndex - 1)
     Keys.onRightPressed: root.select(root.currentIndex + 1)
 
@@ -107,7 +110,8 @@ Rectangle {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        root.forceActiveFocus();
+                        root.focusReason = Qt.MouseFocusReason;
+                        root.forceActiveFocus(Qt.MouseFocusReason);
                         root.select(segment.index);
                     }
                 }

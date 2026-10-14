@@ -48,8 +48,13 @@ Button {
         }
     }
 
+    // Clicking an already focused control must also leave keyboard focus styling.
+    TapHandler {
+        onPressedChanged: if (pressed) root.focusReason = Qt.MouseFocusReason
+    }
+
     background: Rectangle {
-        border.width: root.activeFocus ? 2 : 0
+        border.width: root.visualFocus ? 2 : 0
         border.color: Theme.textPrimary
         radius: Theme.controlRadius
         color: {

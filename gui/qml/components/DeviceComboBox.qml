@@ -86,11 +86,16 @@ ComboBox {
         elide: Text.ElideRight
     }
 
+    // Clicking an already focused control must also leave keyboard focus styling.
+    TapHandler {
+        onPressedChanged: if (pressed) control.focusReason = Qt.MouseFocusReason
+    }
+
     background: Rectangle {
         radius: Theme.controlRadius
         color: control.enabled ? Theme.card : Theme.fieldDisabled
         border.width: 1
-        border.color: control.activeFocus ? Theme.primary
+        border.color: control.visualFocus ? Theme.primary
                                           : (control.hovered ? Theme.borderStrong : Theme.border)
     }
 

@@ -11,10 +11,15 @@ CheckBox {
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontMedium
 
+    // Clicking an already focused control must also leave keyboard focus styling.
+    TapHandler {
+        onPressedChanged: if (pressed) root.focusReason = Qt.MouseFocusReason
+    }
+
     background: Rectangle {
         color: "transparent"
         radius: Theme.controlRadius
-        border.width: root.activeFocus ? 1 : 0
+        border.width: root.visualFocus ? 1 : 0
         border.color: Theme.primary
     }
 

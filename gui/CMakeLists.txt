@@ -281,8 +281,9 @@ if(UPGRADE_TOOL_TESTS)
   set_source_files_properties("${_test_qmldir}" PROPERTIES QT_RESOURCE_ALIAS qmldir)
   qt_add_resources(test_allwinner_ui allwinner_ui_assets
     PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
+  find_package(Qt6 REQUIRED COMPONENTS Test)
   add_executable(test_qualcomm_ui ${CMAKE_SOURCE_DIR}/tests/test_qualcomm_ui.cpp)
-  target_link_libraries(test_qualcomm_ui PRIVATE upgrade_gui_backend)
+  target_link_libraries(test_qualcomm_ui PRIVATE upgrade_gui_backend Qt6::Test)
   qt_add_resources(test_qualcomm_ui qualcomm_ui_assets
     PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
   if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
