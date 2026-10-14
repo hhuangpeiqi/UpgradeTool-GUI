@@ -2578,6 +2578,18 @@
 <context>
     <name>QualcommToolsPage</name>
     <message>
+        <source>Quick actions</source>
+        <translation>快捷操作</translation>
+    </message>
+    <message>
+        <source>Device maintenance</source>
+        <translation>设备维护</translation>
+    </message>
+    <message>
+        <source>Offline tools</source>
+        <translation>离线工具</translation>
+    </message>
+    <message>
         <location filename="../qml/pages/QualcommToolsPage.qml" line="+28"/>
         <source>No device in EDL mode</source>
         <translation>未检测到 EDL 模式设备</translation>
@@ -4035,6 +4047,13 @@
         <location line="-17"/>
         <source>Select at least one rawprogram XML</source>
         <translation>请至少选择一个 rawprogram XML</translation>
+    </message>
+</context>
+<context>
+    <name>QualcommToolPanel</name>
+    <message>
+        <source>Simulate UFS provisioning</source>
+        <translation>模拟 UFS 配置</translation>
     </message>
 </context>
 </TS>

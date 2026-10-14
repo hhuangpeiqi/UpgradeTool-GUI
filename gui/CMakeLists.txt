@@ -89,6 +89,7 @@ set(_qml_root ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
 set(_qml_files
   components/QualcommWorkspace.qml
+  components/QualcommToolPanel.qml
   components/QualcommPathRow.qml
   components/QualcommOptions.qml
   components/QualcommProgrammer.qml

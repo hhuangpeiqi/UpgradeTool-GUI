@@ -20,6 +20,7 @@ Card {
         SectionTitle { text: root.title; Layout.fillWidth: true }
         ScrollView {
             id: scroll
+            objectName: "qcWorkspaceScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth

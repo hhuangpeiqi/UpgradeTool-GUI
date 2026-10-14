@@ -244,7 +244,7 @@ int main(int argc,char **argv) {
         CHECK(!download->isEnabled());
         auto *rawStart = window->findChild<QQuickItem *>("qcRawStart");
         CHECK(rawStart && !rawStart->isEnabled());
-        auto *toolStart = window->findChild<QQuickItem *>("qcToolStart");
+        auto *toolStart = window->findChild<QQuickItem *>("qcToolStart-chipinfo");
         CHECK(toolStart && !toolStart->isEnabled());
         {
             auto update=[&](const QVariantList &devices) {
@@ -377,7 +377,7 @@ int main(int argc,char **argv) {
                 window->setProperty("currentPage", page);
                 auto *workspace = window->findChild<QQuickItem *>(page == 0 ? "QualcommPartitionsPage" : page == 1 ? "QualcommFlashPage" : "QualcommToolsPage");
                 auto *button = workspace->findChild<QQuickItem *>("qcSwitchEdl");
-                auto *primary = workspace->findChild<QQuickItem *>(page == 0 ? "qcRawStart" : page == 1 ? "qcDownload" : "qcToolStart");
+                auto *primary = workspace->findChild<QQuickItem *>(page == 0 ? "qcRawStart" : page == 1 ? "qcDownload" : "qcToolStart-chipinfo");
                 QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed() > 60;});
                 const QPointF before = button->mapToScene(QPointF());
                 const QPointF primaryBefore = primary->mapToScene(QPointF());
@@ -389,9 +389,11 @@ int main(int argc,char **argv) {
                 CHECK(qAbs(before.x() - button->mapToScene(QPointF()).x()) < 1);
                 CHECK(qAbs(before.y() - button->mapToScene(QPointF()).y()) < 1);
                 CHECK(qAbs(primaryBefore.x() - primary->mapToScene(QPointF()).x()) < 1);
-                CHECK(button->mapToScene(QPointF(button->width(), 0)).x() <= primary->mapToScene(QPointF()).x());
+                if (page < 2) CHECK(button->mapToScene(QPointF(button->width(), 0)).x() <= primary->mapToScene(QPointF()).x());
                 CHECK(primary->mapToScene(QPointF(primary->width(), 0)).x() <= workspace->mapToScene(QPointF(workspace->width(), 0)).x());
                 CHECK(!primary->isEnabled() && !button->isEnabled());
+                if(page==2) for(auto *action : workspace->findChildren<QQuickItem *>())
+                    if(action->objectName().startsWith("qcToolStart-")) CHECK(!action->isEnabled());
                 if (argc > 2) {
                     QDir output(QString::fromLocal8Bit(argv[2])); CHECK(QDir().mkpath(output.path()));
                     CHECK(window->grabWindow().save(output.filePath(QString("qualcomm-switching-%1-%2-%3.png").arg(language, theme).arg(page))));
@@ -517,40 +519,157 @@ int main(int argc,char **argv) {
             CHECK(!restored.settings().value("allowFusing").toBool()); CHECK(!restored.settings().value("finalize").toBool());
         }
         for(int page=0;page<3;++page) { window->setProperty("currentPage",page); QCoreApplication::processEvents(); }
-        auto *tool=window->findChild<QObject *>("qcTool"); CHECK(tool);
-        auto selectTool=[&](int choice) { if(tool) { tool->setProperty("currentIndex",choice); QMetaObject::invokeMethod(tool,"activated",Q_ARG(int,choice)); } };
-        if(tool) for(int choice=0;choice<8;++choice) { selectTool(choice); QCoreApplication::processEvents(); }
-        if(tool) {
-            selectTool(7); window->setProperty("currentPage",2);
-            auto *toolsPage=window->findChild<QObject *>("QualcommToolsPage"); CHECK(toolsPage);
-            auto *ufsAdvanced=toolsPage ? toolsPage->findChild<QObject *>("qcAdvanced") : nullptr; CHECK(ufsAdvanced);
+        auto *toolsPage=window->findChild<QQuickItem *>("QualcommToolsPage"); CHECK(toolsPage);
+        CHECK(!window->findChild<QObject *>("qcTool"));
+        const QStringList toolContexts = {"chipinfo", "reset", "ramdump", "kickstart", "zip", "archive", "digests", "provision"};
+        const core::Operation toolOperations[] = {core::Operation::QualcommChipInfo, core::Operation::QualcommReset,
+            core::Operation::QualcommRamdump, core::Operation::QualcommKickstart, core::Operation::QualcommCreateZip,
+            core::Operation::QualcommCreateArchive, core::Operation::QualcommCreateDigests, core::Operation::QualcommProvision};
+        for (int i=0; i<toolContexts.size(); ++i) {
+            auto *panel=toolsPage->findChild<QQuickItem *>("qcToolPanel-" + toolContexts[i]); CHECK(panel && panel->isVisible());
+            auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-" + toolContexts[i]); CHECK(button && button->isVisible());
+            if (panel) {
+                CHECK(panel->property("operation").toInt()==int(toolOperations[i]));
+                CHECK(panel->property("context").toString()==toolContexts[i]);
+                auto *advanced=panel->findChild<QObject *>("qcAdvanced"); CHECK(advanced && !advanced->property("expanded").toBool());
+            }
+        }
+        {
+            window->setProperty("currentPage",2);
+            auto *ufsPanel=toolsPage->findChild<QObject *>("qcToolPanel-provision"); CHECK(ufsPanel);
+            auto *ufsAdvanced=ufsPanel ? ufsPanel->findChild<QObject *>("qcAdvanced") : nullptr; CHECK(ufsAdvanced);
             if(ufsAdvanced) ufsAdvanced->setProperty("expanded",true);
-            auto *ufsDry=toolsPage ? toolsPage->findChild<QQuickItem *>("qcDryRun") : nullptr; CHECK(ufsDry && ufsDry->isVisible());
+            auto *ufsDry=ufsPanel ? ufsPanel->findChild<QQuickItem *>("qcDryRun") : nullptr; CHECK(ufsDry && ufsDry->isVisible());
+            auto *ufsStart=toolsPage->findChild<QQuickItem *>("qcToolStart-provision"); CHECK(ufsStart);
             qc->setValue("dryRun",true); CHECK(ufsDry && !ufsDry->property("checked").toBool());
             qc->setContextValue("provision","dryRun",true); CHECK(ufsDry && ufsDry->property("checked").toBool());
-            selectTool(3); CHECK(ufsDry && !ufsDry->isVisible());
-            selectTool(7); CHECK(ufsDry && ufsDry->property("checked").toBool());
+            CHECK(ufsStart && ufsStart->property("text").toString()==QStringLiteral("Simulate UFS provisioning"));
+            auto *kickstart=toolsPage->findChild<QObject *>("qcToolPanel-kickstart"); CHECK(kickstart);
+            CHECK(kickstart && !kickstart->property("settings").toMap().value("dryRun").toBool());
             auto *buildType=flashPage->findChild<QObject *>("qcBuildType"); CHECK(buildType);
             auto *inputType=flashPage->findChild<QObject *>("qcProgrammerInput"); CHECK(inputType);
             auto *rawAction=window->findChild<QObject *>("qcRawAction"); CHECK(rawAction);
             if(rawAction) { rawAction->setProperty("currentIndex",2); QMetaObject::invokeMethod(rawAction,"activated",Q_ARG(int,2)); }
             qc->setValue("packageBuild",true); qc->setValue("useImages",true);
             auto *vendorSelector=window->findChild<QObject *>("vendorSelector"); CHECK(vendorSelector);
-            controller.language()->setMode("zh"); CHECK(Await([&]{return tool->property("currentIndex").toInt()==7;}));
-            CHECK(vendorSelector && vendorSelector->property("currentIndex").toInt()==2);
+            controller.language()->setMode("zh"); CHECK(Await([&]{return ufsStart && ufsStart->property("text").toString()==QStringLiteral("模拟 UFS 配置");}));
+            CHECK(Await([&]{return vendorSelector && vendorSelector->property("currentIndex").toInt()==2;}));
             CHECK(buildType && buildType->property("currentIndex").toInt()==1);
             CHECK(inputType && inputType->property("currentIndex").toInt()==1);
-            CHECK(rawAction && rawAction->property("currentIndex").toInt()==2);
+            CHECK(Await([&]{return rawAction && rawAction->property("currentIndex").toInt()==2;}));
             CHECK(QCoreApplication::translate("QualcommProgrammer","Programmer input")==QStringLiteral("引导程序来源"));
             CHECK(QCoreApplication::translate("gui::AppController","Simulation")==QStringLiteral("模拟执行"));
             CHECK(QCoreApplication::translate("gui::EdlRunner","Checking the selected device…")==QStringLiteral("正在检查所选设备…"));
             CHECK(QCoreApplication::translate("EdlSwitchDialog","Diagnostic port (DIAG)")==QStringLiteral("诊断口（DIAG）"));
-            controller.language()->setMode("en"); CHECK(Await([&]{return tool->property("currentIndex").toInt()==7;}));
-            CHECK(vendorSelector && vendorSelector->property("currentIndex").toInt()==2);
+            controller.language()->setMode("en"); CHECK(Await([&]{return ufsStart && ufsStart->property("text").toString()==QStringLiteral("Simulate UFS provisioning");}));
+            CHECK(Await([&]{return vendorSelector && vendorSelector->property("currentIndex").toInt()==2;}));
             qc->setValue("packageBuild",false); qc->setValue("useImages",false);
             qc->setValue("dryRun",false); qc->setContextValue("provision","dryRun",false);
         }
-        if(tool) selectTool(0);
+        {
+            // Complete each panel independently. Offline tools must be usable without a device.
+            const QString loader=fixture.filePath("prog_firehose.mbn");
+            Write(fixture.filePath("contents.xml"),"<contents/>");
+            Write(fixture.filePath("ufs.xml"),"<data><ufs bNumberLU=\"1\"/></data>");
+            for (const auto &context : {"kickstart", "archive", "digests", "provision"})
+                qc->setContextValue(context,"programmer",loader);
+            for (const auto &context : {"ramdump", "zip", "archive"})
+                qc->setContextValue(context,"output",temporary.filePath(QString(context)+"-output"));
+            qc->setContextValue("zip","package",fixture.filePath("contents.xml"));
+            qc->setContextValue("digests","digestDir",temporary.path());
+            qc->addXml(fixture.filePath("rawprogram_CN.xml"),"digests");
+            qc->addXml(fixture.filePath("ufs.xml"),"provision");
+            for (const auto &context : toolContexts) {
+                auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-"+context); CHECK(button);
+                const bool offline=context=="zip" || context=="archive" || context=="digests";
+                CHECK(button && button->isEnabled()==offline);
+            }
+#ifndef Q_OS_WIN
+            qc->setContextValue("kickstart","node","/dev/test-node");
+            auto *kickstartStart=toolsPage->findChild<QQuickItem *>("qcToolStart-kickstart");
+            CHECK(kickstartStart && kickstartStart->isEnabled());
+            qc->setContextValue("kickstart","node","");
+            CHECK(kickstartStart && !kickstartStart->isEnabled());
+#endif
+            auto *ufsStart=toolsPage->findChild<QQuickItem *>("qcToolStart-provision");
+            qc->setContextValue("provision","dryRun",true);
+            CHECK(ufsStart && ufsStart->isEnabled());
+            qc->setContextValue("provision","dryRun",false);
+            CHECK(ufsStart && !ufsStart->isEnabled());
+            auto *zipPanel=toolsPage->findChild<QObject *>("qcToolPanel-zip");
+            auto *archivePanel=toolsPage->findChild<QObject *>("qcToolPanel-archive");
+            auto *zipPicker=zipPanel->findChild<QObject *>("qcPathPicker-output");
+            auto *archivePicker=archivePanel->findChild<QObject *>("qcPathPicker-output");
+            CHECK(zipPicker && zipPicker->property("requestContext").toString()=="zip");
+            CHECK(archivePicker && archivePicker->property("requestContext").toString()=="archive");
+            CHECK(zipPicker && zipPicker->parent()->property("value").toString()==temporary.filePath("zip-output"));
+            CHECK(archivePicker && archivePicker->parent()->property("value").toString()==temporary.filePath("archive-output"));
+            qc->setContextValue("archive","archiveContents",true);
+            qc->setContextValue("archive","package",fixture.filePath("contents.xml"));
+            CHECK(archivePanel->property("packageBuild").toBool());
+            qc->setContextValue("digests","packageBuild",true);
+            qc->setContextValue("digests","package",fixture.filePath("contents.xml"));
+            controller.language()->setMode("zh"); QCoreApplication::processEvents();
+            controller.language()->setMode("en"); QCoreApplication::processEvents();
+            CHECK(archivePanel->property("packageBuild").toBool());
+            qc->setContextValue("archive","archiveContents",false);
+            qc->setContextValue("digests","packageBuild",false);
+            // Another vendor makes AppController ignore these requests, so verify the actual
+            // button-to-request wiring without submitting any job or touching hardware.
+            controller.setVendor(0);
+            int requests=0; core::OperationRequest submitted;
+            auto connection=QObject::connect(qc,&gui::QualcommController::executeRequested,&application,
+                [&](const core::OperationRequest &request){++requests; submitted=request;});
+            for (int i=0; i<toolContexts.size(); ++i) {
+                auto *button=toolsPage->findChild<QObject *>("qcToolStart-"+toolContexts[i]);
+                CHECK(button && QMetaObject::invokeMethod(button,"clicked"));
+                CHECK(requests==i+1 && submitted.operation==toolOperations[i]);
+                CHECK(!controller.busy());
+            }
+            QObject::disconnect(connection); controller.setVendor(2);
+            // Only the requested operation receives its result table.
+            core::OperationResult result; result.operation=core::Operation::QualcommChipInfo;
+            result.status=core::OperationStatus::Succeeded;
+            result.items.push_back({"Chip", "test-chip"}); qc->applyResult(result);
+            CHECK(qc->resultsFor("chipinfo")->rowCount()==1);
+            CHECK(qc->resultsFor("reset")->rowCount()==0);
+            result.items.clear(); qc->applyResult(result);
+        }
+        // Every operation must remain reachable in a narrow workspace, with no
+        // horizontal overflow, including expanded advanced options and keyboard focus.
+        window->setProperty("currentPage",2);
+        window->setWidth(1024); window->setHeight(640);
+        auto *toolsScroll=toolsPage->findChild<QObject *>("qcWorkspaceScroll"); CHECK(toolsScroll);
+        auto *toolsContent=toolsScroll ? qvariant_cast<QQuickItem *>(toolsScroll->property("contentItem")) : nullptr; CHECK(toolsContent);
+        if (toolsContent) for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
+            controller.language()->setMode(language); controller.theme()->setMode(theme);
+            for (const auto &context : toolContexts) {
+                auto *panel=toolsPage->findChild<QQuickItem *>("qcToolPanel-"+context);
+                auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-"+context);
+                auto *advanced=panel->findChild<QObject *>("qcAdvanced");
+                advanced->setProperty("expanded",true);
+                QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed()>30;});
+                const qreal currentY=toolsContent->property("contentY").toReal();
+                const qreal panelY=panel->mapToItem(toolsContent,QPointF()).y()+currentY;
+                const qreal buttonBottom=button->mapToItem(toolsContent,QPointF(0,button->height())).y()+currentY;
+                const qreal target=qMax(panelY,buttonBottom-toolsContent->height()+10);
+                const qreal maximum=qMax(qreal(0),toolsContent->property("contentHeight").toReal()-toolsContent->height());
+                toolsContent->setProperty("contentY",qBound(qreal(0),target,maximum));
+                QCoreApplication::processEvents();
+                const QPointF position=button->mapToScene(QPointF());
+                CHECK(position.x()>=toolsPage->x());
+                CHECK(position.x()+button->width()<=toolsPage->mapToScene(QPointF(toolsPage->width(),0)).x());
+                CHECK(position.y()>=toolsContent->mapToScene(QPointF()).y());
+                CHECK(position.y()+button->height()<=toolsContent->mapToScene(QPointF(0,toolsContent->height())).y());
+                if(button->isEnabled()) { button->forceActiveFocus(Qt::TabFocusReason); CHECK(button->hasActiveFocus()); }
+                if(argc>2) {
+                    QDir output(QString::fromLocal8Bit(argv[2]));
+                    CHECK(window->grabWindow().save(output.filePath(QString("tools-%1-%2-%3.png").arg(language,theme,context))));
+                }
+                advanced->setProperty("expanded",false);
+            }
+            toolsContent->setProperty("contentY",0);
+        }
         window->setProperty("currentPage",1);
         window->setWidth(1024); window->setHeight(640);
         auto *refresh=window->findChild<QQuickItem *>("statusRefresh"); CHECK(refresh);
@@ -750,8 +869,12 @@ int main(int argc,char **argv) {
                         window->setProperty("currentPage",page);
                         auto *workspace=window->findChild<QObject *>(page==0 ? "QualcommPartitionsPage" : page==1 ? "QualcommFlashPage" : "QualcommToolsPage");
                         auto *advanced=workspace ? workspace->findChild<QObject *>("qcAdvanced") : nullptr;
-                        if(advanced) advanced->setProperty("expanded",true);
-                        if(page==2 && tool) selectTool(7);
+                        if(advanced && page!=2) advanced->setProperty("expanded",true);
+                        if(page==2) {
+                            auto *scroll=workspace->findChild<QObject *>("qcWorkspaceScroll"); CHECK(scroll);
+                            auto *content=scroll ? qvariant_cast<QObject *>(scroll->property("contentItem")) : nullptr; CHECK(content);
+                            if(content) content->setProperty("contentY",0);
+                        }
                         frames.restart(); Await([&]{return frames.elapsed()>150;});
                         CHECK(window->grabWindow().save(output.filePath(QString("qualcomm-%1-%2-%3.png").arg(language,theme).arg(page))));
                     }
