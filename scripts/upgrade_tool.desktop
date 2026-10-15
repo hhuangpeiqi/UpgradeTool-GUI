@@ -2,9 +2,11 @@
 Type=Application
 Name=UpgradeTool-GUI
 GenericName=Firmware Upgrade Tool
-Comment=Flash firmware to Rockchip and Allwinner devices over USB
+Comment=Flash firmware to Rockchip, Allwinner and Qualcomm devices over USB
 Exec=upgrade_tool_gui
 Icon=upgrade_tool
 Terminal=false
+StartupNotify=true
+StartupWMClass=upgrade_tool
 Categories=Development;Utility;
 Keywords=rockchip;allwinner;firmware;flashing;usb;rkdeveloptool;fel;

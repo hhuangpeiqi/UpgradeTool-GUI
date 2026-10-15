@@ -28,6 +28,9 @@ int main(int argc, char *argv[])
 	app.setApplicationName("upgrade_tool");
 	app.setApplicationDisplayName(QStringLiteral("UpgradeTool-GUI"));
 	app.setOrganizationName("upgrade_tool");
+#ifdef Q_OS_LINUX
+	app.setDesktopFileName(QStringLiteral("upgrade_tool"));
+#endif
 #ifndef Q_OS_MACOS
 	app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/UpgradeTool/icons/upgrade_tool.svg")));
 #endif
