@@ -107,9 +107,16 @@ EdgeRoundedRect {
             Layout.alignment: Qt.AlignVCenter
             value: root.progressValue / 100.0
             indeterminate: root.busy && root.progressValue < 0
+            HoverHandler { id: progressHover }
+            ToolTip {
+                objectName: "statusProgressTooltip"
+                visible: progressHover.hovered && root.progressSpeed !== ""
+                text: root.progressSpeed
+            }
         }
 
         Text {
+            objectName: "statusPercentage"
             text: root.progressValue < 0 ? "" : root.progressValue + "%"
             color: Theme.textSecondary
             font.family: Theme.fontFamily
@@ -120,6 +127,7 @@ EdgeRoundedRect {
         }
 
         Text {
+            objectName: "statusProgressMessage"
             text: root.progressSpeed
             visible: root.width >= 1200
             color: Theme.textSecondary
@@ -132,6 +140,9 @@ EdgeRoundedRect {
             Layout.maximumWidth: 260
             Layout.alignment: Qt.AlignVCenter
             horizontalAlignment: Text.AlignLeft
+            HoverHandler { id: progressMessageHover }
+            ToolTip.visible: progressMessageHover.hovered && truncated
+            ToolTip.text: root.progressSpeed
         }
 
         SecondaryButton {

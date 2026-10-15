@@ -105,6 +105,7 @@ Item {
                 }
 
                 SecondaryButton {
+                    objectName: "rkSwitchButton"
                     text: qsTr("Switch")
                     iconSource: Icons.switchBlue
                     busy: app.switching

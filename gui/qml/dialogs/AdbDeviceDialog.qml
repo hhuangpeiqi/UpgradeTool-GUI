@@ -5,6 +5,7 @@ import QtQuick.Layouts
 
 AppDialog {
     id: dlg
+    objectName: "adbDeviceDialog"
 
     titleText: qsTr("Select Device")
     width: 460

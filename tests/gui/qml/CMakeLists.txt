@@ -8,7 +8,10 @@ upgrade_test(test_qualcomm_ui
   ENVIRONMENT ${test_gui_environment} LABELS gui qml qualcomm)
 upgrade_test(test_qml_controls LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui qml controls)
-foreach(name test_allwinner_ui test_qualcomm_ui test_qml_controls)
+upgrade_test(test_switching_ui LIBRARIES upgrade_gui_backend TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui qml rockchip allwinner)
+foreach(name test_allwinner_ui test_qualcomm_ui test_qml_controls test_switching_ui)
   upgrade_attach_gui_test_resources(${name})
 endforeach()
 upgrade_attach_test_translations(test_qualcomm_ui)
+upgrade_attach_test_translations(test_switching_ui)

@@ -179,20 +179,17 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         AppendLog(message, true); emit toastRequested(message, true);
     });
     connect(m_edl, &EdlRunner::started, this, [this] {
-        m_bSwitching = true; emit switchingChanged(); m_tasks->setBusy(true);
-        m_tasks->setProgress(-1, tr("Switching…"));
+        BeginModeSwitch(tr("Switching…"));
     });
     connect(m_edl, &EdlRunner::messageChanged, this, [this] {
         if (m_edl->running()) {
-            m_tasks->setProgress(-1, m_edl->message());
-            AppendLog(m_edl->message(), false);
+            UpdateModeSwitch(m_edl->message());
         }
     });
     connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint) {
-        m_bSwitching = false; emit switchingChanged(); m_tasks->setBusy(false);
-        m_tasks->setProgress(ok ? 100 : 0, message); AppendLog(message, !ok);
         m_pendingEdl = ok ? endpoint : EdlEndpoint();
-        emit requestScan(); refreshEdl(); emit toastRequested(message, !ok);
+        FinishModeSwitch(ok, message);
+        emit requestScan(); refreshEdl();
     });
     connect(m_qualcomm, &QualcommController::executeRequested, this, [this](const core::OperationRequest &request) {
         if(m_vendor != 2 || m_tasks->busy()) return;
@@ -211,6 +208,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	        this, SLOT(onAdbFinished(bool, QString)));
 	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const QString &message) {
 		if (!m_switchingFel) return;
+		UpdateModeSwitch(message);
 		m_felSwitchHint.Set([message] { return message; });
 		m_felSwitchError = false;
 		emit felSwitchStateChanged();
@@ -912,6 +910,33 @@ void AppController::requestEdlSwitch()
     if (m_vendor == 2 && !m_tasks->busy()) m_edl->requestSwitch(m_pAdb->AdbPath());
 }
 
+void AppController::BeginModeSwitch(const QString &message)
+{
+	m_bSwitching = true;
+	m_tasks->resetProgress();
+	m_tasks->setProgress(-1, message);
+	m_tasks->setBusy(true);
+	emit switchingChanged();
+	AppendLog(message, false);
+}
+
+void AppController::UpdateModeSwitch(const QString &message)
+{
+	if (!m_bSwitching) return;
+	m_tasks->setProgress(-1, message);
+	AppendLog(message, false);
+}
+
+void AppController::FinishModeSwitch(bool ok, const QString &message)
+{
+	m_tasks->setProgress(ok ? 100 : 0, message);
+	m_bSwitching = false;
+	emit switchingChanged();
+	m_tasks->setBusy(false);
+	AppendLog(message, !ok);
+	emit toastRequested(message, !ok);
+}
+
 void AppController::switchToLoader()
 {
 	if (m_tasks->busy() || m_bSwitching)
@@ -920,10 +945,8 @@ void AppController::switchToLoader()
 		emit toastRequested(tr("No ADB device detected; cannot switch."), true);
 		return;
 	}
-	m_bSwitching = true;
 	m_switchingFel = false;
-	emit switchingChanged();
-	m_tasks->setBusy(true);
+	BeginModeSwitch(tr("Switching…"));
 	m_pAdb->SwitchToLoader();
 }
 
@@ -934,13 +957,11 @@ void AppController::switchToFel(int mode)
 		emit toastRequested(tr("No ADB device detected or the switch method is invalid."), true);
 		return;
 	}
-	m_bSwitching = true;
 	m_switchingFel = true;
-	emit switchingChanged();
 	m_felSwitchHint.Set([] { return tr("Preparing to switch ADB device to FEL mode…"); });
 	m_felSwitchError = false;
 	emit felSwitchStateChanged();
-	m_tasks->setBusy(true);
+	BeginModeSwitch(m_felSwitchHint.value());
 	m_pAdb->SwitchToFel(static_cast<AdbRunner::FelMethod>(mode));
 }
 
@@ -982,20 +1003,15 @@ void AppController::cancelAdbChoice()
 void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 {
 	if (!m_bSwitching) return;
-	m_bSwitching = false;
-	emit switchingChanged();
+	const bool wasFel = m_switchingFel;
 	if (m_switchingFel) {
 		m_switchingFel = false;
 		m_felSwitchHint.Set([strMessage] { return strMessage; });
 		m_felSwitchError = !bOk;
 		emit felSwitchStateChanged();
-		m_tasks->setBusy(false);
-		emit requestScan();
-		emit toastRequested(strMessage, !bOk);
-		return;
 	}
-	m_tasks->setBusy(false);
-	emit toastRequested(strMessage, !bOk);
+	FinishModeSwitch(bOk, strMessage);
+	if (wasFel) emit requestScan();
 }
 
 

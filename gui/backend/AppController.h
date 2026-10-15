@@ -203,6 +203,9 @@ private:
 	void SetDeviceStatus();
 	void AppendLog(const QString &strText, bool bError);
 	void StartJob(core::TaskJob job);
+	void BeginModeSwitch(const QString &message);
+	void UpdateModeSwitch(const QString &message);
+	void FinishModeSwitch(bool ok, const QString &message);
 	QVariantList BuildStandardPlaces() const;
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;

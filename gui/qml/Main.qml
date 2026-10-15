@@ -194,7 +194,7 @@ ApplicationWindow {
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
                 progressValue: app.tasks.progressValue
-                progressSpeed: app.tasks.progressSpeed
+                progressSpeed: app.switching ? app.tasks.progressText : app.tasks.progressSpeed
                 busy: app.tasks.busy
                 onRefreshClicked: app.refresh()
                 onCancelClicked: app.cancel()

@@ -123,7 +123,7 @@ Card {
                     anchors.fill: parent
                     text: qsTr("Switch to EDL")
                     iconSource: Icons.switchBlue
-                    busy: app.edl.running
+                    busy: app.switching
                     enabled: !app.tasks.busy && app.edl.ready
                     onClicked: app.requestEdlSwitch()
                 }

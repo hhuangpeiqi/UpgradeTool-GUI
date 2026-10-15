@@ -36,14 +36,35 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 			gui::AppController controller(nullptr); controller.setVendor(1); controller.ignorePermission();
 			CHECK(Await([&] { return controller.adbReady(); }));
 			CHECK(!controller.allwinner()->valid());
+			controller.tasks()->setProgress(75, "Previous task");
+			controller.tasks()->setSpeed("10M/s");
 			controller.switchToFel(); CHECK(controller.tasks()->busy()); CHECK(controller.switching());
+			CHECK(controller.tasks()->progressValue() == -1 && controller.tasks()->progressSpeed().isEmpty());
+			CHECK(!controller.tasks()->progressText().isEmpty());
 			controller.setVendor(0); CHECK(controller.vendor() == 1);
 			CHECK(Await([&] { return !controller.tasks()->busy(); }));
 			CHECK(!controller.switching());
 			CHECK(controller.felSwitchError() && controller.felSwitchHint().contains("BusyBox"));
+			CHECK(controller.tasks()->progressValue() == 0);
+			CHECK(controller.tasks()->progressText() == controller.felSwitchHint());
 			controller.switchToFel(1); CHECK(controller.tasks()->busy()); CHECK(controller.switching());
+			CHECK(controller.tasks()->progressValue() == -1);
 			controller.cancel(); CHECK(!controller.tasks()->busy()); CHECK(!controller.switching());
 			CHECK(controller.felSwitchError());
+			CHECK(controller.tasks()->progressValue() == 0);
+			controller.setVendor(0);
+			controller.tasks()->setSpeed("Old speed");
+			controller.switchToLoader();
+			CHECK(controller.switching() && controller.tasks()->progressValue() == -1);
+			CHECK(controller.tasks()->progressSpeed().isEmpty());
+			controller.switchToLoader(); // An overlapping request must not restart the switch.
+			CHECK(Await([&] { return !controller.tasks()->busy(); }));
+			CHECK(!controller.switching() && controller.tasks()->progressValue() == 100);
+			controller.switchToLoader();
+			CHECK(controller.tasks()->progressValue() == -1);
+			controller.cancel();
+			CHECK(!controller.switching() && !controller.tasks()->busy());
+			CHECK(controller.tasks()->progressValue() == 0);
 		}
 		if (originalAdb.isNull()) qunsetenv("ADB"); else qputenv("ADB", originalAdb);
 	}

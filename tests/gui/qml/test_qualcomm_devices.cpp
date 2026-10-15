@@ -78,9 +78,11 @@ bool QualcommUiTests::TestDevices() {
     MovePointer(window, QPointF(2, 2));
     QMetaObject::invokeMethod(switchEdl, "clicked");
     CHECK(controller.tasks()->busy() && !switchEdl->isEnabled());
+    CHECK(controller.switching() && controller.tasks()->progressValue() == -1);
     CHECK(!edlDialog->property("visible").toBool());
     CHECK(AwaitUi([&]{ return !controller.tasks()->busy(); }));
     CHECK(diagSwitches == 1 && adbSwitches == 0);
+    CHECK(!controller.switching() && controller.tasks()->progressValue() == 100);
     refreshSwitch();
     // ADB availability is independent of the diagnostic candidates.
     endpointMask = 2; refreshSwitch();
@@ -145,6 +147,7 @@ bool QualcommUiTests::TestDevices() {
             QElapsedTimer layout; layout.start(); AwaitUi([&]{return layout.elapsed() > 60;});
             const QPointF before = button->mapToScene(QPointF());
             const QPointF primaryBefore = primary->mapToScene(QPointF());
+            controller.tasks()->setSpeed("Old speed");
             requestSent = false;
             QMetaObject::invokeMethod(button, "clicked");
             CHECK(controller.tasks()->busy());
@@ -156,6 +159,12 @@ bool QualcommUiTests::TestDevices() {
             if (page < 2) CHECK(button->mapToScene(QPointF(button->width(), 0)).x() <= primary->mapToScene(QPointF()).x());
             CHECK(primary->mapToScene(QPointF(primary->width(), 0)).x() <= workspace->mapToScene(QPointF(workspace->width(), 0)).x());
             CHECK(!primary->isEnabled() && !button->isEnabled());
+            CHECK(button->property("busy").toBool());
+            CHECK(controller.tasks()->progressValue() == -1 && controller.tasks()->progressSpeed().isEmpty());
+            CHECK(window->findChild<QObject *>("statusProgress")->property("indeterminate").toBool());
+            CHECK(window->findChild<QObject *>("statusPercentage")->property("text").toString().isEmpty());
+            CHECK(window->findChild<QObject *>("statusProgressMessage")->property("text").toString() == controller.tasks()->progressText());
+            CHECK(window->findChild<QObject *>("statusProgressTooltip")->property("text").toString() == controller.tasks()->progressText());
             if(page==2) {
                 CHECK(QMetaObject::invokeMethod(workspace,"selectTool",Q_ARG(QVariant,QVariant(4))));
                 CHECK(workspace->property("selectedTool").toInt()==0);
@@ -171,6 +180,9 @@ bool QualcommUiTests::TestDevices() {
                 CHECK(window->grabWindow().save(output.filePath(QString("qualcomm-switching-%1-%2-%3.png").arg(language, theme).arg(page))));
             }
             controller.cancel(); CHECK(AwaitUi([&]{ return !controller.tasks()->busy(); }));
+            CHECK(!button->property("busy").toBool());
+            CHECK(!window->findChild<QObject *>("statusProgress")->property("indeterminate").toBool());
+            CHECK(controller.tasks()->progressValue() == 0);
             refreshSwitch();
         }
     }
