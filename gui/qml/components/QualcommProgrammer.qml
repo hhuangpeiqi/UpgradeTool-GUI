@@ -6,6 +6,7 @@ import QtQuick.Layouts
 ColumnLayout {
     id: root
     property string context: "flash"
+    property bool secondaryBrowse: false
     readonly property var settings: { app.qualcomm.settings; return app.qualcomm.settingsFor(context); }
     Layout.fillWidth: true
     spacing: 10
@@ -31,6 +32,7 @@ ColumnLayout {
         }
     }
     QualcommPathRow {
+        secondaryBrowse: root.secondaryBrowse
         context: root.context; visible: !root.settings.useImages; settingKey: "programmer"; caption: qsTr("Programmer")
         nameFilters: [qsTr("FireHose Programmer (*firehose*.mbn *firehose*.elf)"), qsTr("All files (*)")]
         placeholder: qsTr("Firehose programmer (*firehose*.mbn or *firehose*.elf)")

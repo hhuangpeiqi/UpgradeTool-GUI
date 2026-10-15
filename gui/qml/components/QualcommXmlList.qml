@@ -39,9 +39,9 @@ ColumnLayout {
             width: parent.width - 32
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            text: root.context === "flash"
-                  ? qsTr("No XML loaded. Use Load XML… to choose rawprogram and patch files.")
-                  : qsTr("No XML loaded. Use Load XML… to choose a UFS configuration file.")
+            text: root.context === "provision"
+                  ? qsTr("No XML loaded. Use Load XML… to choose a UFS configuration file.")
+                  : qsTr("No XML loaded. Use Load XML… to choose rawprogram and patch files.")
             color: Theme.textSecondary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
@@ -55,7 +55,7 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
             Text {
-                text: modelData.kind === "patch" ? qsTr("Patch") : qsTr("RawProgram")
+                text: root.context === "provision" ? "UFS" : modelData.kind === "patch" ? qsTr("Patch") : qsTr("RawProgram")
                 color: Theme.textSecondary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontNormal

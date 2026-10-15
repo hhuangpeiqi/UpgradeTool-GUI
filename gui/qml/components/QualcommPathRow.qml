@@ -11,6 +11,7 @@ RowLayout {
     property string placeholder: ""
     property int pickerMode: AppFilePicker.OpenFile
     property var nameFilters: []
+    property bool secondaryBrowse: false
     property string value: { app.qualcomm.settings; return String(app.qualcomm.settingsFor(context)[settingKey] || ""); }
     signal edited(string path)
     Layout.fillWidth: true
@@ -32,7 +33,8 @@ RowLayout {
                                                : root.pickerMode === AppFilePicker.OpenFolder ? qsTr("Select a directory") : qsTr("Enter a path or browse for a file")
         onTextEdited: { app.qualcomm.setContextValue(root.context, root.settingKey, text.trim()); root.edited(text.trim()); }
     }
-    PrimaryButton { text: qsTr("Browse…"); iconSource: Icons.folderWhite; focusPolicy: Qt.StrongFocus; onClicked: picker.open() }
+    PrimaryButton { visible: !root.secondaryBrowse; text: qsTr("Browse…"); iconSource: Icons.folderWhite; focusPolicy: Qt.StrongFocus; onClicked: picker.open() }
+    SecondaryButton { visible: root.secondaryBrowse; text: qsTr("Browse…"); iconSource: Icons.folderGray; focusPolicy: Qt.StrongFocus; onClicked: picker.open() }
     AppFilePicker {
         id: picker
         objectName: "qcPathPicker-" + root.settingKey

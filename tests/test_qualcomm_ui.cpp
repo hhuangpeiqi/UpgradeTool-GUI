@@ -34,6 +34,13 @@ template<class F> bool Await(F predicate) {
     while(!predicate() && timer.elapsed()<8000) { QCoreApplication::processEvents(); QThread::msleep(5); }
     return predicate();
 }
+// Repeater delegates belong to the visual tree, not QObject::children().
+static QQuickItem *FindVisualItem(QQuickItem *root, const QString &name) {
+    if (root->objectName() == name) return root;
+    for (auto *child : root->childItems())
+        if (auto *match = FindVisualItem(child, name)) return match;
+    return nullptr;
+}
 static void MovePointer(QQuickWindow *window, const QPointF &position) {
     QMouseEvent event(QEvent::MouseMove, position, window->mapToGlobal(position.toPoint()),
         Qt::NoButton, Qt::NoButton, Qt::NoModifier);
@@ -244,7 +251,7 @@ int main(int argc,char **argv) {
         CHECK(!download->isEnabled());
         auto *rawStart = window->findChild<QQuickItem *>("qcRawStart");
         CHECK(rawStart && !rawStart->isEnabled());
-        auto *toolStart = window->findChild<QQuickItem *>("qcToolStart-chipinfo");
+        auto *toolStart = FindVisualItem(window->contentItem(), "qcToolStart-chipinfo");
         CHECK(toolStart && !toolStart->isEnabled());
         {
             auto update=[&](const QVariantList &devices) {
@@ -377,7 +384,7 @@ int main(int argc,char **argv) {
                 window->setProperty("currentPage", page);
                 auto *workspace = window->findChild<QQuickItem *>(page == 0 ? "QualcommPartitionsPage" : page == 1 ? "QualcommFlashPage" : "QualcommToolsPage");
                 auto *button = workspace->findChild<QQuickItem *>("qcSwitchEdl");
-                auto *primary = workspace->findChild<QQuickItem *>(page == 0 ? "qcRawStart" : page == 1 ? "qcDownload" : "qcToolStart-chipinfo");
+                auto *primary = FindVisualItem(workspace, page == 0 ? "qcRawStart" : page == 1 ? "qcDownload" : "qcToolStart-chipinfo");
                 QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed() > 60;});
                 const QPointF before = button->mapToScene(QPointF());
                 const QPointF primaryBefore = primary->mapToScene(QPointF());
@@ -392,8 +399,16 @@ int main(int argc,char **argv) {
                 if (page < 2) CHECK(button->mapToScene(QPointF(button->width(), 0)).x() <= primary->mapToScene(QPointF()).x());
                 CHECK(primary->mapToScene(QPointF(primary->width(), 0)).x() <= workspace->mapToScene(QPointF(workspace->width(), 0)).x());
                 CHECK(!primary->isEnabled() && !button->isEnabled());
-                if(page==2) for(auto *action : workspace->findChildren<QQuickItem *>())
-                    if(action->objectName().startsWith("qcToolStart-")) CHECK(!action->isEnabled());
+                if(page==2) {
+                    CHECK(QMetaObject::invokeMethod(workspace,"selectTool",Q_ARG(QVariant,QVariant(4))));
+                    CHECK(workspace->property("selectedTool").toInt()==0);
+                    auto *selector=workspace->findChild<QQuickItem *>("qcToolSelector");
+                    CHECK(selector && !selector->isEnabled());
+                    for(const auto &context : {"chipinfo", "reset", "ramdump", "kickstart", "zip", "archive", "digests", "provision"}) {
+                        auto *action=FindVisualItem(workspace, "qcToolStart-"+QString::fromLatin1(context));
+                        CHECK(action && !action->isEnabled());
+                    }
+                }
                 if (argc > 2) {
                     QDir output(QString::fromLocal8Bit(argv[2])); CHECK(QDir().mkpath(output.path()));
                     CHECK(window->grabWindow().save(output.filePath(QString("qualcomm-switching-%1-%2-%3.png").arg(language, theme).arg(page))));
@@ -525,17 +540,59 @@ int main(int argc,char **argv) {
         const core::Operation toolOperations[] = {core::Operation::QualcommChipInfo, core::Operation::QualcommReset,
             core::Operation::QualcommRamdump, core::Operation::QualcommKickstart, core::Operation::QualcommCreateZip,
             core::Operation::QualcommCreateArchive, core::Operation::QualcommCreateDigests, core::Operation::QualcommProvision};
+        auto selectTool = [&](int index) {
+            CHECK(QMetaObject::invokeMethod(toolsPage, "selectTool", Q_ARG(QVariant, QVariant(index))));
+            QCoreApplication::processEvents();
+            CHECK(toolsPage->property("selectedTool").toInt() == index);
+        };
+        auto *toolNavigation = toolsPage->findChild<QQuickItem *>("qcToolNavigation");
+        auto *toolSelector = toolsPage->findChild<QQuickItem *>("qcToolSelector");
+        CHECK(toolNavigation && toolNavigation->isVisible());
+        CHECK(toolSelector && !toolSelector->isVisible());
+        CHECK(toolsPage->property("selectedTool").toInt() == 0);
+        if (argc>2) {
+            // Let earlier validation toasts close before capturing the tool forms.
+            QElapsedTimer toast; toast.start(); Await([&]{return toast.elapsed()>2800;});
+            controller.log()->clear();
+        }
+        auto *resetNavigation=FindVisualItem(toolsPage, "qcToolSelect-reset");
+        CHECK(resetNavigation);
+        if (resetNavigation) {
+            resetNavigation->forceActiveFocus(Qt::TabFocusReason);
+            QTest::keyClick(window, Qt::Key_Space);
+            CHECK(toolsPage->property("selectedTool").toInt() == 1);
+            selectTool(0);
+        }
         for (int i=0; i<toolContexts.size(); ++i) {
-            auto *panel=toolsPage->findChild<QQuickItem *>("qcToolPanel-" + toolContexts[i]); CHECK(panel && panel->isVisible());
-            auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-" + toolContexts[i]); CHECK(button && button->isVisible());
+            auto *navigation = FindVisualItem(toolsPage, "qcToolSelect-" + toolContexts[i]);
+            CHECK(navigation && navigation->isVisible());
+            if (navigation) QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                navigation->mapToScene(QPointF(navigation->width()/2, navigation->height()/2)).toPoint());
+            QCoreApplication::processEvents();
+            CHECK(toolsPage->property("selectedTool").toInt() == i);
+            CHECK(toolsPage->property("context").toString() == toolContexts[i]);
+            CHECK(toolsPage->property("showEdlSwitch").toBool() == (i < 4 || i == 7));
+            for (int other=0; other<toolContexts.size(); ++other) {
+                auto *otherPanel=FindVisualItem(toolsPage, "qcToolPanel-" + toolContexts[other]);
+                auto *otherButton=FindVisualItem(toolsPage, "qcToolStart-" + toolContexts[other]);
+                CHECK(otherPanel && otherPanel->isVisible() == (other == i));
+                CHECK(otherButton && otherButton->isVisible() == (other == i));
+            }
+            auto *panel=FindVisualItem(toolsPage, "qcToolPanel-" + toolContexts[i]); CHECK(panel && panel->isVisible());
+            auto *button=FindVisualItem(toolsPage, "qcToolStart-" + toolContexts[i]); CHECK(button && button->isVisible());
             if (panel) {
                 CHECK(panel->property("operation").toInt()==int(toolOperations[i]));
                 CHECK(panel->property("context").toString()==toolContexts[i]);
                 auto *advanced=panel->findChild<QObject *>("qcAdvanced"); CHECK(advanced && !advanced->property("expanded").toBool());
             }
+            if (argc>2) {
+                QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed()>40;});
+                CHECK(window->grabWindow().save(QDir(QString::fromLocal8Bit(argv[2])).filePath("tools-wide-"+toolContexts[i]+".png")));
+            }
         }
         {
-            auto *resetPanel = toolsPage->findChild<QObject *>("qcToolPanel-reset"); CHECK(resetPanel);
+            selectTool(1);
+            auto *resetPanel = FindVisualItem(toolsPage, "qcToolPanel-reset"); CHECK(resetPanel);
             CHECK(resetPanel && !resetPanel->property("showProgrammer").toBool());
             CHECK(!toolsPage->findChild<QObject *>("qcResetProgrammerHint"));
             auto *resetMethod = resetPanel ? resetPanel->findChild<QQuickItem *>("qcResetMethod") : nullptr;
@@ -573,15 +630,18 @@ int main(int argc,char **argv) {
         }
         {
             window->setProperty("currentPage",2);
-            auto *ufsPanel=toolsPage->findChild<QObject *>("qcToolPanel-provision"); CHECK(ufsPanel);
+            selectTool(7);
+            auto *ufsPanel=FindVisualItem(toolsPage, "qcToolPanel-provision"); CHECK(ufsPanel);
             auto *ufsAdvanced=ufsPanel ? ufsPanel->findChild<QObject *>("qcAdvanced") : nullptr; CHECK(ufsAdvanced);
             if(ufsAdvanced) ufsAdvanced->setProperty("expanded",true);
             auto *ufsDry=ufsPanel ? ufsPanel->findChild<QQuickItem *>("qcDryRun") : nullptr; CHECK(ufsDry && ufsDry->isVisible());
-            auto *ufsStart=toolsPage->findChild<QQuickItem *>("qcToolStart-provision"); CHECK(ufsStart);
+            auto *ufsStart=FindVisualItem(toolsPage, "qcToolStart-provision"); CHECK(ufsStart);
+            selectTool(0); selectTool(7);
+            CHECK(ufsAdvanced && ufsAdvanced->property("expanded").toBool());
             qc->setValue("dryRun",true); CHECK(ufsDry && !ufsDry->property("checked").toBool());
             qc->setContextValue("provision","dryRun",true); CHECK(ufsDry && ufsDry->property("checked").toBool());
             CHECK(ufsStart && ufsStart->property("text").toString()==QStringLiteral("Simulate UFS provisioning"));
-            auto *kickstart=toolsPage->findChild<QObject *>("qcToolPanel-kickstart"); CHECK(kickstart);
+            auto *kickstart=FindVisualItem(toolsPage, "qcToolPanel-kickstart"); CHECK(kickstart);
             CHECK(kickstart && !kickstart->property("settings").toMap().value("dryRun").toBool());
             auto *buildType=flashPage->findChild<QObject *>("qcBuildType"); CHECK(buildType);
             auto *inputType=flashPage->findChild<QObject *>("qcProgrammerInput"); CHECK(inputType);
@@ -617,24 +677,26 @@ int main(int argc,char **argv) {
             qc->addXml(fixture.filePath("rawprogram_CN.xml"),"digests");
             qc->addXml(fixture.filePath("ufs.xml"),"provision");
             for (const auto &context : toolContexts) {
-                auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-"+context); CHECK(button);
+                selectTool(toolContexts.indexOf(context));
+                auto *button=FindVisualItem(toolsPage, "qcToolStart-"+context); CHECK(button);
                 const bool offline=context=="zip" || context=="archive" || context=="digests";
                 CHECK(button && button->isEnabled()==offline);
+                if (offline) CHECK(toolsPage->property("footerMessage").toString().isEmpty());
             }
 #ifndef Q_OS_WIN
             qc->setContextValue("kickstart","node","/dev/test-node");
-            auto *kickstartStart=toolsPage->findChild<QQuickItem *>("qcToolStart-kickstart");
+            auto *kickstartStart=FindVisualItem(toolsPage, "qcToolStart-kickstart");
             CHECK(kickstartStart && kickstartStart->isEnabled());
             qc->setContextValue("kickstart","node","");
             CHECK(kickstartStart && !kickstartStart->isEnabled());
 #endif
-            auto *ufsStart=toolsPage->findChild<QQuickItem *>("qcToolStart-provision");
+            auto *ufsStart=FindVisualItem(toolsPage, "qcToolStart-provision");
             qc->setContextValue("provision","dryRun",true);
             CHECK(ufsStart && ufsStart->isEnabled());
             qc->setContextValue("provision","dryRun",false);
             CHECK(ufsStart && !ufsStart->isEnabled());
-            auto *zipPanel=toolsPage->findChild<QObject *>("qcToolPanel-zip");
-            auto *archivePanel=toolsPage->findChild<QObject *>("qcToolPanel-archive");
+            auto *zipPanel=FindVisualItem(toolsPage, "qcToolPanel-zip");
+            auto *archivePanel=FindVisualItem(toolsPage, "qcToolPanel-archive");
             auto *zipPicker=zipPanel->findChild<QObject *>("qcPathPicker-output");
             auto *archivePicker=archivePanel->findChild<QObject *>("qcPathPicker-output");
             CHECK(zipPicker && zipPicker->property("requestContext").toString()=="zip");
@@ -658,12 +720,12 @@ int main(int argc,char **argv) {
             auto connection=QObject::connect(qc,&gui::QualcommController::executeRequested,&application,
                 [&](const core::OperationRequest &request){++requests; submitted=request;});
             for (int i=0; i<toolContexts.size(); ++i) {
-                auto *button=toolsPage->findChild<QObject *>("qcToolStart-"+toolContexts[i]);
+                auto *button=FindVisualItem(toolsPage, "qcToolStart-"+toolContexts[i]);
                 CHECK(button && QMetaObject::invokeMethod(button,"clicked"));
                 CHECK(requests==i+1 && submitted.operation==toolOperations[i]);
                 CHECK(!controller.busy());
             }
-            auto *resetStart = toolsPage->findChild<QObject *>("qcToolStart-reset");
+            auto *resetStart = FindVisualItem(toolsPage, "qcToolStart-reset");
             qc->setContextValue("reset", "resetMethod", "firehose");
             qc->setContextValue("reset", "programmer", loader);
             CHECK(resetStart && QMetaObject::invokeMethod(resetStart,"clicked"));
@@ -678,37 +740,51 @@ int main(int argc,char **argv) {
             result.items.push_back({"Chip", "test-chip"}); qc->applyResult(result);
             CHECK(qc->resultsFor("chipinfo")->rowCount()==1);
             CHECK(qc->resultsFor("reset")->rowCount()==0);
+            selectTool(0); selectTool(1); selectTool(0);
+            CHECK(qc->resultsFor("chipinfo")->rowCount()==1);
             result.items.clear(); qc->applyResult(result);
         }
         // Every operation must remain reachable in a narrow workspace, with no
         // horizontal overflow, including expanded advanced options and keyboard focus.
         window->setProperty("currentPage",2);
+        window->setWidth(1300); window->setHeight(640);
+        CHECK(Await([&]{return toolSelector->isVisible() && !toolNavigation->isVisible();}));
+        auto *shortWindowAction=FindVisualItem(toolsPage, "qcToolStart-chipinfo");
+        CHECK(shortWindowAction->mapToScene(QPointF(0,shortWindowAction->height())).y()
+              <= toolsPage->mapToScene(QPointF(0,toolsPage->height())).y());
+        if (argc>2) CHECK(window->grabWindow().save(QDir(QString::fromLocal8Bit(argv[2])).filePath("tools-wide-short.png")));
         window->setWidth(1024); window->setHeight(640);
         auto *toolsScroll=toolsPage->findChild<QObject *>("qcWorkspaceScroll"); CHECK(toolsScroll);
         auto *toolsContent=toolsScroll ? qvariant_cast<QQuickItem *>(toolsScroll->property("contentItem")) : nullptr; CHECK(toolsContent);
         if (toolsContent) for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
             controller.language()->setMode(language); controller.theme()->setMode(theme);
+            CHECK(Await([&]{return toolSelector->isVisible() && !toolNavigation->isVisible();}));
             for (const auto &context : toolContexts) {
+                toolSelector->setProperty("currentIndex", toolContexts.indexOf(context));
+                CHECK(QMetaObject::invokeMethod(toolSelector, "activated", Q_ARG(int, toolContexts.indexOf(context))));
+                QCoreApplication::processEvents();
+                CHECK(toolsPage->property("context").toString() == context);
+                CHECK(toolsContent->property("contentY").toReal() == 0);
                 const QStringList methods = context == "reset" ? QStringList{"sahara", "firehose"} : QStringList{"sahara"};
                 for (const auto &method : methods) {
                     if (context == "reset") qc->setContextValue("reset", "resetMethod", method);
-                    auto *panel=toolsPage->findChild<QQuickItem *>("qcToolPanel-"+context);
-                    auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-"+context);
+                    auto *panel=FindVisualItem(toolsPage, "qcToolPanel-"+context);
+                    auto *button=FindVisualItem(toolsPage, "qcToolStart-"+context);
                     auto *advanced=panel->findChild<QObject *>("qcAdvanced");
                     advanced->setProperty("expanded",true);
                     QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed()>30;});
-                    const qreal currentY=toolsContent->property("contentY").toReal();
-                    const qreal panelY=panel->mapToItem(toolsContent,QPointF()).y()+currentY;
-                    const qreal buttonBottom=button->mapToItem(toolsContent,QPointF(0,button->height())).y()+currentY;
-                    const qreal target=qMax(panelY,buttonBottom-toolsContent->height()+10);
-                    const qreal maximum=qMax(qreal(0),toolsContent->property("contentHeight").toReal()-toolsContent->height());
-                    toolsContent->setProperty("contentY",qBound(qreal(0),target,maximum));
-                    QCoreApplication::processEvents();
                     const QPointF position=button->mapToScene(QPointF());
-                    CHECK(position.x()>=toolsPage->x());
+                    CHECK(button->isVisible() && panel->isVisible());
+                    CHECK(position.x()>=toolsPage->mapToScene(QPointF()).x());
                     CHECK(position.x()+button->width()<=toolsPage->mapToScene(QPointF(toolsPage->width(),0)).x());
-                    CHECK(position.y()>=toolsContent->mapToScene(QPointF()).y());
-                    CHECK(position.y()+button->height()<=toolsContent->mapToScene(QPointF(0,toolsContent->height())).y());
+                    CHECK(position.y()>=toolsContent->mapToScene(QPointF(0,toolsContent->height())).y());
+                    CHECK(position.y()+button->height()<=toolsPage->mapToScene(QPointF(0,toolsPage->height())).y());
+                    const qreal maximum=qMax(qreal(0),toolsContent->property("contentHeight").toReal()-toolsContent->height());
+                    toolsContent->setProperty("contentY",maximum);
+                    QCoreApplication::processEvents();
+                    CHECK(button->mapToScene(QPointF()) == position);
+                    toolsContent->setProperty("contentY",0);
+                    QCoreApplication::processEvents();
                     if (context == "reset") {
                         auto *choice=panel->findChild<QQuickItem *>("qcResetMethod"); CHECK(choice);
                         CHECK(choice && choice->property("currentIndex").toInt() == (method == "firehose" ? 1 : 0));
@@ -728,6 +804,22 @@ int main(int argc,char **argv) {
             qc->setContextValue("reset", "resetMethod", "sahara");
             toolsContent->setProperty("contentY",0);
         }
+        selectTool(3);
+        auto *kickstartPanel=FindVisualItem(toolsPage, "qcToolPanel-kickstart");
+        auto *kickstartAdvanced=kickstartPanel->findChild<QObject *>("qcAdvanced");
+        kickstartAdvanced->setProperty("expanded",true);
+        CHECK(Await([&]{return toolsContent->property("contentHeight").toReal()>toolsContent->height();}));
+        toolsContent->setProperty("contentY",toolsContent->property("contentHeight").toReal()-toolsContent->height());
+        CHECK(toolsContent->property("contentY").toReal()>0);
+        selectTool(4);
+        CHECK(toolsContent->property("contentY").toReal()==0);
+        window->setProperty("currentPage",1);
+        window->setProperty("currentPage",2);
+        controller.setVendor(0); controller.setVendor(2);
+        window->setProperty("currentPage",2);
+        CHECK(toolsPage->property("selectedTool").toInt() == 4);
+        CHECK(qc->settingsFor("zip").value("output").toString()==temporary.filePath("zip-output"));
+        selectTool(0);
         window->setProperty("currentPage",1);
         window->setWidth(1024); window->setHeight(640);
         auto *refresh=window->findChild<QQuickItem *>("statusRefresh"); CHECK(refresh);

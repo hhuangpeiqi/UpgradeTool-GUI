@@ -9,16 +9,10 @@ FormSection {
     required property int operation
     required property string context
     objectName: "qcToolPanel-" + context
-    readonly property string toolLabel: [qsTranslate("QualcommToolsPage", "Chip info"), qsTranslate("QualcommToolsPage", "Reset"),
-        qsTranslate("QualcommToolsPage", "RAM dump"), qsTranslate("QualcommToolsPage", "Sahara kickstart"),
-        qsTranslate("QualcommToolsPage", "Create ZIP"), qsTranslate("QualcommToolsPage", "Create Sahara archive"),
-        qsTranslate("QualcommToolsPage", "Create VIP digests"), qsTranslate("QualcommToolsPage", "UFS provisioning")][toolIndex]
-    title: toolIndex < 2 ? "" : toolLabel
+    required property string toolLabel
+    title: toolLabel
     readonly property var settings: { app.qualcomm.settings; return app.qualcomm.settingsFor(context); }
     readonly property var results: app.qualcomm.resultsFor(context)
-    // Reevaluate validation and device requirements when any settings change.
-    readonly property bool valid: { app.qualcomm.settings; return app.qualcomm.canRun(operation); }
-    readonly property bool deviceRequired: { app.qualcomm.settings; return app.qualcomm.needsDevice(operation); }
     readonly property bool packageBuild: page.toolIndex === 4 || (page.toolIndex === 5 && Boolean(page.settings.archiveContents)) || (page.toolIndex === 6 && Boolean(page.settings.packageBuild))
     readonly property bool showProgrammer: (page.toolIndex === 1 && page.settings.resetMethod === "firehose") || page.toolIndex === 3 || (!page.packageBuild && page.toolIndex >= 5)
     readonly property bool showOutput: page.toolIndex === 2 || page.toolIndex === 4 || page.toolIndex === 5
@@ -75,9 +69,9 @@ FormSection {
     }
     FormSection {
         visible: page.showInput
-        title: qsTranslate("QualcommToolsPage", "Input")
-        QualcommProgrammer { context: page.context; visible: page.showProgrammer }
+        QualcommProgrammer { context: page.context; visible: page.showProgrammer; secondaryBrowse: true }
         QualcommPathRow {
+            secondaryBrowse: true
             context: page.context; visible: page.packageBuild; settingKey: "package"
             caption: page.toolIndex === 6 ? qsTranslate("QualcommToolsPage", "Build package") : "contents.xml"
             nameFilters: page.toolIndex === 6 ? [qsTranslate("QualcommToolsPage", "Build (*.zip *.json *.xml)")] : ["XML (*.xml)"]
@@ -105,6 +99,7 @@ FormSection {
             }
         }
         QualcommPathRow {
+            secondaryBrowse: true
             context: page.context; visible: page.showOutput
             settingKey: "output"; caption: qsTranslate("QualcommToolsPage", "Output")
             pickerMode: page.toolIndex === 2 ? AppFilePicker.OpenFolder : AppFilePicker.SaveFile
@@ -113,6 +108,7 @@ FormSection {
                          : qsTranslate("QualcommToolsPage", "Output Sahara archive file")
         }
         QualcommPathRow {
+            secondaryBrowse: true
             context: page.context; visible: page.showDigestDir; settingKey: "digestDir"; caption: qsTranslate("QualcommToolsPage", "Digest directory")
             pickerMode: AppFilePicker.OpenFolder
             placeholder: qsTranslate("QualcommToolsPage", "Output directory for the VIP digest tables")
@@ -139,6 +135,7 @@ FormSection {
             }
         }
         QualcommPathRow {
+            secondaryBrowse: true
             context: page.context; visible: page.showNode; settingKey: "node"; caption: qsTranslate("QualcommToolsPage", "Device node")
             placeholder: qsTranslate("QualcommToolsPage", "Serial node, e.g. /dev/ttyUSB0 (Auto transport only)")
         }
@@ -146,8 +143,9 @@ FormSection {
     FormSection {
         visible: page.showXml
         title: page.context === "provision" ? qsTranslate("QualcommToolsPage", "UFS configuration XML") : qsTranslate("QualcommToolsPage", "XML")
-        headerActions: PrimaryButton {
-            iconSource: Icons.folderWhite
+        headerActions: SecondaryButton {
+            focusPolicy: Qt.StrongFocus
+            iconSource: Icons.folderGray
             objectName: "qcLoadXml"
             text: qsTranslate("QualcommToolsPage", "Load XML…")
             onClicked: toolXml.loadXml()
@@ -155,37 +153,6 @@ FormSection {
         QualcommXmlList { id: toolXml; context: page.context }
         AppCheckBox { visible: page.toolIndex === 7; text: qsTranslate("QualcommToolsPage", "Lock UFS configuration"); checked: Boolean(page.settings.finalize); onToggled: app.qualcomm.setContextValue(page.context, "finalize", checked) }
     }
-    Loader {
-        Layout.fillWidth: true
-        active: page.toolIndex < 2
-        visible: active
-        sourceComponent: runAction
-    }
     QualcommOptions { context: page.context; packageBuild: page.packageBuild }
-    Loader {
-        Layout.fillWidth: true
-        active: page.toolIndex >= 2
-        visible: active
-        sourceComponent: runAction
-    }
     KeyValueTable { Layout.fillWidth: true; Layout.preferredHeight: 160; model: page.results; visible: page.results.count > 0 }
-    Component {
-        id: runAction
-        RowLayout {
-            Layout.fillWidth: true
-            Item { Layout.fillWidth: true; visible: page.toolIndex >= 2 }
-            PrimaryButton {
-                iconSource: Icons.playWhite
-                objectName: "qcToolStart-" + page.context
-                focusPolicy: Qt.StrongFocus
-                text: page.context === "provision" && page.settings.dryRun ? qsTr("Simulate UFS provisioning") : page.toolLabel
-                enabled: !app.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[page.operation].allowed)
-                onClicked: app.qualcomm.run(page.operation)
-
-                ToolTip.visible: hovered && !enabled && !app.busy
-                ToolTip.text: !page.valid ? qsTranslate("QualcommToolsPage", "Complete the required inputs first")
-                                           : app.qualcommEligibility[page.operation].reason
-            }
-        }
-    }
 }
