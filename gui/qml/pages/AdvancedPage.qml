@@ -27,7 +27,7 @@ Item {
         qsTr("Switch USB3")
     ]
 
-    readonly property bool canRun: !app.busy && app.hasDevice
+    readonly property bool canRun: !app.tasks.busy && app.hasDevice
 
     Card {
         anchors.fill: parent
@@ -50,8 +50,8 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: app.advancedHint
-                    color: app.advancedHintError ? Theme.danger : Theme.textSecondary
+                    text: app.rockchip.advancedHint
+                    color: app.rockchip.advancedHintError ? Theme.danger : Theme.textSecondary
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontNormal
                     wrapMode: Text.WordWrap
@@ -65,11 +65,11 @@ Item {
 
                     Text { text: qsTr("Boot:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
                     AppTextField { id: bootField; Layout.fillWidth: true; placeholderText: qsTr("Loader / boot file path") }
-                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
 
                     Text { text: qsTr("Firmware:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
                     AppTextField { id: fwField; Layout.fillWidth: true; placeholderText: qsTr("Firmware file path") }
-                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
                 }
 
                 RowLayout {
@@ -79,17 +79,17 @@ Item {
                     SecondaryButton {
                         text: qsTr("Download Boot")
                         enabled: page.canRun && bootField.text !== ""
-                        onClicked: app.runOperation(Operations.DownloadBoot, {path: bootField.text})
+                        onClicked: app.rockchip.runOperation(Operations.DownloadBoot, {path: bootField.text})
                     }
                     SecondaryButton {
                         text: qsTr("Extract Firmware")
-                        enabled: !app.busy && fwField.text !== ""
+                        enabled: !app.tasks.busy && fwField.text !== ""
                         onClicked: { folderPicker.pending = "extract"; folderPicker.open(); }
                     }
                     SecondaryButton {
                         text: qsTr("Erase All")
                         enabled: page.canRun
-                        onClicked: app.runOperation(Operations.EraseFlash, {path: bootField.text})
+                        onClicked: app.rockchip.runOperation(Operations.EraseFlash, {path: bootField.text})
                     }
                     Item { Layout.fillWidth: true }
                 }
@@ -105,7 +105,7 @@ Item {
                         delegate: SecondaryButton {
                             text: modelData.label
                             enabled: page.canRun
-                            onClicked: app.runOperation(modelData.operation)
+                            onClicked: app.rockchip.runOperation(modelData.operation)
                         }
                     }
 
@@ -141,7 +141,7 @@ Item {
                     SecondaryButton {
                         text: qsTr("Write Serial")
                         enabled: page.canRun && snField.text.trim() !== ""
-                        onClicked: app.runOperation(Operations.WriteSn, {serial: snField.text.trim()})
+                        onClicked: app.rockchip.runOperation(Operations.WriteSn, {serial: snField.text.trim()})
                     }
                     Item { Layout.fillWidth: true }
                 }
@@ -189,7 +189,7 @@ Item {
                             SecondaryButton {
                                 text: qsTr("Erase Sectors")
                                 enabled: page.canRun && beginField.text !== "" && countField.text !== ""
-                                onClicked: app.runOperation(Operations.EraseLba, {begin: beginField.text, count: countField.text})
+                                onClicked: app.rockchip.runOperation(Operations.EraseLba, {begin: beginField.text, count: countField.text})
                             }
                             Item { Layout.fillWidth: true }
                         }
@@ -198,8 +198,8 @@ Item {
 
                 KeyValueTable {
                     Layout.fillWidth: true
-                    implicitHeight: Math.min(320, Math.max(120, app.results.count * 38 + 44))
-                    model: app.results
+                    implicitHeight: Math.min(320, Math.max(120, app.rockchip.results.count * 38 + 44))
+                    model: app.rockchip.results
                 }
 
                 Rectangle {
@@ -230,11 +230,11 @@ Item {
                             Text { text: qsTr("Write LBA"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
                             AppTextField { id: wlBegin; Layout.preferredWidth: 140; placeholderText: qsTr("Start sector") }
                             AppTextField { id: wlFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && wlBegin.text !== "" && wlFile.text !== ""
-                                onClicked: app.runOperation(Operations.WriteLba, {begin: wlBegin.text, path: wlFile.text})
+                                onClicked: app.rockchip.runOperation(Operations.WriteLba, {begin: wlBegin.text, path: wlFile.text})
                             }
                         }
 
@@ -246,11 +246,11 @@ Item {
                             AppTextField { id: wsPage; Layout.preferredWidth: 100; placeholderText: qsTr("Page KB") }
                             AppTextField { id: wsSpare; Layout.preferredWidth: 100; placeholderText: qsTr("spare") }
                             AppTextField { id: wsFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && wsBegin.text !== "" && wsPage.text !== "" && wsSpare.text !== "" && wsFile.text !== ""
-                                onClicked: app.runOperation(Operations.WriteSector, {begin: wsBegin.text, pageSize: wsPage.text, spareSize: wsSpare.text, path: wsFile.text})
+                                onClicked: app.rockchip.runOperation(Operations.WriteSector, {begin: wsBegin.text, pageSize: wsPage.text, spareSize: wsSpare.text, path: wsFile.text})
                             }
                         }
 
@@ -266,7 +266,7 @@ Item {
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && ebCs.text !== "" && ebBegin.text !== "" && ebCount.text !== ""
-                                onClicked: app.runOperation(Operations.EraseBlock, {chipSelect: ebCs.text, begin: ebBegin.text, count: ebCount.text, force: ebForce.checked})
+                                onClicked: app.rockchip.runOperation(Operations.EraseBlock, {chipSelect: ebCs.text, begin: ebBegin.text, count: ebCount.text, force: ebForce.checked})
                             }
                         }
 
@@ -284,16 +284,16 @@ Item {
                             spacing: 10
                             Item { Layout.preferredWidth: 130 }
                             AppTextField { id: runUboot; Layout.fillWidth: true; placeholderText: qsTr("U-Boot file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
                             AppTextField { id: runTrust; Layout.fillWidth: true; placeholderText: qsTr("Trust file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
                             AppTextField { id: runBoot; Layout.fillWidth: true; placeholderText: qsTr("Boot file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.busy; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && runUbootAddr.text !== "" && runTrustAddr.text !== "" && runBootAddr.text !== ""
                                          && runUboot.text !== "" && runTrust.text !== "" && runBoot.text !== ""
-                                onClicked: app.runOperation(Operations.RunSystem, {ubootAddress: runUbootAddr.text, trustAddress: runTrustAddr.text, bootAddress: runBootAddr.text, uboot: runUboot.text, trust: runTrust.text, boot: runBoot.text})
+                                onClicked: app.rockchip.runOperation(Operations.RunSystem, {ubootAddress: runUbootAddr.text, trustAddress: runTrustAddr.text, bootAddress: runBootAddr.text, uboot: runUboot.text, trust: runTrust.text, boot: runBoot.text})
                             }
                         }
 
@@ -306,7 +306,7 @@ Item {
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun
-                                onClicked: app.runOperation(Operations.ResetPipe, rpPipe.text.trim() !== "" ? {pipe: rpPipe.text.trim()} : {})
+                                onClicked: app.rockchip.runOperation(Operations.ResetPipe, rpPipe.text.trim() !== "" ? {pipe: rpPipe.text.trim()} : {})
                             }
                         }
                     }
@@ -337,7 +337,7 @@ Item {
         onAccepted: {
             var dir = app.toLocalPath(selectedFolder.toString());
             if (folderPicker.pending === "extract")
-                app.runOperation(Operations.FirmwareExtract, {path: fwField.text, output: dir});
+                app.rockchip.runOperation(Operations.FirmwareExtract, {path: fwField.text, output: dir});
         }
     }
 
@@ -349,9 +349,9 @@ Item {
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());
             if (savePicker.pending === "comlog")
-                app.exportComLog(file);
+                app.rockchip.exportComLog(file);
             else if (savePicker.pending === "export")
-                app.exportImage(beginField.text, countField.text, file);
+                app.rockchip.exportImage(beginField.text, countField.text, file);
         }
     }
 }

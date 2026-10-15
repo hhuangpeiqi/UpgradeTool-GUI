@@ -30,7 +30,7 @@ ColumnLayout {
                 objectName: "awPartition_" + modelData.name
                 text: modelData.name
                 checked: root.selected.indexOf(modelData.name) >= 0
-                enabled: !app.busy && modelData.writable
+                enabled: !app.tasks.busy && modelData.writable
                 onToggled: {
                     var names = root.selected.slice();
                     var index = names.indexOf(modelData.name);

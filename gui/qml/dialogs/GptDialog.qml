@@ -86,7 +86,7 @@ AppDialog {
         PrimaryButton {
             text: qsTr("Generate")
             onClicked: {
-                app.createGpt(inputField.text, outputField.text);
+                app.rockchip.createGpt(inputField.text, outputField.text);
                 dlg.close();
             }
         }

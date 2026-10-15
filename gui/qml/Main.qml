@@ -164,7 +164,7 @@ ApplicationWindow {
                         AllwinnerRawPage {}
                         AllwinnerFirmwarePage {
                             onToolsRequested: (path) => {
-                                app.setAllwinnerContextFirmware(2, path);
+                                app.allwinner.setContextFirmware(2, path);
                                 window.currentPage = 2;
                             }
                         }
@@ -193,9 +193,9 @@ ApplicationWindow {
                 hasAdbDevice: app.vendor !== 2 && app.adbReady
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
-                progressValue: app.progressValue
-                progressSpeed: app.progressSpeed
-                busy: app.busy
+                progressValue: app.tasks.progressValue
+                progressSpeed: app.tasks.progressSpeed
+                busy: app.tasks.busy
                 onRefreshClicked: app.refresh()
                 onCancelClicked: app.cancel()
                 onDeviceActivated: (index) => app.deviceIndex = index
@@ -223,7 +223,7 @@ ApplicationWindow {
         AppMenuItem {
             text: qsTr("Device Info…")
             visible: app.vendor === 1
-            enabled: !app.busy && app.hasDevice
+            enabled: !app.tasks.busy && app.hasDevice
             onTriggered: allwinnerDeviceDialog.open()
         }
         AppMenuItem {
@@ -253,6 +253,11 @@ ApplicationWindow {
         function onSelectionRequested() { edlDialog.openSelection(); }
     }
 
+    Connections {
+        target: app.tasks
+        function onBusyChanged() { if (!app.tasks.busy) storageDialog.close(); }
+    }
+
     Toast {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter
@@ -273,9 +278,6 @@ ApplicationWindow {
             toast.show(text, error);
         }
 
-        function onBusyChanged() {
-            if (!app.busy) storageDialog.close();
-        }
         function onStorageSelectionRequested(options, current) {
             storageDialog.openWith(options, current);
         }

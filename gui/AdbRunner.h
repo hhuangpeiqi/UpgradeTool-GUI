@@ -3,7 +3,7 @@
 
 #include <QElapsedTimer>
 #include <QObject>
-#include <QProcess>
+#include "gui/ProcessAdapter.h"
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -28,7 +28,7 @@ class AdbRunner : public QObject
 	explicit AdbRunner(QObject *parent = NULL);
 	~AdbRunner() override;
 	using UsbScanner = std::function<QVector<AdbUsbDevice>(bool readSerial)>;
-	AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs);
+	AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,platform::ProcessFactory factory=platform::MakeProcess);
 	enum class FelMethod { Auto = 0, T3Buildroot = 1 };
 
 	bool IsAvailable() const;
@@ -55,11 +55,11 @@ class AdbRunner : public QObject
 	void switchProgress(const QString &message);
 
   private slots:
-	void onRebootFinished(int iExitCode, QProcess::ExitStatus eStatus);
+	void onRebootFinished(int iExitCode, bool eStatus);
 	void onTimeout();
 	void onPollTick();
-	void onPollFinished(int iExitCode, QProcess::ExitStatus eStatus);
-	void onPollError(QProcess::ProcessError eError);
+	void onPollFinished(int iExitCode, bool eStatus);
+	void onPollError(const QString &error);
 	void onPollKillTimeout();
 	void CheckFel();
 
@@ -68,14 +68,14 @@ class AdbRunner : public QObject
 	void BeginSwitch();
 	void StartCommand(const QStringList &args);
 	void Complete(bool ok, const QString &message);
-	void HandleFelCommand(int code, QProcess::ExitStatus status, const QString &output);
+	void HandleFelCommand(int code, bool status, const QString &output);
 	void RunPoll();
 	void UpdateAvailability(bool bAvailable, const QString &strMessage);
 
-	QProcess *m_pProc;
+	ProcessAdapter *m_pProc;
 	QTimer *m_pTimeout;
 
-	QProcess *m_pPollProc;
+	ProcessAdapter *m_pPollProc;
 	QTimer *m_pPollTimer;
 	QTimer *m_pPollKill;
 

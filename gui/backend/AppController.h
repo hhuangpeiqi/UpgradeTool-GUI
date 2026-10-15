@@ -4,6 +4,10 @@
 #include <QElapsedTimer>
 #include <map>
 #include "gui/backend/QualcommController.h"
+#include "gui/backend/AllwinnerController.h"
+#include "gui/backend/RockchipController.h"
+#include "gui/backend/TaskController.h"
+#include "gui/backend/DeviceModel.h"
 #include "gui/EdlRunner.h"
 #include "gui/EngineWorker.h"
 #include <QObject>
@@ -21,7 +25,7 @@
 #include "gui/backend/ThemeManager.h"
 
 class QThread;
-class CRKLog;
+namespace platform { class FileLog; }
 
 namespace gui {
 
@@ -33,15 +37,14 @@ class AppController : public QObject, public Retranslatable
 {
 	Q_OBJECT
 
+    Q_PROPERTY(gui::DeviceModel *deviceModel READ deviceModel CONSTANT)
+    Q_PROPERTY(gui::TaskController *tasks READ tasks CONSTANT)
+    Q_PROPERTY(gui::RockchipController *rockchip READ rockchip CONSTANT)
+    Q_PROPERTY(gui::AllwinnerController *allwinner READ allwinner CONSTANT)
     Q_PROPERTY(gui::QualcommController *qualcomm READ qualcomm CONSTANT)
     Q_PROPERTY(gui::EdlRunner *edl READ edl CONSTANT)
-    Q_PROPERTY(QVariantList allwinnerStates READ allwinnerStates NOTIFY allwinnerChanged)
+    Q_PROPERTY(QVariantList availableVendors READ availableVendors CONSTANT)
     Q_PROPERTY(int vendor READ vendor WRITE setVendor NOTIFY vendorChanged)
-    Q_PROPERTY(QString allwinnerFirmware READ allwinnerFirmware WRITE setAllwinnerFirmware NOTIFY allwinnerChanged)
-    Q_PROPERTY(QVariantList allwinnerPartitions READ allwinnerPartitions NOTIFY allwinnerChanged)
-    Q_PROPERTY(QVariantList allwinnerFiles READ allwinnerFiles NOTIFY allwinnerChanged)
-    Q_PROPERTY(bool allwinnerValid READ allwinnerValid NOTIFY allwinnerChanged)
-    Q_PROPERTY(gui::KeyValueModel *allwinnerResults READ allwinnerResults CONSTANT)
 	Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
 	Q_PROPERTY(QStringList deviceLabels READ deviceLabels NOTIFY devicesChanged)
 	Q_PROPERTY(QString deviceStatusText READ deviceStatusText NOTIFY devicesChanged)
@@ -58,76 +61,45 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(bool felSwitchError READ felSwitchError NOTIFY felSwitchStateChanged)
 	Q_PROPERTY(bool switching READ switching NOTIFY switchingChanged)
 
-	Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
-	Q_PROPERTY(int progressValue READ progressValue NOTIFY progressChanged)
-	Q_PROPERTY(QString progressText READ progressText NOTIFY progressChanged)
-	Q_PROPERTY(QString progressSpeed READ progressSpeed NOTIFY progressChanged)
 	Q_PROPERTY(bool batchMode READ batchMode NOTIFY batchModeChanged)
 	Q_PROPERTY(int batchSelected READ batchSelected NOTIFY batchModeChanged)
 
 	Q_PROPERTY(gui::LogModel *log READ log CONSTANT)
-	Q_PROPERTY(gui::ImageEntryModel *imageEntries READ imageEntries CONSTANT)
-	Q_PROPERTY(gui::KeyValueModel *firmwareEntries READ firmwareEntries CONSTANT)
-	Q_PROPERTY(gui::KeyValueModel *results READ results CONSTANT)
 	Q_PROPERTY(gui::ConfigStore *config READ config CONSTANT)
 	Q_PROPERTY(gui::ThemeManager *theme READ theme CONSTANT)
 	Q_PROPERTY(gui::LanguageManager *language READ language CONSTANT)
 
-	Q_PROPERTY(QString imageDir READ imageDir NOTIFY imageStateChanged)
-	Q_PROPERTY(QString imageHint READ imageHint NOTIFY imageStateChanged)
-	Q_PROPERTY(bool imageHintError READ imageHintError NOTIFY imageStateChanged)
-	Q_PROPERTY(bool imageQueueActive READ imageQueueActive NOTIFY imageStateChanged)
 
-	Q_PROPERTY(QString firmwarePath READ firmwarePath NOTIFY firmwareStateChanged)
-	Q_PROPERTY(QString firmwareHint READ firmwareHint NOTIFY firmwareStateChanged)
-	Q_PROPERTY(bool firmwareHintError READ firmwareHintError NOTIFY firmwareStateChanged)
-	Q_PROPERTY(bool firmwareValid READ firmwareValid NOTIFY firmwareStateChanged)
-	Q_PROPERTY(QString firmwareVersion READ firmwareVersion NOTIFY firmwareStateChanged)
-	Q_PROPERTY(QString firmwareLoaderVersion READ firmwareLoaderVersion NOTIFY firmwareStateChanged)
-	Q_PROPERTY(QString firmwareChip READ firmwareChip NOTIFY firmwareStateChanged)
-	Q_PROPERTY(QString firmwareBuildTime READ firmwareBuildTime NOTIFY firmwareStateChanged)
-	Q_PROPERTY(QString firmwareSign READ firmwareSign NOTIFY firmwareStateChanged)
 
-	Q_PROPERTY(QString advancedHint READ advancedHint NOTIFY advancedStateChanged)
-	Q_PROPERTY(bool advancedHintError READ advancedHintError NOTIFY advancedStateChanged)
-	Q_PROPERTY(QStringList storages READ storages CONSTANT)
 	Q_PROPERTY(QVariantList standardPlaces READ standardPlaces NOTIFY standardPlacesChanged)
 
 public:
-	explicit AppController(CRKLog *pLog, QObject *parent = NULL);
-    AppController(CRKLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent = nullptr);
+	explicit AppController(platform::FileLog *pLog, QObject *parent = NULL);
+    AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent = nullptr);
 	~AppController();
 
 	// Rebuilds every cached translated string when the UI language changes.
 	// Driven by LanguageManager's registry, not by per-feature refresh calls.
 	void retranslate() override;
 
+    DeviceModel *deviceModel() { return m_deviceModel; }
+    TaskController *tasks() { return m_tasks; }
+    RockchipController *rockchip() { return m_rockchip; }
+    AllwinnerController *allwinner() { return m_allwinner; }
     QualcommController *qualcomm() { return m_qualcomm; }
     EdlRunner *edl() { return m_edl; }
     Q_INVOKABLE void refreshEdl();
     Q_INVOKABLE void requestEdlSwitch();
     Q_INVOKABLE void switchToEdl(const QString &target, int method, const QString &endpoint);
 
+    QVariantList availableVendors() const;
     int vendor() const { return m_vendor; }
     void setVendor(int);
-    QString allwinnerFirmware() const { return m_allwinner[1].firmware; }
-    void setAllwinnerFirmware(const QString &);
-    QVariantList allwinnerPartitions() const { return m_allwinner[1].partitions; }
-    QVariantList allwinnerFiles() const { return m_allwinner[1].files; }
-    bool allwinnerValid() const { return m_allwinner[1].valid; }
-    KeyValueModel *allwinnerResults() const { return m_allwinner[1].summary; }
-    QVariantList allwinnerStates() const;
-    Q_INVOKABLE void setAllwinnerContextFirmware(int context, const QString &path);
-    Q_INVOKABLE void ensureAllwinnerContext(int context);
-    Q_INVOKABLE void inspectAllwinnerFirmware(int context);
-    Q_INVOKABLE void runAllwinner(int operation, const QVariantMap &parameters = QVariantMap());
-    Q_INVOKABLE QVariantMap allwinnerSettings() const;
-    Q_INVOKABLE void saveAllwinnerSettings(const QVariantMap &);
 
-	QVariantList devices() const { return m_devices; }
+	QVariantList devices() const { return m_deviceModel->rows(); }
 	QStringList deviceLabels() const;
 	QString deviceStatusText() const { return m_strDeviceStatus; }
-	bool hasDevice() const { return !m_devices.isEmpty(); }
+	bool hasDevice() const { return !m_deviceModel->rows().isEmpty(); }
 	QVariantMap qualcommEligibility() const;
 
 	int deviceIndex() const { return m_iDeviceIndex; }
@@ -143,39 +115,16 @@ public:
 	QString felSwitchHint() const { return m_felSwitchHint.value(); }
 	bool felSwitchError() const { return m_felSwitchError; }
 	bool switching() const { return m_bSwitching; }
-	bool busy() const { return m_bBusy; }
-	int progressValue() const { return m_iProgressValue; }
-	QString progressText() const { return m_strProgressText; }
-	QString progressSpeed() const { return m_strProgressSpeed; }
 	bool batchMode() const { return m_bBatchMode; }
 	int batchSelected() const { return m_batchKeys.size(); }
 
 	gui::LogModel *log() const { return m_pLog; }
-	gui::ImageEntryModel *imageEntries() const { return m_pImageEntries; }
-	gui::KeyValueModel *firmwareEntries() const { return m_pFirmwareEntries; }
-	gui::KeyValueModel *results() const { return m_pResults; }
 	gui::ConfigStore *config() const { return m_pConfig; }
 	gui::ThemeManager *theme() const { return m_pTheme; }
 	gui::LanguageManager *language() const { return m_pLanguage; }
 
-	QString imageDir() const { return m_strImageDir; }
-	QString imageHint() const { return m_imageHint.value(); }
-	bool imageHintError() const { return m_bImageHintError; }
-	bool imageQueueActive() const { return m_bQueueActive; }
 
-	QString firmwarePath() const { return m_strFirmware; }
-	QString firmwareHint() const { return m_firmwareHint.value(); }
-	bool firmwareHintError() const { return m_bFirmwareHintError; }
-	bool firmwareValid() const { return m_bFirmwareValid; }
-	QString firmwareVersion() const { return m_strFwVersion; }
-	QString firmwareLoaderVersion() const { return m_strFwLoader; }
-	QString firmwareChip() const { return m_strFwChip; }
-	QString firmwareBuildTime() const { return m_strFwBuild; }
-	QString firmwareSign() const { return m_strFwSign; }
 
-	QString advancedHint() const { return m_advancedHint.value(); }
-	bool advancedHintError() const { return m_bAdvancedHintError; }
-	QStringList storages() const;
 
 	Q_INVOKABLE QString toolVersion() const;
 	Q_INVOKABLE QString logDir() const;
@@ -193,37 +142,22 @@ public:
 
 	Q_INVOKABLE void retryPermission();
 	Q_INVOKABLE void ignorePermission();
-	Q_INVOKABLE void runOperation(int operation, const QVariantMap &parameters = QVariantMap());
 	Q_INVOKABLE void setBatchTargets(const QStringList &keys, bool bContinueOnError);
 	Q_INVOKABLE void clearBatch();
 	Q_INVOKABLE void answerStorage(int iIndex);
 
-	Q_INVOKABLE void setImageDir(const QString &strDir);
-	Q_INVOKABLE void clearImage();
-	Q_INVOKABLE void executeImageDownload(bool bReboot);
 
-	Q_INVOKABLE void setFirmware(const QString &strPath);
-	Q_INVOKABLE void clearFirmware();
-	Q_INVOKABLE void executeFirmwareUpgrade(bool bReboot);
-	Q_INVOKABLE void extractFirmware(const QString &strDir);
-	Q_INVOKABLE void showFirmwareInfo();
 
 	Q_INVOKABLE void switchToLoader();
 	Q_INVOKABLE void switchToFel(int mode = 0);
 	Q_INVOKABLE void chooseAdbDevice(const QString &strSerial);
 	Q_INVOKABLE void cancelAdbChoice();
 
-	Q_INVOKABLE void exportComLog(const QString &strFile);
-	Q_INVOKABLE void exportImage(const QString &strBegin, const QString &strCount,
-	                             const QString &strFile);
-	Q_INVOKABLE void createGpt(const QString &strInput, const QString &strOutput);
 
 signals:
     void vendorChanged();
-    void allwinnerChanged();
 	void requestScan();
 	void requestExecute(const core::TaskJob &job);
-	void requestAbort();
 
 	void devicesChanged();
 	void deviceIndexChanged();
@@ -231,12 +165,7 @@ signals:
 	void adbStateChanged();
 	void felSwitchStateChanged();
 	void switchingChanged();
-	void busyChanged();
-	void progressChanged();
 	void batchModeChanged();
-	void imageStateChanged();
-	void firmwareStateChanged();
-	void advancedStateChanged();
 	void standardPlacesChanged();
 
 	void toastRequested(const QString &strText, bool bError);
@@ -248,19 +177,11 @@ private:
     EdlEndpoint m_pendingEdl;
     int m_vendor = 0;
     QualcommController *m_qualcomm;
-    CRKLog *m_diskLog = nullptr;
-    QVariantList m_allDevices;
-    struct AllwinnerState {
-        QString firmware;
-        TranslatableText hint;
-        QVariantList partitions, files;
-        bool valid = false, inspected = false, error = false;
-        KeyValueModel *summary = nullptr;
-        KeyValueModel *results = nullptr;
-    };
-    // Contexts: 0 raw boot package, 1 firmware flashing, 2 offline tools, 3 device info.
-    AllwinnerState m_allwinner[4];
-    int m_allwinnerContext = 1;
+    platform::FileLog *m_diskLog = nullptr;
+    AllwinnerController *m_allwinner;
+    RockchipController *m_rockchip;
+    TaskController *m_tasks;
+    DeviceModel *m_deviceModel;
     std::map<int,QString> m_vendorSelection;
     std::map<int,QStringList> m_vendorBatch;
     std::map<int,bool> m_vendorContinue;
@@ -268,8 +189,6 @@ private slots:
 	void onThreadStarted();
 	void onDevicesReady(const QVariantList &devices);
 	void onOutput(int iLevel, const QString &strText);
-	void onProgress(const QString &strPrompt, long long llTotal,
-	                long long llCurrent, int iCall);
 	void onUpgradePrompt(int prompt);
 	void onStorageSelection(const QStringList &strOptions, int iCurrent);
 	void onOperationResult(const core::OperationResult &result);
@@ -281,19 +200,10 @@ private slots:
 	void onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage);
 
 private:
-	void SetBusy(bool bBusy);
 	void SetDeviceStatus();
-	void SetProgress(int iPct, const QString &strText);
-	void ResetProgress();
 	void AppendLog(const QString &strText, bool bError);
 	void StartJob(core::TaskJob job);
-	void SetImageHint(TranslatableText::Factory factory, bool bError);
-	void SetFirmwareHint(TranslatableText::Factory factory, bool bError);
-	void SetAdvancedHint(TranslatableText::Factory factory, bool bError);
-	void SetAllwinnerHint(int context, TranslatableText::Factory factory, bool bError);
 	QVariantList BuildStandardPlaces() const;
-	TranslatableText::Factory AwHint(const core::OperationResult &result);
-	void ApplyAllwinnerInspectResult(int context, const core::OperationResult &result);
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;
 
@@ -306,53 +216,18 @@ private:
 	LanguageManager *m_pLanguage;
 
 	LogModel *m_pLog;
-	ImageEntryModel *m_pImageEntries;
-	KeyValueModel *m_pFirmwareEntries;
-	KeyValueModel *m_pResults;
 
-	QVariantList m_devices;
 	Translatable<QVariantList> m_standardPlaces;
-	Translatable<QVariantList> m_firmwareInfo;
 	QString m_strDeviceStatus;
-	QStringList m_deviceKeys;
 	int m_iDeviceIndex;
 
 	bool m_bPermissionBlocked;
 	bool m_bPermissionIgnored;
 
-	bool m_bBusy;
-	bool m_bCancelRequested;
-	int m_iProgressValue;
-	QString m_strProgressText;
-	QString m_strProgressSpeed;
-	core::Operation m_runningOperation = core::Operation::Count;
-	core::TaskJob m_job;
 	bool m_bBatchMode;
 	QStringList m_batchKeys;
 	bool m_bBatchContinue;
 
-	QElapsedTimer m_progressTimer;
-	QString m_strProgressStep;
-	long long m_llProgressBase;
-
-	QString m_strImageDir;
-	TranslatableText m_imageHint;
-	bool m_bImageHintError;
-	bool m_bQueueActive;
-
-	QString m_strFirmware;
-	TranslatableText m_firmwareHint;
-	bool m_bFirmwareHintError;
-	bool m_bFirmwareValid;
-	QString m_strFwVersion;
-	QString m_strFwLoader;
-	QString m_strFwChip;
-	QString m_strFwBuild;
-	QString m_strFwSign;
-	bool m_bFirmwareReboot;
-
-	TranslatableText m_advancedHint;
-	bool m_bAdvancedHintError;
 
 	bool m_bSwitching;
 	bool m_switchingFel = false;

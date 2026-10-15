@@ -31,7 +31,7 @@ QualcommWorkspace {
         return app.qualcomm.needsDevice(currentTool.operation) ? app.qualcommEligibility[currentTool.operation].reason : "";
     }
     function selectTool(index) {
-        if (!app.busy && index >= 0 && index < tools.length) selectedTool = index;
+        if (!app.tasks.busy && index >= 0 && index < tools.length) selectedTool = index;
     }
     onSelectedToolChanged: resetScroll()
 
@@ -89,7 +89,7 @@ QualcommWorkspace {
         objectName: "qcToolSelector"
         Layout.fillWidth: true
         visible: page.compact
-        enabled: !app.busy
+        enabled: !app.tasks.busy
         model: page.tools.map(function(tool) { return tool.group + " / " + tool.label; })
         displayText: page.currentTool.label
         selectedIndex: page.selectedTool
@@ -123,9 +123,9 @@ QualcommWorkspace {
             visible: index === page.selectedTool
             text: index === 7 && settings.dryRun
                   ? qsTranslate("QualcommToolPanel", "Simulate UFS provisioning") : page.tools[index].label
-            enabled: !app.busy && valid && (!deviceRequired || app.qualcommEligibility[operation].allowed)
+            enabled: !app.tasks.busy && valid && (!deviceRequired || app.qualcommEligibility[operation].allowed)
             onClicked: app.qualcomm.run(operation)
-            ToolTip.visible: hovered && !enabled && !app.busy
+            ToolTip.visible: hovered && !enabled && !app.tasks.busy
             ToolTip.text: page.footerMessage
         }
     }

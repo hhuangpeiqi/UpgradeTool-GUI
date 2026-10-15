@@ -114,7 +114,7 @@ sudo scripts/install-udev.sh
 
 ## 构建
 
-依赖 CMake 3.21.1+、Git、GNU C11/C++11 编译器、Qt6（Core、Gui、Quick、QuickControls2、SerialPort），以及系统 zlib。libusb、libzip 和 libxml2 通过子模块静态链接。
+依赖 CMake 3.21.1+、Git、GNU C11/C++20 编译器、Qt6（Core、Gui、Quick、QuickControls2、SerialPort），以及系统 zlib。libusb、libzip 和 libxml2 通过子模块静态链接。
 
 首次构建前拉取子模块：
 
@@ -123,6 +123,8 @@ git submodule update --init --recursive
 ```
 
 高通后端从 `third_party/qdl` 编译 qdl：CMake 会把上游源码拷入构建目录并应用 `cmake/patches/qdl-embedded.patch`（去掉 CLI 入口、加入回调与取消、替换 parser 的致命退出、为 USB 传输使用独立的 libusb context），无需额外的 qdl 可执行文件。更新子模块版本时，需同步 rebase 该 patch，并重跑测试与打包检查；patch 应用失败不得绕过。
+
+使用 `-DUPGRADE_TOOL_GUI=OFF` 可构建不依赖 Qt 的核心。通过 `-DUPGRADE_TOOL_ROCKCHIP=OFF`、`-DUPGRADE_TOOL_ALLWINNER=OFF` 或 `-DUPGRADE_TOOL_QUALCOMM=OFF` 关闭指定厂商后端；GUI 至少需要一个后端。
 
 ### Linux
 
@@ -212,9 +214,9 @@ Linux 默认路径：
 
 | 组件 / 来源 | 许可 | 参考 |
 |---|---|---|
-| rkdeveloptool | GPL-2.0 | [lib/license.txt](lib/license.txt) |
+| rkdeveloptool | GPL-2.0 | [backends/rockchip/legacy/license.txt](backends/rockchip/legacy/license.txt) |
 | libusb | LGPL-2.1 | `third_party/libusb/COPYING` |
-| OpenixCLI | MIT | [core/allwinner/LICENSE.OpenixCLI](core/allwinner/LICENSE.OpenixCLI) |
+| OpenixCLI | MIT | [backends/allwinner/LICENSE.OpenixCLI](backends/allwinner/LICENSE.OpenixCLI) |
 | libefex | MIT | [third_party/libefex/README.md](third_party/libefex/LICENSE) |
 | qdl | BSD-3-Clause | [third_party/qdl/LICENSE](third_party/qdl/LICENSE) |
 | libzip | BSD-3-Clause | `third_party/libzip/LICENSE` |

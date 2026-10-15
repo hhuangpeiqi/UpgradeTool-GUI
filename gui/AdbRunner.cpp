@@ -119,32 +119,26 @@ bool IsT3FelCapable(bool android, bool buildroot, bool t3, const QString &output
 
 AdbRunner::AdbRunner(QObject *parent) : AdbRunner(parent, ScanUsb, kRebootTimeoutMs, 45000) {}
 
-AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs)
+AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,platform::ProcessFactory factory)
     : QObject(parent), m_bRunning(false), m_bAwaitingChoice(false), m_bAvailable(false), m_bAvailabilityKnown(false),
       m_usbScanner(std::move(scanner)), m_commandTimeoutMs(commandTimeoutMs), m_felTimeoutMs(felTimeoutMs)
 {
 	m_felTimer = new QTimer(this);
 	m_felTimer->setInterval(250);
 	connect(m_felTimer, &QTimer::timeout, this, &AdbRunner::CheckFel);
-	m_pProc = new QProcess(this);
-	m_pProc->setProcessChannelMode(QProcess::MergedChannels);
-	connect(m_pProc, SIGNAL(finished(int, QProcess::ExitStatus)), this,
-	        SLOT(onRebootFinished(int, QProcess::ExitStatus)));
-	connect(m_pProc, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-		if (error == QProcess::FailedToStart && m_bRunning)
-			Complete(false, tr("Cannot start ADB process: %1").arg(m_pProc->errorString()));
-	});
+    m_pProc=new ProcessAdapter(this,factory);
+    connect(m_pProc,&ProcessAdapter::finished,this,&AdbRunner::onRebootFinished);
+    connect(m_pProc,&ProcessAdapter::failed,this,[this](const QString &error) {
+        if(m_bRunning) Complete(false,tr("Cannot start ADB process: %1").arg(error));
+    });
 
 	m_pTimeout = new QTimer(this);
 	m_pTimeout->setSingleShot(true);
 	connect(m_pTimeout, SIGNAL(timeout()), this, SLOT(onTimeout()));
 
-	m_pPollProc = new QProcess(this);
-	m_pPollProc->setProcessChannelMode(QProcess::MergedChannels);
-	connect(m_pPollProc, SIGNAL(finished(int, QProcess::ExitStatus)), this,
-	        SLOT(onPollFinished(int, QProcess::ExitStatus)));
-	connect(m_pPollProc, SIGNAL(errorOccurred(QProcess::ProcessError)), this,
-	        SLOT(onPollError(QProcess::ProcessError)));
+    m_pPollProc=new ProcessAdapter(this,factory);
+    connect(m_pPollProc,&ProcessAdapter::finished,this,&AdbRunner::onPollFinished);
+    connect(m_pPollProc,&ProcessAdapter::failed,this,&AdbRunner::onPollError);
 
 	m_pPollTimer = new QTimer(this);
 	connect(m_pPollTimer, SIGNAL(timeout()), this, SLOT(onPollTick()));
@@ -171,7 +165,7 @@ AdbRunner::~AdbRunner()
 {
 	m_bRunning = false;
 	for (auto *process : {m_pProc, m_pPollProc}) {
-		if (process->state() != QProcess::NotRunning) {
+		if (process->state() != ProcessAdapter::NotRunning) {
 			process->kill();
 			process->waitForFinished(1000);
 		}
@@ -197,7 +191,7 @@ void AdbRunner::UpdateAvailability(bool bAvailable, const QString &strMessage)
 
 void AdbRunner::RunPoll()
 {
-	if (m_pPollProc->state() != QProcess::NotRunning)
+	if (m_pPollProc->state() != ProcessAdapter::NotRunning)
 		return;
 	if (m_bRunning || m_bAwaitingChoice)
 		return;
@@ -214,11 +208,11 @@ void AdbRunner::RunPoll()
 
 void AdbRunner::onPollTick() { RunPoll(); }
 
-void AdbRunner::onPollFinished(int iExitCode, QProcess::ExitStatus eStatus)
+void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 {
 	m_pPollKill->stop();
 
-	if (eStatus != QProcess::NormalExit || iExitCode != 0)
+	if (eStatus != true || iExitCode != 0)
 		return;
 
 	QStringList strDevices = ParseDevices(m_pPollProc->readAll());
@@ -229,17 +223,16 @@ void AdbRunner::onPollFinished(int iExitCode, QProcess::ExitStatus eStatus)
 	UpdateAvailability(true, QString());
 }
 
-void AdbRunner::onPollError(QProcess::ProcessError eError)
+void AdbRunner::onPollError(const QString &error)
 {
-	if (eError != QProcess::FailedToStart)
-		return;
+	(void)error;
 	m_pPollKill->stop();
 	UpdateAvailability(false, tr("Cannot start ADB process: %1").arg(m_pPollProc->errorString()));
 }
 
 void AdbRunner::onPollKillTimeout()
 {
-	if (m_pPollProc->state() == QProcess::NotRunning)
+	if (m_pPollProc->state() == ProcessAdapter::NotRunning)
 		return;
 	m_pPollProc->kill();
 	m_pPollProc->waitForFinished(1000);
@@ -335,7 +328,7 @@ void AdbRunner::Complete(bool ok, const QString &message)
 	m_bAwaitingChoice = false;
 	m_pTimeout->stop();
 	m_felTimer->stop();
-	if (m_pProc->state() != QProcess::NotRunning) {
+	if (m_pProc->state() != ProcessAdapter::NotRunning) {
 		m_pProc->kill();
 		m_pProc->waitForFinished(1000);
 	}
@@ -343,7 +336,7 @@ void AdbRunner::Complete(bool ok, const QString &message)
 	RunPoll();
 }
 
-void AdbRunner::onRebootFinished(int code, QProcess::ExitStatus status)
+void AdbRunner::onRebootFinished(int code, bool status)
 {
 	m_pTimeout->stop();
 	const auto output = QString::fromLocal8Bit(m_pProc->readAll()).trimmed();
@@ -353,13 +346,13 @@ void AdbRunner::onRebootFinished(int code, QProcess::ExitStatus status)
 		HandleFelCommand(code, status, output);
 		return;
 	}
-	Complete(status == QProcess::NormalExit && code == 0,
-	         status == QProcess::NormalExit && code == 0
+	Complete(status == true && code == 0,
+	         status == true && code == 0
 	             ? tr("Switched to Loader mode.")
 	             : tr("Switch to Loader failed: %1").arg(output.isEmpty() ? tr("ADB returned %1").arg(code) : output));
 }
 
-void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QString &output)
+void AdbRunner::HandleFelCommand(int code, bool status, const QString &output)
 {
 	if (m_stage == Stage::Rebooting) {
 		if (output.contains("AW_SWITCH_ERROR")) {
@@ -367,13 +360,13 @@ void AdbRunner::HandleFelCommand(int code, QProcess::ExitStatus status, const QS
 			return;
 		}
 		// A disconnected ADB process may fail even though the device is entering FEL.
-		if (status != QProcess::NormalExit || code != 0)
+		if (status != true || code != 0)
 			m_commandError = output;
 		m_stage = Stage::Waiting;
 		CheckFel();
 		return;
 	}
-	if (status != QProcess::NormalExit || code != 0) {
+	if (status != true || code != 0) {
 		Complete(false, tr("ADB check failed: %1").arg(output.isEmpty() ? QString::number(code) : output));
 		return;
 	}
@@ -463,8 +456,8 @@ void AdbRunner::CheckFel()
 	if (!m_target.ports.isEmpty()) {
 		for (const auto &d : m_usbScanner(false)) {
 			if (d.fel && d.bus == m_target.bus && d.ports == m_target.ports) {
-				// Drain the old command before allowing another switch to use this QProcess.
-				if (m_pProc->state() != QProcess::NotRunning) {
+				// Drain the old command before allowing another switch to use this process.
+				if (m_pProc->state() != ProcessAdapter::NotRunning) {
 					m_stage = Stage::Waiting;
 					m_pTimeout->stop();
 					m_pProc->kill();

@@ -1,12 +1,12 @@
 #ifndef GUI_EDL_RUNNER_H
 #define GUI_EDL_RUNNER_H
 #include <QObject>
-#include "core/qualcomm/DevicePolicy.h"
+#include "backends/qualcomm/DevicePolicy.h"
 #include <QVariantList>
 #include <QVector>
 #include <QString>
 #include <QByteArray>
-#include <atomic>
+#include "domain/Operation.h"
 #include <functional>
 #include <memory>
 class QThread;
@@ -25,7 +25,7 @@ struct EdlEndpoint {
         return qtq_classify(vid, pid, downloadInterface, kind == Adb, suggested);
     }
 };
-using EdlCancel = std::shared_ptr<std::atomic_bool>;
+using EdlCancel = core::Cancellation;
 class DiagSession {
 public:
     virtual ~DiagSession() = default;

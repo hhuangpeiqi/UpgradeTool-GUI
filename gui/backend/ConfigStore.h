@@ -2,6 +2,7 @@
 #define GUI_CONFIG_STORE_H
 
 #include <QObject>
+#include "domain/Config.h"
 #include <QString>
 #include <QVariantMap>
 
@@ -18,7 +19,8 @@ class ConfigStore : public QObject, public Retranslatable
 public:
 	explicit ConfigStore(QObject *parent = NULL);
 
-	QString filePath() const { return m_strFile; }
+	const core::ConfigSnapshot &snapshot() const { return m_snapshot; }
+    QString filePath() const { return m_strFile; }
 	QString status() const { return m_status.value(); }
 
 	void retranslate() override;
@@ -38,6 +40,7 @@ signals:
 private:
 	void SetStatus(TranslatableText::Factory factory);
 
+    core::ConfigSnapshot m_snapshot;
     QString m_usbVendor = "2207";
 	QString m_strFile;
 	TranslatableText m_status;

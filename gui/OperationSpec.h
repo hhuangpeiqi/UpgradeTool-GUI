@@ -2,7 +2,7 @@
 #define GUI_OPERATION_SPEC_H
 #include <QObject>
 #include <QString>
-#include "core/Operation.h"
+#include "domain/Operation.h"
 namespace gui {
 class Operations {
 	Q_GADGET

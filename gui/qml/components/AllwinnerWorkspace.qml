@@ -8,11 +8,11 @@ Item {
     property int context: 1
     property string title: ""
     property string fileCaption: qsTr("Firmware package")
-    readonly property var contextState: app.allwinnerStates[context]
+    readonly property var contextState: app.allwinner.states[context]
     readonly property string firmware: contextState.firmware
     readonly property bool valid: contextState.valid
     readonly property string prefix: "page" + context + "/"
-    property var saved: app.allwinnerSettings()
+    property var saved: app.allwinner.settings()
     default property alias workspaceContent: body.data
     property alias actions: actionRow.data
 
@@ -20,16 +20,16 @@ Item {
     function saveSetting(key, value) {
         var values = {};
         values[prefix + key] = value;
-        app.saveAllwinnerSettings(values);
+        app.allwinner.saveSettings(values);
     }
     function execute(operation, parameters) {
         var values = parameters || {};
         values.context = context;
-        app.runAllwinner(operation, values);
+        app.allwinner.run(operation, values);
     }
     function ensureLoaded() {
         Qt.callLater(function() {
-            if (workspace.visible && app.vendor === 1) app.ensureAllwinnerContext(workspace.context);
+            if (workspace.visible && app.vendor === 1) app.allwinner.ensureContext(workspace.context);
         });
     }
     Component.onCompleted: ensureLoaded()
@@ -38,7 +38,11 @@ Item {
     Connections {
         target: app
         function onVendorChanged() { workspace.ensureLoaded(); }
-        function onBusyChanged() { if (!app.busy) workspace.ensureLoaded(); }
+    }
+
+    Connections {
+        target: app.tasks
+        function onBusyChanged() { if (!app.tasks.busy) workspace.ensureLoaded(); }
     }
 
     Card {
@@ -54,11 +58,11 @@ Item {
                 caption: workspace.fileCaption
                 placeholder: qsTr("Select an IMAGEWTY firmware package (.img)")
                 text: workspace.firmware
-                enabled: !app.busy
+                enabled: !app.tasks.busy
                 persistKey: "allwinnerFirmware" + workspace.context
                 onEdited: (path) => {
                     if (path !== workspace.firmware || !workspace.valid)
-                        app.setAllwinnerContextFirmware(workspace.context, path);
+                        app.allwinner.setContextFirmware(workspace.context, path);
                 }
             }
             ScrollView {
@@ -135,14 +139,14 @@ Item {
                         objectName: "awSwitchMethod"
                         Layout.preferredWidth: 130
                         model: [qsTr("Auto"), qsTr("Alternate")]
-                        enabled: !app.busy
+                        enabled: !app.tasks.busy
                     }
                     SecondaryButton {
                         objectName: "awSwitchButton"
                         text: qsTr("Switch")
                         iconSource: Icons.switchBlue
                         busy: app.switching
-                        enabled: !app.busy && app.adbReady
+                        enabled: !app.tasks.busy && app.adbReady
                         onClicked: app.switchToFel(switchMethod.currentIndex)
                     }
                 }

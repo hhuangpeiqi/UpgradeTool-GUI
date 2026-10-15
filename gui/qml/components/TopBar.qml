@@ -46,13 +46,13 @@ Item {
             id: vendorSelector
             objectName: "vendorSelector"
             Layout.preferredWidth: 170
-            model: [qsTr("Rockchip"), qsTr("Allwinner"), qsTr("Qualcomm")]
-            currentIndex: app.vendor
+            model: app.availableVendors.map(function(vendor) { return [qsTr("Rockchip"), qsTr("Allwinner"), qsTr("Qualcomm")][vendor]; })
+            currentIndex: app.availableVendors.indexOf(app.vendor)
             onModelChanged: Qt.callLater(function() {
-                vendorSelector.currentIndex = Qt.binding(function() { return app.vendor; });
+                vendorSelector.currentIndex = Qt.binding(function() { return app.availableVendors.indexOf(app.vendor); });
             })
-            enabled: !app.busy
-            onActivated: (index) => app.vendor = index
+            enabled: !app.tasks.busy
+            onActivated: (index) => app.vendor = app.availableVendors[index]
         }
 
         NavButton {

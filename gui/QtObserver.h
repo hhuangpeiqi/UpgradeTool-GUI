@@ -8,7 +8,7 @@
 #include <QStringList>
 #include <QVariant>
 
-#include "core/UpgradeObserver.h"
+#include "domain/UpgradeObserver.h"
 
 namespace gui {
 
@@ -19,10 +19,12 @@ public:
 	explicit QtObserver(QObject *parent = NULL);
 
 	virtual void OnOutput(core::LogLevel emLevel, const std::string &strText);
-	virtual void OnProgress(ENUM_PROGRESS_PROMPT emPrompt, long long llTotal,
-	                        long long llCurrent, ENUM_CALL_STEP emCall);
+    void OnMessage(core::LogLevel,const core::Message &) override;
+    void OnStageMessage(const core::Message &,uint64_t,uint64_t,int) override;
+	virtual void OnProgress(core::ProgressPrompt emPrompt, long long llTotal,
+	                        long long llCurrent, core::CallStep emCall);
 	void OnTransferProgress(core::TransferStage stage, long long total, long long current) override;
-	virtual void OnUpgradePrompt(ENUM_UPGRADE_PROMPT emPrompt, unsigned int uiParam);
+	virtual void OnUpgradePrompt(core::UpgradePrompt emPrompt, unsigned int uiParam);
 	virtual int OnSelectStorage(const std::vector<std::string> &vecOptions, int iCurrent);
 	void OnStageProgress(const std::string &, uint64_t, uint64_t, int) override;
 	virtual void OnResult(const core::OperationResult &result);

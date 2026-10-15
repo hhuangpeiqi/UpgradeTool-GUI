@@ -1,12 +1,16 @@
+#include "application/BuildFeatures.h"
+#if UPGRADE_TOOL_QUALCOMM
 #include "gui/EdlRunner.h"
-#include "core/qualcomm/qdl_bridge.h"
+#include "backends/qualcomm/qdl_bridge.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QElapsedTimer>
-#include <QProcess>
+#include "platform/Process.h"
+#include <chrono>
+#include <thread>
 #include <QRegularExpression>
-#include <QSerialPort>
+#include "platform/SerialPort.h"
 #include <QSerialPortInfo>
 #include <QThread>
 #include <QSet>
@@ -174,7 +178,7 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
     QVector<EdlEndpoint> result;
     const auto native = nativeDevices();
     for (const auto &port : QSerialPortInfo::availablePorts()) {
-        if (cancel && cancel->load()) return result;
+        if (cancel && cancel->stop_requested()) return result;
         result.append(serialEndpoint(port, native));
     }
     qtq_usb_endpoint *rows = nullptr; size_t count = 0;
@@ -182,7 +186,7 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
         error = EdlRunner::tr("Cannot enumerate USB devices."); return result;
     }
     for (size_t i = 0; i < count; ++i) {
-        if (cancel && cancel->load()) break;
+        if (cancel && cancel->stop_requested()) break;
         const auto &row = rows[i]; const auto &d = row.device;
         EdlEndpoint e; e.vid=d.vid; e.pid=d.pid; e.kind=EdlEndpoint::Usb;
         e.bus=d.bus; e.address=d.address; e.accessError=d.access_error;
@@ -228,25 +232,25 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
 }
 
 bool process(const QString &exe,const QStringList &args,const EdlCancel &cancel,int timeout,QByteArray &output,QString &error,bool *started=nullptr) {
-    if (cancel->load()) { error=EdlRunner::tr("ADB command cancelled or timed out."); return false; }
-    QProcess child;
-    if(started) { *started=false; QObject::connect(&child,&QProcess::started,&child,[started] { *started=true; }); }
-    child.setProcessChannelMode(QProcess::MergedChannels); child.start(exe,args);
-    QElapsedTimer timer; timer.start();
-    while(child.state()!=QProcess::NotRunning && timer.elapsed()<timeout && !cancel->load()) child.waitForFinished(50);
-    if(child.state()!=QProcess::NotRunning) {
-        child.kill(); child.waitForFinished(1000); error=EdlRunner::tr("ADB command cancelled or timed out."); return false;
+    if (cancel->stop_requested()) { error=EdlRunner::tr("ADB command cancelled or timed out."); return false; }
+    auto child=platform::MakeProcess();
+    if(started) *started=false;
+    std::vector<std::string> arguments; for(const auto &arg:args) arguments.push_back(arg.toStdString());
+    try { child->Start(exe.toStdString(),arguments); if(started) *started=true; }
+    catch(const std::exception &e) { error=EdlRunner::tr("ADB failed: %1").arg(QString::fromUtf8(e.what())); return false; }
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(timeout);
+    while(child->Running() && std::chrono::steady_clock::now()<deadline && !cancel->stop_requested()) {
+        child->Poll(); if(child->Running()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    output=child.readAll();
-    if(child.error()==QProcess::FailedToStart || child.exitStatus()!=QProcess::NormalExit || child.exitCode()!=0) {
-        error=EdlRunner::tr("ADB failed: %1").arg(output.isEmpty()?child.errorString():QString::fromLocal8Bit(output)); return false;
-    }
+    if(child->Running()) { child->Kill(); error=EdlRunner::tr("ADB command cancelled or timed out."); return false; }
+    output=QByteArray::fromStdString(child->TakeOutput());
+    if(!child->NormalExit() || child->ExitCode()!=0) { error=EdlRunner::tr("ADB failed: %1").arg(QString::fromLocal8Bit(output)); return false; }
     return true;
 }
 QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString &error) {
     auto endpoints=enumerate(cancel,error); QVector<EdlEndpoint> result;
     for(const auto &e:endpoints) if(e.kind!=EdlEndpoint::Adb) result.append(e);
-    if(adb.isEmpty() || cancel->load()) return result;
+    if(adb.isEmpty() || cancel->stop_requested()) return result;
     QByteArray output;
     if(!process(adb,{"devices","-l"},cancel,5000,output,error)) return result;
     for(const auto &line:QString::fromUtf8(output).split('\n')) {
@@ -270,7 +274,7 @@ QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString
     return result;
 }
 class SerialDiagSession final : public DiagSession {
-    QSerialPort port;
+    std::unique_ptr<platform::IByteStream> port;
 public:
     SerialDiagSession(const EdlEndpoint &e, QString &error) {
         // A recycled COM/tty name must not redirect a command to a different USB device.
@@ -282,28 +286,32 @@ public:
             if(current.vid==e.vid && current.pid==e.pid && (e.location.isEmpty() || current.location==e.location) && (e.serial.isEmpty() || current.serial==e.serial)) { present=true; break; }
         }
         if(!present) { error=EdlRunner::tr("The selected diagnostic port is no longer available."); return; }
-        port.setPortName(e.path); port.setBaudRate(115200);
-        port.setDataBits(QSerialPort::Data8); port.setParity(QSerialPort::NoParity); port.setStopBits(QSerialPort::OneStop); port.setFlowControl(QSerialPort::NoFlowControl);
-        if(!port.open(QIODevice::ReadWrite)) { error=port.errorString(); return; }
+        try { port=platform::OpenSerialPort(e.path.toStdString()); }
+        catch(const std::exception &failure) { error=QString::fromUtf8(failure.what()); }
+
     }
-    bool valid() const { return port.isOpen(); }
+    bool valid() const { return bool(port); }
     QByteArray exchange(const QByteArray &payload,const EdlCancel &cancel,QString &error,bool &sent) override {
         error.clear(); sent=false;
-        if (cancel->load()) return {};
-        port.clear(); const auto frame=EdlRunner::encode(payload);
-        if(port.write(frame)!=frame.size()) { error=port.errorString(); return {}; }
-        QElapsedTimer timer; timer.start();
-        while(port.bytesToWrite()>0 && timer.elapsed()<1500 && !cancel->load()) port.waitForBytesWritten(50);
-        sent = port.bytesToWrite() < frame.size();
-        if(port.bytesToWrite()>0 || cancel->load()) { error=EdlRunner::tr("Diagnostic write timed out or was cancelled."); return {}; }
-        QByteArray buffer,reply; timer.restart();
-        while(timer.elapsed()<1500 && !cancel->load()) {
-            port.waitForReadyRead(50); buffer+=port.readAll();
-            while(EdlRunner::decode(buffer,reply)) {
-                if(!reply.isEmpty() && (reply[0]==payload[0] || quint8(reply[0])==0x13 || quint8(reply[0])==0x14 || quint8(reply[0])==0x15 || quint8(reply[0])==0x18 || quint8(reply[0])==0x47)) return reply;
+        if (cancel->stop_requested()) return {};
+        const auto frame=EdlRunner::encode(payload);
+        try {
+            port->Clear();
+            const auto bytes=std::span<const uint8_t>(reinterpret_cast<const uint8_t *>(frame.constData()),static_cast<size_t>(frame.size()));
+            const auto written=port->Write(bytes,std::chrono::milliseconds(1500),cancel->get_token());
+            sent=written>0;
+            if(written!=bytes.size() || cancel->stop_requested()) { error=EdlRunner::tr("Diagnostic write timed out or was cancelled."); return {}; }
+            QByteArray buffer,reply;
+            const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(1500);
+            while(std::chrono::steady_clock::now()<deadline && !cancel->stop_requested()) {
+                const auto part=port->Read(std::chrono::milliseconds(50),cancel->get_token());
+                buffer.append(reinterpret_cast<const char *>(part.data()),static_cast<qsizetype>(part.size()));
+                while(EdlRunner::decode(buffer,reply)) {
+                    if(!reply.isEmpty() && (reply[0]==payload[0] || quint8(reply[0])==0x13 || quint8(reply[0])==0x14 || quint8(reply[0])==0x15 || quint8(reply[0])==0x18 || quint8(reply[0])==0x47)) return reply;
+                }
             }
-            if(port.error()==QSerialPort::ResourceError) break;
-        }
+        } catch(const std::exception &failure) { error=QString::fromUtf8(failure.what()); return {}; }
+
         error=EdlRunner::tr("No valid DIAG response (timeout, disconnect or CRC error)."); return {};
     }
 };
@@ -361,13 +369,13 @@ public:
     QByteArray exchange(const QByteArray &payload,const EdlCancel &cancel,QString &error,bool &sent) override {
         const auto &e=endpoint; int code=0;
         error.clear(); sent=false;
-        if(cancel->load()) return {};
+        if(cancel->stop_requested()) return {};
         const auto frame=EdlRunner::encode(payload); int written=0;
         code=libusb_bulk_transfer(usb.handle,e.out,reinterpret_cast<unsigned char *>(const_cast<char *>(frame.constData())),frame.size(),&written,1000);
         sent = written > 0;
         if(code || written!=frame.size()) { error=EdlRunner::tr("Diagnostic USB write failed: %1").arg(QString::fromLatin1(libusb_error_name(code))); return {}; }
         QElapsedTimer timer; timer.start(); QByteArray buffer,reply;
-        while(timer.elapsed()<1500 && !cancel->load()) {
+        while(timer.elapsed()<1500 && !cancel->stop_requested()) {
             unsigned char data[4096]; int size=0; code=libusb_bulk_transfer(usb.handle,e.in,data,sizeof(data),&size,100);
             if(size>0) buffer.append(reinterpret_cast<char *>(data),size);
             while(EdlRunner::decode(buffer,reply)) if(!reply.isEmpty() && (reply[0]==payload[0] || quint8(reply[0])==0x13 || quint8(reply[0])==0x14 || quint8(reply[0])==0x15 || quint8(reply[0])==0x18 || quint8(reply[0])==0x47)) return reply;
@@ -382,7 +390,7 @@ EdlHooks DefaultEdlHooks() {
     EdlHooks hooks;
     hooks.discover=discover;
     hooks.openDiag=[](const EdlEndpoint &e,const EdlCancel &cancel,QString &error) -> std::unique_ptr<DiagSession> {
-        error.clear(); if(cancel->load()) return {};
+        error.clear(); if(cancel->stop_requested()) return {};
         if(e.kind==EdlEndpoint::Serial) {
             std::unique_ptr<SerialDiagSession> session(new SerialDiagSession(e,error));
             if(!session->valid()) return {};
@@ -406,3 +414,17 @@ EdlHooks DefaultEdlHooks() {
     return hooks;
 }
 }
+
+#else
+#include "gui/EdlRunner.h"
+namespace gui {
+EdlHooks DefaultEdlHooks() {
+    EdlHooks hooks;
+    hooks.discover=[](const QString &,const EdlCancel &,QString &error) { error=EdlRunner::tr("Qualcomm backend is not available"); return QVector<EdlEndpoint>{}; };
+    hooks.openDiag=[](const EdlEndpoint &,const EdlCancel &,QString &error)->std::unique_ptr<DiagSession> { error=EdlRunner::tr("Qualcomm backend is not available"); return {}; };
+    hooks.reboot=[](const QString &,const QString &,const EdlCancel &,QString &error) { error=EdlRunner::tr("Qualcomm backend is not available"); return false; };
+    hooks.scan=[] { return QVector<EdlEndpoint>{}; };
+    return hooks;
+}
+}
+#endif

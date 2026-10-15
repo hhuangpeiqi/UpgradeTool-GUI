@@ -1,10 +1,12 @@
 #include "gui/backend/QualcommController.h"
+#include "gui/MessageDisplay.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QXmlStreamReader>
 #include <QRegularExpression>
 #include <QSet>
+#include <QMetaObject>
 #include <climits>
 #include <algorithm>
 namespace gui {
@@ -66,7 +68,10 @@ QVariantMap QualcommController::settingsFor(const QString &context) const {
     return result;
 }
 QStringList QualcommController::xmlFilesFor(const QString &context) const { return m_profiles.value(context).value("xmlFiles").toStringList(); }
-void QualcommController::retranslate() { inspect(); emit changed(); }
+void QualcommController::retranslate() {
+    for(auto it=m_errorMessages.begin();it!=m_errorMessages.end();++it) m_errors[it.key()]=it.value().key.empty()?QString():Display(it.value());
+    emit changed();
+}
 void QualcommController::setValue(const QString &key, const QVariant &value) { setContextValue("flash", key, value); }
 void QualcommController::setContextValue(const QString &context, const QString &key, const QVariant &value) {
     if (m_locked || !contexts.contains(context)) return;
@@ -159,20 +164,32 @@ void QualcommController::moveXml(int index, int offset, const QString &context) 
     if (m_locked || index < 0 || index >= files.size() || to < 0 || to >= files.size()) return;
     files.move(index, to); setContextValue(context, "xmlFiles", files);
 }
+QualcommController::~QualcommController() { m_inspector.request_stop(); if(m_inspector.joinable()) m_inspector.join(); }
 void QualcommController::inspect() {
-    m_previews.clear(); m_errors.clear(); m_xmlEntries.clear();
+    const auto generation=++m_inspectionGeneration;
+    m_inspector.request_stop();
+    QMap<QString,QStringList> filesByContext;
+    bool hasFiles=false;
+    for(const auto &context:contexts) { filesByContext[context]=xmlFilesFor(context); hasFiles|=!filesByContext[context].isEmpty(); }
+    if(!hasFiles) { m_previews.clear(); m_errors.clear(); m_xmlEntries.clear(); m_errorMessages.clear(); m_inspecting=false; return; }
+    m_inspecting=true;
+    m_inspector=std::jthread([this,generation,filesByContext](std::stop_token stop) {
+    QMap<QString,QVariantList> previews,entriesByContext;
+    QMap<QString,core::Message> errors;
     for (const auto &context : contexts) {
-        auto &preview = m_previews[context]; auto &error = m_errors[context];
-        const auto files = xmlFilesFor(context);
+        auto &preview = previews[context]; auto &error = errors[context];
+        const auto files = filesByContext.value(context);
         QList<bool> patches(files.size(), false);
-        if (context == "provision" && files.size() > 1) error = tr("Select exactly one UFS provisioning XML");
+        if (context == "provision" && files.size() > 1) error = {"gui::QualcommController","Select exactly one UFS provisioning XML",{}};
         for (int index = 0; index < files.size(); ++index) {
-            if (!error.isEmpty()) break;
+            if(stop.stop_requested()) return;
+            if (!error.key.empty()) break;
             const auto &path = files.at(index);
             QFile file(path);
-            if (!file.open(QIODevice::ReadOnly)) { error = tr("Cannot open %1").arg(path); break; }
+            if (!file.open(QIODevice::ReadOnly)) { error = {"gui::QualcommController","Cannot open %1",{path.toStdString()}}; break; }
             QXmlStreamReader xml(&file); bool hasUfs = false, hasOrdinary = false, hasPatch = false;
             while (!xml.atEnd()) {
+                if(stop.stop_requested()) return;
                 xml.readNext(); if (!xml.isStartElement()) continue;
                 QString type = xml.name().toString();
                 if (type == "ufs") hasUfs = true;
@@ -184,21 +201,36 @@ void QualcommController::inspect() {
                     {"sector",a.value("start_sector").toString()},{"count",a.value("num_partition_sectors").toString()}});
             }
             patches[index] = hasPatch;
-            if (xml.hasError()) error = tr("%1:%2: %3").arg(path).arg(xml.lineNumber()).arg(xml.errorString());
+            if (xml.hasError()) error = {"gui::QualcommController","%1:%2: %3",{path.toStdString(),std::to_string(xml.lineNumber()),xml.errorString().toStdString()}};
             else if ((context == "provision" && (!hasUfs || hasOrdinary)) || (context != "provision" && hasUfs))
-                error = tr("UFS configuration and ordinary flashing XML require separate tasks");
+                error = {"gui::QualcommController","UFS configuration and ordinary flashing XML require separate tasks",{}};
         }
         // Entries carry the file name and kind so the UI can list what will be
         // flashed without re-parsing the XML itself.
         QVariantList entries;
         for (int index = 0; index < files.size(); ++index) {
+            if(stop.stop_requested()) return;
             const auto &path = files.at(index);
             entries.append(QVariantMap{{"path", path}, {"name", QFileInfo(path).fileName()},
                 {"kind", patches.at(index) ? QStringLiteral("patch") : QStringLiteral("program")}});
         }
-        m_xmlEntries[context] = entries;
+        entriesByContext[context] = entries;
     }
+
+        if(stop.stop_requested()) return;
+        QMetaObject::invokeMethod(this,[this,generation,previews=std::move(previews),errors=std::move(errors),entries=std::move(entriesByContext)]() mutable {
+            if(generation!=m_inspectionGeneration) return;
+            m_previews=std::move(previews); m_errorMessages=std::move(errors); m_errors.clear();
+            for (auto it = m_errorMessages.begin(); it != m_errorMessages.end(); ++it) {
+                m_errors[it.key()] = it.value().key.empty() ? QString() : Display(it.value());
+            }
+            m_xmlEntries = std::move(entries);
+            m_inspecting = false;
+            emit changed();
+        },Qt::QueuedConnection);
+    });
 }
+
 void QualcommController::loadFirmware(const QString &path) {
     if (m_locked) return;
     QFileInfo info(path); auto &values = m_profiles["flash"];
@@ -218,7 +250,7 @@ QString QualcommController::buildRequest(int operation, const QVariantMap &overr
     if (context.isEmpty()) return tr("Invalid Qualcomm operation");
     auto values = settingsFor(context);
     for (auto i = overrides.begin(); i != overrides.end(); ++i) values[i.key()] = i.value();
-    request.vendor = core::Vendor::Qualcomm; request.operation = op; auto &o = request.qualcomm;
+     request=core::OperationRequest(op); auto &o = request.qualcomm();
     auto text = [&](const char *key) { return values.value(key).toString().trimmed().toStdString(); };
     const bool flash = context == "flash" || context == "digests";
     const bool provision = context == "provision", raw = context == "raw";
@@ -277,6 +309,7 @@ QString QualcommController::buildRequest(int operation, const QVariantMap &overr
         }
     }
     if ((flash && !package) || provision) {
+        if(m_inspecting) return tr("XML inspection is still running");
         const auto files = xmlFilesFor(context);
         if (files.isEmpty()) return tr("Select XML files");
         if (!m_errors.value(context).isEmpty()) return m_errors.value(context);
@@ -329,7 +362,7 @@ QString QualcommController::validationError(int operation, const QVariantMap &ov
 }
 void QualcommController::run(int operation, const QVariantMap &overrides) {
     if (m_locked) return;
-    inspect(); core::OperationRequest request;
+    core::OperationRequest request;
     const QString context = contextFor(static_cast<core::Operation>(operation));
     const QString error = buildRequest(operation, overrides, request);
     m_operationErrors[context] = error; emit changed();
@@ -340,7 +373,7 @@ void QualcommController::applyResult(const core::OperationResult &result) {
     QVariantList rows;
     for (const auto &item : result.items) rows.append(QVariantMap{{"label",QString::fromStdString(item.label)},{"value",QString::fromStdString(item.value)}});
     const auto context = contextFor(result.operation);
-    m_operationErrors[context] = result.status == core::OperationStatus::Failed ? QString::fromStdString(result.diagnostic) : QString();
+    m_operationErrors[context] = result.status == core::OperationStatus::Failed ? QCoreApplication::translate("QualcommBackend",result.diagnostic.c_str()) : QString();
     m_results.SetItems(rows);
     if (m_contextResults.contains(context)) m_contextResults[context]->SetItems(rows);
     m_profiles[context]["allowFusing"] = false; m_profiles[context]["finalize"] = false;

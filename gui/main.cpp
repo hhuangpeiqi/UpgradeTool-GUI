@@ -15,14 +15,12 @@
 
 #include <libusb.h>
 
-#include "Config.h"
-#include "RKLog.h"
+#include "platform/FileLog.h"
 #include "platform/PlatformPath.h"
 #include "gui/backend/AppController.h"
 #include "gui/backend/DirModel.h"
 #include "gui/OperationSpec.h"
 
-CRKLog *g_pLogObject = NULL;
 
 int main(int argc, char *argv[])
 {
@@ -40,15 +38,10 @@ int main(int argc, char *argv[])
 	qmlRegisterType<gui::DirModel>("UpgradeTool", 1, 0, "DirModel");
 
 	std::string strLogDir = platform::GetUserLogDir();
-	std::string strConfigFile = platform::FindConfigFile();
-	struct stat statBuf;
 
 	platform::EnsureDirRecursive(strLogDir);
-	CRKLog *pLog = new CRKLog(strLogDir.c_str(), "log", true);
-	g_pLogObject = pLog;
+	platform::FileLog *pLog = new platform::FileLog(strLogDir.c_str(), "log", true);
 
-	if (stat(strConfigFile.c_str(), &statBuf) == 0 && S_ISREG(statBuf.st_mode))
-		parse_config_file(strConfigFile.c_str(), g_ConfigItemVec);
 
 	if (libusb_init(NULL) < 0) {
 		delete pLog;
@@ -60,7 +53,7 @@ int main(int argc, char *argv[])
 	QString strFirmware;
 	QString strLanguage;
 	int iTab = 1;
-    int vendor = 0;
+    int vendor = -1;
 	for (int i = 1; i < argc; i++) {
 		if (qstrcmp(argv[i], "--vendor") == 0 && i + 1 < argc)
             { ++i; vendor = qstrcmp(argv[i], "qualcomm") == 0 ? 2 : qstrcmp(argv[i], "allwinner") == 0 ? 1 : 0; }
@@ -79,7 +72,10 @@ int main(int argc, char *argv[])
 	int iRet = 0;
 	{
 		gui::AppController controller(pLog);
-        controller.setVendor(vendor);
+        if(vendor>=0) {
+            if(!controller.availableVendors().contains(vendor)) { qCritical("Requested vendor backend was disabled at build time"); return 1; }
+            controller.setVendor(vendor);
+        }
         if (!strLanguage.isEmpty()) controller.language()->setMode(strLanguage);
         if(!strScreenshot.isEmpty()) controller.ignorePermission();
 
@@ -100,11 +96,11 @@ int main(int argc, char *argv[])
 		}
 
 		if (!strImageDir.isEmpty())
-			controller.setImageDir(strImageDir);
+			controller.rockchip()->setImageDir(strImageDir);
 		if (!strFirmware.isEmpty()) {
-			if(vendor == 2) controller.qualcomm()->loadFirmware(strFirmware);
-            else if(vendor == 1) controller.setAllwinnerContextFirmware(qBound(0, iTab, 2), strFirmware);
-            else controller.setFirmware(strFirmware);
+			if(controller.vendor() == 2) controller.qualcomm()->loadFirmware(strFirmware);
+            else if(controller.vendor() == 1) controller.allwinner()->setContextFirmware(qBound(0, iTab, 2), strFirmware);
+            else controller.rockchip()->setFirmware(strFirmware);
         }
 
 		if (!strScreenshot.isEmpty()) {

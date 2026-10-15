@@ -7,17 +7,17 @@ AppDialog {
     objectName: "AllwinnerDeviceDialog"
     titleText: qsTr("Allwinner Device Info")
     width: 480
-    readonly property var deviceState: app.allwinnerStates[3]
+    readonly property var deviceState: app.allwinner.states[3]
     hintText: deviceState.error ? deviceState.hint : ""
     hintError: deviceState.error
-    onOpened: app.runAllwinner(Operations.AllwinnerDeviceInfo)
+    onOpened: app.allwinner.run(Operations.AllwinnerDeviceInfo)
     KeyValueTable { width: parent.width; implicitHeight: 220; model: dialog.deviceState.results }
     footerContent: RowLayout {
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Read Again")
-            enabled: !app.busy && app.vendor === 1 && app.hasDevice
-            onClicked: app.runAllwinner(Operations.AllwinnerDeviceInfo)
+            enabled: !app.tasks.busy && app.vendor === 1 && app.hasDevice
+            onClicked: app.allwinner.run(Operations.AllwinnerDeviceInfo)
         }
         SecondaryButton {
             focusPolicy: Qt.StrongFocus; text: qsTr("Close"); onClicked: dialog.close() }

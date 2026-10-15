@@ -11,7 +11,7 @@
 #include <QStringList>
 #include <QTextStream>
 
-#include "Config.h"
+#include "application/ConfigService.h"
 #include "platform/PlatformPath.h"
 
 namespace gui {
@@ -92,6 +92,7 @@ ConfigStore::ConfigStore(QObject *parent)
 	m_strFile = strExisting.empty()
 	            ? QString::fromStdString(platform::GetUserConfigFile())
 	            : QString::fromStdString(strExisting);
+    try { m_snapshot=core::ReadConfig(m_strFile.toStdString()); } catch(const std::exception &) {}
 }
 
 void ConfigStore::SetStatus(TranslatableText::Factory factory)
@@ -108,22 +109,12 @@ void ConfigStore::retranslate()
 
 QVariantMap ConfigStore::load()
 {
-	parse_config_file(m_strFile.toStdString().c_str(), g_ConfigItemVec);
+	try { m_snapshot=core::ReadConfig(m_strFile.toStdString()); }
+    catch(const std::exception &error) { SetStatus([text=QString::fromUtf8(error.what())] { return text; }); return {}; }
 
 	QVariantMap map;
-	bool bValue = false;
-	map["lba_parity"]        = (GetParityFlag(bValue) && bValue);
-	map["rb_check_off"]      = (GetReadCheckFlag(bValue) && bValue);
-	map["nor_single_idb"]    = (GetNorSingleIDBFlag(bValue) && bValue);
-	map["log_off"]           = (GetLogFlag(bValue) && bValue);
-	map["stdout_buffer_off"] = (GetConsoleBufferFlag() != 0);
-	unsigned int uiBand = 0;
-	map["force_data_band"] = GetForceDataBand(uiBand) ? QString::number(uiBand) : QString();
-	std::string strValue;
-	map["log_dir"] = GetLogDir(strValue) ? QString::fromStdString(strValue) : QString();
-	map["firmware"] = GetConfigString("firmware", strValue) ? QString::fromStdString(strValue) : QString();
-	map["loader"] = GetConfigString("loader", strValue) ? QString::fromStdString(strValue) : QString();
-	map["device"] = GetConfigString("device", strValue) ? QString::fromStdString(strValue) : QString();
+    for(const auto *key:{"lba_parity","rb_check_off","nor_single_idb","log_off","stdout_buffer_off"}) map[key]=m_snapshot.Flag(key);
+    for(const auto *key:{"force_data_band","log_dir","firmware","loader","device"}) map[key]=QString::fromStdString(m_snapshot.String(key));
 
 	SetStatus([this] { return tr("Loaded: %1").arg(m_strFile); });
 	return map;
@@ -185,7 +176,7 @@ bool ConfigStore::save(const QVariantMap &values)
 
 	m_strFile = strTarget;
 	emit filePathChanged();
-	parse_config_file(m_strFile.toStdString().c_str(), g_ConfigItemVec);
+	m_snapshot=core::ReadConfig(m_strFile.toStdString());
 	SetStatus([strTarget] { return tr("Saved: %1").arg(strTarget); });
 	return true;
 }

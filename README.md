@@ -114,7 +114,7 @@ The `.deb` installs all vendor rule sets automatically. If you see a permission 
 
 ## Build
 
-Requires CMake 3.21.1+, Git, GNU C11/C++11 compilers, and Qt6 (Core, Gui, Quick, QuickControls2, SerialPort). libusb, libzip and libxml2 are statically linked through submodules; zlib comes from the system.
+Requires CMake 3.21.1+, Git, GNU C11/C++20 compilers, and Qt6 (Core, Gui, Quick, QuickControls2, SerialPort). libusb, libzip and libxml2 are statically linked through submodules; zlib comes from the system.
 
 Fetch submodules before the first build:
 
@@ -123,6 +123,8 @@ git submodule update --init --recursive
 ```
 
 The Qualcomm backend compiles qdl from `third_party/qdl`: CMake copies the upstream sources into the build tree and applies `cmake/patches/qdl-embedded.patch`, which drops the CLI entry points, adds callbacks and cancellation, replaces fatal parser exits, and gives USB transfers a separate libusb context, so no qdl executable is required. When the submodule revision changes, rebase that patch and re-run the test and packaging checks; never bypass a patch application failure.
+
+The core builds without Qt using `-DUPGRADE_TOOL_GUI=OFF`. Disable individual backends with `-DUPGRADE_TOOL_ROCKCHIP=OFF`, `-DUPGRADE_TOOL_ALLWINNER=OFF`, or `-DUPGRADE_TOOL_QUALCOMM=OFF`.
 
 ### Linux
 
@@ -212,9 +214,9 @@ The config format is `key=value`, with lines starting with `#` as comments. The 
 
 | Component / source | License | Reference |
 |---|---|---|
-| rkdeveloptool | GPL-2.0 | [lib/license.txt](lib/license.txt) |
+| rkdeveloptool | GPL-2.0 | [backends/rockchip/legacy/license.txt](backends/rockchip/legacy/license.txt) |
 | libusb | LGPL-2.1 | `third_party/libusb/COPYING` |
-| OpenixCLI | MIT | [core/allwinner/LICENSE.OpenixCLI](core/allwinner/LICENSE.OpenixCLI) |
+| OpenixCLI | MIT | [backends/allwinner/LICENSE.OpenixCLI](backends/allwinner/LICENSE.OpenixCLI) |
 | libefex | MIT | [third_party/libefex/README.md](third_party/libefex/LICENSE) |
 | qdl | BSD-3-Clause | [third_party/qdl/LICENSE](third_party/qdl/LICENSE) |
 | libzip | BSD-3-Clause | `third_party/libzip/LICENSE` |

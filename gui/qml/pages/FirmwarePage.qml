@@ -26,19 +26,19 @@ Item {
                 AppTextField {
                     Layout.fillWidth: true
                     placeholderText: qsTr("Select a firmware file (.img)")
-                    text: app.firmwarePath
-                    enabled: !app.busy
-                    onAccepted: app.setFirmware(text)
+                    text: app.rockchip.firmwarePath
+                    enabled: !app.tasks.busy
+                    onAccepted: app.rockchip.setFirmware(text)
                     onEditingFinished: {
-                        if (text.trim() !== app.firmwarePath)
-                            app.setFirmware(text);
+                        if (text.trim() !== app.rockchip.firmwarePath)
+                            app.rockchip.setFirmware(text);
                     }
                 }
 
                 PrimaryButton {
                     text: qsTr("Browse...")
                     iconSource: Icons.folderWhite
-                    enabled: !app.busy
+                    enabled: !app.tasks.busy
                     onClicked: firmwareDialog.open()
                 }
 
@@ -46,10 +46,10 @@ Item {
                     text: qsTr("Switch")
                     iconSource: Icons.switchBlue
                     busy: app.switching
-                    enabled: !app.busy && app.adbReady
+                    enabled: !app.tasks.busy && app.adbReady
                     onClicked: app.switchToLoader()
 
-                    ToolTip.visible: hovered && !enabled && !app.busy
+                    ToolTip.visible: hovered && !enabled && !app.tasks.busy
                     ToolTip.text: app.adbAvailable ? qsTr("No ADB device detected")
                                                    : qsTr("ADB unavailable")
                 }
@@ -57,8 +57,8 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: app.firmwareHint
-                color: app.firmwareHintError ? Theme.danger : Theme.textSecondary
+                text: app.rockchip.firmwareHint
+                color: app.rockchip.firmwareHintError ? Theme.danger : Theme.textSecondary
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontNormal
                 wrapMode: Text.WordWrap
@@ -89,15 +89,15 @@ Item {
                         rowSpacing: 10
 
                         Text { text: qsTr("Firmware version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.firmwareVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                        Text { text: app.rockchip.firmwareVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
                         Text { text: qsTr("Loader version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.firmwareLoaderVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                        Text { text: app.rockchip.firmwareLoaderVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
                         Text { text: qsTr("Chip info"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.firmwareChip; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                        Text { text: app.rockchip.firmwareChip; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
                         Text { text: qsTr("Build time"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.firmwareBuildTime; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                        Text { text: app.rockchip.firmwareBuildTime; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
                         Text { text: qsTr("Signature"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.firmwareSign; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                        Text { text: app.rockchip.firmwareSign; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
                     }
                 }
             }
@@ -114,7 +114,7 @@ Item {
             KeyValueTable {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                model: app.firmwareEntries
+                model: app.rockchip.firmwareEntries
             }
 
             RowLayout {
@@ -125,30 +125,30 @@ Item {
                     id: rebootBox
                     text: qsTr("Reboot device when done")
                     checked: true
-                    enabled: !app.busy
+                    enabled: !app.tasks.busy
                 }
 
                 Item { Layout.fillWidth: true }
 
                 SecondaryButton {
                     text: qsTr("View Firmware Info")
-                    enabled: !app.busy && app.firmwarePath !== ""
-                    onClicked: app.showFirmwareInfo()
+                    enabled: !app.tasks.busy && app.rockchip.firmwarePath !== ""
+                    onClicked: app.rockchip.showFirmwareInfo()
                 }
 
                 SecondaryButton {
                     text: qsTr("Extract Firmware…")
-                    enabled: !app.busy && app.firmwarePath !== ""
+                    enabled: !app.tasks.busy && app.rockchip.firmwarePath !== ""
                     onClicked: extractDialog.open()
                 }
 
                 PrimaryButton {
                     text: qsTr("Upgrade")
                     iconSource: Icons.playWhite
-                    enabled: !app.busy && app.firmwareValid && app.hasDevice
-                    onClicked: app.executeFirmwareUpgrade(rebootBox.checked)
+                    enabled: !app.tasks.busy && app.rockchip.firmwareValid && app.hasDevice
+                    onClicked: app.rockchip.executeFirmwareUpgrade(rebootBox.checked)
 
-                    ToolTip.visible: hovered && !enabled && !app.busy
+                    ToolTip.visible: hovered && !enabled && !app.tasks.busy
                     ToolTip.text: !app.hasDevice ? qsTr("No device detected. Connect or switch to Loader/Maskrom mode")
                                                  : qsTr("Select a valid firmware first")
                 }
@@ -164,7 +164,7 @@ Item {
         persistKey: "firmware"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());
-            app.setFirmware(file);
+            app.rockchip.setFirmware(file);
         }
     }
 
@@ -175,7 +175,7 @@ Item {
         persistKey: "extract_dir"
         onAccepted: {
             var dir = app.toLocalPath(selectedFolder.toString());
-            app.extractFirmware(dir);
+            app.rockchip.extractFirmware(dir);
         }
     }
 }

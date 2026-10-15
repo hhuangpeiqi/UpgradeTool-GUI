@@ -1,0 +1,10 @@
+upgrade_test(test_inspections LIBRARIES upgrade_gui_backend TIMEOUT 10 LABELS gui controller rockchip allwinner)
+foreach(name test_adb_runner test_edl_runner test_qualcomm_controller)
+  upgrade_test(${name} LIBRARIES upgrade_gui_backend TIMEOUT 30 LABELS gui controller)
+endforeach()
+set_property(TEST test_edl_runner test_qualcomm_controller APPEND PROPERTY LABELS qualcomm)
+upgrade_test(test_gui_backend
+  SOURCES test_gui_backend.cpp test_gui_devices.cpp test_gui_tasks.cpp test_gui_allwinner.cpp test_gui_language.cpp
+  LIBRARIES upgrade_gui_backend TIMEOUT 20 ENVIRONMENT ${test_gui_environment}
+  LABELS gui controller)
+upgrade_attach_test_translations(test_gui_backend)

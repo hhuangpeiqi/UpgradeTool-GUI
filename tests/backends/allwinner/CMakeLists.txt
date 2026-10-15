@@ -1,0 +1,1 @@
+upgrade_test(test_allwinner LIBRARIES upgrade_allwinner upgrade_application upgrade_platform LABELS backend allwinner)

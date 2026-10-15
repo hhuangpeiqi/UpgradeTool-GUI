@@ -39,7 +39,7 @@ cmake -S "$ROOT" -B "$BUILD_DIR" -G Ninja \
 cmake --build "$BUILD_DIR" --parallel
 ctest --test-dir "$BUILD_DIR" --output-on-failure
 BUILD_DIR=$(CDPATH= cd -- "$BUILD_DIR" && pwd)
-VERSION=$(sed -n 's/.*TOOL_VERSION = "\([0-9.]*\)";.*/\1/p' "$ROOT/core/Version.h")
+VERSION=$(sed -n 's/.*TOOL_VERSION = "\([0-9.]*\)";.*/\1/p' "$ROOT/application/Version.h")
 [ -n "$VERSION" ] || exit 1
 OUTPUT_DIR="$BUILD_DIR/dist"
 mkdir -p "$OUTPUT_DIR"
@@ -65,10 +65,10 @@ APP="$CONTENTS/UpgradeTool-GUI.app"
 ditto "$BUILD_DIR/upgrade_tool_gui.app" "$APP"
 cp "$ROOT/config.ini" "$CONTENTS/config.ini"
 mkdir -p "$APP/Contents/Resources/licenses"
-cp "$ROOT/lib/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.0.txt"
+cp "$ROOT/backends/rockchip/legacy/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.0.txt"
 cp "$ROOT/third_party/libusb/COPYING" "$APP/Contents/Resources/licenses/libusb-LGPL-2.1.txt"
 cp "$ROOT/third_party/libefex/LICENSE" "$APP/Contents/Resources/licenses/libefex-MIT.txt"
-cp "$ROOT/core/allwinner/LICENSE.OpenixCLI" "$APP/Contents/Resources/licenses/OpenixCLI-MIT.txt"
+cp "$ROOT/backends/allwinner/LICENSE.OpenixCLI" "$APP/Contents/Resources/licenses/OpenixCLI-MIT.txt"
 cp "$ROOT/third_party/qdl/LICENSE" "$APP/Contents/Resources/licenses/qdl-BSD-3-Clause.txt"
 if [ -d "$QT_ROOT/../../Licenses" ]; then
     ditto "$QT_ROOT/../../Licenses" "$APP/Contents/Resources/licenses/Qt"

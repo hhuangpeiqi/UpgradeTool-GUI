@@ -1,15 +1,18 @@
 #ifndef GUI_QUALCOMM_CONTROLLER_H
 #define GUI_QUALCOMM_CONTROLLER_H
 #include <QObject>
+#include <thread>
+#include "domain/Message.h"
 #include <QVariantMap>
 #include <QStringList>
 #include <QMap>
-#include "core/OperationResult.h"
+#include "domain/OperationResult.h"
 #include "gui/backend/KeyValueModel.h"
 #include "gui/backend/Retranslatable.h"
 namespace gui {
 class QualcommController : public QObject, public Retranslatable {
     Q_OBJECT
+    Q_PROPERTY(bool inspecting READ inspecting NOTIFY changed)
     Q_PROPERTY(QVariantMap settings READ settings NOTIFY changed)
     Q_PROPERTY(QStringList xmlFiles READ xmlFiles NOTIFY changed)
     Q_PROPERTY(QVariantList preview READ preview NOTIFY changed)
@@ -17,6 +20,8 @@ class QualcommController : public QObject, public Retranslatable {
     Q_PROPERTY(gui::KeyValueModel *results READ results CONSTANT)
 public:
     explicit QualcommController(QObject *parent = nullptr);
+    ~QualcommController() override;
+    bool inspecting() const { return m_inspecting; }
     QVariantMap settings() const { return settingsFor("flash"); }
     QStringList xmlFiles() const { return xmlFilesFor("flash"); }
     QVariantList preview() const { return previewFor("flash"); }
@@ -57,9 +62,13 @@ private:
     QMap<QString, QVariantList> m_previews;
     QMap<QString, QVariantList> m_xmlEntries;
     QMap<QString, QString> m_errors, m_operationErrors;
+    QMap<QString,core::Message> m_errorMessages;
     KeyValueModel m_results;
     QMap<QString, KeyValueModel *> m_contextResults;
     bool m_locked = false;
+    bool m_inspecting=false;
+    uint64_t m_inspectionGeneration=0;
+    std::jthread m_inspector;
 };
 }
 #endif

@@ -1,0 +1,5 @@
+set(CMAKE_AUTOMOC ON)
+set(test_gui_environment "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+add_subdirectory(backend)
+add_subdirectory(qml)
+add_subdirectory(smoke)

@@ -351,7 +351,7 @@
 <context>
     <name>Allwinner</name>
     <message>
-        <location filename="../../core/allwinner/AllwinnerBackend.cpp" line="+40"/>
+        <location filename="../../backends/allwinner/AllwinnerBackend.cpp" line="+40"/>
         <source>Writing / </source>
         <translation>写入 / </translation>
     </message>
@@ -477,7 +477,7 @@
         <translation>重启设备</translation>
     </message>
     <message>
-        <location filename="../../core/allwinner/Convert.cpp" line="+96"/>
+        <location filename="../../backends/allwinner/Convert.cpp" line="+96"/>
         <source>Initializing NOR image</source>
         <translation>初始化 NOR 镜像</translation>
     </message>
@@ -497,7 +497,7 @@
         <translation>字节数</translation>
     </message>
     <message>
-        <location filename="../../core/allwinner/Firmware.cpp" line="+123"/>
+        <location filename="../../backends/allwinner/Firmware.cpp" line="+123"/>
         <source>Format</source>
         <translation>格式</translation>
     </message>
@@ -530,6 +530,14 @@
         <location line="+0"/>
         <source>No</source>
         <translation>否</translation>
+    </message>
+    <message>
+        <source>Writing / %1</source>
+        <translation>写入 / %1</translation>
+    </message>
+    <message>
+        <source>Skipping blank / %1</source>
+        <translation>跳过空白 / %1</translation>
     </message>
 </context>
 <context>
@@ -2094,7 +2102,7 @@
 <context>
     <name>QualcommBackend</name>
     <message>
-        <location filename="../../core/qualcomm/QualcommBackend.cpp" line="+63"/>
+        <location filename="../../backends/qualcomm/QualcommBackend.cpp" line="+63"/>
         <source>Invalid Qualcomm operation</source>
         <translation>无效的高通操作</translation>
     </message>
@@ -4051,6 +4059,10 @@
         <location line="-17"/>
         <source>Select at least one rawprogram XML</source>
         <translation>请至少选择一个 rawprogram XML</translation>
+    </message>
+    <message>
+        <source>XML inspection is still running</source>
+        <translation>正在检查 XML，请稍候</translation>
     </message>
 </context>
 <context>

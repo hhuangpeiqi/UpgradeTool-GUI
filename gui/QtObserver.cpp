@@ -1,4 +1,5 @@
 #include "gui/QtObserver.h"
+#include "gui/MessageDisplay.h"
 
 #include <QMetaObject>
 #include <QStringList>
@@ -42,20 +43,23 @@ void QtObserver::OnOutput(core::LogLevel emLevel, const std::string &strText)
 	emit outputReceived((int)emLevel, QString::fromStdString(strText));
 }
 
-void QtObserver::OnProgress(ENUM_PROGRESS_PROMPT emPrompt, long long llTotal,
-                            long long llCurrent, ENUM_CALL_STEP emCall)
+void QtObserver::OnMessage(core::LogLevel level,const core::Message &message) { emit outputReceived(static_cast<int>(level),Display(message)); }
+void QtObserver::OnStageMessage(const core::Message &message,uint64_t total,uint64_t done,int overall) { emit stageProgressReceived(Display(message),total,done,overall); }
+
+void QtObserver::OnProgress(core::ProgressPrompt emPrompt, long long llTotal,
+                            long long llCurrent, core::CallStep emCall)
 {
 	QString strPrompt;
 	switch (emPrompt) {
-	case TESTDEVICE_PROGRESS:     strPrompt = tr("Test device"); break;
-	case DOWNLOADIMAGE_PROGRESS:  strPrompt = tr("Download Image"); break;
-	case CHECKIMAGE_PROGRESS:     strPrompt = tr("Verify image"); break;
-	case TAGBADBLOCK_PROGRESS:    strPrompt = tr("Mark bad block"); break;
-	case TESTBLOCK_PROGRESS:      strPrompt = tr("Test block"); break;
-	case ERASEFLASH_PROGRESS:     strPrompt = tr("Erase Flash"); break;
-	case ERASESYSTEM_PROGRESS:    strPrompt = tr("Erase system"); break;
-	case LOWERFORMAT_PROGRESS:    strPrompt = tr("Low-level format"); break;
-	case ERASEUSERDATA_PROGRESS:  strPrompt = tr("Erase user data"); break;
+	case core::ProgressPrompt::TESTDEVICE_PROGRESS:     strPrompt = tr("Test device"); break;
+	case core::ProgressPrompt::DOWNLOADIMAGE_PROGRESS:  strPrompt = tr("Download Image"); break;
+	case core::ProgressPrompt::CHECKIMAGE_PROGRESS:     strPrompt = tr("Verify image"); break;
+	case core::ProgressPrompt::TAGBADBLOCK_PROGRESS:    strPrompt = tr("Mark bad block"); break;
+	case core::ProgressPrompt::TESTBLOCK_PROGRESS:      strPrompt = tr("Test block"); break;
+	case core::ProgressPrompt::ERASEFLASH_PROGRESS:     strPrompt = tr("Erase Flash"); break;
+	case core::ProgressPrompt::ERASESYSTEM_PROGRESS:    strPrompt = tr("Erase system"); break;
+	case core::ProgressPrompt::LOWERFORMAT_PROGRESS:    strPrompt = tr("Low-level format"); break;
+	case core::ProgressPrompt::ERASEUSERDATA_PROGRESS:  strPrompt = tr("Erase user data"); break;
 	default:                      strPrompt = tr("Progress"); break;
 	}
 	emit progressReceived(strPrompt, llTotal, llCurrent, (int)emCall);
@@ -65,10 +69,10 @@ void QtObserver::OnTransferProgress(core::TransferStage stage, long long total, 
 {
 	QString label = stage == core::TransferStage::Read ? tr("Read image") :
 	                stage == core::TransferStage::Write ? tr("Write image") : tr("Extract Firmware");
-	emit progressReceived(label, total, current, current == 0 ? CALL_FIRST : CALL_MIDDLE);
+	emit progressReceived(label, total, current, current == 0 ? static_cast<int>(core::CallStep::CALL_FIRST) : static_cast<int>(core::CallStep::CALL_MIDDLE));
 }
 
-void QtObserver::OnUpgradePrompt(ENUM_UPGRADE_PROMPT prompt, unsigned int)
+void QtObserver::OnUpgradePrompt(core::UpgradePrompt prompt, unsigned int)
 {
 	emit upgradePromptReceived(static_cast<int>(prompt));
 }

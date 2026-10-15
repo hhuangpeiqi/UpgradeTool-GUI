@@ -86,12 +86,12 @@ foreach(source IN LISTS QDL_SOURCES)
   list(APPEND QDL_SOURCE_FILES "${QDL_EMBEDDED_DIR}/src/${source}.c")
 endforeach()
 add_library(qdl_embedded STATIC ${QDL_SOURCE_FILES}
-  "${CMAKE_SOURCE_DIR}/core/qualcomm/qdl_bridge.c"
-  "${CMAKE_SOURCE_DIR}/core/qualcomm/Discovery.c"
-  "${CMAKE_SOURCE_DIR}/core/qualcomm/qdl_ux.c")
+  "${CMAKE_SOURCE_DIR}/backends/qualcomm/qdl_bridge.c"
+  "${CMAKE_SOURCE_DIR}/backends/qualcomm/Discovery.c"
+  "${CMAKE_SOURCE_DIR}/backends/qualcomm/qdl_ux.c")
 set_target_properties(qdl_embedded PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS YES)
 target_include_directories(qdl_embedded PRIVATE "${QDL_EMBEDDED_DIR}/include" "${QDL_EMBEDDED_DIR}/src")
-target_include_directories(qdl_embedded PUBLIC "${CMAKE_SOURCE_DIR}/core/qualcomm")
+target_include_directories(qdl_embedded PUBLIC "${CMAKE_SOURCE_DIR}/backends/qualcomm")
 target_compile_definitions(qdl_embedded PRIVATE _FILE_OFFSET_BITS=64)
 target_link_libraries(qdl_embedded PUBLIC usb1 LibXml2::LibXml2 libzip::zip)
 if(WIN32)

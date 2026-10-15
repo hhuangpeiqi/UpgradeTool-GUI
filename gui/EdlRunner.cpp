@@ -55,11 +55,11 @@ EdlRunner::EdlRunner(EdlHooks hooks, int waitMs, QObject *parent)
     : QObject(parent), m_hooks(std::move(hooks)), m_waitMs(waitMs) {}
 EdlRunner::~EdlRunner() {
     cancel();
-    if (m_discoveryCancel) m_discoveryCancel->store(true);
+    if (m_discoveryCancel) m_discoveryCancel->request_stop();
     if (m_discoveryThread) { m_discoveryThread->wait(); delete m_discoveryThread; }
     if (m_thread) { m_thread->wait(); delete m_thread; }
 }
-void EdlRunner::cancel() { if (m_cancel) m_cancel->store(true); }
+void EdlRunner::cancel() { if (m_cancel) m_cancel->request_stop(); }
 void EdlRunner::setState(State state) { m_state = state; emit changed(); }
 void EdlRunner::setMessage(const QString &message) { m_message = message; emit messageChanged(); emit changed(); }
 void EdlRunner::reject(const QString &message) { setMessage(message); emit errorOccurred(message); }
@@ -132,16 +132,16 @@ void EdlRunner::rebuildTargets() {
 void EdlRunner::refresh(const QString &adbPath) {
     if (m_discoveryThread || running()) return;
     m_discovering = true;
-    const auto cancel = std::make_shared<std::atomic_bool>(false);
+    const auto cancel = std::make_shared<std::stop_source>();
     m_discoveryCancel = cancel;
     const auto generation = m_generation;
     auto endpoints = std::make_shared<QVector<EdlEndpoint>>();
     auto error = std::make_shared<QString>();
-    m_discoveryThread = QThread::create([=] { *endpoints = m_hooks.discover(adbPath, cancel, *error); });
-    connect(m_discoveryThread, &QThread::finished, this, [=] {
+    m_discoveryThread = QThread::create([=, this] { *endpoints = m_hooks.discover(adbPath, cancel, *error); });
+    connect(m_discoveryThread, &QThread::finished, this, [=, this] {
         m_discoveryThread->deleteLater(); m_discoveryThread = nullptr;
         m_discovering = false;
-        if (!cancel->load() && generation == m_generation && !running()) {
+        if (!cancel->stop_requested() && generation == m_generation && !running()) {
             m_endpoints = *endpoints; m_discovered = true; m_discoveryError = *error;
             rebuildTargets();
         }
@@ -157,14 +157,14 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
     }
     const auto selected = selectedEndpoints(targetId, endpointId).first();
     ++m_generation;
-    if (m_discoveryCancel) m_discoveryCancel->store(true);
-    const auto cancel = std::make_shared<std::atomic_bool>(false);
+    if (m_discoveryCancel) m_discoveryCancel->request_stop();
+    const auto cancel = std::make_shared<std::stop_source>();
     m_cancel = cancel;
     setState(Checking);
     emit started(); setMessage(tr("Checking the selected device…"));
     struct Result { bool ok = false; QString message; EdlEndpoint edl; };
     auto result = std::make_shared<Result>();
-    m_thread = QThread::create([=] {
+    m_thread = QThread::create([=, this] {
         auto progress = [this](State state, const QString &text) {
             QMetaObject::invokeMethod(this, [this,state,text] {
                 if (running()) { setState(state); setMessage(text); }
@@ -174,7 +174,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         EdlEndpoint target;
         bool found = false;
         const auto fresh = m_hooks.discover(adbPath, cancel, error);
-        if (cancel->load()) return;
+        if (cancel->stop_requested()) return;
         for (const auto &e : fresh) {
             if (!qtq_download_identity(e.vid,e.pid) && e.id == selected.id && targetKey(e) == targetId &&
                 e.kind == selected.kind && e.vid == selected.vid && e.pid == selected.pid &&
@@ -200,7 +200,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
                 result->message = tr("DIAG verification failed: %1").arg(error.isEmpty() ? tr("Invalid or unsupported version response") : error); return;
             }
         }
-        if (cancel->load()) return;
+        if (cancel->stop_requested()) return;
         if (useDiag) {
             progress(Sending, tr("Sending DIAG EDL request…"));
             bool sent = false;
@@ -213,7 +213,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
             progress(Sending, tr("Sending ADB EDL request…"));
             if (!m_hooks.reboot(adbPath, target.serial, cancel, error)) { result->message = tr("EDL request could not be sent: %1").arg(error); return; }
         }
-        if (cancel->load()) return;
+        if (cancel->stop_requested()) return;
         session.reset();
         progress(Waiting, tr("Request sent; waiting for the target device in 9008 mode…"));
         QElapsedTimer timer; timer.start();
@@ -228,7 +228,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
                 result->ok = true; result->edl = matches.first();
                 result->message = tr("Target device detected in 9008 mode."); return;
             }
-            if (cancel->load()) return;
+            if (cancel->stop_requested()) return;
             QThread::msleep(100);
         } while (timer.elapsed() < m_waitMs);
         result->message = target.location.isEmpty() && target.ports.isEmpty()
@@ -236,11 +236,11 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
             : tr("The target device did not appear in 9008 mode before the timeout.");
         if (!error.isEmpty()) result->message += "\n" + error;
     });
-    connect(m_thread, &QThread::finished, this, [=] {
+    connect(m_thread, &QThread::finished, this, [=, this] {
         m_thread->deleteLater(); m_thread = nullptr;
-        if (cancel->load()) { result->ok = false; result->message = tr("Switch cancelled. A reboot already sent cannot be undone."); }
+        if (cancel->stop_requested()) { result->ok = false; result->message = tr("Switch cancelled. A reboot already sent cannot be undone."); }
         m_endpoints.clear(); m_targets.clear(); m_discovered = false;
-        setState(cancel->load() ? Cancelled : result->ok ? Completed : Failed);
+        setState(cancel->stop_requested() ? Cancelled : result->ok ? Completed : Failed);
         emit targetsChanged();
         setMessage(result->message);
         emit finished(result->ok, result->message, result->edl);

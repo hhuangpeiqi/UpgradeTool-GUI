@@ -1,6 +1,9 @@
 set(CMAKE_AUTOMOC ON)
 
 add_library(upgrade_gui_backend STATIC
+  ProcessAdapter.cpp
+  ProcessAdapter.h
+  MessageCatalog.cpp
   OperationSpec.cpp
   OperationSpec.h
   QtObserver.cpp
@@ -12,8 +15,14 @@ add_library(upgrade_gui_backend STATIC
   EdlTransport.cpp
   AdbRunner.cpp
   AdbRunner.h
-  FirmwareEntries.cpp
-  FirmwareEntries.h
+  backend/DeviceModel.cpp
+  backend/DeviceModel.h
+  backend/TaskController.cpp
+  backend/TaskController.h
+  backend/RockchipController.cpp
+  backend/RockchipController.h
+  backend/AllwinnerController.cpp
+  backend/AllwinnerController.h
   backend/QualcommController.cpp
   backend/QualcommController.h
   backend/AppController.cpp
@@ -35,55 +44,12 @@ add_library(upgrade_gui_backend STATIC
   backend/Retranslatable.h
 )
 
-target_include_directories(upgrade_gui_backend PUBLIC ${CMAKE_SOURCE_DIR})
-target_link_libraries(upgrade_gui_backend PUBLIC upgradetool Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::SerialPort)
+target_include_directories(upgrade_gui_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/backends/rockchip/legacy)
+target_link_libraries(upgrade_gui_backend PUBLIC upgradetool upgrade_platform usb1 Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::SerialPort)
 if(WIN32)
   target_link_libraries(upgrade_gui_backend PUBLIC cfgmgr32)
 endif()
 qt_add_executable(upgrade_tool_gui main.cpp)
-
-if(UPGRADE_TOOL_TESTS)
-  add_executable(test_edl_runner ${CMAKE_SOURCE_DIR}/tests/test_edl_runner.cpp)
-  target_link_libraries(test_edl_runner PRIVATE upgrade_gui_backend)
-  add_test(NAME test_edl_runner COMMAND test_edl_runner)
-  set_tests_properties(test_edl_runner PROPERTIES TIMEOUT 30)
-  add_executable(test_qualcomm_controller ${CMAKE_SOURCE_DIR}/tests/test_qualcomm_controller.cpp)
-  target_link_libraries(test_qualcomm_controller PRIVATE upgrade_gui_backend)
-  add_test(NAME test_qualcomm_controller COMMAND test_qualcomm_controller)
-  set_tests_properties(test_qualcomm_controller PROPERTIES TIMEOUT 30)
-  add_executable(test_adb_runner ${CMAKE_SOURCE_DIR}/tests/test_adb_runner.cpp)
-  target_link_libraries(test_adb_runner PRIVATE upgrade_gui_backend)
-  add_test(NAME test_adb_runner COMMAND test_adb_runner)
-  set_tests_properties(test_adb_runner PROPERTIES TIMEOUT 30)
-  add_executable(test_gui_backend ${CMAKE_SOURCE_DIR}/tests/test_gui_backend.cpp)
-  target_link_libraries(test_gui_backend PRIVATE upgrade_gui_backend)
-  add_test(NAME test_gui_backend COMMAND test_gui_backend)
-  foreach(_tab RANGE 0 2)
-    add_test(NAME test_gui_page_${_tab}
-      COMMAND ${CMAKE_COMMAND}
-        -DAPP=$<TARGET_FILE:upgrade_tool_gui> -DTAB=${_tab}
-        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/smoke-${_tab}
-        -P ${CMAKE_SOURCE_DIR}/tests/gui_smoke.cmake)
-  endforeach()
-  foreach(_tab RANGE 0 2)
-    add_test(NAME test_allwinner_page_${_tab}
-      COMMAND ${CMAKE_COMMAND}
-        -DAPP=$<TARGET_FILE:upgrade_tool_gui> -DTAB=${_tab} -DVENDOR=allwinner
-        -DFIRMWARE=${CMAKE_BINARY_DIR}/allwinner-fixtures/normal.img
-        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/allwinner-smoke-${_tab}
-        -P ${CMAKE_SOURCE_DIR}/tests/gui_smoke.cmake)
-  endforeach()
-  set_tests_properties(test_allwinner_page_0 test_allwinner_page_1 test_allwinner_page_2
-    PROPERTIES FIXTURES_REQUIRED allwinner_firmware)
-  foreach(_tab RANGE 0 2)
-    add_test(NAME test_qualcomm_page_${_tab}
-      COMMAND ${CMAKE_COMMAND}
-        -DAPP=$<TARGET_FILE:upgrade_tool_gui> -DTAB=${_tab} -DVENDOR=qualcomm
-        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/qualcomm-smoke-${_tab}
-        -P ${CMAKE_SOURCE_DIR}/tests/gui_smoke.cmake)
-  endforeach()
-  set_tests_properties(test_gui_backend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
-endif()
 
 set(_qml_root ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
@@ -232,21 +198,23 @@ qt_add_qml_module(upgrade_tool_gui
 
 find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
 set(_tr_sources
+  ${CMAKE_CURRENT_SOURCE_DIR}/MessageCatalog.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/backend/RockchipController.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/backend/AllwinnerController.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/EdlRunner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/EdlTransport.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbRunner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/QtObserver.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/FirmwareEntries.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/OperationSpec.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/QualcommController.cpp
-  ${CMAKE_SOURCE_DIR}/core/qualcomm/QualcommBackend.cpp
+  ${CMAKE_SOURCE_DIR}/backends/qualcomm/QualcommBackend.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/AppController.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/ConfigStore.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/DirModel.cpp
-  ${CMAKE_SOURCE_DIR}/core/allwinner/AllwinnerBackend.cpp
-  ${CMAKE_SOURCE_DIR}/core/allwinner/Convert.cpp
-  ${CMAKE_SOURCE_DIR}/core/allwinner/Firmware.cpp
+  ${CMAKE_SOURCE_DIR}/backends/allwinner/AllwinnerBackend.cpp
+  ${CMAKE_SOURCE_DIR}/backends/allwinner/Convert.cpp
+  ${CMAKE_SOURCE_DIR}/backends/allwinner/Firmware.cpp
   ${_qml_abs}
 )
 if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
@@ -263,47 +231,34 @@ else()
     RESOURCE_PREFIX "/i18n")
 endif()
 
-if(UPGRADE_TOOL_TESTS)
-  if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
-    qt_add_translations(TARGETS test_gui_backend
-      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
-      RESOURCE_PREFIX "/i18n")
-  else()
-    qt_add_translations(test_gui_backend
-      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts
-      RESOURCE_PREFIX "/i18n")
-  endif()
-endif()
+# The test tree owns test targets; expose the application's resource manifest.
+set_property(TARGET upgrade_tool_gui PROPERTY UPGRADE_TEST_QML_FILES "${_qml_abs};${_icon_abs};${CMAKE_CURRENT_BINARY_DIR}/UpgradeTool/qmldir")
+set_property(TARGET upgrade_tool_gui PROPERTY UPGRADE_TEST_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts")
 
-if(UPGRADE_TOOL_TESTS)
-  add_executable(test_allwinner_ui ${CMAKE_SOURCE_DIR}/tests/test_allwinner_ui.cpp)
-  target_link_libraries(test_allwinner_ui PRIVATE upgrade_gui_backend)
-  set(_test_qmldir "${CMAKE_CURRENT_BINARY_DIR}/UpgradeTool/qmldir")
-  set_source_files_properties("${_test_qmldir}" PROPERTIES QT_RESOURCE_ALIAS qmldir)
-  qt_add_resources(test_allwinner_ui allwinner_ui_assets
-    PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
-  find_package(Qt6 REQUIRED COMPONENTS Test)
-  add_executable(test_qualcomm_ui ${CMAKE_SOURCE_DIR}/tests/test_qualcomm_ui.cpp)
-  target_link_libraries(test_qualcomm_ui PRIVATE upgrade_gui_backend Qt6::Test)
-  qt_add_resources(test_qualcomm_ui qualcomm_ui_assets
-    PREFIX "/qt/qml/UpgradeTool" FILES ${_qml_abs} ${_icon_abs} "${_test_qmldir}")
-  if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
-    qt_add_translations(TARGETS test_qualcomm_ui
-      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts RESOURCE_PREFIX "/i18n")
-  else()
-    qt_add_translations(test_qualcomm_ui
-      TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/i18n/upgrade_tool_zh_CN.ts RESOURCE_PREFIX "/i18n")
-  endif()
-  add_test(NAME test_qualcomm_ui COMMAND test_qualcomm_ui)
-  set_tests_properties(test_qualcomm_ui PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software" TIMEOUT 30)
-  add_test(NAME test_allwinner_ui COMMAND test_allwinner_ui
-    "${CMAKE_BINARY_DIR}/allwinner-fixtures/normal.img" "${CMAKE_CURRENT_BINARY_DIR}/allwinner-ui")
-  set_tests_properties(test_allwinner_ui PROPERTIES FIXTURES_REQUIRED allwinner_firmware
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software" TIMEOUT 30)
-endif()
+function(upgrade_attach_gui_test_resources target)
+  get_target_property(files upgrade_tool_gui UPGRADE_TEST_QML_FILES)
+  get_target_property(gui_source upgrade_tool_gui SOURCE_DIR)
+  foreach(file IN LISTS files)
+    get_source_file_property(alias "${file}" DIRECTORY "${gui_source}" QT_RESOURCE_ALIAS)
+    if(NOT alias)
+      set(alias qmldir)
+    endif()
+    set_source_files_properties("${file}" PROPERTIES QT_RESOURCE_ALIAS "${alias}")
+  endforeach()
+  qt_add_resources(${target} ${target}_assets
+    PREFIX "/qt/qml/UpgradeTool" FILES ${files})
+endfunction()
 
-target_include_directories(upgrade_tool_gui PRIVATE ${CMAKE_SOURCE_DIR})
+function(upgrade_attach_test_translations target)
+  get_target_property(translations upgrade_tool_gui UPGRADE_TEST_TRANSLATIONS)
+  if(Qt6_VERSION VERSION_GREATER_EQUAL 6.7)
+    qt_add_translations(TARGETS ${target} TS_FILES ${translations} RESOURCE_PREFIX "/i18n")
+  else()
+    qt_add_translations(${target} TS_FILES ${translations} RESOURCE_PREFIX "/i18n")
+  endif()
+endfunction()
+
+target_include_directories(upgrade_tool_gui PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/backends/rockchip/legacy)
 target_link_libraries(upgrade_tool_gui PRIVATE
   upgrade_gui_backend
   Qt6::Core

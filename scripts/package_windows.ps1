@@ -25,9 +25,9 @@ $RuntimeSearch = ($env:PATH -split ';') -join ';'
 Run-Checked { cmake "-DAPP=$(Join-Path $Stage 'upgrade_tool_gui.exe')" "-DDESTINATION=$Stage" "-DSEARCH_DIRS=$RuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
 $Licenses = Join-Path $Stage "licenses"
 New-Item -ItemType Directory -Force $Licenses | Out-Null
-Copy-Item (Join-Path $Root "lib/license.txt") (Join-Path $Licenses "upgrade-tool-GPL-2.0.txt")
+Copy-Item (Join-Path $Root "backends/rockchip/legacy/license.txt") (Join-Path $Licenses "upgrade-tool-GPL-2.0.txt")
 Copy-Item (Join-Path $Root "third_party/libusb/COPYING") (Join-Path $Licenses "libusb-LGPL-2.1.txt")
 Copy-Item (Join-Path $Root "third_party/libefex/LICENSE") (Join-Path $Licenses "libefex-MIT.txt")
-Copy-Item (Join-Path $Root "core/allwinner/LICENSE.OpenixCLI") (Join-Path $Licenses "OpenixCLI-MIT.txt")
+Copy-Item (Join-Path $Root "backends/allwinner/LICENSE.OpenixCLI") (Join-Path $Licenses "OpenixCLI-MIT.txt")
 Copy-Item (Join-Path $Root "third_party/qdl/LICENSE") (Join-Path $Licenses "qdl-BSD-3-Clause.txt")
 Write-Output "Application: $Stage"

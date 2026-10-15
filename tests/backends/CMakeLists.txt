@@ -1,0 +1,6 @@
+foreach(vendor rockchip allwinner qualcomm)
+  string(TOUPPER "${vendor}" vendor_option)
+  if(UPGRADE_TOOL_${vendor_option})
+    add_subdirectory(${vendor})
+  endif()
+endforeach()

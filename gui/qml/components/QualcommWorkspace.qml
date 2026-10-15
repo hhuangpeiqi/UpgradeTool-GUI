@@ -39,7 +39,7 @@ Card {
                 Layout.preferredWidth: 176
                 Layout.fillHeight: true
                 visible: root.hasNavigation
-                enabled: !app.busy
+                enabled: !app.tasks.busy
             }
             Rectangle {
                 visible: navigationSlot.visible
@@ -78,7 +78,7 @@ Card {
                     // Reserve a gutter for the bar, which overlays the right edge.
                     width: scroll.availableWidth - 14
                     spacing: 10
-                    enabled: !app.busy
+                    enabled: !app.tasks.busy
                 }
             }
         }
@@ -110,7 +110,7 @@ Card {
                 Layout.preferredWidth: 100
                 model: ["DIAG", "ADB"]
                 selectedIndex: app.edl.method - 1
-                enabled: !app.busy
+                enabled: !app.tasks.busy
                 onActivated: app.edl.method = currentIndex + 1
             }
             Item {
@@ -124,14 +124,14 @@ Card {
                     text: qsTr("Switch to EDL")
                     iconSource: Icons.switchBlue
                     busy: app.edl.running
-                    enabled: !app.busy && app.edl.ready
+                    enabled: !app.tasks.busy && app.edl.ready
                     onClicked: app.requestEdlSwitch()
                 }
                 // Observe the enabled wrapper so a disabled button still gets a tooltip.
                 HoverHandler { id: switchHover }
                 ToolTip {
                     objectName: "qcSwitchTooltip"
-                    visible: switchHover.hovered && !switchButton.enabled && !app.busy
+                    visible: switchHover.hovered && !switchButton.enabled && !app.tasks.busy
                     text: app.edl.unavailableReason +
                         (app.edl.discoveryError !== "" ? "\n" + app.edl.discoveryError : "")
                 }

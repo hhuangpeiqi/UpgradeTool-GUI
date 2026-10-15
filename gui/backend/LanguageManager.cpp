@@ -103,8 +103,8 @@ void LanguageManager::Apply()
 	// Application catalog: English is the source language, so only Chinese needs a translator.
 	if (bChinese) {
 		if (!m_bAppLoaded) {
-			m_appTranslator.load(QLatin1String("upgrade_tool_zh_CN"), QLatin1String(":/i18n"));
-			m_bAppLoaded = QCoreApplication::installTranslator(&m_appTranslator);
+			m_bAppLoaded = m_appTranslator.load(QLatin1String("upgrade_tool_zh_CN"), QLatin1String(":/i18n"))
+			               && QCoreApplication::installTranslator(&m_appTranslator);
 		}
 	} else if (m_bAppLoaded) {
 		QCoreApplication::removeTranslator(&m_appTranslator);
@@ -119,8 +119,8 @@ void LanguageManager::Apply()
 		m_bQtLoaded = false;
 	}
 	if (!strQtDir.isEmpty()) {
-		m_qtTranslator.load(strCatalog, strQtDir);
-		m_bQtLoaded = QCoreApplication::installTranslator(&m_qtTranslator);
+		m_bQtLoaded = m_qtTranslator.load(strCatalog, strQtDir)
+		              && QCoreApplication::installTranslator(&m_qtTranslator);
 	}
 
 	const bool bChanged = strEffective != m_strEffective;
