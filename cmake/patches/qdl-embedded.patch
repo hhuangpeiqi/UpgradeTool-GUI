@@ -849,11 +849,34 @@
  
  	h = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL,
  			OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-@@ -445,7 +414,19 @@
- 		return -EIO;
- 	}
+@@ -421,6 +390,13 @@
+ 	return 0;
+ }
  
++/* Only a confirmed unplug is a successful reset, not an arbitrary IO error. */
++static int qud_io_error(DWORD error)
++{
++    return error == ERROR_DEVICE_NOT_CONNECTED || error == ERROR_NO_SUCH_DEVICE
++        ? -ENODEV : -EIO;
++}
++
+ static int win_overlapped_io(HANDLE h, void *buf, size_t len,
+ 			     unsigned int timeout_ms, bool is_write)
+ {
+@@ -441,11 +417,24 @@
+ 		ok = ReadFile(h, buf, (DWORD)len, NULL, &ovl);
+ 
+ 	if (!ok && GetLastError() != ERROR_IO_PENDING) {
+-		CloseHandle(ev);
+-		return -EIO;
+-	}
+-
 -	wait = WaitForSingleObject(ev, timeout_ms);
++        int error = qud_io_error(GetLastError());
++        CloseHandle(ev);
++        return error;
++    }
++
 +	DWORD elapsed = 0;
 +    do {
 +        DWORD slice = timeout_ms - elapsed;
@@ -870,6 +893,29 @@
  	if (wait == WAIT_TIMEOUT) {
  		CancelIoEx(h, &ovl);
  		/* Drain the cancellation so the OVERLAPPED isn't reused live. */
+@@ -459,9 +448,10 @@
+ 	}
+ 
+ 	if (!GetOverlappedResult(h, &ovl, &done, FALSE)) {
+-		CloseHandle(ev);
+-		return -EIO;
+-	}
++        int error = qud_io_error(GetLastError());
++        CloseHandle(ev);
++        return error;
++    }
+ 
+ 	CloseHandle(ev);
+ 	return (int)done;
+@@ -490,7 +480,7 @@
+ 	 * completes a hair after the constant.
+ 	 */
+ 	if (!SetCommTimeouts(h, &to))
+-		return -EIO;
++		return qud_io_error(GetLastError());
+ 
+ 	ret = win_overlapped_io(h, buf, len, timeout + 250, false);
+ 	if (ret == 0)
 --- a/src/file.c
 +++ b/src/file.c
 @@ -2,7 +2,9 @@
@@ -957,7 +1003,46 @@
  #include <sys/types.h>
  #include <ctype.h>
  #include <dirent.h>
-@@ -1144,6 +1145,11 @@
+@@ -281,14 +282,20 @@
+ 	}
+ }
+ 
+-static void sahara_send_reset(struct qdl_device *qdl)
++static int sahara_send_reset(struct qdl_device *qdl)
+ {
+ 	struct sahara_pkt resp;
+ 
+ 	resp.cmd = SAHARA_RESET_CMD;
+ 	resp.length = SAHARA_RESET_LENGTH;
+ 
+-	qdl_write(qdl, &resp, resp.length, SAHARA_CMD_TIMEOUT_MS);
++	int ret = qdl_write(qdl, &resp, resp.length, SAHARA_CMD_TIMEOUT_MS);
++	if (ret == (int)resp.length)
++		return 0;
++	if (ret >= 0)
++		ret = -EIO;
++	ux_err("SAHARA: failed to send RESET (%d); reconnect the device in EDL mode\n", ret);
++	return ret;
+ }
+ 
+ static int sahara_send_hello_resp(struct qdl_device *qdl, unsigned int version,
+@@ -307,8 +314,13 @@
+ 		 resp.hello_resp.version, resp.hello_resp.compatible,
+ 		 resp.hello_resp.mode);
+ 
+-	qdl_write(qdl, &resp, resp.length, SAHARA_CMD_TIMEOUT_MS);
+-	return 0;
++	int ret = qdl_write(qdl, &resp, resp.length, SAHARA_CMD_TIMEOUT_MS);
++	if (ret == (int)resp.length)
++		return 0;
++	if (ret >= 0)
++		ret = -EIO;
++	ux_err("SAHARA: failed to send HELLO response (%d); reconnect the device in EDL mode\n", ret);
++	return ret;
+ }
+ 
+ static int sahara_hello(struct qdl_device *qdl, struct sahara_pkt *pkt)
+@@ -1144,6 +1156,11 @@
  		return -1;
  	}
  
@@ -969,7 +1054,430 @@
  	ux_info("Sahara protocol version: %u\n", version);
  	if (have_serial)
  		ux_info("Chip serial number:      0x%08x\n", serial);
-@@ -1409,8 +1415,9 @@
+@@ -1157,7 +1174,7 @@
+ 	return 0;
+ }
+ 
+-static void sahara_send_switch_mode(struct qdl_device *qdl, unsigned int mode)
++static int sahara_send_switch_mode(struct qdl_device *qdl, unsigned int mode)
+ {
+ 	struct sahara_pkt pkt = {};
+ 
+@@ -1165,237 +1182,204 @@
+ 	pkt.length = SAHARA_SWITCH_MODE_LENGTH;
+ 	pkt.switch_mode.mode = mode;
+ 
+-	qdl_write(qdl, &pkt, pkt.length, SAHARA_CMD_TIMEOUT_MS);
++	int ret = qdl_write(qdl, &pkt, pkt.length, SAHARA_CMD_TIMEOUT_MS);
++	if (ret == (int)pkt.length)
++		return 0;
++	if (ret >= 0)
++		ret = -EIO;
++	ux_err("SAHARA: failed to send SWITCH_MODE (%d); reconnect the device in EDL mode\n", ret);
++	return ret;
++}
++
++/* Read a complete control packet, preserving any following packet or XML. */
++static int sahara_read_control(struct qdl_device *qdl, char *buf, size_t size,
++			       unsigned int timeout)
++{
++	size_t have = 0;
++	uint32_t length;
++	int n;
++
++	for (;;) {
++		if (qtq_cancelled())
++			return -ECANCELED;
++		n = qdl_read(qdl, buf + have, size - have, timeout);
++		if (n < 0)
++			return n == -ETIMEDOUT && have ? -EINVAL : n;
++		if (!n)
++			return -EINVAL;
++		have += n;
++		if (have >= 5 && !memcmp(buf, "<?xml", 5))
++			return (int)have;
++		if (have < 8)
++			continue;
++		length = sahara_le32((uint8_t *)buf + 4);
++		if (length < 8 || length > size)
++			return -EINVAL;
++		if (have < length)
++			continue;
++		if (have > length && qdl_push_back(qdl, buf + length, have - length) < 0)
++			return -ENOMEM;
++		return (int)length;
++	}
+ }
+ 
+ /*
+- * Read and print the chip identity (serial, HW ID and OEM PK hash) by entering
+- * Sahara command mode. Unlike the image-transfer path this requests
+- * SAHARA_MODE_COMMAND in the HELLO response and drives EXECUTE transactions.
+- * Command mode is left by switching back to image transfer, which returns the
+- * device to its initial HELLO state.
++ * Enter command mode on every transport. A previous session may have consumed
++ * HELLO; first acknowledge it, then request a fresh HELLO if that did not work.
++ * Return 1 for confirmed Firehose XML, leaving it for the Firehose parser.
+  */
++static int sahara_enter_maintenance(struct qdl_device *qdl, bool reset,
++				    unsigned int *version)
++{
++	char buf[4096];
++	struct sahara_pkt *pkt = (struct sahara_pkt *)buf;
++	int recovery = 0;
++	int n;
++	int ret;
++	int attempts;
++
++	for (attempts = 0; attempts < 6; attempts++) {
++		n = sahara_read_control(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
++		if (n == -ETIMEDOUT && recovery < 2) {
++			ux_debug("SAHARA: recovering command-mode handshake (%d)\n", recovery + 1);
++			ret = recovery++ == 0
++				? sahara_send_hello_resp(qdl, *version, SAHARA_MODE_COMMAND)
++				: sahara_send_switch_mode(qdl, SAHARA_MODE_COMMAND);
++			if (ret < 0)
++				return ret;
++			continue;
++		}
++		if (n < 0) {
++			ux_err("SAHARA: command-mode handshake failed (%d); reconnect the device in EDL mode\n", n);
++			return n;
++		}
++		if (n >= 5 && !memcmp(buf, "<?xml", 5)) {
++			ret = qdl_push_back(qdl, buf, n);
++			return ret < 0 ? ret : 1;
++		}
++		switch (pkt->cmd) {
++		case SAHARA_HELLO_CMD:
++			if (n != SAHARA_HELLO_LENGTH)
++				return -EINVAL;
++			*version = pkt->hello_req.version;
++			ux_debug("SAHARA: HELLO version %u mode %u\n", *version, pkt->hello_req.mode);
++			if (reset && pkt->hello_req.mode == SAHARA_MODE_MEMORY_DEBUG) {
++				ret = sahara_send_hello_resp(qdl, *version, SAHARA_MODE_MEMORY_DEBUG);
++				return ret < 0 ? ret : 0;
++			}
++			ret = sahara_send_hello_resp(qdl, *version, SAHARA_MODE_COMMAND);
++			if (ret < 0)
++				return ret;
++			break;
++		case SAHARA_CMD_READY_CMD:
++			return n == 8 ? 0 : -EINVAL;
++		case SAHARA_END_OF_IMAGE_CMD:
++			if (n < 16)
++				return -EINVAL;
++			ux_err("SAHARA: device rejected command mode: status 0x%x (%s)\n",
++			       pkt->eoi.status, sahara_status_str(pkt->eoi.status));
++			return -EPROTO;
++		default:
++			/* A previous session can leave the target waiting for image data. */
++			if (recovery >= 2) {
++				ux_err("SAHARA: unexpected packet 0x%x while entering command mode\n", pkt->cmd);
++				return -EPROTO;
++			}
++			recovery = 2;
++			ret = sahara_send_switch_mode(qdl, SAHARA_MODE_COMMAND);
++			if (ret < 0)
++				return ret;
++			break;
++		}
++	}
++	ux_err("SAHARA: command-mode handshake did not complete; reconnect the device in EDL mode\n");
++	return -ETIMEDOUT;
++}
++
+ int sahara_chipinfo(struct qdl_device *qdl)
++{
++	unsigned int version = SAHARA_VERSION;
++	int ret;
++	int restore;
++
++	if (qdl->dev_type == QDL_DEVICE_SIM)
++		return 0;
++	ret = sahara_enter_maintenance(qdl, false, &version);
++	if (ret == 1) {
++		ux_err("SAHARA: device is already in Firehose mode; chip info is only available via Sahara\n");
++		return -EPROTO;
++	}
++	if (ret < 0)
++		return ret;
++	ret = sahara_command_info(qdl, version);
++	/* Leave the target ready for another query or image upload. */
++	restore = sahara_send_switch_mode(qdl, SAHARA_MODE_IMAGE_TX_PENDING);
++	if (restore < 0 && !ret)
++		return restore;
++	return ret;
++}
++
++/* Reset only after a confirmed command/debug handshake, or confirmed Firehose. */
++int sahara_device_reset(struct qdl_device *qdl)
+ {
+ 	unsigned int version = SAHARA_VERSION;
+ 	struct sahara_pkt *pkt;
+ 	char buf[4096];
+ 	int ret;
+ 	int n;
++	int i;
+ 
+ 	if (qdl->dev_type == QDL_DEVICE_SIM)
+ 		return 0;
+-
+-	n = qdl_read(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
+-
+-	/* A Firehose programmer is already running; chip info needs Sahara */
+-	if (n >= 5 && !memcmp(buf, "<?xml", 5)) {
+-		ux_err("SAHARA: device is already in Firehose mode; chip info is only available via Sahara\n");
+-		return -1;
+-	}
+-
+-	if (n < 0) {
+-		/*
+-		 * The QUD driver eats the HELLO request on many targets; recover
+-		 * by prodding the device with an unsolicited command-mode HELLO
+-		 * response. The version is unknown here, so assume the baseline.
+-		 */
+-		if (n != -ETIMEDOUT ||
+-		    (qdl->dev_type != QDL_DEVICE_QUD && qdl->dev_type != QDL_DEVICE_AUTO)) {
+-			ux_err("SAHARA: failed to read HELLO from device\n");
+-			return -1;
+-		}
+-		sahara_send_hello_resp(qdl, SAHARA_VERSION, SAHARA_MODE_COMMAND);
+-	} else {
++	ret = sahara_enter_maintenance(qdl, true, &version);
++	if (ret == 1) {
++		ux_info("SAHARA: Firehose programmer is running\n");
++		return 1;
++	}
++	if (ret < 0)
++		return ret;
++
++	for (i = 0; i < SAHARA_RESET_RETRIES; i++) {
++		if (qtq_cancelled())
++			return -ECANCELED;
++		ret = sahara_send_reset(qdl);
++		if (ret < 0)
++			return ret;
++		n = sahara_read_control(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
++		if (n == -ENODEV)
++			goto reset_done;
++		if (n == -ETIMEDOUT)
++			continue;
++		if (n < 0)
++			return n;
+ 		pkt = (struct sahara_pkt *)buf;
+-		if ((uint32_t)n != pkt->length || pkt->cmd != SAHARA_HELLO_CMD) {
+-			ux_err("SAHARA: unexpected packet 0x%x while waiting for HELLO\n",
+-			       pkt->cmd);
+-			return -1;
+-		}
+-
+-		version = pkt->hello_req.version;
+-		ux_debug("SAHARA: HELLO version %u mode %u\n",
+-			 version, pkt->hello_req.mode);
+-		sahara_send_hello_resp(qdl, version, SAHARA_MODE_COMMAND);
+-	}
+-
+-	n = qdl_read(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
+-	if (n < 0) {
+-		ux_err("SAHARA: no CMD_READY received; device may not support command mode\n");
+-		return -1;
+-	}
+-
+-	pkt = (struct sahara_pkt *)buf;
+-	if (pkt->cmd != SAHARA_CMD_READY_CMD) {
+-		if (pkt->cmd == SAHARA_END_OF_IMAGE_CMD)
+-			ux_err("SAHARA: device rejected command mode: "
+-			       "end-of-image status 0x%x (%s)\n",
++		if (pkt->cmd == SAHARA_RESET_RESP_CMD && n == 8)
++			break;
++		if (pkt->cmd == SAHARA_END_OF_IMAGE_CMD) {
++			if (n < 16)
++				return -EINVAL;
++			ux_err("SAHARA: device rejected the reset request: status 0x%x (%s)\n",
+ 			       pkt->eoi.status, sahara_status_str(pkt->eoi.status));
+-		else
+-			ux_err("SAHARA: unexpected packet 0x%x while entering command mode\n",
+-			       pkt->cmd);
+-		return -1;
+-	}
+-
+-	ret = sahara_command_info(qdl, version);
+-
+-	/*
+-	 * Switch back to image-transfer mode so the device re-issues its HELLO
+-	 * and stays usable for a subsequent query or flash, without a reset.
+-	 */
+-	sahara_send_switch_mode(qdl, SAHARA_MODE_IMAGE_TX_PENDING);
+-
+-	return ret;
+-}
+-
+-/*
+- * Reset the device over the Sahara protocol, from whichever Sahara state
+- * it booted into: fresh EDL (image transfer pending) or crash mode
+- * (memory debug). The HELLO is acknowledged with the mode the device
+- * asked for, so no state transition is forced before the reset command.
+- *
+- * Return: 0 when the reset was issued over Sahara, 1 when a Firehose
+- * programmer is already running (the caller should reset via Firehose
+- * instead), -1 on failure.
+- */
+-int sahara_device_reset(struct qdl_device *qdl)
+-{
+-	struct sahara_pkt *pkt;
+-	char buf[4096];
+-	int n;
+-	int i;
+-
+-	if (qdl->dev_type == QDL_DEVICE_SIM)
+-		return 0;
+-
+-	n = qdl_read(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
+-
+-	/* A Firehose programmer is already running; there is no Sahara here */
+-	if (n >= 5 && !memcmp(buf, "<?xml", 5))
+-		goto firehose;
+-
+-	if (n < 0) {
+-		if (n != -ETIMEDOUT) {
+-			ux_err("SAHARA: failed to read HELLO from device\n");
+-			return -1;
+-		}
+-
+-		/*
+-		 * No HELLO: the QUD driver eats it on many targets, and a
+-		 * previous session may have consumed it. Prod the device with
+-		 * an unsolicited HELLO response: Sahara accepts it, while a
+-		 * running Firehose programmer answers the non-XML input with
+-		 * an error response, identifying itself for the fallback.
+-		 */
+-		sahara_send_hello_resp(qdl, SAHARA_VERSION,
+-				       SAHARA_MODE_IMAGE_TX_PENDING);
+-
+-		n = qdl_read(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
+-		if (n >= 5 && !memcmp(buf, "<?xml", 5))
+-			goto firehose;
+-	} else {
+-		pkt = (struct sahara_pkt *)buf;
+-		if ((uint32_t)n == pkt->length && pkt->cmd == SAHARA_HELLO_CMD) {
+-			ux_debug("SAHARA: HELLO version %u mode %u\n",
+-				 pkt->hello_req.version, pkt->hello_req.mode);
+-
+-			/*
+-			 * The target services a reset only in states where it
+-			 * is valid: in image-transfer-pending state the PBL
+-			 * rejects it with an end-of-image error, while command
+-			 * mode accepts it. Crash-mode devices announce memory
+-			 * debug and take the reset directly, as the ramdump
+-			 * teardown has always relied on.
+-			 */
+-			if (pkt->hello_req.mode == SAHARA_MODE_MEMORY_DEBUG) {
+-				sahara_send_hello_resp(qdl, pkt->hello_req.version,
+-						       SAHARA_MODE_MEMORY_DEBUG);
+-			} else {
+-				sahara_send_hello_resp(qdl, pkt->hello_req.version,
+-						       SAHARA_MODE_COMMAND);
+-
+-				n = qdl_read(qdl, buf, sizeof(buf),
+-					     SAHARA_CMD_TIMEOUT_MS);
+-				if (n < 0 || pkt->cmd != SAHARA_CMD_READY_CMD)
+-					ux_debug("SAHARA: no CMD_READY after command mode request\n");
+-			}
+-		}
+-		/* On any other packet, proceed straight to the reset */
+-	}
+-
+-	/*
+-	 * The reset response is the target's acknowledgment that it accepted
+-	 * the request, sent just before it resets; the protocol directs the
+-	 * host to resend the reset until the response arrives. The resend
+-	 * matters in practice: after the HELLO exchange the target
+-	 * immediately issues its first READ_DATA, which races the reset
+-	 * request, so the first answer read back is often not the response.
+-	 */
+-	for (i = 0; i < SAHARA_RESET_RETRIES; i++) {
+-		sahara_send_reset(qdl);
+-
+-		n = qdl_read(qdl, buf, sizeof(buf), SAHARA_CMD_TIMEOUT_MS);
+-		if (n < 0) {
+-			/*
+-			 * A transport error other than a timeout means the
+-			 * device already dropped off the bus resetting.
+-			 */
+-			if (n != -ETIMEDOUT)
+-				break;
+-			continue;
+-		}
+-
+-		if ((size_t)n < sizeof(uint32_t) * 2)
+-			continue;
+-
+-		pkt = (struct sahara_pkt *)buf;
+-		if (pkt->cmd == SAHARA_RESET_RESP_CMD) {
+-			ux_debug("SAHARA: reset acknowledged\n");
+-			break;
+-		}
+-
+-		/*
+-		 * An invalid reset request is rejected with an end-of-image
+-		 * transfer packet carrying the error status.
+-		 */
+-		if (pkt->cmd == SAHARA_END_OF_IMAGE_CMD) {
+-			ux_err("SAHARA: device rejected the reset request: "
+-			       "end-of-image status 0x%x (%s)\n",
+-			       pkt->eoi.status, sahara_status_str(pkt->eoi.status));
+-			return -1;
+-		}
+-
+-		/* Some other packet crossed the reset request; resend */
+-	}
+-
++			return -EPROTO;
++		}
++	}
+ 	if (i == SAHARA_RESET_RETRIES) {
+ 		ux_err("SAHARA: no reset response from device\n");
+-		return -1;
+-	}
+-
+-	/*
+-	 * The response only acknowledges the request; verify that the device
+-	 * actually went down. A PBL can tear down its Sahara session on the
+-	 * reset request without resetting the SoC (observed on QRB2210),
+-	 * which leaves the transport alive but the session dead. Only the
+-	 * transport dropping - the handle dying with the re-enumeration -
+-	 * proves the reset happened.
+-	 */
++		return -ETIMEDOUT;
++	}
++	/* An ACK alone does not prove the SoC reset; require a disconnected handle. */
+ 	n = qdl_read(qdl, buf, sizeof(buf), SAHARA_RESET_VERIFY_TIMEOUT_MS);
+-	if (n >= 0 || n == -ETIMEDOUT) {
++	if (qtq_cancelled())
++		return -ECANCELED;
++	if (n != -ENODEV) {
++		if (n < 0 && n != -ETIMEDOUT)
++			return n;
+ 		ux_err("SAHARA: device acknowledged the reset but did not go down; power cycle it or reset through a Firehose programmer: qdl <programmer> reset\n");
+-		return -1;
+-	}
+-
++		return -ETIMEDOUT;
++	}
++reset_done:
+ 	ux_info("SAHARA: device reset\n");
+-
+ 	return 0;
+-
+-firehose:
+-	ux_info("SAHARA: Firehose programmer is running\n");
+-
+-	return 1;
+ }
+ 
+ int sahara_run(struct qdl_device *qdl, const struct sahara_image *images,
+@@ -1409,8 +1393,9 @@
  	 * banner instead of a Sahara HELLO, skip Sahara entirely. Disabled
  	 * in ramdump mode, where Sahara is the only valid protocol.
  	 */
@@ -980,7 +1488,7 @@
  	struct sahara_pkt *pkt;
  	char buf[4096];
  	char tmp[32];
-@@ -1440,11 +1447,12 @@
+@@ -1440,11 +1425,12 @@
  				 * message and report an error, which will
  				 * trigger below detection of a <?xml response.
  				 */
@@ -995,7 +1503,7 @@
  				return 0;
  			}
  			ux_err("SAHARA: failed to read request from device\n");
-@@ -1458,6 +1466,7 @@
+@@ -1458,6 +1444,7 @@
  		}
  		first_read = false;
  
@@ -1003,7 +1511,7 @@
  		pkt = (struct sahara_pkt *)buf;
  		if ((uint32_t)n != pkt->length) {
  			ux_err("SAHARA: request length not matching received request\n");
-@@ -1466,6 +1475,9 @@
+@@ -1466,6 +1453,9 @@
  
  		switch (pkt->cmd) {
  		case SAHARA_HELLO_CMD:

@@ -56,6 +56,7 @@ QualcommController::QualcommController(QObject *parent) : QObject(parent), m_res
         values["xmlFiles"] = QStringList();
         m_profiles[context] = values;
     }
+    m_profiles["reset"]["resetMethod"] = "sahara";
     for (auto &profile : m_profiles) { profile["allowFusing"] = false; profile["finalize"] = false; }
     inspect();
 }
@@ -225,7 +226,8 @@ QString QualcommController::buildRequest(int operation, const QVariantMap &overr
     const bool device = firehose || context == "kickstart" || context == "chipinfo" || context == "reset" || context == "ramdump";
     const bool package = context == "zip" || (context == "archive" && values.value("archiveContents").toBool()) ||
         (flash && values.value("packageBuild").toBool());
-    const bool loader = !package && (firehose || context == "kickstart" || context == "archive");
+    const bool resetLoader = context == "reset" && values.value("resetMethod").toString() == "firehose";
+    const bool loader = !package && (firehose || context == "kickstart" || context == "archive" || resetLoader);
     bool valid = true;
     auto integer = [&](const char *key, long long fallback, long long minimum, long long maximum) {
         QString t = values.value(key).toString().trimmed(); bool ok = true;
@@ -238,6 +240,10 @@ QString QualcommController::buildRequest(int operation, const QVariantMap &overr
         int transport = int(integer("transport", -1, -1, 2)); if (transport == 1) valid = false;
         o.transport = static_cast<core::QualcommTransport>(transport);
         o.chunkSize = static_cast<long>(integer("chunkSize", 0, 0, LONG_MAX));
+    }
+    if (resetLoader) {
+        o.storage = static_cast<core::QualcommStorage>(integer("storage", 3, 1, 5));
+        o.slot = int(integer("slot", -1, -1, INT_MAX));
     }
     if (firehose) {
         o.storage = provision ? core::QualcommStorage::Ufs : static_cast<core::QualcommStorage>(integer("storage", 3, 1, 5));
@@ -335,7 +341,6 @@ void QualcommController::applyResult(const core::OperationResult &result) {
     for (const auto &item : result.items) rows.append(QVariantMap{{"label",QString::fromStdString(item.label)},{"value",QString::fromStdString(item.value)}});
     const auto context = contextFor(result.operation);
     m_operationErrors[context] = result.status == core::OperationStatus::Failed ? QString::fromStdString(result.diagnostic) : QString();
-    if (!m_operationErrors[context].isEmpty()) rows.append(QVariantMap{{"label",tr("Error")},{"value",m_operationErrors[context]}});
     m_results.SetItems(rows);
     if (m_contextResults.contains(context)) m_contextResults[context]->SetItems(rows);
     m_profiles[context]["allowFusing"] = false; m_profiles[context]["finalize"] = false;

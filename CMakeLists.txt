@@ -218,6 +218,12 @@ if(UPGRADE_TOOL_TESTS)
   add_test(NAME test_qualcomm_policy COMMAND test_qualcomm_policy)
   set_tests_properties(test_qualcomm_policy PROPERTIES TIMEOUT 10)
 
+  add_executable(test_qualcomm_sahara tests/test_qualcomm_sahara.c)
+  target_include_directories(test_qualcomm_sahara PRIVATE "${QDL_EMBEDDED_DIR}/include" "${QDL_EMBEDDED_DIR}/src")
+  target_link_libraries(test_qualcomm_sahara PRIVATE qdl_embedded)
+  add_test(NAME test_qualcomm_sahara COMMAND test_qualcomm_sahara)
+  set_tests_properties(test_qualcomm_sahara PROPERTIES TIMEOUT 10)
+
   add_executable(test_qualcomm tests/test_qualcomm.cpp)
   target_link_libraries(test_qualcomm PRIVATE upgradetool)
   add_test(NAME test_qualcomm COMMAND test_qualcomm)

@@ -2578,6 +2578,10 @@
 <context>
     <name>QualcommToolsPage</name>
     <message>
+        <source>Reset method</source>
+        <translation>重启方式</translation>
+    </message>
+    <message>
         <source>Quick actions</source>
         <translation>快捷操作</translation>
     </message>

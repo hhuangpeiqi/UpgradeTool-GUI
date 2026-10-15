@@ -56,6 +56,49 @@ int main(int argc, char **argv) {
         n.setContextValue("kickstart", "node", "");
         CHECK(n.needsDevice(int(core::Operation::QualcommKickstart)));
     }
+    {
+        gui::QualcommController resetController;
+        core::OperationRequest resetRequest; int resetRequests = 0;
+        QObject::connect(&resetController, &gui::QualcommController::executeRequested,
+            [&](const core::OperationRequest &request) { resetRequest = request; ++resetRequests; });
+        const int operation = int(core::Operation::QualcommReset);
+        CHECK(resetController.settingsFor("reset").value("resetMethod").toString() == "sahara");
+        resetController.setContextValue("reset", "programmer", loader);
+        resetController.run(operation);
+        CHECK(resetRequests == 1 && resetRequest.qualcomm.programmer.empty() && resetRequest.qualcomm.images.empty());
+        resetController.setContextValue("reset", "resetMethod", "firehose");
+        resetController.setContextValue("reset", "storage", 1);
+        resetController.run(operation);
+        CHECK(resetRequests == 2 && resetRequest.operation == core::Operation::QualcommReset);
+        CHECK(resetRequest.qualcomm.programmer == loader.toStdString()); CHECK(resetRequest.qualcomm.xml.empty());
+        CHECK(resetRequest.qualcomm.storage == core::QualcommStorage::Emmc);
+        resetController.setContextValue("reset", "programmer", temp.filePath("missing.mbn"));
+        CHECK(!resetController.canRun(operation)); resetController.run(operation); CHECK(resetRequests == 2);
+        resetController.setContextValue("reset", "resetMethod", "sahara");
+        CHECK(resetController.canRun(operation)); resetController.run(operation);
+        CHECK(resetRequests == 3 && resetRequest.qualcomm.programmer.empty());
+        CHECK(resetController.settingsFor("reset").value("programmer").toString() == temp.filePath("missing.mbn"));
+        resetController.setContextValue("reset", "resetMethod", "firehose");
+        CHECK(!resetController.canRun(operation));
+        resetController.setContextValue("reset", "programmer", "");
+        CHECK(!resetController.canRun(operation));
+        resetController.setContextValue("reset", "useImages", true);
+        CHECK(!resetController.canRun(operation));
+        resetController.setContextValue("reset", "images", "13:" + loader);
+        resetController.run(operation);
+        CHECK(resetRequests == 4 && resetRequest.qualcomm.images.size() == 1);
+        CHECK(resetRequest.qualcomm.programmer.empty());
+        resetController.setContextValue("reset", "resetMethod", "sahara");
+        resetController.setContextValue("reset", "slot", "invalid");
+        resetController.run(operation);
+        CHECK(resetRequests == 5 && resetRequest.qualcomm.programmer.empty() && resetRequest.qualcomm.images.empty());
+        CHECK(resetController.settingsFor("reset").value("images").toString() == "13:" + loader);
+        resetController.setContextValue("reset", "resetMethod", "firehose");
+        CHECK(!resetController.canRun(operation));
+        resetController.setContextValue("reset", "slot", "");
+        resetController.run(operation);
+        CHECK(resetRequests == 6 && resetRequest.qualcomm.images.size() == 1);
+    }
     core::OperationRequest submitted; int requests = 0;
     QObject::connect(&c, &gui::QualcommController::executeRequested, [&](const core::OperationRequest &r) { submitted = r; ++requests; });
     c.setValue("programmer",loader); c.addXml(raw);
@@ -137,6 +180,17 @@ int main(int argc, char **argv) {
     c.setLocked(false); CHECK(c.replaceFlashXml({raw1},{})); CHECK(c.xmlFiles() == QStringList({raw1}));
     core::OperationResult error; error.operation=core::Operation::QualcommRaw; error.diagnostic="device disappeared";
     c.applyResult(error); CHECK(c.operationErrorFor("raw") == "device disappeared"); CHECK(c.operationErrorFor("flash").isEmpty());
-    CHECK(c.resultsFor("raw")->rowCount() == 1); CHECK(c.resultsFor("flash")->rowCount() == 0);
+    CHECK(c.resultsFor("raw")->rowCount() == 0); CHECK(c.resultsFor("flash")->rowCount() == 0);
+    CHECK(c.results()->rowCount() == 0);
+    for (auto op : {core::Operation::QualcommChipInfo, core::Operation::QualcommReset, core::Operation::QualcommFlash}) {
+        error.operation = op; c.applyResult(error);
+        const auto context = op == core::Operation::QualcommChipInfo ? "chipinfo" : op == core::Operation::QualcommReset ? "reset" : "flash";
+        CHECK(c.operationErrorFor(context) == "device disappeared");
+        CHECK(c.resultsFor(context)->rowCount() == 0); CHECK(c.results()->rowCount() == 0);
+    }
+    core::OperationResult chip; chip.operation = core::Operation::QualcommChipInfo;
+    chip.status = core::OperationStatus::Succeeded; chip.items.push_back({"Chip", "test-chip"}); c.applyResult(chip);
+    CHECK(c.operationErrorFor("chipinfo").isEmpty());
+    CHECK(c.resultsFor("chipinfo")->rowCount() == 1); CHECK(c.results()->rowCount() == 1);
     return failures ? 1 : 0;
 }

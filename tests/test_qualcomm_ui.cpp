@@ -535,6 +535,43 @@ int main(int argc,char **argv) {
             }
         }
         {
+            auto *resetPanel = toolsPage->findChild<QObject *>("qcToolPanel-reset"); CHECK(resetPanel);
+            CHECK(resetPanel && !resetPanel->property("showProgrammer").toBool());
+            CHECK(!toolsPage->findChild<QObject *>("qcResetProgrammerHint"));
+            auto *resetMethod = resetPanel ? resetPanel->findChild<QQuickItem *>("qcResetMethod") : nullptr;
+            CHECK(resetMethod && resetMethod->isVisible() && resetMethod->property("currentIndex").toInt() == 0);
+            auto *resetPicker = resetPanel ? resetPanel->findChild<QObject *>("qcPathPicker-programmer") : nullptr;
+            CHECK(resetPicker && resetPicker->property("requestContext").toString() == "reset");
+            auto *resetInput = resetPicker ? qobject_cast<QQuickItem *>(resetPicker->parent()) : nullptr;
+            CHECK(resetInput && !resetInput->isVisible());
+            auto *resetAdvanced = resetPanel ? resetPanel->findChild<QObject *>("qcAdvanced") : nullptr;
+            CHECK(resetAdvanced && !resetAdvanced->property("storage").toBool());
+            if (resetMethod) {
+                resetMethod->setProperty("currentIndex", 1);
+                CHECK(QMetaObject::invokeMethod(resetMethod, "activated", Q_ARG(int, 1)));
+            }
+            CHECK(qc->settingsFor("reset").value("resetMethod").toString() == "firehose");
+            CHECK(resetInput && resetInput->isVisible());
+            CHECK(resetAdvanced && resetAdvanced->property("storage").toBool());
+            CHECK(!qc->canRun(int(core::Operation::QualcommReset)));
+            qc->setContextValue("reset", "programmer", fixture.filePath("prog_firehose.mbn"));
+            CHECK(qc->canRun(int(core::Operation::QualcommReset)));
+            controller.language()->setMode("zh");
+            CHECK(QCoreApplication::translate("QualcommToolsPage", "Reset method") == QStringLiteral("重启方式"));
+            CHECK(resetMethod && resetMethod->property("currentIndex").toInt() == 1);
+            controller.language()->setMode("en");
+            if (resetMethod) {
+                resetMethod->setProperty("currentIndex", 0);
+                CHECK(QMetaObject::invokeMethod(resetMethod, "activated", Q_ARG(int, 0)));
+            }
+            CHECK(qc->settingsFor("reset").value("resetMethod").toString() == "sahara");
+            CHECK(resetInput && !resetInput->isVisible());
+            CHECK(resetAdvanced && !resetAdvanced->property("storage").toBool());
+            CHECK(qc->settingsFor("reset").value("programmer").toString() == fixture.filePath("prog_firehose.mbn"));
+            qc->setContextValue("reset", "programmer", temporary.filePath("missing-reset.mbn"));
+            CHECK(qc->canRun(int(core::Operation::QualcommReset)));
+        }
+        {
             window->setProperty("currentPage",2);
             auto *ufsPanel=toolsPage->findChild<QObject *>("qcToolPanel-provision"); CHECK(ufsPanel);
             auto *ufsAdvanced=ufsPanel ? ufsPanel->findChild<QObject *>("qcAdvanced") : nullptr; CHECK(ufsAdvanced);
@@ -626,6 +663,14 @@ int main(int argc,char **argv) {
                 CHECK(requests==i+1 && submitted.operation==toolOperations[i]);
                 CHECK(!controller.busy());
             }
+            auto *resetStart = toolsPage->findChild<QObject *>("qcToolStart-reset");
+            qc->setContextValue("reset", "resetMethod", "firehose");
+            qc->setContextValue("reset", "programmer", loader);
+            CHECK(resetStart && QMetaObject::invokeMethod(resetStart,"clicked"));
+            CHECK(requests == toolContexts.size()+1 && submitted.qualcomm.programmer == loader.toStdString());
+            qc->setContextValue("reset", "resetMethod", "sahara");
+            CHECK(resetStart && QMetaObject::invokeMethod(resetStart,"clicked"));
+            CHECK(requests == toolContexts.size()+2 && submitted.qualcomm.programmer.empty() && submitted.qualcomm.images.empty());
             QObject::disconnect(connection); controller.setVendor(2);
             // Only the requested operation receives its result table.
             core::OperationResult result; result.operation=core::Operation::QualcommChipInfo;
@@ -644,30 +689,43 @@ int main(int argc,char **argv) {
         if (toolsContent) for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
             controller.language()->setMode(language); controller.theme()->setMode(theme);
             for (const auto &context : toolContexts) {
-                auto *panel=toolsPage->findChild<QQuickItem *>("qcToolPanel-"+context);
-                auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-"+context);
-                auto *advanced=panel->findChild<QObject *>("qcAdvanced");
-                advanced->setProperty("expanded",true);
-                QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed()>30;});
-                const qreal currentY=toolsContent->property("contentY").toReal();
-                const qreal panelY=panel->mapToItem(toolsContent,QPointF()).y()+currentY;
-                const qreal buttonBottom=button->mapToItem(toolsContent,QPointF(0,button->height())).y()+currentY;
-                const qreal target=qMax(panelY,buttonBottom-toolsContent->height()+10);
-                const qreal maximum=qMax(qreal(0),toolsContent->property("contentHeight").toReal()-toolsContent->height());
-                toolsContent->setProperty("contentY",qBound(qreal(0),target,maximum));
-                QCoreApplication::processEvents();
-                const QPointF position=button->mapToScene(QPointF());
-                CHECK(position.x()>=toolsPage->x());
-                CHECK(position.x()+button->width()<=toolsPage->mapToScene(QPointF(toolsPage->width(),0)).x());
-                CHECK(position.y()>=toolsContent->mapToScene(QPointF()).y());
-                CHECK(position.y()+button->height()<=toolsContent->mapToScene(QPointF(0,toolsContent->height())).y());
-                if(button->isEnabled()) { button->forceActiveFocus(Qt::TabFocusReason); CHECK(button->hasActiveFocus()); }
-                if(argc>2) {
-                    QDir output(QString::fromLocal8Bit(argv[2]));
-                    CHECK(window->grabWindow().save(output.filePath(QString("tools-%1-%2-%3.png").arg(language,theme,context))));
+                const QStringList methods = context == "reset" ? QStringList{"sahara", "firehose"} : QStringList{"sahara"};
+                for (const auto &method : methods) {
+                    if (context == "reset") qc->setContextValue("reset", "resetMethod", method);
+                    auto *panel=toolsPage->findChild<QQuickItem *>("qcToolPanel-"+context);
+                    auto *button=toolsPage->findChild<QQuickItem *>("qcToolStart-"+context);
+                    auto *advanced=panel->findChild<QObject *>("qcAdvanced");
+                    advanced->setProperty("expanded",true);
+                    QElapsedTimer layout; layout.start(); Await([&]{return layout.elapsed()>30;});
+                    const qreal currentY=toolsContent->property("contentY").toReal();
+                    const qreal panelY=panel->mapToItem(toolsContent,QPointF()).y()+currentY;
+                    const qreal buttonBottom=button->mapToItem(toolsContent,QPointF(0,button->height())).y()+currentY;
+                    const qreal target=qMax(panelY,buttonBottom-toolsContent->height()+10);
+                    const qreal maximum=qMax(qreal(0),toolsContent->property("contentHeight").toReal()-toolsContent->height());
+                    toolsContent->setProperty("contentY",qBound(qreal(0),target,maximum));
+                    QCoreApplication::processEvents();
+                    const QPointF position=button->mapToScene(QPointF());
+                    CHECK(position.x()>=toolsPage->x());
+                    CHECK(position.x()+button->width()<=toolsPage->mapToScene(QPointF(toolsPage->width(),0)).x());
+                    CHECK(position.y()>=toolsContent->mapToScene(QPointF()).y());
+                    CHECK(position.y()+button->height()<=toolsContent->mapToScene(QPointF(0,toolsContent->height())).y());
+                    if (context == "reset") {
+                        auto *choice=panel->findChild<QQuickItem *>("qcResetMethod"); CHECK(choice);
+                        CHECK(choice && choice->property("currentIndex").toInt() == (method == "firehose" ? 1 : 0));
+                        CHECK(choice && choice->mapToScene(QPointF()).x() >= toolsPage->mapToScene(QPointF()).x());
+                        CHECK(choice && choice->mapToScene(QPointF(choice->width(),0)).x() <= toolsPage->mapToScene(QPointF(toolsPage->width(),0)).x());
+                        CHECK(panel->property("showProgrammer").toBool() == (method == "firehose"));
+                        CHECK(advanced->property("storage").toBool() == (method == "firehose"));
+                    }
+                    if(button->isEnabled()) { button->forceActiveFocus(Qt::TabFocusReason); CHECK(button->hasActiveFocus()); }
+                    if(argc>2) {
+                        QDir output(QString::fromLocal8Bit(argv[2]));
+                        CHECK(window->grabWindow().save(output.filePath(QString("tools-%1-%2-%3.png").arg(language,theme,context == "reset" ? context+"-"+method : context))));
+                    }
+                    advanced->setProperty("expanded",false);
                 }
-                advanced->setProperty("expanded",false);
             }
+            qc->setContextValue("reset", "resetMethod", "sahara");
             toolsContent->setProperty("contentY",0);
         }
         window->setProperty("currentPage",1);

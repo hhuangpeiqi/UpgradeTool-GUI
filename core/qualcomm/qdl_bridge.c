@@ -279,6 +279,8 @@ int qtq_execute(const struct qtq_request *r, const struct qtq_callbacks *callbac
 #else
     struct qdl_device *node = NULL;
 #endif
+    const int reset_loader = r && r->command == QTQ_RESET &&
+        ((r->programmer && *r->programmer) || r->image_count);
     int opened = 0, vip_initialized = 0, digests_initialized = 0;
     int ret = -EINVAL;
     if (!r || active || (r->xml_count && !r->xml) || (r->raw_count && !r->raw) ||
@@ -359,8 +361,12 @@ int qtq_execute(const struct qtq_request *r, const struct qtq_callbacks *callbac
         if (!r->skip_reset && !(r->command == QTQ_RAW && r->raw[r->raw_count-1].type == QTQ_FIREHOSE_RESET)) {
             ret = qdl_cmd_reset(&ops); if (ret < 0) goto cleanup;
         }
-    } else if (r->command == QTQ_KICKSTART) {
+    } else if (r->command == QTQ_KICKSTART || reset_loader) {
         ret = load_images(r, images); if (ret < 0) goto cleanup;
+        if (reset_loader) {
+            ret = qdl_cmd_reset(&ops); if (ret < 0) goto cleanup;
+            ret = qdl_ensure_configured(&ops, r->storage); if (ret < 0) goto cleanup;
+        }
     }
     if (qtq_cancelled()) { ret = -ECANCELED; goto cleanup; }
     qtq_progress("Sahara", 0, 0);
@@ -374,8 +380,14 @@ int qtq_execute(const struct qtq_request *r, const struct qtq_callbacks *callbac
     switch (r->command) {
     case QTQ_CHIPINFO: ret = sahara_chipinfo(device); break;
     case QTQ_RESET:
-        ret = sahara_device_reset(device);
-        if (ret == 1) ret = firehose_reset(device);
+        if (reset_loader) {
+            ux_info("Resetting through the selected Firehose programmer\n");
+            ret = sahara_run(device, images, NULL, NULL);
+            if (!ret && !qtq_cancelled()) ret = firehose_run(device, &ops);
+        } else {
+            ret = sahara_device_reset(device);
+            if (ret == 1) ret = firehose_reset(device);
+        }
         break;
     case QTQ_RAMDUMP:
         ret = qdl_mkdir_p(r->output);

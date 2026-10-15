@@ -15,9 +15,9 @@ DisclosureSection {
     readonly property bool firehose: ["flash", "raw", "digests", "provision"].indexOf(context) >= 0
     readonly property bool provision: context === "provision"
     readonly property bool device: ["zip", "archive"].indexOf(context) < 0
-    // Storage type only applies to a plain Firehose flash session; the slot is
-    // a rare override and lives next to it under Advanced options.
-    readonly property bool storage: root.firehose && !root.provision && !root.packageBuild
+    readonly property bool resetLoader: root.context === "reset" && root.settings.resetMethod === "firehose"
+    // Firehose sessions share their storage selection; Sahara-only tools ignore it.
+    readonly property bool storage: (root.firehose || root.resetLoader) && !root.provision && !root.packageBuild
     readonly property bool transport: root.device && root.context !== "digests"
     readonly property var settings: { app.qualcomm.settings; return app.qualcomm.settingsFor(context); }
     // QDLoader (QUD) is the Windows COM driver; other platforms only expose USB.

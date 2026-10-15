@@ -20,13 +20,35 @@ FormSection {
     readonly property bool valid: { app.qualcomm.settings; return app.qualcomm.canRun(operation); }
     readonly property bool deviceRequired: { app.qualcomm.settings; return app.qualcomm.needsDevice(operation); }
     readonly property bool packageBuild: page.toolIndex === 4 || (page.toolIndex === 5 && Boolean(page.settings.archiveContents)) || (page.toolIndex === 6 && Boolean(page.settings.packageBuild))
-    readonly property bool showProgrammer: page.toolIndex === 3 || (!page.packageBuild && page.toolIndex >= 5)
+    readonly property bool showProgrammer: (page.toolIndex === 1 && page.settings.resetMethod === "firehose") || page.toolIndex === 3 || (!page.packageBuild && page.toolIndex >= 5)
     readonly property bool showOutput: page.toolIndex === 2 || page.toolIndex === 4 || page.toolIndex === 5
     readonly property bool showDigestDir: page.toolIndex === 6
     readonly property bool showFilter: page.toolIndex === 2
     readonly property bool showNode: page.toolIndex === 3 && Qt.platform.os !== "windows"
     readonly property bool showInput: page.packageBuild || page.showProgrammer || page.showOutput || page.showDigestDir || page.showFilter || page.showNode
     readonly property bool showXml: (page.toolIndex === 6 && !page.packageBuild) || page.toolIndex === 7
+    GridLayout {
+        visible: page.toolIndex === 1
+        Layout.fillWidth: true
+        columns: 2
+        columnSpacing: 10
+        rowSpacing: 10
+        Text {
+            text: qsTranslate("QualcommToolsPage", "Reset method")
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+            Layout.preferredWidth: Theme.formLabelWidth
+            elide: Text.ElideRight
+        }
+        SegmentedControl {
+            objectName: "qcResetMethod"
+            model: ["Sahara", "Firehose"]
+            selectedIndex: page.settings.resetMethod === "firehose" ? 1 : 0
+            onSelectedIndexChanged: restoreSelection()
+            onActivated: app.qualcomm.setContextValue(page.context, "resetMethod", currentIndex === 1 ? "firehose" : "sahara")
+        }
+    }
     FormSection {
         visible: page.toolIndex === 5 || page.toolIndex === 6
         GridLayout {
