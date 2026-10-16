@@ -29,12 +29,12 @@
     <message>
         <location line="+19"/>
         <source>Multiple ADB devices detected. Select the one to switch to FEL:</source>
-        <translation>检测到多台 ADB 设备，请选择要切换到 FEL 的设备:</translation>
+        <translation>检测到多个 ADB 设备，请选择要切换到 FEL 的设备：</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Multiple ADB devices detected. Select the one to switch to Loader:</source>
-        <translation>检测到多台 ADB 设备，请选择要切换到 Loader 的设备:</translation>
+        <translation>检测到多个 ADB 设备，请选择要切换到 Loader 的设备：</translation>
     </message>
     <message>
         <location line="+51"/>
@@ -52,7 +52,7 @@
     <message>
         <location line="+1"/>
         <source>Read Flash Info</source>
-        <translation>读取Flash信息</translation>
+        <translation>读取 Flash 信息</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -102,7 +102,7 @@
     <message>
         <location line="+4"/>
         <source>Enter Maskrom</source>
-        <translation>进入Maskrom</translation>
+        <translation>进入 Maskrom</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -117,7 +117,7 @@
     <message>
         <location line="+1"/>
         <source>Switch USB3</source>
-        <translation>切换USB3</translation>
+        <translation>切换 USB3</translation>
     </message>
     <message>
         <location line="+20"/>
@@ -132,7 +132,7 @@
     <message>
         <location line="+1"/>
         <source>Loader / boot file path</source>
-        <translation>Loader / boot 文件路径</translation>
+        <translation>Loader / Boot 文件路径</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -188,7 +188,7 @@
     <message>
         <location line="+1"/>
         <source>Serial number to write</source>
-        <translation>要写入的序列号</translation>
+        <translation>待写入的序列号</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -295,32 +295,32 @@
     <message>
         <location line="+1"/>
         <source>U-Boot address</source>
-        <translation>uboot地址</translation>
+        <translation>U-Boot 地址</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Trust address</source>
-        <translation>trust地址</translation>
+        <translation>Trust 地址</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Boot address</source>
-        <translation>boot地址</translation>
+        <translation>Boot 地址</translation>
     </message>
     <message>
         <location line="+7"/>
         <source>U-Boot file</source>
-        <translation>uboot 文件</translation>
+        <translation>U-Boot 文件</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Trust file</source>
-        <translation>trust 文件</translation>
+        <translation>Trust 文件</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Boot file</source>
-        <translation>boot 文件</translation>
+        <translation>Boot 文件</translation>
     </message>
     <message>
         <location line="+13"/>
@@ -701,7 +701,7 @@
     <message>
         <location line="+5"/>
         <source>Leave empty to auto-detect (0x hex allowed)</source>
-        <translation>留空自动匹配（可填 0x 十六进制）</translation>
+        <translation>留空则自动检测（支持 0x 十六进制）</translation>
     </message>
     <message>
         <location line="+10"/>
@@ -756,7 +756,7 @@
     <message>
         <location line="+6"/>
         <source>Programmer Image Convert</source>
-        <translation>程序器镜像转换</translation>
+        <translation>引导程序镜像转换</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -791,7 +791,7 @@
     <message>
         <location line="+5"/>
         <source>Leave empty to auto-detect (0x hex allowed)</source>
-        <translation>留空自动匹配（可填 0x 十六进制）</translation>
+        <translation>留空则自动检测（支持 0x 十六进制）</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -801,7 +801,7 @@
     <message>
         <location line="+6"/>
         <source>Leave empty to auto-detect</source>
-        <translation>留空自动匹配</translation>
+        <translation>留空则自动检测</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -1021,7 +1021,7 @@
     <message>
         <location line="+12"/>
         <source>Check the devices to run the same operation on, in order:</source>
-        <translation>勾选要依次执行同一操作的设备:</translation>
+        <translation>勾选要依次执行同一操作的设备：</translation>
     </message>
     <message>
         <location line="+49"/>
@@ -1059,17 +1059,17 @@
     <message>
         <location line="+22"/>
         <source>No split package directory selected</source>
-        <translation>还未选择分体包目录</translation>
+        <translation>尚未选择分体包目录</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Click &quot;Browse&quot; above to choose a directory</source>
-        <translation>请点击上方「浏览」按钮选择目录</translation>
+        <translation>请点击上方的“浏览”选择目录</translation>
     </message>
     <message>
         <location line="+18"/>
         <source>Reboot device when done</source>
-        <translation>烧录完成后重启设备</translation>
+        <translation>完成后重启设备</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -1274,7 +1274,7 @@
     <message>
         <location line="+2"/>
         <source>Loader version</source>
-        <translation>Loader版本</translation>
+        <translation>Loader 版本</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -1299,7 +1299,7 @@
     <message>
         <location line="+19"/>
         <source>Reboot device when done</source>
-        <translation>烧录完成后重启设备</translation>
+        <translation>完成后重启设备</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -1426,7 +1426,7 @@
     <message>
         <location line="+1"/>
         <source>Name</source>
-        <translation>名字</translation>
+        <translation>名称</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1568,7 +1568,7 @@
     <message>
         <location line="+1"/>
         <source>Programmer Image Convert</source>
-        <translation>程序器镜像转换</translation>
+        <translation>引导程序镜像转换</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1766,7 +1766,7 @@
     <message>
         <location line="+9"/>
         <source>Click &quot;Install udev rules&quot; below and enter the password when prompted; or run manually in a terminal:</source>
-        <translation>点击下方「安装 udev 规则」，按提示输入密码即可修复；也可在终端手动执行：</translation>
+        <translation>点击下方的“安装 udev 规则”，按提示输入密码即可完成安装；也可在终端手动执行：</translation>
     </message>
     <message>
         <location line="+33"/>
@@ -1776,7 +1776,7 @@
     <message>
         <location line="+14"/>
         <source>If permission errors persist after installing, reconnect the device and click &quot;Retry&quot;.</source>
-        <translation>安装后若仍提示无权限，请重新插拔设备，再点「重新检测」。</translation>
+        <translation>安装后若仍提示无权限，请重新插拔设备，再点击“重新检测”。</translation>
     </message>
     <message>
         <location line="+19"/>
@@ -2305,7 +2305,7 @@
     <message>
         <location line="+1"/>
         <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
-        <translation>未检测到设备，请让设备进入 EDL(9008) 模式，或使用“切换到 EDL”</translation>
+        <translation>未检测到设备，请将设备置于 EDL(9008) 模式，或使用“切换到 EDL”</translation>
     </message>
 </context>
 <context>
@@ -2514,7 +2514,7 @@
     <message>
         <location line="+1"/>
         <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
-        <translation>未检测到设备，请让设备进入 EDL(9008) 模式，或使用“切换到 EDL”</translation>
+        <translation>未检测到设备，请将设备置于 EDL(9008) 模式，或使用“切换到 EDL”</translation>
     </message>
 </context>
 <context>
@@ -2806,7 +2806,7 @@
     <message>
         <location line="+1"/>
         <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
-        <translation>未检测到设备，请让设备进入 EDL(9008) 模式，或使用“切换到 EDL”</translation>
+        <translation>未检测到设备，请将设备置于 EDL(9008) 模式，或使用“切换到 EDL”</translation>
     </message>
 </context>
 <context>
@@ -2842,12 +2842,12 @@
     <message>
         <location line="-75"/>
         <source>No XML loaded. Use Load XML… to choose rawprogram and patch files.</source>
-        <translation>尚未加载 XML。点击「加载 XML…」选择 rawprogram 与 patch 文件。</translation>
+        <translation>尚未加载 XML。点击“加载 XML…”选择 rawprogram 与 patch 文件。</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>No XML loaded. Use Load XML… to choose a UFS configuration file.</source>
-        <translation>尚未加载 XML。点击「加载 XML…」选择 UFS 配置文件。</translation>
+        <translation>尚未加载 XML。点击“加载 XML…”选择 UFS 配置文件。</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -2990,7 +2990,7 @@
     <message>
         <location line="+19"/>
         <source>Select the storage to switch to:</source>
-        <translation>请选择要切换的存储:</translation>
+        <translation>请选择要切换的存储：</translation>
     </message>
     <message>
         <location line="+50"/>
@@ -3162,18 +3162,18 @@
     </message>
     <message>
         <location line="+9"/>
-        <source>FEL switch request sent; waiting for the USB device to appear…</source>
-        <translation>已发送 FEL 切换请求，等待 USB 设备出现…</translation>
+        <source>FEL switch request sent; waiting for the USB device…</source>
+        <translation>已发送 FEL 切换请求，等待 USB 设备…</translation>
     </message>
     <message>
         <location line="+21"/>
         <source>FEL flash device detected on the target USB port.</source>
-        <translation>已在目标 USB 端口检测到 FEL 刷机设备。</translation>
+        <translation>已在目标 USB 端口发现 FEL 设备。</translation>
     </message>
     <message>
         <location line="+8"/>
         <source>Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.</source>
-        <translation>已发送切换请求，但无法唯一定位目标 USB 端口，不能自动确认成功；请检查设备列表。</translation>
+        <translation>已发送切换请求，但无法唯一定位目标 USB 端口以确认成功；请检查设备列表。</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3248,7 +3248,7 @@
     <message>
         <location line="+93"/>
         <source>Batch: %1 selected / %2 current</source>
-        <translation>批量: 已选 %1 台 / 当前 %2 台</translation>
+        <translation>批量：已选 %1 个 / 当前 %2 个</translation>
     </message>
     <message>
         <location line="+23"/>
@@ -3266,7 +3266,7 @@
     <message>
         <location line="+1"/>
         <source>Found %1 %2 device(s)</source>
-        <translation>发现 %1 台 %2 设备</translation>
+        <translation>发现 %1 个 %2 设备</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -3286,7 +3286,7 @@
     <message>
         <location line="+1"/>
         <source>Found %1 ADB device(s)</source>
-        <translation>发现 %1 台 ADB 设备</translation>
+        <translation>发现 %1 个 ADB 设备</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -3321,12 +3321,12 @@
     <message>
         <location line="+22"/>
         <source>Batch mode: %1 selected</source>
-        <translation>批量模式：已选 %1 台</translation>
+        <translation>批量模式：已选 %1 个</translation>
     </message>
     <message>
         <location line="+13"/>
         <source>Single device selected</source>
-        <translation>已选择单台设备</translation>
+        <translation>已选择单个设备</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3374,7 +3374,7 @@
         <location line="+12"/>
         <location line="+15"/>
         <source>Batch finished: %1 succeeded, %2 failed</source>
-        <translation>批量结束：成功 %1 台，失败 %2 台</translation>
+        <translation>批量结束：成功 %1 个，失败 %2 个</translation>
     </message>
     <message>
         <location line="-14"/>
@@ -3520,7 +3520,7 @@
     <message>
         <location line="+25"/>
         <source>Parsed %2 entries from %1; check them and click &quot;Execute&quot; to download one by one.</source>
-        <translation>已从 %1 解析 %2 个条目，勾选后点「执行」逐条下载。</translation>
+        <translation>已从 %1 解析 %2 个条目，勾选后点击“执行”逐条下载。</translation>
     </message>
     <message>
         <location line="+10"/>
@@ -3642,17 +3642,17 @@
     <message>
         <location filename="../backend/ConfigStore.cpp" line="+128"/>
         <source>Loaded: %1</source>
-        <translation>已加载: %1</translation>
+        <translation>已加载：%1</translation>
     </message>
     <message>
         <location line="+50"/>
         <source>Save failed: cannot write %1</source>
-        <translation>保存失败: 无法写入 %1</translation>
+        <translation>保存失败：无法写入 %1</translation>
     </message>
     <message>
         <location line="+11"/>
         <source>Saved: %1</source>
-        <translation>已保存: %1</translation>
+        <translation>已保存：%1</translation>
     </message>
     <message>
         <location line="+7"/>
@@ -3677,7 +3677,7 @@
     <message>
         <location line="+5"/>
         <source>udev rules installed successfully: %1</source>
-        <translation>udev 规则安装成功: %1</translation>
+        <translation>udev 规则安装成功：%1</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3875,7 +3875,7 @@
     </message>
     <message>
         <source>Multiple EDL interfaces appeared at the target location; refresh and select one explicitly.</source>
-        <translation>目标位置出现多个 EDL 接口，请刷新后明确选择其中一个。</translation>
+        <translation>目标位置出现多个 EDL 接口，请刷新后选择其一。</translation>
     </message>
 </context>
 <context>

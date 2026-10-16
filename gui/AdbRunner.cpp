@@ -442,7 +442,7 @@ void AdbRunner::HandleFelCommand(int code, bool status, const QString &output)
 			command << "reboot" << "efex";
 		}
 		m_stage = Stage::Rebooting;
-		emit switchProgress(tr("FEL switch request sent; waiting for the USB device to appear…"));
+		emit switchProgress(tr("FEL switch request sent; waiting for the USB device…"));
 		m_felElapsed.start();
 		m_felTimer->start();
 		StartCommand(command);
