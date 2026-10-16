@@ -128,6 +128,7 @@ public:
 
 	Q_INVOKABLE QString toolVersion() const;
 	Q_INVOKABLE QString logDir() const;
+	Q_INVOKABLE void openLogDir();
 	Q_INVOKABLE QString homeDir() const;
 	QVariantList standardPlaces() const { return m_standardPlaces.value(); }
 	Q_INVOKABLE void logLine(const QString &strText);

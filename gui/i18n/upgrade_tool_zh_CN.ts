@@ -1493,12 +1493,7 @@
         <translation>日志</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Log directory: %1</source>
-        <translation>日志目录：%1</translation>
-    </message>
-    <message>
-        <location line="+2"/>
+        <location line="+3"/>
         <source>About</source>
         <translation>关于</translation>
     </message>
@@ -3193,6 +3188,14 @@
 </context>
 <context>
     <name>gui::AppController</name>
+    <message>
+        <source>Cannot create or access log directory: %1</source>
+        <translation>无法创建或访问日志目录：%1</translation>
+    </message>
+    <message>
+        <source>Cannot open log directory: %1</source>
+        <translation>无法打开日志目录：%1</translation>
+    </message>
     <message>
         <location filename="../backend/AppController.cpp" line="+125"/>
         <location line="+928"/>

@@ -241,7 +241,7 @@ ApplicationWindow {
         id: moreMenu
         AppMenuItem {
             text: qsTr("Log")
-            onTriggered: toast.show(qsTr("Log directory: %1").arg(app.logDir()), false)
+            onTriggered: app.openLogDir()
         }
         AppMenuItem { text: qsTr("About"); onTriggered: aboutDialog.open() }
     }

@@ -1,6 +1,7 @@
 #include "gui/backend/AppController.h"
 #include "application/BuildFeatures.h"
 
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -276,6 +277,17 @@ QString AppController::toolVersion() const
 QString AppController::logDir() const
 {
 	return QString::fromStdString(platform::GetUserLogDir());
+}
+
+void AppController::openLogDir()
+{
+	const QString path = QDir(logDir()).absolutePath();
+	if (!QDir().mkpath(path) || !QFileInfo(path).isDir()) {
+		emit toastRequested(tr("Cannot create or access log directory: %1").arg(QDir::toNativeSeparators(path)), true);
+		return;
+	}
+	if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
+		emit toastRequested(tr("Cannot open log directory: %1").arg(QDir::toNativeSeparators(path)), true);
 }
 
 void AppController::logLine(const QString &strText)
