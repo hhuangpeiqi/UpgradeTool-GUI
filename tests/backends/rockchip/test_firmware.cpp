@@ -1,6 +1,7 @@
 #include "tests/support/TestFiles.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "backends/rockchip/UpgradeEngine.h"
+#include "backends/rockchip/RockchipBackend.h"
 #include "RKImage.h"
 #include "RKBoot.h"
 #include "crc.h"
@@ -49,6 +50,28 @@ int main() {
 	core::UpgradeEngine engine; engine.BeginTask(); core::OperationRequest request;
 	request=core::OperationRequest(core::Operation::FirmwareInfo); request.file().path = imagePath;
 	auto result = engine.Execute(request); CHECK(result.ok() && result.firmware.entries.size() == 1);
+	// Firmware inspections bypass Configure and reuse the same backend across selections.
+	core::RockchipBackend backend;
+	auto cancellation = std::make_shared<std::stop_source>();
+	CHECK(backend.Execute(request, {}, cancellation, nullptr).ok());
+	for (int i = 0; i < 3; ++i) {
+		cancellation->request_stop();
+		CHECK(backend.Execute(request, {}, cancellation, nullptr).status == core::OperationStatus::Cancelled);
+		cancellation = std::make_shared<std::stop_source>();
+		result = backend.Execute(request, {}, cancellation, nullptr);
+		CHECK(result.ok() && result.firmware.valid && result.firmware.entries.size() == 1);
+	}
+	auto alreadyCancelled = std::make_shared<std::stop_source>();
+	alreadyCancelled->request_stop();
+	CHECK(backend.Execute(request, {}, alreadyCancelled, nullptr).status == core::OperationStatus::Cancelled);
+	cancellation = std::make_shared<std::stop_source>();
+	CHECK(backend.Execute(request, {}, cancellation, nullptr).ok());
+	// Cancelling an obsolete request must not cancel the current task.
+	auto obsolete = cancellation;
+	cancellation = std::make_shared<std::stop_source>();
+	CHECK(backend.Execute(request, {}, cancellation, nullptr).ok());
+	obsolete->request_stop();
+	CHECK(backend.Execute(request, {}, cancellation, nullptr).ok());
 	// An entry outside the physical file must fail rather than produce partial metadata.
 	Write32(entry + 0x6c, 0xffff); CHECK(Save(imagePath, image)); CHECK(!core::FirmwareService::Inspect(imagePath, info)); CHECK(!info.valid);
 	// Reject truncated entry tables, including excessive counts.

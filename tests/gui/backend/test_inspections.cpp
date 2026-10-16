@@ -1,8 +1,13 @@
 #include "gui/backend/RockchipController.h"
 #include "gui/backend/AllwinnerController.h"
+#include "gui/EngineWorker.h"
+#include "backends/rockchip/legacy/RKBoot.h"
+#include "backends/rockchip/legacy/crc.h"
 #include <QCoreApplication>
+#include <QFile>
 #include <QTemporaryDir>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 static int failures = 0;
@@ -37,6 +42,20 @@ int main(int argc, char **argv) {
         controller.clearFirmware();
         controller.applyInspection(5, requests[1].generation, result);
         CHECK(!controller.firmwareValid());
+        controller.setFirmware("third.img");
+        core::OperationResult failed;
+        failed.status = core::OperationStatus::Cancelled;
+        controller.applyInspection(5, requests.back().generation, failed);
+        CHECK(!controller.firmwareValid() && !controller.firmwareHintError());
+        CHECK(controller.firmwareHint() == "Cancelled");
+        failed.status = core::OperationStatus::Failed;
+        failed.error = core::ErrorCode::FileAccess;
+        controller.applyInspection(5, requests.back().generation, failed);
+        CHECK(!controller.firmwareValid() && controller.firmwareHintError());
+        CHECK(controller.firmwareHint() == "Cannot open file; check the path and permissions");
+        failed.error = core::ErrorCode::InvalidFirmware;
+        controller.applyInspection(5, requests.back().generation, failed);
+        CHECK(controller.firmwareHint() == "Invalid firmware.");
         controller.setImageDir("first");
         const auto folder = requests.back();
         controller.clearImage();
@@ -48,6 +67,47 @@ int main(int argc, char **argv) {
         CHECK(controller.imageEntries()->rowCount() == 1);
         controller.cancelInspections();
         CHECK(requests.back().cancelled->stop_requested());
+    }
+    {
+        // Exercise the real controller -> worker -> registry -> RK backend path.
+        std::vector<unsigned char> boot(sizeof(STRUCT_RKBOOT_HEAD) + 4, 0);
+        STRUCT_RKBOOT_HEAD head = {};
+        head.uiTag = 0x544f4f42; head.usSize = sizeof(head); head.dwVersion = 0x102;
+        std::memcpy(boot.data(), &head, sizeof(head));
+        const auto crc = CRC_32(boot.data(), boot.size() - 4);
+        for (int i = 0; i < 4; ++i) boot[boot.size() - 4 + i] = static_cast<unsigned char>(crc >> (8 * i));
+        const auto path = temporary.filePath("loader.bin");
+        QFile file(path);
+        CHECK(file.open(QIODevice::WriteOnly));
+        CHECK(file.write(reinterpret_cast<const char *>(boot.data()), boot.size()) == qint64(boot.size()));
+        file.close();
+        gui::EngineWorker worker(nullptr);
+        gui::RockchipController controller(nullptr);
+        QObject::connect(&controller, &gui::RockchipController::inspectRequested, &worker, &gui::EngineWorker::inspect);
+        QObject::connect(&worker, &gui::EngineWorker::inspectionFinished, &controller, &gui::RockchipController::applyInspection);
+        controller.setFirmware(path);
+        CHECK(controller.firmwareValid());
+        // setFirmware persists the path, so restore submits the startup inspection.
+        controller.restore();
+        CHECK(controller.firmwareValid());
+        controller.setFirmware(path);
+        CHECK(controller.firmwareValid() && controller.firmwareLoaderVersion() == "1.02");
+        controller.clearFirmware();
+        CHECK(!controller.firmwareValid());
+        controller.setFirmware(path);
+        CHECK(controller.firmwareValid());
+        controller.setFirmware(temporary.filePath("missing.img"));
+        CHECK(!controller.firmwareValid() && controller.firmwareHintError());
+        CHECK(controller.firmwareHint() == "Cannot open file; check the path and permissions");
+        controller.setFirmware(path);
+        CHECK(controller.firmwareValid());
+        boot[10] ^= 1;
+        CHECK(file.open(QIODevice::WriteOnly));
+        CHECK(file.write(reinterpret_cast<const char *>(boot.data()), boot.size()) == qint64(boot.size()));
+        file.close();
+        controller.setFirmware(path);
+        CHECK(!controller.firmwareValid() && controller.firmwareHintError());
+        CHECK(controller.firmwareHint() == "Invalid firmware.");
     }
     {
         gui::AllwinnerController controller;

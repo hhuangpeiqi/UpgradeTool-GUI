@@ -77,7 +77,15 @@ void RockchipController::applyInspection(int context,quint64 generation,const co
 	}, false);
 	emit imageStateChanged();
     } else if(context==5 && generation==m_firmwareGeneration) {
-        if(!result.ok()) { SetFirmwareHint([] { return AppTr("Invalid firmware."); },true); return; }
+        if(result.status==core::OperationStatus::Cancelled) {
+            SetFirmwareHint([] { return AppTr("Cancelled"); },false); return;
+        }
+        if(!result.ok()) {
+            const auto error=result.error;
+            SetFirmwareHint([error] {
+                return error==core::ErrorCode::InvalidFirmware ? AppTr("Invalid firmware.") : ErrorText(error);
+            },true); return;
+        }
         const auto &meta=result.firmware;
         m_strFwVersion=QString::fromStdString(meta.version); m_strFwLoader=QString::fromStdString(meta.loaderVersion);
         m_strFwChip=QString::fromStdString(meta.chip); m_strFwBuild=QString::fromStdString(meta.buildTime); m_strFwSign=QString::fromStdString(meta.sign);

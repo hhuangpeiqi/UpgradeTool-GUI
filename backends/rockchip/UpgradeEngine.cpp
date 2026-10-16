@@ -443,8 +443,11 @@ bool UpgradeEngine::Fail(ErrorCode code) { m_lastResult.error = code; return fal
 
 void UpgradeEngine::SetCancellation(const Cancellation &cancelled)
 {
+    // Queue steps share a token; a new inspection/task must not inherit an old abort.
+    if (m_cancelled == cancelled) return;
     m_cancelCallback.reset();
     m_cancelled=cancelled;
+    BeginTask();
     if(cancelled) m_cancelCallback=std::make_unique<std::stop_callback<std::function<void()>>>(
         cancelled->get_token(), [this] { m_abort.request_stop(); });
 }

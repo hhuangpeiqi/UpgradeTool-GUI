@@ -58,7 +58,10 @@ int main() {
 	core::Cancellation cancellation = [] { auto c=std::make_shared<std::stop_source>(); c->request_stop(); return c; }();
 	engine.SetCancellation(cancellation); engine.BeginTask(); CHECK(engine.IsAborted());
 	CHECK(engine.Execute(request).status == core::OperationStatus::Cancelled);
-	cancellation=std::make_shared<std::stop_source>(); engine.SetCancellation(cancellation); engine.BeginTask();
+	cancellation=std::make_shared<std::stop_source>(); engine.SetCancellation(cancellation); CHECK(!engine.IsAborted());
+	engine.RequestAbort(); engine.SetCancellation(cancellation); CHECK(engine.IsAborted());
+	CHECK(engine.Execute(request).status == core::OperationStatus::Cancelled);
+	cancellation=std::make_shared<std::stop_source>(); engine.SetCancellation(cancellation); CHECK(!engine.IsAborted());
 	engine.ResetProgress(1000); engine.StepProgress(100); CHECK(observer.progress == 1); CHECK(observer.lastTotal == 1000 && observer.lastCurrent == 100);
 	engine.StepProgress(5); CHECK(observer.progress == 1); engine.StepProgress(20); CHECK(observer.progress == 2);
 	engine.ResetProgress(0); engine.StepProgress(10); CHECK(observer.progress == 2);
