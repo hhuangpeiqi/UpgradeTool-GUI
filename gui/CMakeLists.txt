@@ -39,6 +39,8 @@ add_library(upgrade_gui_backend STATIC
   backend/ConfigStore.h
   backend/DirModel.cpp
   backend/DirModel.h
+  backend/FileLocations.cpp
+  backend/FileLocations.h
   backend/ThemeManager.cpp
   backend/ThemeManager.h
   backend/LanguageManager.cpp

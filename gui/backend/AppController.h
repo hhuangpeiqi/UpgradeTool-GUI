@@ -17,6 +17,7 @@
 #include <QVariantMap>
 
 #include "gui/backend/ConfigStore.h"
+#include "gui/backend/FileLocations.h"
 #include "gui/backend/ImageEntryModel.h"
 #include "gui/backend/KeyValueModel.h"
 #include "gui/backend/LanguageManager.h"
@@ -133,6 +134,8 @@ public:
 	Q_INVOKABLE void openLogDir();
 	Q_INVOKABLE QString homeDir() const;
 	QVariantList standardPlaces() const { return m_standardPlaces.value(); }
+	Q_INVOKABLE void refreshStandardPlaces();
+	Q_INVOKABLE bool directoryAvailable(const QString &path) const { return m_fileLocations.directoryAvailable(path); }
 	Q_INVOKABLE void logLine(const QString &strText);
 	Q_INVOKABLE QString lastDir(const QString &strKey) const;
 	Q_INVOKABLE void rememberPath(const QString &strKey, const QString &strPath);
@@ -176,6 +179,7 @@ signals:
 	void switchingChanged();
 	void batchModeChanged();
 	void standardPlacesChanged();
+	void storageVolumesChanged();
 
 	void toastRequested(const QString &strText, bool bError);
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
@@ -237,6 +241,7 @@ private:
 	LogModel *m_pLog;
 
 	Translatable<QVariantList> m_standardPlaces;
+	FileLocations m_fileLocations;
 	QString m_strDeviceStatus;
 	int m_iDeviceIndex;
 

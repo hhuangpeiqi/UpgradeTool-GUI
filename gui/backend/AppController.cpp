@@ -231,6 +231,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 
 	// Single source of truth for retranslation: every cached string owner
 	// registers here so LanguageManager refreshes them all on a language switch.
+	m_fileLocations.refresh();
 	m_standardPlaces.Set([this] { return BuildStandardPlaces(); });
 	m_pLanguage->registerRetranslatable(this);
 	m_pLanguage->registerRetranslatable(m_pConfig);
@@ -373,6 +374,15 @@ QString AppController::homeDir() const
 	return QDir::homePath();
 }
 
+void AppController::refreshStandardPlaces()
+{
+	const bool volumesChanged = m_fileLocations.refresh();
+	const QVariantList previous = standardPlaces();
+	m_standardPlaces.retranslate();
+	if (previous != standardPlaces()) emit standardPlacesChanged();
+	if (volumesChanged) emit storageVolumesChanged();
+}
+
 QVariantList AppController::BuildStandardPlaces() const
 {
 	QVariantList places;
@@ -381,8 +391,10 @@ QVariantList AppController::BuildStandardPlaces() const
 	auto addPlace = [&places, &seen](const QString &strName, const QString &strPath) {
 		if (strPath.isEmpty())
 			return;
-		QString strClean = QDir::cleanPath(strPath);
-		if (strClean.isEmpty() || seen.contains(strClean))
+		QString strClean = FileLocations::normalizePath(strPath);
+		const auto sensitivity = FileLocations::hostPlatform() == FileLocations::Platform::Windows
+			? Qt::CaseInsensitive : Qt::CaseSensitive;
+		if (strClean.isEmpty() || seen.contains(strClean, sensitivity))
 			return;
 		if (!QFileInfo(strClean).isDir())
 			return;
@@ -398,21 +410,11 @@ QVariantList AppController::BuildStandardPlaces() const
 	addPlace(tr("Documents"), QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
 	addPlace(tr("Downloads"), QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));
 	addPlace(tr("Pictures"), QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
-	addPlace(tr("Root"), QStringLiteral("/"));
-
-	const QString strUser = QDir::home().dirName();
-	QStringList mediaRoots;
-	mediaRoots << QStringLiteral("/media/") + strUser
-	           << QStringLiteral("/run/media/") + strUser
-	           << QStringLiteral("/mnt");
-	for (int i = 0; i < mediaRoots.size(); i++) {
-		QDir dir(mediaRoots[i]);
-		if (!dir.exists())
-			continue;
-		const QFileInfoList entries = dir.entryInfoList(
-			QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-		for (int j = 0; j < entries.size(); j++)
-			addPlace(entries[j].fileName(), entries[j].absoluteFilePath());
+	if (FileLocations::hostPlatform() != FileLocations::Platform::Windows)
+		addPlace(tr("Root"), QStringLiteral("/"));
+	for (const auto &place : m_fileLocations.places()) {
+		const auto map = place.toMap();
+		addPlace(map.value("name").toString(), map.value("path").toString());
 	}
 
 	return places;

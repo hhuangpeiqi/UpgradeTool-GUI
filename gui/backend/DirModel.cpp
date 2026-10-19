@@ -1,4 +1,5 @@
 #include "gui/backend/DirModel.h"
+#include "gui/backend/FileLocations.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -139,6 +140,21 @@ void DirModel::setSearchText(const QString &strText)
 void DirModel::refresh()
 {
 	Reload();
+}
+
+QString DirModel::parentPath() const
+{
+	return FileLocations::parentPath(m_strRoot);
+}
+
+QVariantList DirModel::breadcrumbs() const
+{
+	return FileLocations::breadcrumbs(m_strRoot);
+}
+
+QString DirModel::filePath(const QString &name) const
+{
+	return QDir(m_strRoot).filePath(name);
 }
 
 QString DirModel::nameAt(int iRow) const

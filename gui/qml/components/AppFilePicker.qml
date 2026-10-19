@@ -50,7 +50,7 @@ AppDialog {
     // Hint text is a binding rather than an imperative assignment so it
     // retranslates like any other qsTr text; the C++ error text has its own
     // NOTIFY signal. C++ location names come through app.standardPlaces.
-    enum Hint { None, Created, EnterName, SlashInName, ModelError }
+    enum Hint { None, Created, EnterName, SlashInName, ModelError, StorageRemoved }
     property int hint: AppFilePicker.Hint.None
     hintText: {
         if (selectionError !== "") return selectionError;
@@ -59,12 +59,14 @@ AppDialog {
         case AppFilePicker.Hint.EnterName:   return qsTr("Enter a file name");
         case AppFilePicker.Hint.SlashInName: return qsTr("File name cannot contain \"/\"");
         case AppFilePicker.Hint.ModelError:  return dirModel.errorText;
+        case AppFilePicker.Hint.StorageRemoved: return qsTr("Storage is no longer available. Returned to Home.");
         default:                             return "";
         }
     }
     hintError: selectionError !== "" || hint === AppFilePicker.Hint.EnterName
                || hint === AppFilePicker.Hint.SlashInName
                || hint === AppFilePicker.Hint.ModelError
+               || hint === AppFilePicker.Hint.StorageRemoved
 
     readonly property int listHeight: 400
     readonly property int rowHeight: 34
@@ -115,27 +117,44 @@ AppDialog {
     }
 
     function buildCrumbs() {
-        var p = dirModel.rootPath;
-        var list = [];
-        if (p === "") {
-            crumbs = list;
-            return;
+        crumbs = dirModel.breadcrumbs();
+    }
+
+    function recoverUnavailableFolder() {
+        if (app.directoryAvailable(dirModel.rootPath))
+            return false;
+        navigateTo(app.homeDir());
+        selectedFiles = [];
+        selectedFile = "";
+        selectedFolder = "";
+        fileField.text = "";
+        creatingFolder = false;
+        newFolderField.text = "";
+        hint = AppFilePicker.Hint.StorageRemoved;
+        return true;
+    }
+
+    function refreshLocations() {
+        var previousFolder = dirModel.rootPath;
+        app.refreshStandardPlaces();
+        var recovered = recoverUnavailableFolder();
+        return recovered || dirModel.rootPath !== previousFolder;
+    }
+
+    Timer {
+        objectName: "storageRefreshTimer"
+        interval: 1000
+        repeat: true
+        running: root.visible
+        onTriggered: root.refreshLocations()
+    }
+
+    Connections {
+        target: app
+        function onStorageVolumesChanged() {
+            if (root.visible)
+                root.recoverUnavailableFolder();
         }
-        if (p.charAt(0) === "/")
-            list.push({ name: "/", path: "/" });
-        var parts = p.split("/");
-        var accum = "";
-        for (var i = 0; i < parts.length; i++) {
-            var seg = parts[i];
-            if (seg === "")
-                continue;
-            if (accum === "")
-                accum = (p.charAt(0) === "/" ? "/" + seg : seg);
-            else
-                accum = accum + "/" + seg;
-            list.push({ name: seg, path: accum });
-        }
-        crumbs = list;
     }
 
     function navigateTo(path) {
@@ -186,16 +205,16 @@ AppDialog {
     }
 
     function goUp() {
-        var p = dirModel.rootPath;
-        if (p === "/" || p === "")
-            return;
-        var idx = p.lastIndexOf("/");
-        navigateTo(idx > 0 ? p.substring(0, idx) : "/");
+        var parent = dirModel.parentPath();
+        if (parent !== dirModel.rootPath)
+            navigateTo(parent);
     }
 
     function reset() {
         selectedFiles = [];
         hint = AppFilePicker.Hint.None;
+        selectedFile = "";
+        selectedFolder = "";
         editingPath = false;
         creatingFolder = false;
         selectedPath = "";
@@ -217,7 +236,14 @@ AppDialog {
             start = app.toLocalPath(defaultFolder.toString());
         else
             start = app.homeDir();
-        navigateTo(start);
+        // Enumerate before opening the remembered directory, including when
+        // the device was removed while the picker was closed.
+        app.refreshStandardPlaces();
+        hint = AppFilePicker.Hint.None;
+        var unavailable = !app.directoryAvailable(start);
+        navigateTo(unavailable ? app.homeDir() : start);
+        if (unavailable)
+            hint = AppFilePicker.Hint.StorageRemoved;
         if (!folderMode)
             fileField.text = "";
         // setRootPath() early-returns when the target directory is unchanged,
@@ -298,6 +324,9 @@ AppDialog {
     }
 
     function confirmAccept() {
+        // Close the interval between the last poll and a confirmation click.
+        if (refreshLocations())
+            return;
         selectionError = "";
         if (multiple && !folderMode && !saveMode && selectedPaths.length > 0 && fileField.text.trim() === "") {
             if (validateSelection) selectionError = validateSelection(selectedPaths);
@@ -324,12 +353,11 @@ AppDialog {
                     fileField.forceActiveFocus();
                     return;
                 }
-            } else if (name.indexOf("/") >= 0) {
+            } else if (name.indexOf("/") >= 0 || (Qt.platform.os === "windows" && name.indexOf("\\") >= 0)) {
                 hint = AppFilePicker.Hint.SlashInName;
                 return;
             } else {
-                var folder = dirModel.rootPath;
-                var full = (folder === "/" ? "" : folder) + "/" + name;
+                var full = dirModel.filePath(name);
                 if (saveMode && defaultSuffix !== "" && name.indexOf(".") < 0) {
                     full += (defaultSuffix.charAt(0) === "." ? defaultSuffix
                                                             : "." + defaultSuffix);
@@ -568,7 +596,11 @@ AppDialog {
                     SecondaryButton {
                         text: qsTr("Refresh")
                         Layout.preferredHeight: root.rowHeight
-                        onClicked: dirModel.refresh()
+                        objectName: "filePickerRefresh"
+                        onClicked: {
+                            root.refreshLocations();
+                            dirModel.refresh();
+                        }
                     }
 
                     AppCheckBox {
@@ -791,6 +823,7 @@ AppDialog {
 
         AppTextField {
             id: fileField
+            objectName: "filePickerFileName"
             visible: !root.folderMode
             Layout.fillWidth: true
             Layout.preferredHeight: root.rowHeight
@@ -848,6 +881,7 @@ AppDialog {
 
     DirModel {
         id: dirModel
+        objectName: "filePickerDirModel"
         showFiles: !root.folderMode
         showHidden: hiddenBox.checked
         Component.onCompleted: app.language.registerRetranslatable(dirModel)

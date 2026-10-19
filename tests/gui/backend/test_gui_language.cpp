@@ -57,6 +57,13 @@ int TestLanguage([[maybe_unused]] QGuiApplication &application) {
 		controller.config()->load();
 		const QString zhStatus = controller.config()->status();
 		const QVariantList zhPlaces = controller.standardPlaces();
+		int placeNotifications = 0;
+		QObject::connect(&controller, &gui::AppController::standardPlacesChanged,
+		                 &controller, [&] { ++placeNotifications; });
+		controller.refreshStandardPlaces();
+		controller.refreshStandardPlaces();
+		CHECK(controller.standardPlaces() == zhPlaces);
+		CHECK(placeNotifications == 0);
 		CHECK(!zhAdvanced.isEmpty() && !zhImage.isEmpty() && !zhFirmware.isEmpty() && !zhStatus.isEmpty());
 		CHECK(!zhPlaces.isEmpty());
 

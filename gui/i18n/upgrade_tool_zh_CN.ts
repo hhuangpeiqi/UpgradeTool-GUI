@@ -890,6 +890,10 @@
 <context>
     <name>AppFilePicker</name>
     <message>
+        <source>Storage is no longer available. Returned to Home.</source>
+        <translation>存储已不可用，已返回主目录。</translation>
+    </message>
+    <message>
         <location filename="../qml/components/AppFilePicker.qml" line="+58"/>
         <source>Directory created</source>
         <translation>已创建目录</translation>

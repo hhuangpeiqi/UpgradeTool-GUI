@@ -7,6 +7,7 @@
 #include <QList>
 #include <QString>
 #include <QStringList>
+#include <QVariantList>
 
 #include "gui/backend/Retranslatable.h"
 
@@ -65,6 +66,9 @@ public:
 	void setSearchText(const QString &strText);
 
 	Q_INVOKABLE void refresh();
+	Q_INVOKABLE QString parentPath() const;
+	Q_INVOKABLE QVariantList breadcrumbs() const;
+	Q_INVOKABLE QString filePath(const QString &name) const;
 	Q_INVOKABLE QString nameAt(int iRow) const;
 	Q_INVOKABLE QString pathAt(int iRow) const;
 	Q_INVOKABLE bool isDirAt(int iRow) const;
