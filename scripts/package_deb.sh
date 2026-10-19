@@ -30,8 +30,9 @@ build_native() {
 		exit 1
 	fi
 
-	cmake -S "$ROOT" -B "$BUILD_DIR"
+	cmake -S "$ROOT" -B "$BUILD_DIR" -DUPGRADE_TOOL_TESTS=ON
 	cmake --build "$BUILD_DIR" -j
+	ctest --test-dir "$BUILD_DIR" --output-on-failure
 	cpack --config "$BUILD_DIR/CPackConfig.cmake" -G DEB -B "$BUILD_DIR"
 
 	report "$BUILD_DIR"
@@ -73,8 +74,10 @@ build_container() {
 		sh -c '
 			set -eu
 			cmake -S /src -B /out/build \
-				-DCMAKE_BUILD_TYPE=Release
+				-DCMAKE_BUILD_TYPE=Release \
+				-DUPGRADE_TOOL_TESTS=ON
 			cmake --build /out/build -j"$(nproc)"
+			ctest --test-dir /out/build --output-on-failure
 			cpack --config /out/build/CPackConfig.cmake -G DEB -B /out/build
 		'
 
