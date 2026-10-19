@@ -8,3 +8,7 @@ upgrade_test(test_gui_backend
   LIBRARIES upgrade_gui_backend TIMEOUT 20 ENVIRONMENT ${test_gui_environment}
   LABELS gui controller)
 upgrade_attach_test_translations(test_gui_backend)
+upgrade_test(test_application_lifecycle LIBRARIES upgrade_gui_backend TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui controller qml)
+upgrade_attach_gui_test_resources(test_application_lifecycle)
+upgrade_attach_test_translations(test_application_lifecycle)

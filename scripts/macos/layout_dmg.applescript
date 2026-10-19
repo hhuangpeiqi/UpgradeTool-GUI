@@ -1,5 +1,6 @@
 on run argv
-    set mountFolder to POSIX file (item 1 of argv) as alias
+    -- Keep the mount path: an alias can resolve to another volume with the same name.
+    set mountFolder to POSIX file (item 1 of argv)
     tell application "Finder"
         tell folder mountFolder
             open

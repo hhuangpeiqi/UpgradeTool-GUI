@@ -54,10 +54,17 @@ EdlRunner::EdlRunner(QObject *parent) : EdlRunner(DefaultEdlHooks(), 45000, pare
 EdlRunner::EdlRunner(EdlHooks hooks, int waitMs, QObject *parent)
     : QObject(parent), m_hooks(std::move(hooks)), m_waitMs(waitMs) {}
 EdlRunner::~EdlRunner() {
-    cancel();
-    if (m_discoveryCancel) m_discoveryCancel->request_stop();
+    shutdown();
     if (m_discoveryThread) { m_discoveryThread->wait(); delete m_discoveryThread; }
     if (m_thread) { m_thread->wait(); delete m_thread; }
+}
+void EdlRunner::shutdown() {
+    m_stopping = true;
+    cancel();
+    if (m_discoveryCancel) m_discoveryCancel->request_stop();
+}
+bool EdlRunner::stopped() const {
+    return (!m_discoveryThread || m_discoveryThread->isFinished()) && (!m_thread || m_thread->isFinished());
 }
 void EdlRunner::cancel() { if (m_cancel) m_cancel->request_stop(); }
 void EdlRunner::setState(State state) { m_state = state; emit changed(); }
@@ -130,7 +137,7 @@ void EdlRunner::rebuildTargets() {
     emit targetsChanged();
 }
 void EdlRunner::refresh(const QString &adbPath) {
-    if (m_discoveryThread || running()) return;
+    if (m_stopping || m_discoveryThread || running()) return;
     m_discovering = true;
     const auto cancel = std::make_shared<std::stop_source>();
     m_discoveryCancel = cancel;
@@ -151,7 +158,7 @@ void EdlRunner::refresh(const QString &adbPath) {
     m_discoveryThread->start();
 }
 void EdlRunner::start(const QString &targetId, int method, const QString &endpointId, const QString &adbPath) {
-    if (running()) return;
+    if (m_stopping || running()) return;
     if (method != m_method || !canStart(targetId, endpointId)) {
         reject(tr("No matching switch endpoint is available. Refresh the device list.")); return;
     }

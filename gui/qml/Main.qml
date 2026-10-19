@@ -120,6 +120,7 @@ ApplicationWindow {
 
     Rectangle {
         id: shell
+        enabled: !app.shuttingDown
         anchors.fill: parent
         radius: window.cornerRadius
         color: Theme.pageBg
@@ -193,9 +194,10 @@ ApplicationWindow {
                 hasAdbDevice: app.vendor !== 2 && app.adbReady
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
-                progressValue: app.tasks.progressValue
-                progressSpeed: app.switching ? app.tasks.progressText : app.tasks.progressSpeed
-                busy: app.tasks.busy
+                progressValue: app.shuttingDown ? -1 : app.tasks.progressValue
+                progressSpeed: app.shuttingDown ? qsTr("Cancelling tasks and closing…")
+                    : app.switching ? app.tasks.progressText : app.tasks.progressSpeed
+                busy: app.tasks.busy || app.shuttingDown
                 onRefreshClicked: app.refresh()
                 onCancelClicked: app.cancel()
                 onDeviceActivated: (index) => app.deviceIndex = index
@@ -288,6 +290,49 @@ ApplicationWindow {
     }
 
     SettingsDialog { id: settingsDialog }
+    AppDialog {
+        id: quitDialog
+        objectName: "quitDialog"
+        titleText: qsTr("Quit UpgradeTool-GUI?")
+        onClosed: app.confirmQuit(false)
+        Text {
+            width: parent.width
+            text: qsTr("A task is running. Cancelling a flash operation may leave the device unable to boot. Cancel the task and quit?")
+            color: Theme.textPrimary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+            wrapMode: Text.WordWrap
+        }
+        footerContent: RowLayout {
+            width: parent.width
+            spacing: 10
+
+            Item { Layout.fillWidth: true }
+
+            SecondaryButton {
+                objectName: "confirmQuitButton"
+                text: qsTr("Cancel task and quit")
+                onClicked: {
+                    app.confirmQuit(true);
+                    quitDialog.close();
+                }
+            }
+            PrimaryButton {
+                objectName: "continueRunningButton"
+                text: qsTr("Continue running")
+                onClicked: quitDialog.close()
+            }
+        }
+    }
+    Connections {
+        target: app
+        function onQuitConfirmationRequested() {
+            window.show();
+            window.raise();
+            window.requestActivate();
+            quitDialog.open();
+        }
+    }
     BatchSelectDialog { id: batchDialog }
     StorageSelectDialog { id: storageDialog }
     GptDialog { id: gptDialog }

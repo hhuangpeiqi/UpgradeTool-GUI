@@ -150,6 +150,7 @@ AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, 
 
 QString AdbRunner::AdbPath() const
 {
+	if (m_stopped) return QString();
 	QString strEnv = qEnvironmentVariable("ADB");
 	if (!strEnv.isEmpty())
 		return strEnv;
@@ -163,7 +164,15 @@ QString AdbRunner::AdbPath() const
 
 AdbRunner::~AdbRunner()
 {
+	Stop();
+}
+
+void AdbRunner::Stop()
+{
+	m_stopped = true;
 	m_bRunning = false;
+	m_bAwaitingChoice = false;
+	for (auto *timer : {m_felTimer, m_pTimeout, m_pPollTimer, m_pPollKill}) timer->stop();
 	for (auto *process : {m_pProc, m_pPollProc}) {
 		if (process->state() != ProcessAdapter::NotRunning) {
 			process->kill();
@@ -176,6 +185,7 @@ bool AdbRunner::IsAvailable() const { return !AdbPath().isEmpty(); }
 
 void AdbRunner::Start()
 {
+	if (m_stopped) return;
 	RunPoll();
 	m_pPollTimer->start(kPollIntervalMs);
 }
@@ -191,6 +201,7 @@ void AdbRunner::UpdateAvailability(bool bAvailable, const QString &strMessage)
 
 void AdbRunner::RunPoll()
 {
+	if (m_stopped) return;
 	if (m_pPollProc->state() != ProcessAdapter::NotRunning)
 		return;
 	if (m_bRunning || m_bAwaitingChoice)
@@ -257,6 +268,7 @@ void AdbRunner::SwitchToFel(FelMethod method)
 
 void AdbRunner::BeginSwitch()
 {
+	if (m_stopped) return;
 	if (m_bRunning || m_bAwaitingChoice)
 		return;
 

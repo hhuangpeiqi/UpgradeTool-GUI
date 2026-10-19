@@ -33,6 +33,7 @@ class AdbRunner : public QObject
 
 	bool IsAvailable() const;
 	QString AdbPath() const;
+	void Stop();
 
 	void Start();
 
@@ -84,6 +85,7 @@ class AdbRunner : public QObject
 	bool m_bAwaitingChoice;
 	bool m_bAvailable;
 	bool m_bAvailabilityKnown;
+	bool m_stopped = false;
 	enum class Stage { Idle, Loader, Listing, Probing, Rebooting, Waiting };
 	Stage m_stage = Stage::Idle;
 	bool m_felSwitch = false;

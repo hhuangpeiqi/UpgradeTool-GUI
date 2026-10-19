@@ -6,6 +6,7 @@
 #include <QQmlEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QScopeGuard>
 #include <QTimer>
 #include <QUrl>
 
@@ -20,6 +21,7 @@
 #include "gui/backend/AppController.h"
 #include "gui/backend/DirModel.h"
 #include "gui/OperationSpec.h"
+#include "gui/ApplicationLifecycle.h"
 
 
 int main(int argc, char *argv[])
@@ -50,6 +52,10 @@ int main(int argc, char *argv[])
 		delete pLog;
 		return -1;
 	}
+	const auto cleanup = qScopeGuard([pLog] {
+		delete pLog;
+		libusb_exit(nullptr);
+	});
 
 	QString strScreenshot;
 	QString strImageDir;
@@ -93,10 +99,16 @@ int main(int argc, char *argv[])
 		engine.load(QUrl(QStringLiteral("qrc:/qt/qml/UpgradeTool/Main.qml")));
 #endif
 		if (engine.rootObjects().isEmpty()) {
-			libusb_exit(NULL);
-			delete pLog;
 			return -1;
 		}
+		gui::ApplicationLifecycle lifecycle(&controller,
+		    qobject_cast<QQuickWindow *>(engine.rootObjects().first()));
+		QObject::connect(&controller, &gui::AppController::shutdownReady, &app, [&] {
+			pLog->Record("Application shutdown complete");
+			// Exit directly after orderly cleanup. QGuiApplication::quit() would
+			// dispatch another Quit event and close unrelated popup windows again.
+			QCoreApplication::exit(0);
+		});
 
 		if (!strImageDir.isEmpty())
 			controller.rockchip()->setImageDir(strImageDir);
@@ -118,7 +130,5 @@ int main(int argc, char *argv[])
 		iRet = app.exec();
 	}
 
-	delete pLog;
-	libusb_exit(NULL);
 	return iRet;
 }

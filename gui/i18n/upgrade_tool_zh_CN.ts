@@ -1463,6 +1463,26 @@
 <context>
     <name>Main</name>
     <message>
+        <source>Cancelling tasks and closing…</source>
+        <translation>正在取消任务并退出…</translation>
+    </message>
+    <message>
+        <source>Quit UpgradeTool-GUI?</source>
+        <translation>退出 UpgradeTool-GUI？</translation>
+    </message>
+    <message>
+        <source>A task is running. Cancelling a flash operation may leave the device unable to boot. Cancel the task and quit?</source>
+        <translation>当前有任务正在执行。取消刷写可能导致设备无法启动。是否取消任务并退出？</translation>
+    </message>
+    <message>
+        <source>Continue running</source>
+        <translation>继续运行</translation>
+    </message>
+    <message>
+        <source>Cancel task and quit</source>
+        <translation>取消任务并退出</translation>
+    </message>
+    <message>
         <location filename="../qml/Main.qml" line="+238"/>
         <source>Preferences…</source>
         <translation>首选项…</translation>

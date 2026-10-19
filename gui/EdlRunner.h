@@ -76,6 +76,8 @@ public:
     // Only DIAG and ADB are supported; the chosen transport never falls back.
     void start(const QString &targetId, int method, const QString &endpointId, const QString &adbPath);
     void cancel();
+    void shutdown();
+    bool stopped() const;
     static QByteArray encode(const QByteArray &payload);
     static bool decode(QByteArray &buffer, QByteArray &payload);
     static bool validVersion(const QByteArray &payload);
@@ -106,6 +108,7 @@ private:
     QVector<EdlEndpoint> m_endpoints;
     QVariantList m_targets;
     bool m_discovering = false, m_discovered = false;
+    bool m_stopping = false;
     State m_state = Idle;
     QString m_message, m_discoveryError;
 };

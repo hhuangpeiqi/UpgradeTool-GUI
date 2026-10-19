@@ -1,6 +1,8 @@
 set(CMAKE_AUTOMOC ON)
 
 add_library(upgrade_gui_backend STATIC
+  ApplicationLifecycle.cpp
+  ApplicationLifecycle.h
   ProcessAdapter.cpp
   ProcessAdapter.h
   MessageCatalog.cpp

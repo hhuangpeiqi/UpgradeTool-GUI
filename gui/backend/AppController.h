@@ -25,6 +25,7 @@
 #include "gui/backend/ThemeManager.h"
 
 class QThread;
+class QTimer;
 namespace platform { class FileLog; }
 
 namespace gui {
@@ -67,6 +68,7 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(gui::LogModel *log READ log CONSTANT)
 	Q_PROPERTY(gui::ConfigStore *config READ config CONSTANT)
 	Q_PROPERTY(gui::ThemeManager *theme READ theme CONSTANT)
+	Q_PROPERTY(bool shuttingDown READ shuttingDown NOTIFY shuttingDownChanged)
 	Q_PROPERTY(gui::LanguageManager *language READ language CONSTANT)
 
 
@@ -140,6 +142,9 @@ public:
 
 	Q_INVOKABLE void refresh();
 	Q_INVOKABLE void cancel();
+	Q_INVOKABLE void requestQuit();
+	Q_INVOKABLE void confirmQuit(bool confirmed);
+	bool shuttingDown() const { return m_shuttingDown; }
 
 	Q_INVOKABLE void retryPermission();
 	Q_INVOKABLE void ignorePermission();
@@ -156,6 +161,9 @@ public:
 
 
 signals:
+	void quitConfirmationRequested();
+	void shuttingDownChanged();
+	void shutdownReady();
     void vendorChanged();
 	void requestScan();
 	void requestExecute(const core::TaskJob &job);
@@ -201,6 +209,13 @@ private slots:
 	void onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage);
 
 private:
+	void BeginShutdown();
+	void CheckShutdown();
+	QTimer *m_scanTimer = nullptr;
+	QTimer *m_shutdownTimer = nullptr;
+	bool m_quitConfirmationPending = false;
+	bool m_shuttingDown = false;
+	bool m_shutdownReady = false;
 	void SetDeviceStatus();
 	void AppendLog(const QString &strText, bool bError);
 	void StartJob(core::TaskJob job);

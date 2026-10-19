@@ -188,6 +188,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         }
     });
     connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint) {
+        if (m_shuttingDown) return;
         m_pendingEdl = ok ? endpoint : EdlEndpoint();
         FinishModeSwitch(ok, message);
         emit requestScan(); refreshEdl();
@@ -247,15 +248,20 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
     if(availableVendors().contains(0)) m_rockchip->restore();
 	m_pThread->start();
 
-	QTimer *pTimer = new QTimer(this);
-	connect(pTimer, SIGNAL(timeout()), this, SLOT(refresh()));
-	pTimer->start(kScanIntervalMs);
+	m_scanTimer = new QTimer(this);
+	connect(m_scanTimer, &QTimer::timeout, this, &AppController::refresh);
+	m_scanTimer->start(kScanIntervalMs);
+	m_shutdownTimer = new QTimer(this);
+	m_shutdownTimer->setInterval(20);
+	connect(m_shutdownTimer, &QTimer::timeout, this, &AppController::CheckShutdown);
 
 	m_pAdb->Start();
 }
 
 AppController::~AppController()
 {
+	m_scanTimer->stop();
+	m_pAdb->Stop();
     m_rockchip->cancelInspections();
     m_allwinner->cancelInspections();
     delete m_edl; m_edl = nullptr;
@@ -265,6 +271,55 @@ AppController::~AppController()
 	m_pThread->wait();
 }
 
+void AppController::requestQuit()
+{
+	if (m_shuttingDown || m_quitConfirmationPending) return;
+	if (m_diskLog) m_diskLog->Record("Application exit requested");
+	if (m_tasks->busy() || m_bSwitching) {
+		m_quitConfirmationPending = true;
+		emit quitConfirmationRequested();
+		return;
+	}
+	BeginShutdown();
+}
+
+void AppController::confirmQuit(bool confirmed)
+{
+	if (!m_quitConfirmationPending || m_shuttingDown) return;
+	m_quitConfirmationPending = false;
+	if (confirmed) BeginShutdown();
+}
+
+void AppController::BeginShutdown()
+{
+	m_shuttingDown = true;
+	emit shuttingDownChanged();
+	if (m_diskLog) m_diskLog->Record("Stopping polling and cancelling outstanding work");
+	m_scanTimer->stop();
+	m_rockchip->setLocked(true);
+	m_allwinner->setLocked(true);
+	m_qualcomm->setLocked(true);
+	m_rockchip->cancelInspections();
+	m_allwinner->cancelInspections();
+	m_tasks->cancel();
+	m_rockchip->setCancelled(true);
+	m_pObserver->CancelSelection();
+	m_edl->shutdown();
+	m_pAdb->Stop();
+	// Leave the GUI event loop running while cooperative cancellation unwinds.
+	// This also lets queued worker completion and QThread deletion run normally.
+	m_pThread->quit();
+	m_shutdownTimer->start();
+}
+
+void AppController::CheckShutdown()
+{
+	if (m_shutdownReady || !m_pThread->isFinished() || !m_edl->stopped()) return;
+	m_shutdownReady = true;
+	m_shutdownTimer->stop();
+	if (m_diskLog) m_diskLog->Record("Worker threads stopped; application ready to exit");
+	emit shutdownReady();
+}
 
 
 
@@ -548,6 +603,7 @@ void AppController::retranslate()
 
 void AppController::onThreadStarted()
 {
+	if (m_shuttingDown) return;
 	refresh();
 }
 
@@ -653,7 +709,7 @@ void AppController::setDeviceIndex(int iIndex)
 
 void AppController::refresh()
 {
-	if (m_tasks->busy()) return;
+	if (m_shuttingDown || m_tasks->busy()) return;
 	emit requestScan();
     refreshEdl();
 }
@@ -704,7 +760,7 @@ QVariantList AppController::BatchTargets() const
 
 void AppController::StartJob(core::TaskJob job)
 {
-	if (m_tasks->busy() || job.steps.empty()) return;
+	if (m_shuttingDown || m_tasks->busy() || job.steps.empty()) return;
 	const bool local = !core::RequiresEnumeratedDevice(job.steps.front());
 	if (!local) {
 		QVariantList targets;
@@ -795,6 +851,7 @@ void AppController::clearBatch()
 
 void AppController::onTaskFinished(const core::TaskSummary &summary)
 {
+	if (m_shuttingDown) return;
 	const bool cancelled = summary.status == core::OperationStatus::Cancelled;
 	const bool ok = summary.status == core::OperationStatus::Succeeded;
 	m_tasks->setBusy(false);
@@ -911,15 +968,15 @@ void AppController::onOperationResult(const core::OperationResult &result)
 
 void AppController::refreshEdl()
 {
-    if (m_vendor == 2 && !m_tasks->busy()) m_edl->refresh(m_pAdb->AdbPath());
+    if (!m_shuttingDown && m_vendor == 2 && !m_tasks->busy()) m_edl->refresh(m_pAdb->AdbPath());
 }
 void AppController::switchToEdl(const QString &target, int method, const QString &endpoint)
 {
-    if (m_vendor == 2 && !m_tasks->busy()) m_edl->start(target, method, endpoint, m_pAdb->AdbPath());
+    if (!m_shuttingDown && m_vendor == 2 && !m_tasks->busy()) m_edl->start(target, method, endpoint, m_pAdb->AdbPath());
 }
 void AppController::requestEdlSwitch()
 {
-    if (m_vendor == 2 && !m_tasks->busy()) m_edl->requestSwitch(m_pAdb->AdbPath());
+    if (!m_shuttingDown && m_vendor == 2 && !m_tasks->busy()) m_edl->requestSwitch(m_pAdb->AdbPath());
 }
 
 void AppController::BeginModeSwitch(const QString &message)
@@ -951,7 +1008,7 @@ void AppController::FinishModeSwitch(bool ok, const QString &message)
 
 void AppController::switchToLoader()
 {
-	if (m_tasks->busy() || m_bSwitching)
+	if (m_shuttingDown || m_tasks->busy() || m_bSwitching)
 		return;
 	if (!adbReady()) {
 		emit toastRequested(tr("No ADB device detected; cannot switch."), true);
@@ -964,7 +1021,7 @@ void AppController::switchToLoader()
 
 void AppController::switchToFel(int mode)
 {
-	if (m_vendor != 1 || m_tasks->busy() || m_bSwitching) return;
+	if (m_shuttingDown || m_vendor != 1 || m_tasks->busy() || m_bSwitching) return;
 	if (mode < 0 || mode > 1 || !adbReady()) {
 		emit toastRequested(tr("No ADB device detected or the switch method is invalid."), true);
 		return;

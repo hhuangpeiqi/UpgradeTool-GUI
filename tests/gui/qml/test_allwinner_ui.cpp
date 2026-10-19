@@ -10,6 +10,7 @@
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QTemporaryDir>
+#include <QSettings>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QThread>
@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
     QTemporaryDir temporary;
     qputenv("XDG_CONFIG_HOME",temporary.path().toUtf8());
     qputenv("XDG_STATE_HOME",temporary.path().toUtf8());
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temporary.path());
     QGuiApplication application(argc,argv);
     QQuickStyle::setStyle("Basic");
     qmlRegisterUncreatableMetaObject(gui::Operations::staticMetaObject,"UpgradeTool",1,0,"Operations","Operation IDs");
@@ -32,6 +34,9 @@ int main(int argc, char **argv) {
     if(argc<3 || libusb_init(nullptr)<0) return 2;
     {
         gui::AppController controller(nullptr);
+        // Device state below is supplied by SnapshotDevices. A board connected
+        // to the test host must not replace those deterministic snapshots.
+        QObject::disconnect(&controller, &gui::AppController::requestScan, nullptr, nullptr);
         controller.setVendor(1); controller.ignorePermission();
         for(int context=0;context<3;++context) {
             controller.allwinner()->setContextFirmware(context,QString::fromLocal8Bit(argv[1]));

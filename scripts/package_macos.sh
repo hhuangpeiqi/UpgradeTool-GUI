@@ -103,12 +103,25 @@ diskutil image create from --format RAW --volumeName "UpgradeTool-GUI" \
 mkdir -p "$MOUNT_DIR"
 diskutil image attach --mountPoint "$MOUNT_DIR" "$WRITABLE_DMG"
 MOUNTED=1
-if ! osascript "$ROOT/scripts/macos/layout_dmg.applescript" "$MOUNT_DIR"; then
-    echo "error: could not set the DMG layout; check Finder automation permissions." >&2
-    exit 1
-fi
+layout_attempt=1
+while [ "$layout_attempt" -le 3 ]; do
+    echo "Saving Finder DMG layout (attempt $layout_attempt/3)..."
+    if ! osascript "$ROOT/scripts/macos/layout_dmg.applescript" "$MOUNT_DIR"; then
+        echo "error: could not set the DMG layout at $MOUNT_DIR (attempt $layout_attempt/3); check Finder automation permissions. Final DMG was not generated." >&2
+        exit 1
+    fi
+    layout_wait=0
+    while [ ! -s "$MOUNT_DIR/.DS_Store" ] && [ "$layout_wait" -lt 10 ]; do
+        sleep 1
+        layout_wait=$((layout_wait + 1))
+    done
+    if [ -s "$MOUNT_DIR/.DS_Store" ]; then
+        break
+    fi
+    layout_attempt=$((layout_attempt + 1))
+done
 if [ ! -s "$MOUNT_DIR/.DS_Store" ]; then
-    echo "error: Finder did not save the DMG layout." >&2
+    echo "error: Finder did not save the DMG layout at $MOUNT_DIR after 3 attempts. Final DMG was not generated." >&2
     exit 1
 fi
 sync
