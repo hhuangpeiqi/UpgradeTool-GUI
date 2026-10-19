@@ -1,5 +1,6 @@
 set(CMAKE_AUTOMOC ON)
-set(test_gui_environment "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+set(UPGRADE_TOOL_TEST_QPA_PLATFORM "offscreen" CACHE STRING "Qt platform for GUI tests")
+set(test_gui_environment "QT_QPA_PLATFORM=${UPGRADE_TOOL_TEST_QPA_PLATFORM};QT_QUICK_BACKEND=software")
 add_subdirectory(backend)
 add_subdirectory(qml)
 add_subdirectory(smoke)

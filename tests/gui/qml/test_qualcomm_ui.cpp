@@ -51,6 +51,11 @@ int main(int argc,char **argv) {
         };
         hooks.scan = [&] { return requestSent.load() && showEdl.load() ? QVector<gui::EdlEndpoint>{edl} : QVector<gui::EdlEndpoint>{}; };
         gui::AppController controller(nullptr, hooks, 5000);
+        // All devices are simulated. Vendor changes must not open host udev
+        // permission dialogs over the controls exercised by these tests.
+        QObject::connect(&controller, &gui::AppController::permissionChanged, &controller, [&] {
+            if (controller.permissionBlocked()) controller.ignorePermission();
+        });
         // Keep periodic and vendor-triggered hardware scans from replacing the
         // device snapshots injected by these UI tests.
         CHECK(QObject::disconnect(&controller, SIGNAL(requestScan()), nullptr, nullptr));

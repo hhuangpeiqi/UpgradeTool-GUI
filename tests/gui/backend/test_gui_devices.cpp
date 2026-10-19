@@ -10,6 +10,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <QSettings>
+#include <QScopeGuard>
 #include <libusb.h>
 #include <thread>
 #include <atomic>
@@ -21,6 +22,15 @@
 int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
     int failures = 0;
     QTemporaryDir temporary;
+    const bool hadAdb = qEnvironmentVariableIsSet("ADB");
+    const QByteArray previousAdb = qgetenv("ADB");
+    const auto restoreAdb = qScopeGuard([&] {
+        if (hadAdb) qputenv("ADB", previousAdb);
+        else qunsetenv("ADB");
+    });
+    // Keep initial availability asynchronous even when the host has no ADB.
+    // Availability and device lists below are supplied explicitly by the test.
+    qputenv("ADB", temporary.filePath("missing-adb").toUtf8());
     qputenv("XDG_CONFIG_HOME", temporary.path().toUtf8());
     qputenv("XDG_STATE_HOME", temporary.path().toUtf8());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temporary.path());

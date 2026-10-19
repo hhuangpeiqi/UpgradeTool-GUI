@@ -11,6 +11,7 @@ foreach(vendor rockchip allwinner qualcomm)
     endif()
     add_test(NAME ${prefix}_${tab} COMMAND ${CMAKE_COMMAND}
       -DAPP=$<TARGET_FILE:upgrade_tool_gui> -DTAB=${tab} -DVENDOR=${vendor}
+      -DQPA_PLATFORM=${UPGRADE_TOOL_TEST_QPA_PLATFORM}
       ${firmware_argument} -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/${vendor}-${tab}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/gui_smoke.cmake)
     set_tests_properties(${prefix}_${tab} PROPERTIES TIMEOUT 30 LABELS "gui;smoke;${vendor}")

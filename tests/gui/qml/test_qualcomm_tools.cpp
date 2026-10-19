@@ -1,9 +1,31 @@
 #include "QualcommUiTests.h"
 #include <QtQuickTest/quicktest.h>
 
+namespace {
+#if QT_VERSION < QT_VERSION_CHECK(6, 4, 0)
+bool HasPendingPolish(QQuickItem *item) {
+    if (QQuickTest::qIsPolishScheduled(item)) return true;
+    for (auto *child : item->childItems())
+        if (HasPendingPolish(child)) return true;
+    return false;
+}
+#endif
+
+bool WaitForWindowPolish(QQuickWindow *window) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 4, 0)
+    return QQuickTest::qWaitForPolish(window, 5000);
+#else
+    // Qt 6.2 only exposes the per-item query. Recheck the entire visual tree
+    // because polishing one layout can schedule another item.
+    QCoreApplication::processEvents();
+    return QTest::qWaitFor([&] { return !HasPendingPolish(window->contentItem()); }, 5000);
+#endif
+}
+}
+
 bool QualcommUiTests::TestTools() {
     for(int page=0;page<3;++page) { window->setProperty("currentPage",page); QCoreApplication::processEvents(); }
-    CHECK(QQuickTest::qWaitForPolish(window));
+    CHECK(WaitForWindowPolish(window));
     toolsPage=window->findChild<QQuickItem *>("QualcommToolsPage"); CHECK(toolsPage);
     CHECK(!window->findChild<QObject *>("qcTool"));
     toolNavigation = toolsPage->findChild<QQuickItem *>("qcToolNavigation");
@@ -26,13 +48,13 @@ bool QualcommUiTests::TestTools() {
     }
     for (int i=0; i<toolContexts.size(); ++i) {
         // Tool changes can move navigation delegates; wait before reading click coordinates.
-        CHECK(QQuickTest::qWaitForPolish(window));
+        CHECK(WaitForWindowPolish(window));
         auto *navigation = FindVisualItem(toolsPage, "qcToolSelect-" + toolContexts[i]);
         CHECK(navigation && navigation->isVisible());
         if (navigation) QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
             navigation->mapToScene(QPointF(navigation->width()/2, navigation->height()/2)).toPoint());
         CHECK(AwaitUi([&] { return toolsPage->property("selectedTool").toInt() == i; }));
-        CHECK(QQuickTest::qWaitForPolish(window));
+        CHECK(WaitForWindowPolish(window));
         CHECK(toolsPage->property("context").toString() == toolContexts[i]);
         CHECK(toolsPage->property("showEdlSwitch").toBool() == (i < 4 || i == 7));
         for (int other=0; other<toolContexts.size(); ++other) {

@@ -1,14 +1,18 @@
 if(NOT DEFINED VENDOR)
   set(VENDOR rockchip)
 endif()
+if(NOT DEFINED QPA_PLATFORM)
+  set(QPA_PLATFORM offscreen)
+endif()
 set(extra_args)
 if(DEFINED FIRMWARE)
   list(APPEND extra_args --firmware "${FIRMWARE}")
 endif()
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
+file(REMOVE "${OUTPUT_DIR}/page.png")
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -E env
-    "QT_QPA_PLATFORM=offscreen" "QT_QUICK_BACKEND=software"
+    "QT_QPA_PLATFORM=${QPA_PLATFORM}" "QT_QUICK_BACKEND=software"
     "XDG_CONFIG_HOME=${OUTPUT_DIR}/config" "XDG_STATE_HOME=${OUTPUT_DIR}/state"
     "${APP}" --vendor "${VENDOR}" --tab "${TAB}" ${extra_args} --screenshot "${OUTPUT_DIR}/page.png"
   RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 15)

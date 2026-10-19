@@ -105,6 +105,7 @@ AppDialog {
                 anchors.fill: parent
                 text: qsTr("Switch")
                 enabled: root.ready && root.target !== null && root.candidates.length > 0
+                hoverEnabled: enabled
                 onClicked: {
                     var target = root.selectedTargetId;
                     var endpoint = root.selectedEndpointId;

@@ -57,10 +57,10 @@ for REL in $RELEASES; do
 			export DEBIAN_FRONTEND=noninteractive
 			apt-get update -qq
 			apt-get install -y -qq --no-install-recommends "/pkg/$DEB_NAME"
-			apt-get install -y -qq --no-install-recommends xvfb
+			apt-get install -y -qq --no-install-recommends xvfb xauth
 			echo "--- GUI render (xvfb + xcb)"
 			timeout -k 5 90 xvfb-run -a -s "-screen 0 1280x800x24" \
-				env QT_QPA_PLATFORM=xcb \
+				env QT_QPA_PLATFORM=xcb QT_QUICK_BACKEND=software \
 				upgrade_tool_gui --screenshot /tmp/shot.png
 			test -s /tmp/shot.png
 			ls -l /tmp/shot.png

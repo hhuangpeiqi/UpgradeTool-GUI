@@ -30,7 +30,7 @@ RUN apt-get update \
         qml6-module-qtqml-workerscript \
         qt6-qpa-plugins \
         libqt6svg6 \
-        xvfb \
+        xvfb xauth \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work

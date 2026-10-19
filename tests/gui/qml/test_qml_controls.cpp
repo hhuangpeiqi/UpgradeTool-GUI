@@ -37,6 +37,7 @@ Window {
     }
 }
 )QML", QUrl());
+    CHECK(AwaitUi([&] { return component.status() != QQmlComponent::Loading; }));
     std::unique_ptr<QObject> instance(component.create());
     CHECK(instance);
     if (!instance) {
@@ -141,12 +142,17 @@ int main(int argc, char **argv) {
     QGuiApplication application(argc, argv);
     QQuickStyle::setStyle("Basic");
     QQmlEngine engine;
+    engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
     // Theme is a QML singleton; setting its mode exercises both palettes.
     QQmlComponent theme(&engine);
     theme.setData("import QtQuick; import UpgradeTool; QtObject { property bool dark: false; onDarkChanged: Theme.dark = dark }", QUrl());
+    CHECK(AwaitUi([&] { return theme.status() != QQmlComponent::Loading; }));
     std::unique_ptr<QObject> palette(theme.create());
     CHECK(palette);
-    if (!palette) return 1;
+    if (!palette) {
+        std::fprintf(stderr, "%s\n", theme.errorString().toUtf8().constData());
+        return 1;
+    }
     for (bool dark : {false, true}) {
         palette->setProperty("dark", dark);
         TestFocusBorders(engine);

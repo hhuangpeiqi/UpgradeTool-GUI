@@ -125,6 +125,7 @@ Card {
                     iconSource: Icons.switchBlue
                     busy: app.switching
                     enabled: !app.tasks.busy && app.edl.ready
+                    hoverEnabled: enabled
                     onClicked: app.requestEdlSwitch()
                 }
                 // Observe the enabled wrapper so a disabled button still gets a tooltip.

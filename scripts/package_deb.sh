@@ -30,9 +30,15 @@ build_native() {
 		exit 1
 	fi
 
-	cmake -S "$ROOT" -B "$BUILD_DIR" -DUPGRADE_TOOL_TESTS=ON
+	if ! command -v xvfb-run >/dev/null 2>&1 || ! command -v xauth >/dev/null 2>&1; then
+		echo "error: GUI packaging tests require Xvfb and xauth; run apt install xvfb xauth." >&2
+		exit 1
+	fi
+
+	cmake -S "$ROOT" -B "$BUILD_DIR" -DUPGRADE_TOOL_TESTS=ON \
+		-DUPGRADE_TOOL_TEST_QPA_PLATFORM=xcb
 	cmake --build "$BUILD_DIR" -j
-	ctest --test-dir "$BUILD_DIR" --output-on-failure
+	xvfb-run -a -s "-screen 0 1400x1000x24" ctest --test-dir "$BUILD_DIR" --output-on-failure
 	cpack --config "$BUILD_DIR/CPackConfig.cmake" -G DEB -B "$BUILD_DIR"
 
 	report "$BUILD_DIR"
@@ -75,9 +81,10 @@ build_container() {
 			set -eu
 			cmake -S /src -B /out/build \
 				-DCMAKE_BUILD_TYPE=Release \
-				-DUPGRADE_TOOL_TESTS=ON
+				-DUPGRADE_TOOL_TESTS=ON \
+				-DUPGRADE_TOOL_TEST_QPA_PLATFORM=xcb
 			cmake --build /out/build -j"$(nproc)"
-			ctest --test-dir /out/build --output-on-failure
+			xvfb-run -a -s "-screen 0 1400x1000x24" ctest --test-dir /out/build --output-on-failure
 			cpack --config /out/build/CPackConfig.cmake -G DEB -B /out/build
 		'
 
