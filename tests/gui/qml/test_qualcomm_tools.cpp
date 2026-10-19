@@ -1,7 +1,9 @@
 #include "QualcommUiTests.h"
+#include <QtQuickTest/quicktest.h>
 
 bool QualcommUiTests::TestTools() {
     for(int page=0;page<3;++page) { window->setProperty("currentPage",page); QCoreApplication::processEvents(); }
+    CHECK(QQuickTest::qWaitForPolish(window));
     toolsPage=window->findChild<QQuickItem *>("QualcommToolsPage"); CHECK(toolsPage);
     CHECK(!window->findChild<QObject *>("qcTool"));
     toolNavigation = toolsPage->findChild<QQuickItem *>("qcToolNavigation");
@@ -23,12 +25,14 @@ bool QualcommUiTests::TestTools() {
         selectTool(0);
     }
     for (int i=0; i<toolContexts.size(); ++i) {
+        // Tool changes can move navigation delegates; wait before reading click coordinates.
+        CHECK(QQuickTest::qWaitForPolish(window));
         auto *navigation = FindVisualItem(toolsPage, "qcToolSelect-" + toolContexts[i]);
         CHECK(navigation && navigation->isVisible());
         if (navigation) QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
             navigation->mapToScene(QPointF(navigation->width()/2, navigation->height()/2)).toPoint());
-        QCoreApplication::processEvents();
-        CHECK(toolsPage->property("selectedTool").toInt() == i);
+        CHECK(AwaitUi([&] { return toolsPage->property("selectedTool").toInt() == i; }));
+        CHECK(QQuickTest::qWaitForPolish(window));
         CHECK(toolsPage->property("context").toString() == toolContexts[i]);
         CHECK(toolsPage->property("showEdlSwitch").toBool() == (i < 4 || i == 7));
         for (int other=0; other<toolContexts.size(); ++other) {

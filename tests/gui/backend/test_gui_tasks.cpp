@@ -41,6 +41,7 @@ int TestTasks([[maybe_unused]] QGuiApplication &application) {
 	}
 	{
 		gui::AppController controller(NULL);
+		controller.language()->setMode("en");
 		int submissions = 0, finishes = 0;
 		core::TaskJob captured;
 		QObject::connect(&controller, &gui::AppController::requestExecute, &application, [&](const core::TaskJob &job) { ++submissions; captured = job; });

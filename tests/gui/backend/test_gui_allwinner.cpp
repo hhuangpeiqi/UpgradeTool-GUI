@@ -82,6 +82,7 @@ int TestAllwinnerState([[maybe_unused]] QGuiApplication &application) {
     {
         // Exercise result routing without issuing any USB requests.
         gui::AppController controller(NULL);
+        controller.language()->setMode("en");
         QObject::disconnect(&controller, &gui::AppController::requestExecute, nullptr, nullptr);
         controller.setVendor(1);
         core::TaskJob captured;

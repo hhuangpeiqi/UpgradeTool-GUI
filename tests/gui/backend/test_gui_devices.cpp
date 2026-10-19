@@ -28,6 +28,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 	{
 		// Status uses the same ADB discovery for both vendors; flash modes take priority.
 		gui::AppController controller(nullptr);
+		controller.language()->setMode("en");
 		for (int vendor : {0, 1}) {
 			controller.setVendor(vendor);
 			CHECK(controller.deviceStatusText() == QString::fromUtf8("Detecting ADB…"));
