@@ -50,7 +50,14 @@ static int FakeAdb(QStringList args)
 		return 3;
 	log.write(QJsonDocument(QJsonArray::fromStringList(args)).toJson(QJsonDocument::Compact) + '\n');
 	log.close();
+	if (args == QStringList{"version"}) {
+		if (mode == "version-bad") std::printf("unrelated tool\n");
+		else std::printf("Android Debug Bridge version 1.0.41\nVersion fake-test\n");
+		return 0;
+	}
 	if (args.value(0) == "devices") {
+		if (mode == "poll-fail") { std::printf("test server error\n"); return 7; }
+		if (mode == "poll-hang") QThread::msleep(30000);
 		if (args.contains("-l") && mode == "missing")
 			return 0;
 		std::printf("List of devices attached\nboard device usb:1-5.4 model:AUT\n");
@@ -91,6 +98,68 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		return FakeAdb(app.arguments().mid(1));
 	qputenv("ADB", QCoreApplication::applicationFilePath().toUtf8());
+	{
+		QTemporaryDir dir;
+		qputenv("AW_TEST_DIR", dir.path().toUtf8());
+		qputenv("AW_TEST_MODE", "poll-ok");
+		gui::AdbRunner runner(nullptr, [](bool) { return QVector<gui::AdbUsbDevice>{}; }, 200, 650);
+		int availability = 0, diagnostics = 0;
+		bool available = false;
+		QString error;
+		QObject::connect(&runner, &gui::AdbRunner::availabilityChanged, [&](bool ok, const QString &message) {
+			++availability; available = ok; error = message;
+		});
+		QObject::connect(&runner, &gui::AdbRunner::diagnosticMessage, [&](const QString &message) {
+			++diagnostics; CHECK(message.contains(QCoreApplication::applicationFilePath()));
+			CHECK(message.contains("fake-test"));
+		});
+		runner.Start();
+		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
+		CHECK(diagnostics == 1);
+		qputenv("AW_TEST_MODE", "poll-fail");
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return !available && runner.Devices().isEmpty(); }));
+		CHECK(error.contains("test server error"));
+		const int failedCount = availability;
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return Read(dir.filePath("log")).count("devices") >= 3; }));
+		// Wait for that process to finish before checking duplicate-error suppression.
+		for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
+		CHECK(availability == failedCount);
+		qputenv("AW_TEST_MODE", "poll-ok");
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
+		qputenv("AW_TEST_MODE", "poll-hang");
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(&runner, "onPollKillTimeout");
+		CHECK(!available && runner.Devices().isEmpty() && error.contains("timed out"));
+		qputenv("AW_TEST_MODE", "poll-ok");
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return available; }));
+		CHECK(diagnostics == 1 && Read(dir.filePath("log")).count("version") == 1);
+		qputenv("ADB", dir.filePath("missing-adb").toUtf8());
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return !available && error.contains("Cannot start ADB process"); }));
+		CHECK(runner.Devices().isEmpty());
+		qputenv("ADB", QCoreApplication::applicationFilePath().toUtf8());
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
+		CHECK(diagnostics == 1);
+		runner.Stop();
+	}
+	{
+		QTemporaryDir dir;
+		qputenv("AW_TEST_DIR", dir.path().toUtf8());
+		qputenv("AW_TEST_MODE", "version-bad");
+		gui::AdbRunner runner;
+		QString error;
+		QObject::connect(&runner, &gui::AdbRunner::availabilityChanged, [&](bool ok, const QString &message) {
+			CHECK(!ok); error = message;
+		});
+		runner.Start();
+		CHECK(Await([&] { return error.contains("Invalid ADB version"); }));
+		CHECK(runner.Devices().isEmpty() && !Read(dir.filePath("log")).contains("devices"));
+	}
 	QString t3Command;
 	auto scenario = [&](const QString &mode, gui::AdbRunner::FelMethod method, bool expectOk,
 	                    const QString &expectedCommand) {

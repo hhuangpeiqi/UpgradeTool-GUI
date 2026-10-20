@@ -29,7 +29,7 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 		const QByteArray originalAdb = qgetenv("ADB");
 		const QString fakeAdb = temporary.filePath("fake-adb");
 		QFile file(fakeAdb); CHECK(file.open(QIODevice::WriteOnly));
-		file.write("#!/bin/sh\nif [ \"$1\" = devices ]; then printf 'List of devices attached\\nboard device usb:1-5.4\\n'; else printf 'AW_ANDROID=\\nAW_BUILDROOT=1\\nAW_SOC=sun50i\\nAW_UID=0\\nAW_DEVMEM=1\\nAW_REBOOT=/sbin/reboot\\nAW_REBOOT_LINK=reboot -> busybox\\n'; fi\n");
+		file.write("#!/bin/sh\nif [ \"$1\" = version ]; then printf 'Android Debug Bridge version 1.0.41\\n'; elif [ \"$1\" = devices ]; then printf 'List of devices attached\\nboard device usb:1-5.4\\n'; else printf 'AW_ANDROID=\\nAW_BUILDROOT=1\\nAW_SOC=sun50i\\nAW_UID=0\\nAW_DEVMEM=1\\nAW_REBOOT=/sbin/reboot\\nAW_REBOOT_LINK=reboot -> busybox\\n'; fi\n");
 		file.close(); CHECK(file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
 		qputenv("ADB", fakeAdb.toUtf8());
 		{

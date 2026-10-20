@@ -18,5 +18,7 @@ public:
 };
 using ProcessFactory=std::function<std::unique_ptr<IProcess>()>;
 std::unique_ptr<IProcess> MakeProcess();
+// ADB may launch a shared server; cancellation must only terminate its client.
+std::unique_ptr<IProcess> MakeAdbProcess();
 }
 #endif

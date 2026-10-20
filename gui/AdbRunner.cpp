@@ -1,7 +1,7 @@
 #include "gui/AdbRunner.h"
+#include "gui/AdbExecutable.h"
 
 #include <QRegularExpression>
-#include <QStandardPaths>
 #include <QTimer>
 #include <libusb.h>
 #include <utility>
@@ -151,15 +151,7 @@ AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, 
 QString AdbRunner::AdbPath() const
 {
 	if (m_stopped) return QString();
-	QString strEnv = qEnvironmentVariable("ADB");
-	if (!strEnv.isEmpty())
-		return strEnv;
-	QString strPath = QStandardPaths::findExecutable("adb");
-#ifdef Q_OS_MACOS
-	if (strPath.isEmpty())
-		strPath = QStandardPaths::findExecutable("adb", QStringList() << "/opt/homebrew/bin" << "/usr/local/bin");
-#endif
-	return strPath;
+	return FindAdbExecutable().path;
 }
 
 AdbRunner::~AdbRunner()
@@ -181,8 +173,6 @@ void AdbRunner::Stop()
 	}
 }
 
-bool AdbRunner::IsAvailable() const { return !AdbPath().isEmpty(); }
-
 void AdbRunner::Start()
 {
 	if (m_stopped) return;
@@ -192,11 +182,21 @@ void AdbRunner::Start()
 
 void AdbRunner::UpdateAvailability(bool bAvailable, const QString &strMessage)
 {
-	if (m_bAvailabilityKnown && m_bAvailable == bAvailable)
+	if (m_bAvailabilityKnown && m_bAvailable == bAvailable && m_availabilityMessage == strMessage)
 		return;
 	m_bAvailabilityKnown = true;
 	m_bAvailable = bAvailable;
+	m_availabilityMessage = strMessage;
 	emit availabilityChanged(m_bAvailable, strMessage);
+}
+
+void AdbRunner::PollFailed(const QString &message)
+{
+	if (!m_strDevices.isEmpty()) {
+		m_strDevices.clear();
+		emit devicesChanged(m_strDevices);
+	}
+	UpdateAvailability(false, message);
 }
 
 void AdbRunner::RunPoll()
@@ -207,13 +207,24 @@ void AdbRunner::RunPoll()
 	if (m_bRunning || m_bAwaitingChoice)
 		return;
 
-	QString strAdb = AdbPath();
-	if (strAdb.isEmpty()) {
-		UpdateAvailability(false, tr("ADB executable not found; make sure ADB is installed and in PATH."));
+	const auto executable = FindAdbExecutable();
+	if (executable.path.isEmpty()) {
+		m_pollPath.clear();
+		PollFailed(tr("ADB executable not found; reinstall the application or install ADB and check PATH / ADB."));
 		return;
 	}
 
-	m_pPollProc->start(strAdb, QStringList() << "devices");
+	if (m_pollPath != executable.path) {
+		if (!m_strDevices.isEmpty()) {
+			m_strDevices.clear();
+			emit devicesChanged(m_strDevices);
+		}
+		m_pollPath = executable.path;
+	}
+	m_pollSource = executable.source;
+	m_versionPoll = !m_versionChecked.contains(m_pollPath);
+	m_pollTimedOut = false;
+	m_pPollProc->start(m_pollPath, {m_versionPoll ? QStringLiteral("version") : QStringLiteral("devices")});
 	m_pPollKill->start(kListTimeoutMs);
 }
 
@@ -222,11 +233,25 @@ void AdbRunner::onPollTick() { RunPoll(); }
 void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 {
 	m_pPollKill->stop();
+	if (m_stopped || m_pollTimedOut) return;
+	const auto output = m_pPollProc->readAll();
 
-	if (eStatus != true || iExitCode != 0)
+	if (eStatus != true || iExitCode != 0) {
+		PollFailed(tr("ADB command failed (%1): %2").arg(iExitCode).arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
 		return;
+	}
+	if (m_versionPoll) {
+		if (!output.contains("Android Debug Bridge version")) {
+			PollFailed(tr("Invalid ADB version output: %1").arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
+			return;
+		}
+		m_versionChecked.insert(m_pollPath);
+		emit diagnosticMessage(tr("ADB [%1]: %2\n%3").arg(m_pollSource, m_pollPath, QString::fromLocal8Bit(output).trimmed()));
+		RunPoll();
+		return;
+	}
 
-	QStringList strDevices = ParseDevices(m_pPollProc->readAll());
+	QStringList strDevices = ParseDevices(output);
 	if (strDevices != m_strDevices) {
 		m_strDevices = strDevices;
 		emit devicesChanged(m_strDevices);
@@ -236,17 +261,18 @@ void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 
 void AdbRunner::onPollError(const QString &error)
 {
-	(void)error;
 	m_pPollKill->stop();
-	UpdateAvailability(false, tr("Cannot start ADB process: %1").arg(m_pPollProc->errorString()));
+	if (!m_stopped) PollFailed(tr("Cannot start ADB process: %1").arg(error));
 }
 
 void AdbRunner::onPollKillTimeout()
 {
 	if (m_pPollProc->state() == ProcessAdapter::NotRunning)
 		return;
+	m_pollTimedOut = true;
 	m_pPollProc->kill();
 	m_pPollProc->waitForFinished(1000);
+	if (!m_stopped) PollFailed(tr("ADB command timed out."));
 }
 
 void AdbRunner::SwitchToLoader()
@@ -273,7 +299,7 @@ void AdbRunner::BeginSwitch()
 		return;
 
 	if (AdbPath().isEmpty()) {
-		emit finished(false, tr("ADB executable not found; make sure ADB is installed and in PATH."));
+		emit finished(false, tr("ADB executable not found; reinstall the application or install ADB and check PATH / ADB."));
 		return;
 	}
 

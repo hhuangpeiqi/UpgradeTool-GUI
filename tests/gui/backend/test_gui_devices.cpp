@@ -41,7 +41,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		controller.language()->setMode("en");
 		for (int vendor : {0, 1}) {
 			controller.setVendor(vendor);
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("Detecting ADB…"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("No device found"));
 		}
 		auto availability = [&](bool available) {
 			CHECK(QMetaObject::invokeMethod(&controller, "onAdbAvailabilityChanged", Qt::DirectConnection,
@@ -54,7 +54,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		for (int vendor : {0, 1, 0}) {
 			controller.setVendor(vendor);
 			availability(false);
-			CHECK(controller.deviceStatusText() == QString::fromUtf8("No ADB environment detected"));
+			CHECK(controller.deviceStatusText() == QString::fromUtf8("No device found"));
 			adbDevices({});
 			availability(true);
 			CHECK(controller.deviceStatusText() == QString::fromUtf8("No device found"));
@@ -112,9 +112,9 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 			}
 		};
 		update({diag});
-		cycle(QStringLiteral("Detecting ADB…"));
+		cycle(QStringLiteral("No device found"));
 		availability(false);
-		cycle(QStringLiteral("No ADB environment detected"));
+		cycle(QStringLiteral("No device found"));
 		availability(true); adbDevices({});
 		cycle(QStringLiteral("No device found"));
 		adbDevices({"board"});

@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <QSet>
 #include <functional>
 
 class QTimer;
@@ -28,10 +29,9 @@ class AdbRunner : public QObject
 	explicit AdbRunner(QObject *parent = NULL);
 	~AdbRunner() override;
 	using UsbScanner = std::function<QVector<AdbUsbDevice>(bool readSerial)>;
-	AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,platform::ProcessFactory factory=platform::MakeProcess);
+	AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,platform::ProcessFactory factory=platform::MakeAdbProcess);
 	enum class FelMethod { Auto = 0, T3Buildroot = 1 };
 
-	bool IsAvailable() const;
 	QString AdbPath() const;
 	void Stop();
 
@@ -54,6 +54,7 @@ class AdbRunner : public QObject
 
 	void availabilityChanged(bool bAvailable, const QString &strMessage);
 	void switchProgress(const QString &message);
+	void diagnosticMessage(const QString &message);
 
   private slots:
 	void onRebootFinished(int iExitCode, bool eStatus);
@@ -72,6 +73,7 @@ class AdbRunner : public QObject
 	void HandleFelCommand(int code, bool status, const QString &output);
 	void RunPoll();
 	void UpdateAvailability(bool bAvailable, const QString &strMessage);
+	void PollFailed(const QString &message);
 
 	ProcessAdapter *m_pProc;
 	QTimer *m_pTimeout;
@@ -81,6 +83,12 @@ class AdbRunner : public QObject
 	QTimer *m_pPollKill;
 
 	QStringList m_strDevices;
+	QString m_availabilityMessage;
+	QString m_pollPath;
+	QString m_pollSource;
+	QSet<QString> m_versionChecked;
+	bool m_versionPoll = false;
+	bool m_pollTimedOut = false;
 	bool m_bRunning;
 	bool m_bAwaitingChoice;
 	bool m_bAvailable;

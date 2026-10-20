@@ -1,4 +1,4 @@
 #ifndef APPLICATION_VERSION_H
 #define APPLICATION_VERSION_H
-static const char *const TOOL_VERSION = "4.4.0";
+static const char *const TOOL_VERSION = "4.5.1";
 #endif

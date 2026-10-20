@@ -238,6 +238,10 @@ try {
     New-Item -ItemType Directory -Force $Stage | Out-Null
     Copy-Item (Join-Path $Build "upgrade_tool_gui.exe") $Stage
     Copy-Item (Join-Path $Root "config.ini") $Stage
+    $AdbDir = Join-Path $Stage "tools/adb"
+    Run-Checked { & $cmake -DADB_PLATFORM=win "-DADB_CACHE_DIR=$Build/adb-cache" "-DADB_DESTINATION=$AdbDir" -P (Join-Path $Root "scripts/prepare_adb.cmake") }
+    Run-Checked { & "$AdbDir/adb.exe" version }
+    Run-Checked { & $cmake "-DAPP=$AdbDir/adb.exe" "-DDESTINATION=$AdbDir" "-DSEARCH_DIRS=$AdbDir;$env:PATH" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
     Run-Checked { & $deploy --release --compiler-runtime --qmldir (Join-Path $Root "gui/qml") (Join-Path $Stage "upgrade_tool_gui.exe") }
     $RuntimeSearch = $env:PATH
     Run-Checked { & $cmake "-DAPP=$(Join-Path $Stage 'upgrade_tool_gui.exe')" "-DDESTINATION=$Stage" "-DSEARCH_DIRS=$RuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }

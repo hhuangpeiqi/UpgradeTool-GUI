@@ -20,6 +20,7 @@ extern char **environ;
 namespace platform {
 namespace {
 class NativeProcess final : public IProcess {
+    const bool killTree;
     bool running=false,normal=false,killed=false;
     int exitCode=-1;
     std::string output;
@@ -51,6 +52,7 @@ class NativeProcess final : public IProcess {
         const auto room=limit-output.size(); output.append(bytes,std::min(room,count));
     }
 public:
+    explicit NativeProcess(bool tree=true) : killTree(tree) {}
     ~NativeProcess() override {
         if(running) { Kill(); while(running) { Poll(); std::this_thread::sleep_for(std::chrono::milliseconds(1)); } }
         Close();
@@ -71,7 +73,7 @@ public:
         const DWORD error=GetLastError(); CloseHandle(writePipe);
         if(!started) { Close(); throw std::system_error(error,std::system_category(),"Cannot start process"); }
         process=info.hProcess;
-        job=CreateJobObjectW(nullptr,nullptr);
+        job=killTree ? CreateJobObjectW(nullptr,nullptr) : nullptr;
         if(job) {
             JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{}; limits.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
             if(!SetInformationJobObject(job,JobObjectExtendedLimitInformation,&limits,sizeof(limits)) || !AssignProcessToJobObject(job,process)) { CloseHandle(job); job=nullptr; }
@@ -140,10 +142,11 @@ public:
 #ifdef _WIN32
         if(job) TerminateJobObject(job,1); else TerminateProcess(process,1);
 #else
-        kill(-pid,SIGKILL);
+        kill(killTree ? -pid : pid,SIGKILL);
 #endif
     }
 };
 }
 std::unique_ptr<IProcess> MakeProcess() { return std::make_unique<NativeProcess>(); }
+std::unique_ptr<IProcess> MakeAdbProcess() { return std::make_unique<NativeProcess>(false); }
 }

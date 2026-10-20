@@ -16,6 +16,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
 #endif
 static int failures=0;
 #define CHECK(c) do { if(!(c)) { std::fprintf(stderr,"FAIL %d: %s\n",__LINE__,#c); ++failures; } } while(0)
@@ -23,6 +25,40 @@ static bool Wait(platform::IProcess &process,int milliseconds=3000) {
     const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(milliseconds);
     do { process.Poll(); if(!process.Running()) return true; std::this_thread::sleep_for(std::chrono::milliseconds(1)); } while(std::chrono::steady_clock::now()<deadline);
     return false;
+}
+
+static uintmax_t Heartbeats(const std::string &path) {
+    std::error_code error;
+    auto size=std::filesystem::file_size(platform::Path(path),error);
+    return error ? 0 : size;
+}
+
+static void TestAdbServerLifetime(const char *program) {
+    const auto executable=platform::Utf8(std::filesystem::absolute(program));
+    for (int mode=0; mode<4; ++mode) {
+        TemporaryDirectory dir;
+        const auto heartbeat=dir.filePath("heartbeat");
+        auto process=mode==3 ? platform::MakeProcess() : platform::MakeAdbProcess();
+        process->Start(executable,{"--spawn-server",heartbeat,mode==0 ? "exit" : "wait"});
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+        while(Heartbeats(heartbeat)<2 && std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        CHECK(Heartbeats(heartbeat)>=2);
+        if(mode==0) CHECK(Wait(*process));
+        if(mode==1 || mode==3) { process->Kill(); CHECK(Wait(*process)); }
+        process.reset(); // Includes cancellation by destructor and Windows job-handle closure.
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        const auto before=Heartbeats(heartbeat);
+        std::this_thread::sleep_for(std::chrono::milliseconds(120));
+        CHECK((Heartbeats(heartbeat)>before)==(mode!=3));
+        { std::ofstream stop(platform::Path(heartbeat+".stop")); stop << "stop"; }
+        if(mode!=3) {
+            const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+            while(!std::filesystem::exists(platform::Path(heartbeat+".done")) && std::chrono::steady_clock::now()<end)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            CHECK(std::filesystem::exists(platform::Path(heartbeat+".done")));
+        }
+    }
 }
 static void TestProcess(const char *program) {
     auto process=platform::MakeProcess();
@@ -89,10 +125,36 @@ int main(int argc,char **argv) {
             return 0;
         }
         if(mode=="--fail") return 7;
+        if(mode=="--server-heartbeat" && argc==3) {
+            const auto heartbeat=platform::Path(argv[2]);
+            const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+            while(!std::filesystem::exists(platform::Path(std::string(argv[2])+".stop")) && std::chrono::steady_clock::now()<end) {
+                { std::ofstream file(heartbeat,std::ios::app); file << '.'; }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            }
+            std::ofstream done(platform::Path(std::string(argv[2])+".done"));
+            return 0;
+        }
+        if(mode=="--spawn-server" && argc==4) {
+#ifdef _WIN32
+            const auto executable=std::filesystem::absolute(argv[0]).wstring();
+            auto command=L"\""+executable+L"\" --server-heartbeat \""+platform::Path(argv[2]).wstring()+L"\"";
+            STARTUPINFOW startup{}; startup.cb=sizeof(startup); PROCESS_INFORMATION child{};
+            if(!CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&child)) return 2;
+            CloseHandle(child.hProcess); CloseHandle(child.hThread);
+#else
+            const auto child=fork();
+            if(child<0) return 2;
+            if(child==0) { execl(argv[0],argv[0],"--server-heartbeat",argv[2],nullptr); _exit(2); }
+#endif
+            if(std::string(argv[3])=="wait") std::this_thread::sleep_for(std::chrono::seconds(30));
+            return 0;
+        }
         if(mode=="--sleep") { std::this_thread::sleep_for(std::chrono::seconds(30)); return 0; }
         if(mode=="--flood") { for(int i=0;i<1024;++i) { std::string text(1024,'x'); std::fwrite(text.data(),1,text.size(),stdout); } return 0; }
     }
     TestProcess(argv[0]);
+    TestAdbServerLifetime(argv[0]);
     TestText();
     TestFile();
     TestSerialPort();

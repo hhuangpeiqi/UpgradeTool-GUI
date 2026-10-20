@@ -139,9 +139,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	  m_bBatchMode(false),
 	  m_bBatchContinue(true),
 	  m_bSwitching(false),
-	  m_bAdbKnown(false),
-	  m_bAdbAvailable(false),
-	  m_bAdbWarned(false)
+	  m_bAdbAvailable(false)
 {
 	m_diskLog = pLog;
     m_deviceModel=new DeviceModel(this);
@@ -221,6 +219,9 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	        this, SLOT(onAdbDevicesChanged(QStringList)));
 	connect(m_pAdb, SIGNAL(availabilityChanged(bool, QString)),
 	        this, SLOT(onAdbAvailabilityChanged(bool, QString)));
+	connect(m_pAdb, &AdbRunner::diagnosticMessage, this, [this](const QString &message) {
+		AppendLog(message, false);
+	});
 
 	connect(m_pConfig, &gui::ConfigStore::udevInstallFinished,
 	        this, [this](bool, const QString &) { retryPermission(); });
@@ -551,15 +552,10 @@ void AppController::SetDeviceStatus()
 	}
 
 	// No device in the current vendor's flashing mode; report the shared ADB status
-	if (strParts.isEmpty() && m_vendor != 2) {
-		if (!m_bAdbKnown)
-			strParts << tr("Detecting ADB…");
-		else if (!m_bAdbAvailable)
-			strParts << tr("No ADB environment detected");
-		else if (!m_strAdbDevices.isEmpty())
-			strParts << (m_strAdbDevices.size() == 1
-			             ? tr("ADB device found")
-			             : tr("Found %1 ADB device(s)").arg(m_strAdbDevices.size()));
+	if (strParts.isEmpty() && m_bAdbAvailable && !m_strAdbDevices.isEmpty()) {
+		strParts << (m_strAdbDevices.size() == 1
+		             ? tr("ADB device found")
+		             : tr("Found %1 ADB device(s)").arg(m_strAdbDevices.size()));
 	}
 
 	m_strDeviceStatus = strParts.isEmpty() ? tr("No device found")
@@ -1050,10 +1046,8 @@ void AppController::onAdbDevicesChanged(const QStringList &strDevices)
 
 void AppController::onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage)
 {
-	m_bAdbKnown = true;
 	m_bAdbAvailable = bAvailable;
-	if (!bAvailable && !m_bAdbWarned) {
-		m_bAdbWarned = true;
+	if (!bAvailable) {
 		AppendLog(strMessage, true);
 		emit toastRequested(strMessage, true);
 	}

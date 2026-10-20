@@ -17,6 +17,8 @@ add_library(upgrade_gui_backend STATIC
   EdlTransport.cpp
   AdbRunner.cpp
   AdbRunner.h
+  AdbExecutable.cpp
+  AdbExecutable.h
   backend/DeviceModel.cpp
   backend/DeviceModel.h
   backend/TaskController.cpp

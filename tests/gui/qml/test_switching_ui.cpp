@@ -6,6 +6,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlExpression>
 #include <QQuickStyle>
 #include <QTemporaryDir>
 #include <QSettings>
@@ -16,6 +17,10 @@ static int failures = 0;
 int main(int argc, char **argv) {
     // This executable is also the fake ADB. Device selection never sends a reboot.
     if (argc > 1) {
+        if (QString::fromLocal8Bit(argv[1]) == "version") {
+            std::printf("Android Debug Bridge version 1.0.41\nVersion fake-test\n");
+            return 0;
+        }
         if (QString::fromLocal8Bit(argv[1]) == "devices") {
             std::printf("List of devices attached\nboard device\nsecond device\n");
             return 0;
@@ -72,6 +77,29 @@ int main(int argc, char **argv) {
                     if (candidate->isVisible()) button = candidate;
                 CHECK(button && button->isEnabled());
                 if (!button) continue;
+                if (vendor == 0) {
+                    auto availability = [&](bool available) {
+                        CHECK(QMetaObject::invokeMethod(&controller, "onAdbAvailabilityChanged", Qt::DirectConnection,
+                            Q_ARG(bool, available), Q_ARG(QString, QString())));
+                    };
+                    auto devices = [&](const QStringList &serials) {
+                        CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
+                            Q_ARG(QStringList, serials)));
+                    };
+                    QQmlExpression tooltipText(qmlContext(button), button, QStringLiteral("ToolTip.text"));
+                    const auto expected = QString::fromUtf8(language == QStringLiteral("en")
+                        ? "No ADB device detected" : "未检测到 ADB 设备");
+                    // A runtime failure disables switching even before the cached list is cleared.
+                    availability(false);
+                    CHECK(!button->isEnabled());
+                    CHECK(tooltipText.evaluate().toString() == expected && !tooltipText.hasError());
+                    devices({});
+                    availability(true);
+                    CHECK(!button->isEnabled());
+                    CHECK(tooltipText.evaluate().toString() == expected && !tooltipText.hasError());
+                    devices({"board", "second"});
+                    CHECK(button->isEnabled());
+                }
                 QCoreApplication::processEvents();
                 const QPointF before = button->mapToScene(QPointF());
                 const QSizeF size(button->width(), button->height());

@@ -108,9 +108,11 @@ sudo scripts/install-udev.sh
 
 The `.deb` installs all vendor rule sets automatically. If you see a permission error, install the rules and reconnect the device. A Rockchip device is recognized when the device bar shows `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom`.
 
-**macOS**: No extra USB driver is needed. ADB is optional, to switch an Android device to Loader.
+**macOS**: No extra USB driver is needed.
 
 **Windows**: Use [Zadig](https://zadig.akeo.ie/) to install the WinUSB driver for Rockchip VID `2207` or Allwinner `1f3a:efe8` devices. Qualcomm also supports the official QDLoader COM driver through the QUD backend. Not yet verified on real Windows.
+
+Windows/macOS release packages include ADB; the `.deb` installs the distribution's `adb` dependency. Set `ADB` to an executable path or name to override it.
 
 ## Build
 

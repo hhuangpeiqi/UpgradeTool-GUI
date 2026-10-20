@@ -108,9 +108,11 @@ sudo scripts/install-udev.sh
 
 `.deb` 安装时会自动安装各厂商规则。如提示权限错误，安装规则后重新连接设备。设备栏显示 `Vid=0x2207,Pid=0x... Mode=Loader|Maskrom` 时，瑞芯微设备已识别。
 
-**macOS**：无需另装 USB 驱动。可选安装 ADB，用于将 Android 设备切换到 Loader。
+**macOS**：无需另装 USB 驱动。
 
 **Windows**：使用 [Zadig](https://zadig.akeo.ie/) 为瑞芯微 VID `2207` 或全志 `1f3a:efe8` 设备安装 WinUSB 驱动。高通另支持官方 QDLoader COM 驱动（QUD 后端）。尚未在真实 Windows 环境验证。
+
+Windows/macOS 发布包内置 ADB；`.deb` 自动安装发行版的 `adb` 依赖。可将 `ADB` 设为可执行文件路径或名称来覆盖默认选择。
 
 ## 构建
 

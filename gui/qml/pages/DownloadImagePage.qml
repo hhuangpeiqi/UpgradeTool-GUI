@@ -113,8 +113,7 @@ Item {
                     onClicked: app.switchToLoader()
 
                     ToolTip.visible: hovered && !enabled && !app.tasks.busy
-                    ToolTip.text: app.adbAvailable ? qsTr("No ADB device detected")
-                                                   : qsTr("ADB unavailable")
+                    ToolTip.text: qsTr("No ADB device detected")
                 }
 
                 SecondaryButton {

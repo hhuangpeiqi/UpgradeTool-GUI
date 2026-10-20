@@ -233,7 +233,7 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
 
 bool process(const QString &exe,const QStringList &args,const EdlCancel &cancel,int timeout,QByteArray &output,QString &error,bool *started=nullptr) {
     if (cancel->stop_requested()) { error=EdlRunner::tr("ADB command cancelled or timed out."); return false; }
-    auto child=platform::MakeProcess();
+    auto child=platform::MakeAdbProcess();
     if(started) *started=false;
     std::vector<std::string> arguments; for(const auto &arg:args) arguments.push_back(arg.toStdString());
     try { child->Start(exe.toStdString(),arguments); if(started) *started=true; }

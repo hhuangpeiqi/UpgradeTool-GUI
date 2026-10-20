@@ -1,6 +1,6 @@
 upgrade_test(test_inspections LIBRARIES upgrade_gui_backend TIMEOUT 10 LABELS gui controller rockchip allwinner)
 upgrade_test(test_file_locations LIBRARIES upgrade_gui_backend TIMEOUT 10 LABELS gui controller)
-foreach(name test_adb_runner test_edl_runner test_qualcomm_controller)
+foreach(name test_adb_executable test_adb_runner test_edl_runner test_qualcomm_controller)
   upgrade_test(${name} LIBRARIES upgrade_gui_backend TIMEOUT 30 LABELS gui controller)
 endforeach()
 set_property(TEST test_edl_runner test_qualcomm_controller APPEND PROPERTY LABELS qualcomm)

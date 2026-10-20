@@ -56,7 +56,6 @@ class AppController : public QObject, public Retranslatable
 
 	Q_PROPERTY(bool permissionBlocked READ permissionBlocked NOTIFY permissionChanged)
 
-	Q_PROPERTY(bool adbAvailable READ adbAvailable NOTIFY adbStateChanged)
 	Q_PROPERTY(int adbDeviceCount READ adbDeviceCount NOTIFY adbStateChanged)
 	Q_PROPERTY(bool adbReady READ adbReady NOTIFY adbStateChanged)
 	Q_PROPERTY(QString felSwitchHint READ felSwitchHint NOTIFY felSwitchStateChanged)
@@ -110,9 +109,8 @@ public:
 
 	bool permissionBlocked() const { return m_bPermissionBlocked && !m_bPermissionIgnored; }
 
-	bool adbAvailable() const { return m_bAdbAvailable; }
 	int adbDeviceCount() const { return m_strAdbDevices.size(); }
-	bool adbReady() const { return m_bAdbKnown && m_bAdbAvailable
+	bool adbReady() const { return m_bAdbAvailable
 	                                && !m_strAdbDevices.isEmpty(); }
 
 	QString felSwitchHint() const { return m_felSwitchHint.value(); }
@@ -259,9 +257,7 @@ private:
 	bool m_felSwitchError = false;
 
 	QStringList m_strAdbDevices;
-	bool m_bAdbKnown;
 	bool m_bAdbAvailable;
-	bool m_bAdbWarned;
 };
 
 }

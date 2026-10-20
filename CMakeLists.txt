@@ -205,7 +205,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
   set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "pkexec")
   set(CPACK_DEBIAN_PACKAGE_DEPENDS
-      "qml6-module-qtquick, qml6-module-qtquick-controls, qml6-module-qtquick-layouts, qml6-module-qtquick-templates, qml6-module-qtquick-window, qml6-module-qtqml-workerscript, qt6-qpa-plugins, qt6-svg-plugins | libqt6svg6")
+      "adb, qml6-module-qtquick, qml6-module-qtquick-controls, qml6-module-qtquick-layouts, qml6-module-qtquick-templates, qml6-module-qtquick-window, qml6-module-qtqml-workerscript, qt6-qpa-plugins, qt6-svg-plugins | libqt6svg6")
   if(NOT CPACK_DEBIAN_PACKAGE_ARCHITECTURE)
     find_program(DPKG_EXECUTABLE dpkg)
     if(DPKG_EXECUTABLE)

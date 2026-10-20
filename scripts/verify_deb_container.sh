@@ -57,6 +57,8 @@ for REL in $RELEASES; do
 			export DEBIAN_FRONTEND=noninteractive
 			apt-get update -qq
 			apt-get install -y -qq --no-install-recommends "/pkg/$DEB_NAME"
+			command -v adb
+			adb version
 			apt-get install -y -qq --no-install-recommends xvfb xauth
 			echo "--- GUI render (xvfb + xcb)"
 			timeout -k 5 90 xvfb-run -a -s "-screen 0 1280x800x24" \

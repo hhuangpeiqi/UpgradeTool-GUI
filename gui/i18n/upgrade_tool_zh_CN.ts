@@ -1111,12 +1111,7 @@
         <translation>未检测到 ADB 设备</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>ADB unavailable</source>
-        <translation>ADB 不可用</translation>
-    </message>
-    <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Clear</source>
         <translation>清空</translation>
     </message>
@@ -1261,12 +1256,7 @@
         <translation>未检测到 ADB 设备</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>ADB unavailable</source>
-        <translation>ADB 不可用</translation>
-    </message>
-    <message>
-        <location line="+24"/>
+        <location line="+25"/>
         <source>Firmware Info</source>
         <translation>固件信息</translation>
     </message>
@@ -3093,6 +3083,24 @@
 <context>
     <name>gui::AdbRunner</name>
     <message>
+        <source>ADB command failed (%1): %2</source>
+        <translation>ADB 命令失败（%1）：%2</translation>
+    </message>
+    <message>
+        <source>Invalid ADB version output: %1</source>
+        <translation>无效的 ADB 版本输出：%1</translation>
+    </message>
+    <message>
+        <source>ADB command timed out.</source>
+        <translation>ADB 命令超时。</translation>
+    </message>
+    <message>
+        <source>ADB [%1]: %2
+%3</source>
+        <translation>ADB [%1]：%2
+%3</translation>
+    </message>
+    <message>
         <location filename="../AdbRunner.cpp" line="+135"/>
         <location line="+102"/>
         <source>Cannot start ADB process: %1</source>
@@ -3101,8 +3109,8 @@
     <message>
         <location line="-30"/>
         <location line="+64"/>
-        <source>ADB executable not found; make sure ADB is installed and in PATH.</source>
-        <translation>未找到 ADB 可执行文件，请确认已安装 ADB 且在 PATH 中。</translation>
+        <source>ADB executable not found; reinstall the application or install ADB and check PATH / ADB.</source>
+        <translation>未找到 ADB 可执行文件，请重新安装应用，或安装 ADB 并检查 PATH / ADB。</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -3296,17 +3304,7 @@
         <translation>发现 %1 个 %2 设备</translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>Detecting ADB…</source>
-        <translation>检测 ADB 中…</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>No ADB environment detected</source>
-        <translation>未检测到 ADB 环境</translation>
-    </message>
-    <message>
-        <location line="+3"/>
+        <location line="+11"/>
         <source>ADB device found</source>
         <translation>发现 ADB 设备</translation>
     </message>

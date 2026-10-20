@@ -64,6 +64,19 @@ mkdir -p "$CONTENTS"
 APP="$CONTENTS/UpgradeTool-GUI.app"
 ditto "$BUILD_DIR/upgrade_tool_gui.app" "$APP"
 cp "$ROOT/config.ini" "$CONTENTS/config.ini"
+ADB_DIR="$APP/Contents/Helpers/adb"
+cmake -DADB_PLATFORM=darwin "-DADB_CACHE_DIR=$BUILD_DIR/adb-cache" \
+    "-DADB_DESTINATION=$ADB_DIR" -P "$ROOT/scripts/prepare_adb.cmake"
+chmod +x "$ADB_DIR/adb"
+lipo -verify_arch arm64 "$ADB_DIR/adb"
+ADB_DEPENDENCIES=$(otool -arch arm64 -L "$ADB_DIR/adb")
+printf '%s\n' "$ADB_DEPENDENCIES" | tail -n +2 | awk '{print $1}' | while IFS= read -r dependency; do
+    case "$dependency" in
+        /usr/lib/*|/System/Library/*) ;;
+        *) echo "error: unexpected ADB dependency: $dependency" >&2; exit 1 ;;
+    esac
+done
+"$ADB_DIR/adb" version
 mkdir -p "$APP/Contents/Resources/licenses"
 cp "$ROOT/backends/rockchip/legacy/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.0.txt"
 cp "$ROOT/third_party/libusb/COPYING" "$APP/Contents/Resources/licenses/libusb-LGPL-2.1.txt"
@@ -76,6 +89,7 @@ fi
 # Deploy only the platform and SVG plugins used by this application. Qt's
 # default deployment also collects SQL drivers with external database dependencies.
 set -- "$APP" "-qmldir=$ROOT/gui/qml" -always-overwrite -no-plugins -codesign=-
+set -- "$@" "-executable=$ADB_DIR/adb"
 for plugin in platforms/libqcocoa.dylib platforms/libqoffscreen.dylib \
               iconengines/libqsvgicon.dylib imageformats/libqsvg.dylib; do
     mkdir -p "$APP/Contents/PlugIns/$(dirname "$plugin")"
@@ -89,6 +103,9 @@ Imports = Resources/qml
 QmlImports = Resources/qml
 QTCONF
 "$QT_ROOT/bin/macdeployqt" "$@"
+codesign --force --sign - "$ADB_DIR/adb"
+codesign --force --sign - "$APP"
+"$ADB_DIR/adb" version
 codesign --verify --deep --strict "$APP"
 ln -s /Applications "$CONTENTS/Applications"
 # Keep a standalone application as well as the disk image.
