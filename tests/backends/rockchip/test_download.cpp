@@ -485,9 +485,6 @@ static void test_parameter_stack()
 	remove(parameter);
 	remove(package);
 	remove(temporary.filePath("ut_test_stack_truncated").c_str());
-	// These two paths are owned by the legacy implementation, not the fixture.
-	remove("/tmp/ut_parameter.raw");
-	remove("/tmp/ut_parameter.txt");
 }
 
 #if defined(__unix__) || defined(__APPLE__)

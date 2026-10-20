@@ -1,3 +1,9 @@
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <stdexcept>
+#include <thread>
+
 #include "AndroidDevice.h"
 #include "Parameter.h"
 #include "Config.h"
@@ -5,6 +11,32 @@
 #include "Idb.h"
 
 #include <vector>
+
+namespace {
+class TemporaryParameterFiles {
+    std::filesystem::path directory;
+public:
+    TemporaryParameterFiles() {
+        static std::atomic<unsigned> sequence{0};
+        const auto root = std::filesystem::temp_directory_path();
+        for (unsigned attempt = 0; attempt < 100; ++attempt) {
+            auto candidate = root / ("upgrade-parameter-" +
+                std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+                "-" + std::to_string(sequence++));
+            if (std::filesystem::create_directory(candidate)) {
+                directory = std::move(candidate);
+                return;
+            }
+        }
+        throw std::runtime_error("Cannot create parameter temporary directory");
+    }
+    ~TemporaryParameterFiles() {
+        std::error_code error;
+        std::filesystem::remove_all(directory, error);
+    }
+    std::string filePath(const char *name) const { return (directory / name).string(); }
+};
+}
 
 // File-local helper: 1 when the parameter declares a GPT table.
 static int fw_get_parameter_gptflag(const char *szParameter)
@@ -1150,7 +1182,7 @@ static bool ErasePartByTestUnit(CRKComm *pComm, ProgressPromptCB cb, platform::F
                                 UINT uiPartSize, BYTE ucSubCode, ENUM_PROGRESS_PROMPT emPrompt,
                                 const char *szPart)
 {
-	UINT uiTotal = 0, uiCurrent = 0;
+	DWORD uiTotal = 0, uiCurrent = 0;
 	int iReported = 0;
 	int iRet;
 	for (int iTry = 3; iTry > 0; iTry--) {
@@ -1161,7 +1193,7 @@ static bool ErasePartByTestUnit(CRKComm *pComm, ProgressPromptCB cb, platform::F
 					cb(uiPartSize, emPrompt, uiTotal, uiCurrent, (ENUM_CALL_STEP)iReported);
 					iReported = 1;
 				}
-				sleep(1);
+				std::this_thread::sleep_for(std::chrono::seconds(1));
 				continue;
 			}
 			if (iReported && cb)
@@ -1170,7 +1202,7 @@ static bool ErasePartByTestUnit(CRKComm *pComm, ProgressPromptCB cb, platform::F
 		}
 		if (pLog)
 			pLog->Record("ERROR:Erase%sPart-->RKU_TestDeviceReady failed,RetCode(%d)", szPart, iRet);
-		sleep(1);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 	return false;
 }
@@ -1258,7 +1290,7 @@ int CRKAndroidDevice::DownloadBoot()
 			delete []pBuffer;
 			pBuffer = NULL;
 			if (dwDelay > 0)
-				usleep(dwDelay * 1000);
+				std::this_thread::sleep_for(std::chrono::microseconds(dwDelay * 1000));
 		}
 	}
 	for (i = 0; i < pBoot->Entry472Count; i++) {
@@ -1287,10 +1319,10 @@ int CRKAndroidDevice::DownloadBoot()
 			delete []pBuffer;
 			pBuffer = NULL;
 			if (dwDelay > 0)
-				usleep(dwDelay * 1000);
+				std::this_thread::sleep_for(std::chrono::microseconds(dwDelay * 1000));
 		}
 	}
-	sleep(1);
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 	return 0;
 }
 
@@ -1700,7 +1732,10 @@ int CRKAndroidDevice::DownloadImage()
 	for (int i = 0; i < m_nEntries; i++) {
 		FW_ENTRY &entry = m_entries[i];
 		if (strstr(entry.szFile, "parameter") && !strstr(entry.szFile, ".img")) {
-			if (!ExtractEntry(entry, "/tmp/ut_parameter.raw")) {
+			TemporaryParameterFiles temporary;
+			const auto rawPath = temporary.filePath("parameter.raw");
+			auto textPath = temporary.filePath("parameter.txt");
+			if (!ExtractEntry(entry, rawPath.c_str())) {
 				if (m_pLog)
 					m_pLog->Record("ERROR:DownloadImage-->extract %s failed", entry.szFile);
 				bOk = false;
@@ -1708,13 +1743,13 @@ int CRKAndroidDevice::DownloadImage()
 			}
 			// The package stores the parameter wrapped as PARM+size+text+crc; unwrap it.
 			BYTE raw[16];
-			FILE *rf = fopen("/tmp/ut_parameter.raw", "rb");
+			FILE *rf = fopen(rawPath.c_str(), "rb");
 			size_t rn = rf ? fread(raw, 1, 12, rf) : 0;
 			if (rf) fclose(rf);
 			if (rn >= 8 && *(UINT *)raw == 0x4D524150) {
 				UINT uiText = *(UINT *)(raw + 4);
-				FILE *in = fopen("/tmp/ut_parameter.raw", "rb");
-				FILE *out = fopen("/tmp/ut_parameter.txt", "wb");
+				FILE *in = fopen(rawPath.c_str(), "rb");
+				FILE *out = fopen(textPath.data(), "wb");
 				if (in && out) {
 					fseeko(in, 8, SEEK_SET);
 					BYTE b2[4096];
@@ -1730,11 +1765,11 @@ int CRKAndroidDevice::DownloadImage()
 				if (in) fclose(in);
 				if (out) fclose(out);
 			} else {
-				rename("/tmp/ut_parameter.raw", "/tmp/ut_parameter.txt");
+				rename(rawPath.c_str(), textPath.data());
 			}
-			bool bParamOk = fw_get_parameter_gptflag("/tmp/ut_parameter.txt")
-			                ? WriteGpt("/tmp/ut_parameter.txt")
-			                : WriteParameter("/tmp/ut_parameter.txt");
+			bool bParamOk = fw_get_parameter_gptflag(textPath.data())
+			                ? WriteGpt(textPath.data())
+			                : WriteParameter(textPath.data());
 			if (!bParamOk) {
 				if (m_pLog)
 					m_pLog->Record("ERROR:DownloadImage-->write parameter/GPT failed");

@@ -1707,7 +1707,7 @@
 +    else if (fclose(gen->digest_table_fd)) ret = -EIO;
 +    if (complete && !ret && !qtq_cancelled()) ret = create_chained_tables(gen);
 +    if (ret) ux_err("VIP: failed to create the table of digests\n");
-+    if (!complete || ret || qtq_cancelled()) {
++    if (gen->digest_table_fd && (!complete || ret || qtq_cancelled())) {
 +        char path[PATH_MAX];
 +        snprintf(path, sizeof(path), "%s/%s", gen->path, DIGEST_TABLE_TO_SIGN_FILE);
 +        remove(path);

@@ -7,7 +7,12 @@
 #include <cstdio>
 #include <fstream>
 #include <thread>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#include <fcntl.h>
+#include <io.h>
+#else
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -68,7 +73,21 @@ static void TestSerialPort() {
 int main(int argc,char **argv) {
     if(argc>1) {
         const std::string mode=argv[1];
-        if(mode=="--echo") { for(int i=2;i<argc;++i) std::printf("%s\n",argv[i]); return 0; }
+        if(mode=="--echo") {
+#ifdef _WIN32
+            // The helper echoes UTF-8 bytes, independent of the CRT's ANSI argv
+            // conversion and text-mode CRLF translation on Windows.
+            _setmode(_fileno(stdout), _O_BINARY);
+            int count=0;
+            auto **arguments=CommandLineToArgvW(GetCommandLineW(), &count);
+            if (!arguments) return 1;
+            for(int i=2;i<count;++i) std::printf("%s\n",platform::Utf8(std::filesystem::path(arguments[i])).c_str());
+            LocalFree(arguments);
+#else
+            for(int i=2;i<argc;++i) std::printf("%s\n",argv[i]);
+#endif
+            return 0;
+        }
         if(mode=="--fail") return 7;
         if(mode=="--sleep") { std::this_thread::sleep_for(std::chrono::seconds(30)); return 0; }
         if(mode=="--flood") { for(int i=0;i<1024;++i) { std::string text(1024,'x'); std::fwrite(text.data(),1,text.size(),stdout); } return 0; }

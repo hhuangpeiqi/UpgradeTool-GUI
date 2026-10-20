@@ -159,13 +159,17 @@ open build-macos/upgrade_tool_gui.app
 
 ### Windows
 
-使用 Qt6 MinGW 工具链、CMake 和 Ninja，在对应 Qt MinGW 环境的 PowerShell 中运行：
+通过 Qt Maintenance Tool 安装 Qt6 x64 MinGW 套件（含 SerialPort、Qt Test、Qt Quick Test 和 Linguist Tools）、匹配的 MinGW 编译器、CMake 和 Ninja，并安装 Git for Windows。
+
+脚本会在匹配的 MinGW 安装目录中查找 zlib 和 Iconv 头文件及静态库。若安装在其他目录，可传入 `-ZlibRoot <目录>` 和 `-IconvRoot <目录>`。在普通 PowerShell 中运行：
 
 ```powershell
-./scripts/package_windows.ps1 -QtRoot C:/Qt/6.8.3/mingw_64
+./scripts/package_windows.ps1
+# 仅检查依赖，不执行构建
+./scripts/package_windows.ps1 -CheckEnvironment
 ```
 
-产物位于 `build-windows/dist/UpgradeTool-GUI/`。Windows 构建和实机尚未验证。
+便携版输出到 `<构建目录>/dist/UpgradeTool-GUI-v<版本>-windows-x64-portable.exe`。
 
 ### 测试与打包
 

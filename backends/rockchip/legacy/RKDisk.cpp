@@ -1,6 +1,9 @@
 #include "RKDisk.h"
 
 #include <fcntl.h>
+#ifdef _WIN32
+#include <io.h>
+#endif
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
@@ -151,7 +154,11 @@ CRKDisk::~CRKDisk()
 
 bool CRKDisk::OpenDisk()
 {
+#ifdef _WIN32
+	m_iFd = open(m_sDevPath.c_str(), O_RDWR | _O_BINARY);
+#else
 	m_iFd = open(m_sDevPath.c_str(), O_RDWR | O_SYNC);
+#endif
 	if (m_iFd < 0) {
 		g_lastDiskErr = errno;
 		printf("open failed, %s err=%d\r\n", m_sDevPath.c_str(), errno);
@@ -218,8 +225,15 @@ bool CRKDisk::WriteDisk(unsigned long ulOffset, int iSize, unsigned char *pBuf)
 		return false;
 	}
 	ssize_t n = write(m_iFd, pBuf, (size_t)iSize);
-	if (n == (ssize_t)iSize)
+	if (n == (ssize_t)iSize) {
+#ifdef _WIN32
+		if (_commit(m_iFd) != 0) {
+			g_lastDiskErr = errno;
+			return false;
+		}
+#endif
 		return true;
+	}
 	g_lastDiskErr = DISK_ERR_WRITE;
 	return false;
 }

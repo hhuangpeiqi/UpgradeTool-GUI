@@ -1,3 +1,6 @@
+#include <chrono>
+#include <thread>
+
 #include "Upgrade.h"
 
 // ---------------------------------------------------------------------------
@@ -420,7 +423,7 @@ bool CRKUpgrade::RunStep(const STRUCT_UPGRADE_STEP &step, bool &bCondition)
 
 	case UPGRADE_STEP_RESET_DEVICE_EXT:
 		Prompt((ENUM_UPGRADE_PROMPT)0x7f);
-		sleep(1);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 		if (!m_pDevice->SendExtCommand(0, 0xfffffffd, NULL, NULL, 0)) {
 			Prompt((ENUM_UPGRADE_PROMPT)0x80);
 			return false;

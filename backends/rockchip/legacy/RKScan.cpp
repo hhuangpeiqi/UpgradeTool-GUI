@@ -5,6 +5,9 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <chrono>
+#include <thread>
+
 #include "RKScan.h"
 #define BUSID(id)  ((id & 0x0000FF00) >> 8)
 int CRKScan::GetDEVICE_COUNTS()
@@ -481,7 +484,7 @@ bool CRKScan::MutexWaitPrepare(UINT_VECTOR &vecExistedDevice, DWORD uiOfflineDev
 	iRet = iRet2 =0;
 	while ((time(&timeNow) - timeInit) <= 3) {
 		iRet = Search(RKUSB_MASKROM | RKUSB_LOADER | RKUSB_MSC);
-		usleep(20000);
+		std::this_thread::sleep_for(std::chrono::microseconds(20000));
 		iRet2 = Search(RKUSB_MASKROM | RKUSB_LOADER | RKUSB_MSC);
 		if (iRet2 == iRet) {
 			break;
@@ -568,7 +571,7 @@ bool CRKScan::Wait(STRUCT_RKDEVICE_DESC &device, ENUM_RKUSB_TYPE usbType, USHORT
 			bRet = true;
 			break;
 		}
-		usleep(50000);
+		std::this_thread::sleep_for(std::chrono::microseconds(50000));
 	}
 
 	FreeDeviceList(deviceList);

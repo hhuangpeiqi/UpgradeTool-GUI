@@ -5,6 +5,9 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <chrono>
+#include <thread>
+
 #include "RKDevice.h"
 
 const char* szManufName[] =
@@ -920,7 +923,7 @@ bool CRKDevice::TestDevice()
 				m_pLog->Record("<LAYER %s> ERROR:TestDevice-->RKU_TestDeviceReady failed, RetCode(%d)", m_layerName.c_str(), iResult);
 			}
 			iTryCount--;
-			sleep(1);
+			std::this_thread::sleep_for(std::chrono::seconds(1));
 		}
 		if (iTryCount <= 0) {
 			return false;
@@ -956,7 +959,7 @@ bool CRKDevice::TestDevice()
 			m_callBackProc(dwLayerID, TESTDEVICE_PROGRESS, dwTotal, dwCurrent, emCallStep);
 			emCallStep = CALL_MIDDLE;
 		}
-		sleep(1);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}while(iResult == ERR_DEVICE_UNREADY);
 	return true;
 }
@@ -1090,7 +1093,7 @@ int CRKDevice::DownloadBoot()
 			delete []pBuffer;
 			pBuffer = NULL;
 			if (dwDelay>0) {
-				usleep(dwDelay * 1000);
+				std::this_thread::sleep_for(std::chrono::microseconds(dwDelay * 1000));
 			}
 
 		}
@@ -1122,11 +1125,11 @@ int CRKDevice::DownloadBoot()
 			delete []pBuffer;
 			pBuffer = NULL;
 			if (dwDelay > 0) {
-				usleep(dwDelay * 1000);
+				std::this_thread::sleep_for(std::chrono::microseconds(dwDelay * 1000));
 			}
 		}
 	}
-	sleep(1);
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 	return 0;
 
 }
@@ -1238,8 +1241,8 @@ void CRKDevice::SetWorkFlow(UINT value)
 }
 bool CRKDevice::LowerFormatDevice(bool &bRet)
 {
-	UINT uiTotal = 0;
-	UINT uiCurrent = 0;
+	DWORD uiTotal = 0;
+	DWORD uiCurrent = 0;
 	BYTE ucSubCode = TU_LOWERFORMAT_SUBCODE;
 	int iRet = ERR_SUCCESS;
 	int i;
@@ -1251,7 +1254,7 @@ bool CRKDevice::LowerFormatDevice(bool &bRet)
 			return true;
 		if (m_pLog)
 			m_pLog->Record("ERROR:LowerFormatDevice-->RKU_TestDeviceReady failed,subCode(0x%x),RetCode(%d)", ucSubCode, iRet);
-		sleep(1);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 	bRet = false;
 	return false;

@@ -5,6 +5,9 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <chrono>
+#include <thread>
+
 #include "RKComm.h"
 #include "platform/FileLog.h"
 #include "Endian.h"
@@ -254,7 +257,7 @@ bool CRKUsbComm::RKU_ClearBuffer(CBW& cbw, CSW& csw)
 		if (dwReadBytes != sizeof(CSW))
 		{
 			iTryCount--;
-			sleep(3);
+			std::this_thread::sleep_for(std::chrono::seconds(3));
 		}
 		dwTotalRead += dwReadBytes;
 		if (dwTotalRead >= MAX_CLEAR_LEN)

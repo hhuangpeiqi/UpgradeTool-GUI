@@ -1,4 +1,7 @@
 upgrade_test(test_platform_io LIBRARIES upgrade_platform LABELS platform)
+if(WIN32)
+  target_link_libraries(test_platform_io PRIVATE shell32)
+endif()
 if(UNIX)
   upgrade_test(test_platform_path LIBRARIES upgrade_platform LABELS platform)
 endif()

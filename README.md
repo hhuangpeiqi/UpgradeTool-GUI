@@ -159,13 +159,17 @@ open build-macos/upgrade_tool_gui.app
 
 ### Windows
 
-Using the Qt6 MinGW toolchain, CMake, and Ninja, run in the PowerShell of the matching Qt MinGW environment:
+Install a Qt6 x64 MinGW kit (including SerialPort, Qt Test, Qt Quick Test and Linguist Tools), its matching MinGW compiler, CMake and Ninja with Qt Maintenance Tool, and install Git for Windows.
+
+The script detects zlib and Iconv headers/static libraries in the matching MinGW installation. For separate installations, pass `-ZlibRoot <prefix>` and `-IconvRoot <prefix>`. Run from an ordinary PowerShell:
 
 ```powershell
-./scripts/package_windows.ps1 -QtRoot C:/Qt/6.8.3/mingw_64
+./scripts/package_windows.ps1
+# Check dependencies without building
+./scripts/package_windows.ps1 -CheckEnvironment
 ```
 
-The output is in `build-windows/dist/UpgradeTool-GUI/`. Windows build and hardware are not yet verified.
+The portable is written to `<build-dir>/dist/UpgradeTool-GUI-v<version>-windows-x64-portable.exe`.
 
 ### Tests and packaging
 

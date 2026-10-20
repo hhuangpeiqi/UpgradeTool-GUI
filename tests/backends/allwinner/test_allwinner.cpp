@@ -61,7 +61,8 @@ int main() {
         auto invalid=Package(Entries()); Put64(invalid.data()+1024+308,UINT64_MAX); Write(path,invalid); CHECK(Throws([&]{Firmware fw(path);}));
         auto entries=Entries(); entries[0].name="../outside"; Write(path,Package(entries));
         { Firmware fw(path); CHECK(Throws([&]{fw.Extract(dir.filePath("extract"),{},{});})); CHECK(!std::filesystem::exists(dir.filePath("extract"))); }
-        Write(path,Package(Entries(true))); Firmware sparse(path); uint64_t expanded=0; auto layout=SparseLayout(sparse,sparse.entries[0],expanded); CHECK(expanded==1536&&layout.size()==3);
+        uint64_t expanded=0;
+        { Write(path,Package(Entries(true))); Firmware sparse(path); auto layout=SparseLayout(sparse,sparse.entries[0],expanded); CHECK(expanded==1536&&layout.size()==3); }
         auto malformed=Entries(true); Put32(malformed[0].data.data()+28+8,12); Write(path,Package(malformed));
         { Firmware fw(path); CHECK(Throws([&]{SparseLayout(fw,fw.entries[0],expanded);})); }
         Write(path,Package(Entries()));

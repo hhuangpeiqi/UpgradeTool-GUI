@@ -1,6 +1,10 @@
 set(CMAKE_AUTOMOC ON)
 set(UPGRADE_TOOL_TEST_QPA_PLATFORM "offscreen" CACHE STRING "Qt platform for GUI tests")
 set(test_gui_environment "QT_QPA_PLATFORM=${UPGRADE_TOOL_TEST_QPA_PLATFORM};QT_QUICK_BACKEND=software")
+if(WIN32)
+  # The offscreen plugin uses FreeType instead of the Windows font database.
+  list(APPEND test_gui_environment "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
+endif()
 add_subdirectory(backend)
 add_subdirectory(qml)
 add_subdirectory(smoke)

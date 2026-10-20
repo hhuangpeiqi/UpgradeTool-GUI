@@ -20,6 +20,16 @@ endfunction()
 
 add_subdirectory(application)
 add_subdirectory(platform)
+if(WIN32 AND MINGW)
+  find_package(Python3 3.10 QUIET COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    get_filename_component(_portable_compiler_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    add_test(NAME test_windows_portable
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/platform/test_windows_portable.py"
+        "${CMAKE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/portable-tests" "${_portable_compiler_bin}")
+    set_tests_properties(test_windows_portable PROPERTIES TIMEOUT 180 LABELS "platform;packaging")
+  endif()
+endif()
 add_subdirectory(backends)
 if(UPGRADE_TOOL_GUI AND UPGRADE_TOOL_ROCKCHIP AND UPGRADE_TOOL_ALLWINNER AND UPGRADE_TOOL_QUALCOMM)
   add_subdirectory(gui)

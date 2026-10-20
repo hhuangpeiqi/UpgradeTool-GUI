@@ -54,6 +54,12 @@ if(WIN32)
   target_link_libraries(upgrade_gui_backend PUBLIC cfgmgr32)
 endif()
 qt_add_executable(upgrade_tool_gui main.cpp)
+if(WIN32)
+  enable_language(RC)
+  target_sources(upgrade_tool_gui PRIVATE ${CMAKE_SOURCE_DIR}/scripts/windows/app_icon.rc)
+  target_include_directories(upgrade_tool_gui PRIVATE ${CMAKE_SOURCE_DIR}/scripts/windows)
+  set_target_properties(upgrade_tool_gui PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 
 set(_qml_root ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 

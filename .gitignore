@@ -38,9 +38,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# macOS build and distribution
+# build and distribution
 build-macos*/
 *.dmg
+build-windows*/
 
 build-headless/
 build-vendor-check/

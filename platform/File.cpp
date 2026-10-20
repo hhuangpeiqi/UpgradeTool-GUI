@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #ifdef _WIN32
 #include <windows.h>
+#include <fcntl.h>
 #include <io.h>
 #else
 #include <unistd.h>
@@ -17,7 +18,18 @@ namespace {
 [[noreturn]] void Fail(const char *what) { throw std::system_error(errno, std::generic_category(), what); }
 std::FILE *Open(const std::filesystem::path &p, bool exclusive) {
 #ifdef _WIN32
-    return _wfopen(p.c_str(), exclusive ? L"w+bx" : L"rb");
+    if (!exclusive) return _wfopen(p.c_str(), L"rb");
+    const int fd = _wopen(p.c_str(), _O_CREAT | _O_EXCL | _O_RDWR | _O_BINARY,
+                         _S_IREAD | _S_IWRITE);
+    if (fd < 0) return nullptr;
+    std::FILE *file = _wfdopen(fd, L"w+b");
+    if (!file) {
+        const int error = errno;
+        _close(fd);
+        _wremove(p.c_str());
+        errno = error;
+    }
+    return file;
 #else
     return std::fopen(p.c_str(), exclusive ? "w+bx" : "rb");
 #endif

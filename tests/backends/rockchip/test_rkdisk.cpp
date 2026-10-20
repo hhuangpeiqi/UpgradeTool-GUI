@@ -50,7 +50,8 @@ static void test_open_size_read_write()
 		CHECK(rd[i] == (unsigned char)((1 + i) & 0xff));
 
 	unsigned char wr[0x200];
-	memset(wr, 0xA5, sizeof(wr));
+	for (size_t i = 0; i < sizeof(wr); ++i)
+		wr[i] = (unsigned char)(i & 0xff);
 	CHECK(disk.WriteDisk(0x400, 0x200, wr));
 	CHECK(disk.ReadDisk(0x400, 0x200, rd));
 	CHECK(memcmp(rd, wr, sizeof(wr)) == 0);
@@ -60,6 +61,12 @@ static void test_open_size_read_write()
 	CHECK(rd[0] == 0x00);
 
 	disk.CloseDisk();
+	// Check bytes on disk independently, including LF, CR and Ctrl-Z.
+	std::ifstream stored(kTemp, std::ios::binary);
+	stored.seekg(0x400);
+	stored.read(reinterpret_cast<char *>(rd), sizeof(rd));
+	CHECK(stored.gcount() == sizeof(rd));
+	CHECK(memcmp(rd, wr, sizeof(wr)) == 0);
 
 	g_lastDiskErr = 0;
 	CHECK(!disk.ReadDisk(0, 1, rd));
