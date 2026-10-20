@@ -59,6 +59,9 @@ int main(int argc,char **argv) {
     CHECK(qtq_execute(&r,&callbacks)!=0);
     CHECK(std::filesystem::is_directory(digest+"/DigestsToSign.bin"));
     CHECK(std::filesystem::remove(digest+"/DigestsToSign.bin"));
+    CHECK(qtq_execute(&r,&callbacks)==0);
+    CHECK(std::filesystem::is_regular_file(digest+"/DigestsToSign.bin"));
+    CHECK(std::filesystem::file_size(digest+"/DigestsToSign.bin")>0);
     r.vip_tables=digest.c_str(); CHECK(qtq_execute(&r,&callbacks)==-EINVAL); r.vip_tables=nullptr; r.digest_dir=nullptr;
     std::string binary=path("read.bin"); qtq_raw_op read{QTQ_READ,"0/34+2",binary.c_str()}; r.command=QTQ_RAW; r.raw=&read; r.raw_count=1; CHECK(qtq_execute(&r,&callbacks)==0); CHECK(!std::filesystem::exists(binary));
     Write(binary, "original backup");

@@ -1710,7 +1710,7 @@
 +    if (gen->digest_table_fd && (!complete || ret || qtq_cancelled())) {
 +        char path[PATH_MAX];
 +        snprintf(path, sizeof(path), "%s/%s", gen->path, DIGEST_TABLE_TO_SIGN_FILE);
-+        remove(path);
++        unlink(path);
 +    }
 +    free(gen);
 +    sim_set_digest_generation(false, qdl, NULL);
