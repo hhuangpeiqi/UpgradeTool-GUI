@@ -4,7 +4,9 @@
 #include "platform/File.h"
 #include "tests/support/TestFiles.h"
 #include <chrono>
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <thread>
 #ifdef _WIN32
@@ -87,6 +89,28 @@ static void TestFile() {
     { platform::File file(output); CHECK(file.size()==uint64_t(5)*1024*1024*1024); file.seek(file.size()-1); CHECK(file.read(1)[0]=='z'); }
 }
 
+static void TestOpenFile() {
+    TemporaryDirectory dir;
+    const auto folder = dir.path / platform::Path("\u6d4b\u8bd5 folder");
+    CHECK(std::filesystem::create_directory(folder));
+    const auto path = platform::Utf8(folder / platform::Path("\u56fa\u4ef6.bin"));
+    { std::ofstream file(platform::Path(path), std::ios::binary); file << "old"; }
+    auto file = platform::OpenFile(path.c_str(), "rb");
+    CHECK(file != nullptr);
+    if (file) { char bytes[3]; CHECK(std::fread(bytes, 1, 3, file) == 3); CHECK(std::memcmp(bytes, "old", 3) == 0); std::fclose(file); }
+    file = platform::OpenFile(path.c_str(), "wb+");
+    CHECK(file != nullptr);
+    if (file) { CHECK(std::fwrite("new", 1, 3, file) == 3); CHECK(std::fclose(file) == 0); }
+    { std::ifstream input(platform::Path(path), std::ios::binary); std::string bytes; input >> bytes; CHECK(bytes == "new"); }
+    errno = 0;
+    CHECK(platform::OpenFile(dir.filePath("missing").c_str(), "rb") == nullptr && errno == ENOENT);
+    CHECK(platform::OpenFile(nullptr, "rb") == nullptr && errno == EINVAL);
+    CHECK(platform::OpenFile(path.c_str(), nullptr) == nullptr && errno == EINVAL);
+#ifdef _WIN32
+    CHECK(platform::OpenFile("\xff", "rb") == nullptr && errno == EINVAL);
+#endif
+}
+
 static void TestSerialPort() {
 #ifndef _WIN32
     int master=posix_openpt(O_RDWR|O_NOCTTY|O_NONBLOCK); CHECK(master>=0);
@@ -157,6 +181,7 @@ int main(int argc,char **argv) {
     TestAdbServerLifetime(argv[0]);
     TestText();
     TestFile();
+    TestOpenFile();
     TestSerialPort();
     return failures?1:0;
 }

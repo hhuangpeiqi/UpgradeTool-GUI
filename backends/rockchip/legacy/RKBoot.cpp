@@ -4,6 +4,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
+#include "platform/File.h"
 
 #include "RKBoot.h"
 extern UINT CRC_32(PBYTE pData, UINT ulSize);
@@ -81,7 +82,7 @@ bool CRKBoot::SaveEntryFile(ENUM_RKBOOTENTRY type,UCHAR ucIndex,string fileName)
 	PSTRUCT_RKBOOT_ENTRY pEntry;
 	pEntry = (PSTRUCT_RKBOOT_ENTRY)(m_BootData+dwOffset+(ucSize*ucIndex));
 	FILE *file=NULL;
-	file = fopen(fileName.c_str(),"wb+");
+	file = platform::OpenFile(fileName.c_str(),"wb+");
 	if ( !file )
 	{
 		return false;

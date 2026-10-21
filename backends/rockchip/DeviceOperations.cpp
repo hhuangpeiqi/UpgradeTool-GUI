@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "backends/rockchip/UpgradeEngine.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "domain/DeviceSelection.h"
@@ -280,7 +281,7 @@ bool UpgradeEngine::ReadComLog(STRUCT_RKDEVICE_DESC &dev, char *szFile)
 
 	FILE *file = NULL;
 	if (szFile) {
-		file = fopen(szFile, "wb+");
+		file = platform::OpenFile(szFile, "wb+");
 		if (!file) {
 			if (m_pLog) m_pLog->Record("Error:%s->Fail to create %s,err=%d",
 			               "read_com_log", szFile, errno);

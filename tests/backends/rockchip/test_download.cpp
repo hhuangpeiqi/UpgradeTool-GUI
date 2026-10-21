@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <map>
 #include <vector>
 
@@ -401,19 +402,18 @@ static void test_sparse_block_size()
 
 static bool write_bytes(const char *path, const std::vector<BYTE> &bytes)
 {
-	FILE *f = fopen(path, "wb");
-	if (!f) return false;
-	bool ok = fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
-	return fclose(f) == 0 && ok;
+	std::ofstream file(platform::Path(path), std::ios::binary);
+	file.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+	file.close(); return bool(file);
 }
 
 static void test_parameter_stack()
 {
 	// Exceeds ExtractEntry's transfer chunk so the streaming loop runs twice.
 	std::vector<BYTE> text(70 * 1024, 'x');
-	const auto parameterStorage = temporary.filePath("ut_test_stack_parameter.txt");
+	const auto parameterStorage = temporary.filePath("\u6d4b\u8bd5 parameter.txt");
 	const char *parameter = parameterStorage.c_str();
-	const auto packageStorage = temporary.filePath("ut_test_stack_package.img");
+	const auto packageStorage = temporary.filePath("\u56fa\u4ef6 package.img");
 	const char *package = packageStorage.c_str();
 	std::vector<BYTE> wrapped(text.size() + 12, 0);
 	put_le32(wrapped.data(), 0x4D524150);
@@ -451,7 +451,7 @@ static void test_parameter_stack()
 	}
 
 	// File MD5 must agree with the memory path after changing its buffer.
-	FILE *f = fopen(package, "rb");
+	FILE *f = platform::OpenFile(package, "rb");
 	CHECK(f != NULL);
 	if (f) {
 		CMD5Checksum md5;
@@ -459,31 +459,41 @@ static void test_parameter_stack()
 		CHECK(fileDigest == md5.GetMD5(image.data(), image.size()));
 		fclose(f);
 	}
+	// An unwrapped parameter takes the temporary-file rename branch.
+	auto plainImage = image;
+	put_le32(plainImage.data() + 0x1800, 0x78787878);
+	const auto plainPath = temporary.filePath("\u672a\u5c01\u88c5 package.img");
+	CHECK(write_bytes(plainPath.c_str(), plainImage));
+	Probe plainDevice(d);
+	auto *plainComm = new FakeComm;
+	plainDevice.SetObject(NULL, plainComm, NULL);
+	CHECK(plainDevice.LoadFirmwarePackage(plainPath.c_str()));
+	CHECK(plainDevice.DownloadImage() == 0);
+	CHECK(plainComm->writeCalls.size() == 1);
 	Probe::FW_ENTRY entry = dev.Entry(0);
 	CHECK(!dev.ExtractEntry(entry, temporary.filePath("missing-directory/output").c_str()));
 	Probe::FW_ENTRY truncated = dev.Entry(0);
 	truncated.uiSize += 1;
 	CHECK(!dev.ExtractEntry(truncated, temporary.filePath("ut_test_stack_truncated").c_str()));
 
-	char paramPath[128];
-	snprintf(paramPath, sizeof(paramPath), "%s", parameter);
-	remove(parameter);
-	CHECK(!dev.WriteParameter(paramPath));
+	auto paramPath = parameterStorage;
+	std::filesystem::remove(platform::Path(parameter));
+	CHECK(!dev.WriteParameter(paramPath.data()));
 	text.resize(512 * 1024 - 12);
 	CHECK(write_bytes(parameter, text));
-	CHECK(dev.WriteParameter(paramPath));
+	CHECK(dev.WriteParameter(paramPath.data()));
 	CHECK(comm->lastWriteData.size() == 512 * 1024);
 	text.push_back('x');
 	CHECK(write_bytes(parameter, text));
 	size_t writes = comm->writeCalls.size();
-	CHECK(!dev.WriteParameter(paramPath));
+	CHECK(!dev.WriteParameter(paramPath.data()));
 	CHECK(comm->writeCalls.size() == writes);
 	text.resize(513);
 	CHECK(write_bytes(parameter, text));
 	comm->writeResult = -1;
-	CHECK(!dev.WriteParameter(paramPath));
-	remove(parameter);
-	remove(package);
+	CHECK(!dev.WriteParameter(paramPath.data()));
+	std::filesystem::remove(platform::Path(parameter));
+	// The device still holds the package open; TemporaryDirectory cleans it after destruction.
 	remove(temporary.filePath("ut_test_stack_truncated").c_str());
 }
 
@@ -520,7 +530,22 @@ int main()
 	test_shared_payload();
 	test_device_band();
 	test_sparse_block_size();
+#ifdef _WIN32
+	// Force the download loop's temporary files under a Unicode user-style path.
+	const std::wstring oldTemp = _wgetenv(L"TEMP") ? _wgetenv(L"TEMP") : L"";
+	const std::wstring oldTmp = _wgetenv(L"TMP") ? _wgetenv(L"TMP") : L"";
+	const auto tempRoot = temporary.path / platform::Path("\u6d4b\u8bd5 temp");
+	CHECK(std::filesystem::create_directory(tempRoot));
+	CHECK(_wputenv_s(L"TEMP", tempRoot.c_str()) == 0);
+	CHECK(_wputenv_s(L"TMP", tempRoot.c_str()) == 0);
+	CHECK(std::filesystem::equivalent(std::filesystem::temp_directory_path(), tempRoot));
+#endif
 	test_small_stack();
+#ifdef _WIN32
+	CHECK(_wputenv_s(L"TEMP", oldTemp.c_str()) == 0);
+	CHECK(_wputenv_s(L"TMP", oldTmp.c_str()) == 0);
+	CHECK(std::filesystem::is_empty(tempRoot));
+#endif
 
 	if (g_fail == 0) {
 		printf("test_download: PASS\n");

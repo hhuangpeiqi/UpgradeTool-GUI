@@ -25,7 +25,7 @@ std::string FormatChip(uint32_t tag) {
 std::string FirmwareService::ChipName(uint32_t tag) { return FormatChip(tag); }
 bool FirmwareService::Inspect(const std::string &path, FirmwareInfo &info, int entryIndex) {
 	info = FirmwareInfo();
-	FILE *file = std::fopen(path.c_str(), "rb");
+	FILE *file = platform::OpenFile(path.c_str(), "rb");
 	if (!file) return false;
 	unsigned char magic[4] = {};
 	bool read = std::fread(magic, 1, 4, file) == 4;
@@ -54,7 +54,7 @@ bool FirmwareService::Inspect(const std::string &path, FirmwareInfo &info, int e
 		info.valid = true; return true;
 	}
 	if (Read32(magic) == 0x544f4f42 || Read32(magic) == 0x2052444c) {
-		file = std::fopen(path.c_str(), "rb");
+		file = platform::OpenFile(path.c_str(), "rb");
 		if (!file) return false;
 		fseeko(file, 0, SEEK_END); auto size = ftello(file);
 		if (size < static_cast<decltype(size)>(sizeof(STRUCT_RKBOOT_HEAD) + 4) || uint64_t(size) > UINT32_MAX) { std::fclose(file); return false; }
@@ -92,7 +92,7 @@ bool FirmwareService::InspectImage(CRKImage &image, const std::string &path, Fir
 	info.buildTime = text;
 	info.sign = image.GetSignFlag() ? "true" : "false";
 	info.storage = image.GetStorage();
-	FILE *file = std::fopen(path.c_str(), "rb");
+	FILE *file = platform::OpenFile(path.c_str(), "rb");
 	if (!file) return false;
 	uint64_t fwOffset = image.GetFWOffset();
 	if (fwOffset) {

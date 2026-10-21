@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "backends/rockchip/UpgradeEngine.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "domain/DeviceSelection.h"
@@ -264,7 +265,7 @@ bool UpgradeEngine::ReadLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT uiLen,
 		return false;
 	}
 	if (szFile) {
-		file = fopen(szFile, "wb+");
+		file = platform::OpenFile(szFile, "wb+");
 		if (!file) {
 			Emit(LogLevel::Info, "Read LBA failed,err=%d,can't open file: %s\r\n", errno, szFile);
 			delete pComm;
@@ -333,7 +334,7 @@ bool UpgradeEngine::WriteLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, char *szFi
 	if (!pBuf)
 		goto exit_write;
 	Emit(LogLevel::Info, "Start to write %s at 0x%x...\r\n", szFile, uiBegin);
-	file = fopen(szFile, "rb");
+	file = platform::OpenFile(szFile, "rb");
 	if (!file) {
 		Emit(LogLevel::Info, "Write LBA failed, err=%d, can't open file: %s\r\n", errno, szFile);
 		goto exit_write;
@@ -403,7 +404,7 @@ bool UpgradeEngine::WriteSparseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT
 	pBuf = new BYTE[dwMaxReadWriteBytes];
 	if (!pBuf)
 		goto exit_sparse;
-	file = fopen(szFile, "rb");
+	file = platform::OpenFile(szFile, "rb");
 	if (!file) {
 		Emit(LogLevel::Info, "%s failed, err=%d, can't open file: %s\r\n", "write_sparse_lba", errno, szFile);
 		goto exit_sparse;
@@ -546,7 +547,7 @@ bool UpgradeEngine::WriteSector(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT ui
 		return false;
 	bool bRet = false;
 	(void)uiPageSize; (void)uiSpareSize;
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file) {
 		Emit(LogLevel::Info, "Read file failed, err=%d, can't open file: %s\r\n", errno, szFile);
 		return false;

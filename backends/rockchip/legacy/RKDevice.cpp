@@ -4,6 +4,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
+#include "platform/File.h"
 
 #include <chrono>
 #include <thread>
@@ -36,7 +37,7 @@ static unsigned short UshortToBCD(unsigned short usValue)
 
 static bool ReadFileToBuffer(char *szFile, char *&pBuffer)
 {
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file)
 		return false;
 	fseeko(file, 0, SEEK_END);

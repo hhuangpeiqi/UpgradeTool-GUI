@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cerrno>
 #include <limits>
+#include <new>
 #include <random>
 #include <stdexcept>
 #include <system_error>
@@ -14,6 +15,24 @@
 #include <unistd.h>
 #endif
 namespace platform {
+std::FILE *OpenFile(const char *utf8Path, const char *mode) {
+    if (!utf8Path || !mode) { errno = EINVAL; return nullptr; }
+#ifdef _WIN32
+    try {
+        const auto path = Path(utf8Path);
+        std::wstring nativeMode;
+        for (; *mode; ++mode) nativeMode += static_cast<unsigned char>(*mode);
+        return _wfopen(path.c_str(), nativeMode.c_str());
+    } catch (const std::bad_alloc &) {
+        errno = ENOMEM;
+    } catch (const std::filesystem::filesystem_error &) {
+        errno = EINVAL;
+    }
+    return nullptr;
+#else
+    return std::fopen(utf8Path, mode);
+#endif
+}
 namespace {
 [[noreturn]] void Fail(const char *what) { throw std::system_error(errno, std::generic_category(), what); }
 std::FILE *Open(const std::filesystem::path &p, bool exclusive) {

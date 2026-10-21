@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -34,14 +35,14 @@ public:
         std::error_code error;
         std::filesystem::remove_all(directory, error);
     }
-    std::string filePath(const char *name) const { return (directory / name).string(); }
+    std::string filePath(const char *name) const { return platform::Utf8(directory / name); }
 };
 }
 
 // File-local helper: 1 when the parameter declares a GPT table.
 static int fw_get_parameter_gptflag(const char *szParameter)
 {
-	FILE *file = fopen(szParameter, "rb");
+	FILE *file = platform::OpenFile(szParameter, "rb");
 	if (!file)
 		return 0;
 	char buf[4096];
@@ -165,7 +166,7 @@ u64 CRKAndroidDevice::GetSparseImageSize(STRUCT_RKIMAGE_ITEM &item)
 // ---------------------------------------------------------------------------
 bool CRKAndroidDevice::LoadFirmwarePackage(const char *szFile)
 {
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file)
 		return false;
 	BYTE hdr[0x40];
@@ -215,7 +216,7 @@ bool CRKAndroidDevice::ExtractEntry(FW_ENTRY &entry, const char *szOut)
 	if (!m_pPackageFile)
 		return false;
 	std::vector<BYTE> buf(64 * 1024);
-	FILE *out = fopen(szOut, "wb");
+	FILE *out = platform::OpenFile(szOut, "wb");
 	if (!out)
 		return false;
 	if (fseeko(m_pPackageFile, entry.uiDataOff, SEEK_SET) != 0) {
@@ -312,7 +313,7 @@ bool CRKAndroidDevice::WriteLBACore(UINT uiBegin, FILE *file, long long uiDataOf
 
 bool CRKAndroidDevice::WriteLBA(UINT uiBegin, const char *szFile)
 {
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file)
 		return false;
 	fseeko(file, 0, SEEK_END);
@@ -433,7 +434,7 @@ exit_sparse:
 
 bool CRKAndroidDevice::WriteSparseLBA(UINT uiBegin, UINT uiSize, const char *szFile)
 {
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file)
 		return false;
 	bool bOk = WriteSparseLBACore(uiBegin, uiSize, file);
@@ -1419,7 +1420,7 @@ bool CRKAndroidDevice::RKA_File_Download(STRUCT_RKIMAGE_ITEM &item, UCHAR &ucRet
 		delete []pBuf;
 		return false;
 	}
-	FILE *f = fopen("/tmp/ut_part.img", "wb");
+	FILE *f = platform::OpenFile("/tmp/ut_part.img", "wb");
 	if (!f) { delete []pBuf; return false; }
 	fwrite(pBuf, 1, uiSize, f);
 	fclose(f);
@@ -1743,13 +1744,13 @@ int CRKAndroidDevice::DownloadImage()
 			}
 			// The package stores the parameter wrapped as PARM+size+text+crc; unwrap it.
 			BYTE raw[16];
-			FILE *rf = fopen(rawPath.c_str(), "rb");
+			FILE *rf = platform::OpenFile(rawPath.c_str(), "rb");
 			size_t rn = rf ? fread(raw, 1, 12, rf) : 0;
 			if (rf) fclose(rf);
 			if (rn >= 8 && *(UINT *)raw == 0x4D524150) {
 				UINT uiText = *(UINT *)(raw + 4);
-				FILE *in = fopen(rawPath.c_str(), "rb");
-				FILE *out = fopen(textPath.data(), "wb");
+				FILE *in = platform::OpenFile(rawPath.c_str(), "rb");
+				FILE *out = platform::OpenFile(textPath.data(), "wb");
 				if (in && out) {
 					fseeko(in, 8, SEEK_SET);
 					BYTE b2[4096];
@@ -1765,7 +1766,9 @@ int CRKAndroidDevice::DownloadImage()
 				if (in) fclose(in);
 				if (out) fclose(out);
 			} else {
-				rename(rawPath.c_str(), textPath.data());
+				std::error_code error;
+				std::filesystem::rename(platform::Path(rawPath), platform::Path(textPath), error);
+				if (error) { bOk = false; continue; }
 			}
 			bool bParamOk = fw_get_parameter_gptflag(textPath.data())
 			                ? WriteGpt(textPath.data())

@@ -7,13 +7,15 @@
 #include "crc.h"
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <vector>
 static int failures = 0;
 #define CHECK(c) do { if (!(c)) { std::printf("FAIL line %d: %s\n", __LINE__, #c); ++failures; } } while (0)
 static void Write32(unsigned char *p, uint32_t value) { for (int i = 0; i < 4; ++i) p[i] = static_cast<unsigned char>(value >> (i * 8)); }
 static bool Save(const char *path, const std::vector<unsigned char> &bytes) {
-	FILE *file = std::fopen(path, "wb"); if (!file) return false;
-	bool ok = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size(); return std::fclose(file) == 0 && ok;
+	std::ofstream file(platform::Path(path), std::ios::binary);
+	file.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+	file.close(); return bool(file);
 }
 int main() {
 	TemporaryDirectory temporary;
@@ -72,6 +74,44 @@ int main() {
 	CHECK(backend.Execute(request, {}, cancellation, nullptr).ok());
 	obsolete->request_stop();
 	CHECK(backend.Execute(request, {}, cancellation, nullptr).ok());
+	// Create fixtures independently of OpenFile so encoding bugs cannot mask themselves.
+	std::string directoryName = "\u6d4b\u8bd5 package ";
+	for (int i = 0; i < 70; ++i) directoryName += "\u56fa";
+	const auto unicodeDir = temporary.path / platform::Path(directoryName);
+	CHECK(std::filesystem::create_directory(unicodeDir));
+	const auto unicodeImage = platform::Utf8(unicodeDir / platform::Path("\u56fa\u4ef6 image.img"));
+	const auto unicodeLoader = platform::Utf8(unicodeDir / platform::Path("\u52a0\u8f7d Loader.bin"));
+	CHECK(unicodeImage.size() > 256);
+	CHECK(Save(unicodeImage.c_str(), image)); CHECK(Save(unicodeLoader.c_str(), boot));
+	CHECK(core::FirmwareService::Inspect(unicodeLoader, info) && info.valid && info.loaderVersion == "1.02");
+	request.file().path = unicodeImage;
+	CHECK(engine.Execute(request).ok());
+	CHECK(core::FirmwareService::Inspect(unicodeImage, info) && info.entries.size() == 1);
+	CHECK(info.version == "1.2.03" && info.loaderVersion == "1.02");
+	const auto output = unicodeDir / platform::Path("\u5bfc\u51fa files");
+	CHECK(std::filesystem::create_directory(output));
+	request = core::OperationRequest(core::Operation::FirmwareExtract);
+	request.file().path = unicodeImage; request.file().output = platform::Utf8(output);
+	CHECK(engine.Execute(request).ok());
+	{ platform::File file(output / "bootloader.bin"); CHECK(file.read(boot.size()) == boot); }
+	{ platform::File file(output / "boot.img");
+	  CHECK(file.read(16) == std::vector<unsigned char>(image.begin() + fwOffset + 0x100, image.begin() + fwOffset + 0x110)); }
+	const std::string parameter = "TYPE: GPT\nCMDLINE:mtdparts=rk29xxnand:0x1000@0x2000(boot)\n";
+	const auto parameterPath = platform::Utf8(unicodeDir / "parameter.txt");
+	CHECK(Save(parameterPath.c_str(), {parameter.begin(), parameter.end()}));
+	CHECK(Save(platform::Utf8(unicodeDir / "boot.img").c_str(), {1, 2, 3, 4}));
+	info = core::FirmwareService::InspectDirectory(platform::Utf8(unicodeDir), {});
+	CHECK(info.valid && info.entries.size() == 3);
+	if (info.entries.size() == 3) {
+		CHECK(info.entries[0].isLoader && info.entries[0].fileName == "\u52a0\u8f7d Loader.bin");
+		CHECK(info.entries[2].partName == "boot" && info.entries[2].imageLike);
+	}
+	request = core::OperationRequest(core::Operation::FirmwareInfo);
+	request.file().path = platform::Utf8(unicodeDir / platform::Path("\u4e0d\u5b58\u5728.img"));
+	CHECK(engine.Execute(request).error == core::ErrorCode::FileAccess);
+	CHECK(Save(unicodeImage.c_str(), {1, 2, 3, 4}));
+	request.file().path = unicodeImage;
+	CHECK(engine.Execute(request).error == core::ErrorCode::InvalidFirmware);
 	// An entry outside the physical file must fail rather than produce partial metadata.
 	Write32(entry + 0x6c, 0xffff); CHECK(Save(imagePath, image)); CHECK(!core::FirmwareService::Inspect(imagePath, info)); CHECK(!info.valid);
 	// Reject truncated entry tables, including excessive counts.

@@ -1218,7 +1218,7 @@
     <message>
         <location line="+154"/>
         <source>If needed, the tool will restart the selected device and retry the driver installation.</source>
-        <translation>必要时，工具会重启所选设备并重试安装驱动。</translation>
+        <translation>必要时工具会重启所选设备并重试安装驱动。</translation>
     </message>
 </context>
 <context>

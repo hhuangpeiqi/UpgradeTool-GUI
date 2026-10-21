@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "backends/rockchip/UpgradeEngine.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "domain/DeviceSelection.h"
@@ -209,7 +210,7 @@ bool UpgradeEngine::UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware,
 		delete pImage;
 		return false;
 	}
-	FILE *file = fopen(szFirmware, "rb");
+	FILE *file = platform::OpenFile(szFirmware, "rb");
 	BYTE hdr[0x40];
 	if (!file || fread(hdr, 1, sizeof(hdr), file) != sizeof(hdr)) {
 		if (file) fclose(file);

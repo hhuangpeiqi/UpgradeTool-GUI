@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "backends/rockchip/UpgradeEngine.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "RKImage.h"
@@ -14,7 +15,7 @@
 namespace core {
 bool UpgradeEngine::ReadHead(const char *szFile, BYTE *pBuf, size_t uiWant)
 {
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file)
 		return false;
 	size_t uiRead = fread(pBuf, 1, uiWant, file);
@@ -57,9 +58,8 @@ bool UpgradeEngine::ShowFirmwareInfo(char *path, int entryIndex)
 bool UpgradeEngine::ExtractEntryData(FILE *pFw, u64 uiDataOff, u64 uiSize,
                                      const char *szOutDir, const char *szName)
 {
-	char szPath[512];
-	snprintf(szPath, sizeof(szPath), "%s%c%s", szOutDir, '/', szName);
-	FILE *file = fopen(szPath, "wb");
+	const auto szPath = std::string(szOutDir) + "/" + szName;
+	FILE *file = platform::OpenFile(szPath.c_str(), "wb");
 	if (!file) {
 		Emit(LogLevel::Info, "Failed to create %s\r\n", szName);
 		return false;
@@ -106,7 +106,7 @@ bool UpgradeEngine::ExtractUpdateFw(CRKImage *image, char *path, char *output)
 	if (IsAborted()) return false;
 	std::string boot = std::string(output) + "/bootloader.bin";
 	if (!image->SaveBootFile(boot)) return Fail(ErrorCode::FileAccess);
-	FILE *file = fopen(path, "rb");
+	FILE *file = platform::OpenFile(path, "rb");
 	if (!file) return Fail(ErrorCode::FileAccess);
 	bool ok = true;
 	for (const auto &entry : info.entries) {
@@ -125,7 +125,7 @@ bool UpgradeEngine::ExtractStorageFw(char *szFirmware, char *szOutDir)
 		delete pStorage;
 		return false;
 	}
-	FILE *file = fopen(szFirmware, "rb");
+	FILE *file = platform::OpenFile(szFirmware, "rb");
 	if (!file) {
 		Emit(LogLevel::Info, "Failed to Open %s,err=%d\r\n", szFirmware, errno);
 		delete pStorage;
@@ -168,8 +168,7 @@ bool UpgradeEngine::ExtractBootTable(CRKBoot *pBoot, ENUM_RKBOOTENTRY type,
 		dwSize = dwDelay = 0;
 		pBoot->GetEntryName(type, i, szName);
 		pBoot->GetEntryProperty(type, i, dwSize, dwDelay);
-		char szPath[512];
-		snprintf(szPath, sizeof(szPath), "%s%c%s.bin", szOutDir, '/', szName);
+		const auto szPath = std::string(szOutDir) + "/" + szName + ".bin";
 		Emit(LogLevel::Info, "start to extract %s...", szName);
 		PBYTE pEntry = new BYTE[dwSize];
 		if (pBoot->GetEntryData(type, i, pEntry)) {
@@ -182,7 +181,7 @@ bool UpgradeEngine::ExtractBootTable(CRKBoot *pBoot, ENUM_RKBOOTENTRY type,
 			} else if (!pBoot->Rc4DisableFlag) {
 				P_RC4(pEntry, dwSize);
 			}
-			FILE *pOut = fopen(szPath, "wb");
+			FILE *pOut = platform::OpenFile(szPath.c_str(), "wb");
 			if (!pOut) { delete []pEntry; return Fail(ErrorCode::FileAccess); }
 			bool written = fwrite(pEntry, 1, dwSize, pOut) == dwSize;
 			if (fclose(pOut) != 0) written = false;
@@ -228,7 +227,7 @@ bool UpgradeEngine::ExtractFirmware(char *szFirmware, char *szOutDir)
 	if (IsUpdateLoader(szFirmware)) {
 		Emit(LogLevel::Info, "File:%s\r\n", szFirmware);
 		Emit(LogLevel::Info, "Type:Update Loader\r");
-		FILE *file = fopen(szFirmware, "rb");
+		FILE *file = platform::OpenFile(szFirmware, "rb");
 		if (!file) {
 			Emit(LogLevel::Info, "Failed to Open %s,err=%d\r\n", szFirmware, errno);
 			return false;
@@ -276,7 +275,7 @@ bool UpgradeEngine::CreateGptByParameter(char *pParameter, char *pOutput)
 
 	Emit(LogLevel::Info, "in=%s,out=%s\r\n", pParameter, pOutput);
 	char *pBuffer = NULL;
-	FILE *file = fopen(pParameter, "rb");
+	FILE *file = platform::OpenFile(pParameter, "rb");
 	if (file) {
 		fseek(file, 0, SEEK_END);
 		long lSize = ftell(file);
@@ -317,7 +316,7 @@ bool UpgradeEngine::CreateGptByParameter(char *pParameter, char *pOutput)
 		create_gpt_buffer(master, vecItems, vecUuid, uiDiskSize, NULL);
 	delete []pBuffer;
 
-	file = fopen(pOutput, "wb");
+	file = platform::OpenFile(pOutput, "wb");
 	if (!file) {
 		if (m_pLog) m_pLog->Record("%s failed,can't create %s,err=%d\r\n", "create_gpt_by_parameter", pOutput, errno);
 		snprintf(szMsg, sizeof(szMsg), "Create gpt image failed,err=%d!", errno);

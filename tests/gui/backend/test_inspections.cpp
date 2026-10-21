@@ -5,6 +5,7 @@
 #include "backends/rockchip/legacy/crc.h"
 #include <QCoreApplication>
 #include <QFile>
+#include <QDir>
 #include <QTemporaryDir>
 #include <cstdio>
 #include <cstring>
@@ -76,7 +77,9 @@ int main(int argc, char **argv) {
         std::memcpy(boot.data(), &head, sizeof(head));
         const auto crc = CRC_32(boot.data(), boot.size() - 4);
         for (int i = 0; i < 4; ++i) boot[boot.size() - 4 + i] = static_cast<unsigned char>(crc >> (8 * i));
-        const auto path = temporary.filePath("loader.bin");
+        const auto directory = temporary.filePath(QStringLiteral("\u6d4b\u8bd5 package"));
+        CHECK(QDir().mkpath(directory));
+        const auto path = QDir(directory).filePath(QStringLiteral("\u52a0\u8f7d Loader.bin"));
         QFile file(path);
         CHECK(file.open(QIODevice::WriteOnly));
         CHECK(file.write(reinterpret_cast<const char *>(boot.data()), boot.size()) == qint64(boot.size()));
@@ -87,6 +90,20 @@ int main(int argc, char **argv) {
         QObject::connect(&worker, &gui::EngineWorker::inspectionFinished, &controller, &gui::RockchipController::applyInspection);
         controller.setFirmware(path);
         CHECK(controller.firmwareValid());
+        QFile parameter(QDir(directory).filePath("parameter.txt"));
+        CHECK(parameter.open(QIODevice::WriteOnly));
+        CHECK(parameter.write("TYPE: GPT\nCMDLINE:mtdparts=rk29xxnand:0x1000@0x2000(boot)\n") > 0);
+        parameter.close();
+        QFile partition(QDir(directory).filePath("boot.img"));
+        CHECK(partition.open(QIODevice::WriteOnly));
+        CHECK(partition.write("boot") == 4); partition.close();
+        controller.setImageDir(directory);
+        CHECK(!controller.imageHintError() && controller.imageEntries()->rowCount() == 3);
+        const auto &rows = controller.imageEntries()->rows();
+        if (rows.size() == 3) {
+            CHECK(rows[0].isLoader && rows[0].path == path);
+            CHECK(rows[2].name == "boot" && rows[2].path == partition.fileName() && rows[2].selectable);
+        }
         // setFirmware persists the path, so restore submits the startup inspection.
         controller.restore();
         CHECK(controller.firmwareValid());

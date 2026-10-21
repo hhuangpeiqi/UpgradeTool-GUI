@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "Parameter.h"
 #include "RKDevice.h"
 #include "crc.h"
@@ -148,7 +149,7 @@ bool parse_parameter(char *pParameter, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_V
 
 bool parse_parameter_file(char *pParamFile, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_VECTOR &vecUuidItem, platform::FileLog *log)
 {
-	FILE *file = fopen(pParamFile, "rb");
+	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
 		if (log)
 			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pParamFile);
@@ -221,7 +222,7 @@ void gen_rand_uuid(unsigned char *uuid_bin)
 
 bool MakeParamBuffer(char *pParamFile, char *&pParamData, platform::FileLog *log)
 {
-	FILE *file = fopen(pParamFile, "rb");
+	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
 		if (log)
 			log->Record("MakeParamBuffer failed,err=%d,can't open file: %s\r\n", errno, pParamFile);
@@ -254,7 +255,7 @@ bool MakeParamBuffer(char *pParamFile, char *&pParamData, platform::FileLog *log
 
 bool is_sparse_image(char *szImage, platform::FileLog *log)
 {
-	FILE *file = fopen(szImage, "rb");
+	FILE *file = platform::OpenFile(szImage, "rb");
 	if (!file) {
 		if (log)
 			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, szImage);
@@ -274,7 +275,7 @@ bool is_sparse_image(char *szImage, platform::FileLog *log)
 
 bool is_ubifs_image(char *szImage, platform::FileLog *log)
 {
-	FILE *file = fopen(szImage, "rb");
+	FILE *file = platform::OpenFile(szImage, "rb");
 	if (!file) {
 		if (log)
 			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, szImage);
@@ -391,7 +392,7 @@ void update_gpt_disksize(u8 *master, u8 *backup, u32 total_sector)
 
 bool load_gpt_buffer(char *pParamFile, u8 *master, u8 *backup, platform::FileLog *log)
 {
-	FILE *file = fopen(pParamFile, "rb");
+	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
 		if (log)
 			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pParamFile);

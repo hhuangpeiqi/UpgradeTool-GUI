@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "backends/rockchip/UpgradeEngine.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "domain/DeviceSelection.h"
@@ -223,7 +224,7 @@ int UpgradeEngine::SelectStorage(const std::vector<std::string> &vecOptions, int
 
 DWORD UpgradeEngine::GetFileSize(char *szFile)
 {
-	FILE *file = fopen(szFile, "rb");
+	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file) {
 		if (m_pLog) m_pLog->Record("%s failed,err=%d,can't open file: %s\r\n",
 			               "get_file_size", errno, szFile);
@@ -415,7 +416,7 @@ std::vector<UpgradeEngine::DeviceInfo> UpgradeEngine::ScanDevices()
 
 int UpgradeEngine::ParameterFileGptFlag(char *szParameterFile)
 {
-	FILE *file = fopen(szParameterFile, "rb");
+	FILE *file = platform::OpenFile(szParameterFile, "rb");
 	if (!file)
 		return 0;
 	fseek(file, 0, SEEK_END);
@@ -490,7 +491,7 @@ bool UpgradeEngine::Dispatch(const OperationRequest &r)
 		r.operation() == Operation::WriteLba || r.operation() == Operation::WriteSector;
 	if (needsFile) {
 		if (r.file().path.empty()) return Fail(ErrorCode::InvalidInput);
-		FILE *file = fopen(r.file().path.c_str(), "rb");
+		FILE *file = platform::OpenFile(r.file().path.c_str(), "rb");
 		if (!file) return Fail(ErrorCode::FileAccess);
 		fclose(file);
 	}

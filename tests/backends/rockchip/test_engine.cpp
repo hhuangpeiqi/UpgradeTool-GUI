@@ -5,6 +5,7 @@
 #include "domain/DeviceSelection.h"
 #include "RKDevice.h"
 #include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 static int failures = 0;
@@ -32,17 +33,19 @@ int main() {
 	CHECK(engine.Execute(request).error == core::ErrorCode::InvalidInput);
 	request.file().path = temporary.filePath("missing_parameter");
 	CHECK(engine.Execute(request).error == core::ErrorCode::FileAccess);
-	const auto parameterStorage = temporary.filePath("engine_test_parameter.txt");
+	const auto parameterStorage = temporary.filePath("\u6d4b\u8bd5 parameter.txt");
 	const char *parameter = parameterStorage.c_str();
-	const auto outputStorage = temporary.filePath("engine_test_output.gpt");
+	const auto outputStorage = temporary.filePath("\u8f93\u51fa output.gpt");
 	const char *output = outputStorage.c_str();
-	FILE *file = std::fopen(parameter, "w"); CHECK(file != NULL);
-	if (!file) return 1;
-	std::fputs("TYPE: GPT\nCMDLINE:mtdparts=rk29xxnand:0x1000@0x2000(uboot),0x2000@0x3000(boot)\nuuid:uboot=00112233-4455-6677-8899-aabbccddeeff\n", file); std::fclose(file);
+	{ std::ofstream file(platform::Path(parameter), std::ios::binary);
+	  file << "TYPE: GPT\nCMDLINE:mtdparts=rk29xxnand:0x1000@0x2000(uboot),0x2000@0x3000(boot)\nuuid:uboot=00112233-4455-6677-8899-aabbccddeeff\n";
+	  file.close(); CHECK(bool(file)); }
 	request.file().path = parameter; request.file().output = output;
 	CHECK(engine.Execute(request).ok());
-	file = std::fopen(output, "rb"); CHECK(file != NULL);
-	if (file) { unsigned char head[0x4400]; CHECK(std::fread(head, 1, sizeof(head), file) == sizeof(head)); CHECK(head[0x200] == 'E' && head[0x201] == 'F' && head[0x202] == 'I'); std::fclose(file); }
+	{ std::ifstream file(platform::Path(output), std::ios::binary);
+	  unsigned char head[0x4400] = {};
+	  CHECK(bool(file.read(reinterpret_cast<char *>(head), sizeof(head))));
+	  CHECK(head[0x200] == 'E' && head[0x201] == 'F' && head[0x202] == 'I'); }
 	request.file().output.clear(); CHECK(engine.Execute(request).error == core::ErrorCode::InvalidInput);
 	request=core::OperationRequest(core::Operation::FirmwareInfo); request.file().path=parameter; CHECK(engine.Execute(request).error == core::ErrorCode::InvalidFirmware);
 	core::FirmwareInfo info; CHECK(!core::FirmwareService::Inspect(parameter, info)); CHECK(!info.valid);
@@ -72,6 +75,6 @@ int main() {
 	target.location = 3; CHECK(core::MatchDevice(devices, target) == -1);
 	a.serial.clear(); b.serial.clear(); devices = {b, a}; CHECK(core::MatchDevice(devices, a) == 1);
 	target = core::DeviceIdentity(); CHECK(core::MatchDevice(devices, target) == -2);
-	std::remove(parameter); std::remove(output);
+	std::filesystem::remove(platform::Path(parameter)); std::filesystem::remove(platform::Path(output));
 	std::printf("test_engine: %s\n", failures ? "FAIL" : "PASS"); return failures ? 1 : 0;
 }

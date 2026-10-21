@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 namespace platform {
+// UTF-8 paths on every platform. Like fopen, returns nullptr and sets errno on failure.
+std::FILE *OpenFile(const char *utf8Path, const char *mode);
 std::filesystem::path Path(const std::string &utf8);
 std::string Utf8(const std::filesystem::path &path);
 bool SameFile(const std::filesystem::path &, const std::filesystem::path &);

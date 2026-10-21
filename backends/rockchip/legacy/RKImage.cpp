@@ -4,6 +4,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
+#include "platform/File.h"
 #include "RKImage.h"
 #include "MD5Checksum.h"
 
@@ -56,7 +57,7 @@ bool CRKImage::SaveBootFile(string filename)
 {
 	FILE *file = NULL;
 	int iRead;
-	file = fopen(filename.c_str(), "wb+");
+	file = platform::OpenFile(filename.c_str(), "wb+");
 	if (!file) {
 		return false;
 	}
@@ -82,7 +83,7 @@ bool CRKImage::SaveFWFile(string filename)
 {
 	FILE *file = NULL;
 	int iRead;
-	file = fopen(filename.c_str(), "wb+");
+	file = platform::OpenFile(filename.c_str(), "wb+");
 	if (!file) {
 		return false;
 	}
@@ -178,24 +179,18 @@ int CRKImage::ObjectInit(string filename, unsigned long long ullStartOffset,
 	bool bHasWindow = (ullStartOffset != (unsigned long long)-1);
 	m_startOffset = bHasWindow ? (long long)ullStartOffset : 0;
 
-	struct stat statBuf;
-	char szName[256];
-	strcpy(szName, filename.c_str());
-	if(stat(szName, &statBuf) < 0) {
-		return -1;
-	}
-	if (S_ISDIR(statBuf.st_mode)) {
-		return -1;
-	}
-	m_fileSize = statBuf.st_size;
+	const auto path = platform::Path(filename);
+	std::error_code error;
+	if (!std::filesystem::is_regular_file(path, error)) return -1;
+	const auto size = std::filesystem::file_size(path, error);
+	if (error || size > static_cast<uintmax_t>(INT64_MAX)) return -1;
+	m_fileSize = static_cast<long long>(size);
 
-	bool bOnlyBootFile=false;
-	transform(filename.begin(), filename.end(), filename.begin(), (int(*)(int))tolower);
-	if (filename.find(".bin") != string::npos) {
-		bOnlyBootFile = true;
-	}
-
-	m_pFile = fopen(szName, "rb");
+	// Only fold ASCII for the legacy .bin check; never alter UTF-8 path bytes.
+	std::string lower = filename;
+	for (char &ch : lower) if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
+	const bool bOnlyBootFile = lower.find(".bin") != string::npos;
+	m_pFile = platform::OpenFile(filename.c_str(), "rb");
 	if (!m_pFile) {
 		m_iError = 201;
 		return -3;
@@ -303,7 +298,7 @@ bool CRKImage::OpenStorageFirmware(string filename)
 {
 	m_iError = 0;
 	m_storageEntries.clear();
-	FILE *file = fopen(filename.c_str(), "rb");
+	FILE *file = platform::OpenFile(filename.c_str(), "rb");
 	if (!file) {
 		m_iError = 201;
 		return false;

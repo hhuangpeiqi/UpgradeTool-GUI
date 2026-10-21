@@ -1,3 +1,4 @@
+#include "platform/File.h"
 #include "Config.h"
 #include <sstream>
 #include <mutex>
@@ -54,7 +55,7 @@ bool parse_config(char *pConfig, CONFIG_ITEM_VECTOR &vecItem)
 bool parse_config_file(const char *pConfigFile, CONFIG_ITEM_VECTOR &vecItem, platform::FileLog *log)
 {
 	FILE *file = NULL;
-	file = fopen(pConfigFile, "rb");
+	file = platform::OpenFile(pConfigFile, "rb");
 	if (!file) {
 		if (log)
 			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pConfigFile);
