@@ -181,7 +181,6 @@ CRKUpgrade::CRKUpgrade(const vector<STRUCT_UPGRADE_STEP> &vecStep, ENUM_WORKFLOW
 	m_pScan = NULL;
 	m_emWorkFlow = emWorkFlow;
 	m_pCallBack = NULL;
-	m_bSkipPhaseSteps = true;
 	m_vecStep = vecStep;
 }
 
@@ -270,10 +269,9 @@ bool CRKUpgrade::Run()
 			continue;
 		}
 		const STRUCT_UPGRADE_STEP &step = m_vecStep[i];
-		if (m_bSkipPhaseSteps && step.usParam != 0)
-			continue;
-		UINT uiCapability = m_pDevice->GetWorkFlow();
-		if ((step.uiMask & uiCapability) != uiCapability)
+		// Step masks describe the live USB mode, refreshed after re-enumeration.
+		UINT uiUsbType = (UINT)m_pDevice->GetUsbType();
+		if ((step.uiMask & uiUsbType) != uiUsbType)
 			continue;
 
 		bLastOk = RunStep(step, bCondition);

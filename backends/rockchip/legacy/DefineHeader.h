@@ -397,8 +397,7 @@ typedef enum {
 	UPGRADE_STEP_GET_NEW_DISK_SIZE = 0x88
 } ENUM_UPGRADE_STEP;
 
-// Workflow / capability mask. A step runs only when its mask contains every
-// bit the device reports (Run tests `(step.uiMask & capability) == capability`).
+// Workflow selector stored on the device; step filtering uses the live USB mode.
 typedef enum {
 	WORKFLOW_DOWNLOAD_IDB = 0x01,
 	WORKFLOW_DOWNLOAD_IMAGE = 0x02,
@@ -409,12 +408,12 @@ typedef enum {
 #pragma pack(1)
 typedef struct {
 	UINT   uiStep;			// +0x00  ENUM_UPGRADE_STEP
-	UINT   uiMask;			// +0x04  workflow mask required for this step
+	UINT   uiMask;			// +0x04  USB mode mask (maskrom=1, loader=2, both=3)
 	UINT   reserved[2];		// +0x08
-	USHORT usParam;			// +0x10  (0x0100 on some steps)
+	USHORT usParam;			// +0x10  (0x0100 on some steps; not read by Run)
 	BYTE   bConditional;	// +0x12  if set, step's bool& result gates the next steps
 	BYTE   bSkipCount;		// +0x13  steps to skip when the condition holds
-	BYTE   bReset;			// +0x14  reset device after the step
+	BYTE   bReset;			// +0x14  flush write-back buffer if the step fails
 	BYTE   reserved2[11];	// +0x15  pad to 0x20
 } STRUCT_UPGRADE_STEP, *PSTRUCT_UPGRADE_STEP;
 #pragma pack()

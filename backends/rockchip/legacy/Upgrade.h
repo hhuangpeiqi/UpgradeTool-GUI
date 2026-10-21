@@ -19,10 +19,6 @@ public:
 	bool InitializeStep(const vector<STRUCT_UPGRADE_STEP> &vecStep, ENUM_WORKFLOW emWorkFlow);
 	bool Run();
 
-	// Controls whether steps carrying a non-zero usParam are treated as inactive
-	// phase markers (UF/UL) or executed as-is (EF). Defaults to enabled.
-	void SetSkipPhaseSteps(bool bEnable) { m_bSkipPhaseSteps = bEnable; }
-
 	static bool CreateDownloadImageStep(ENUM_RKDEVICE_TYPE emDeviceType, vector<STRUCT_UPGRADE_STEP> &vecStep);
 	static bool CreateDownloadIDBStep(ENUM_RKDEVICE_TYPE emDeviceType, vector<STRUCT_UPGRADE_STEP> &vecStep);
 	static bool CreateUpgradeStep(ENUM_RKDEVICE_TYPE emDeviceType, vector<STRUCT_UPGRADE_STEP> &vecStep, UINT uiFlag);
@@ -40,7 +36,6 @@ private:
 	vector<STRUCT_UPGRADE_STEP> m_vecStep;
 	ENUM_WORKFLOW  m_emWorkFlow;
 	UpgradePromptCB m_pCallBack;
-	bool m_bSkipPhaseSteps;
 };
 
 void DestroyUpgradeSet(vector<STRUCT_UPGRADE_STEP> &vecStep);

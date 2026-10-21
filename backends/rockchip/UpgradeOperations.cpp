@@ -128,8 +128,6 @@ bool UpgradeEngine::UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 		std::vector<STRUCT_UPGRADE_STEP> vecStep;
 		CRKUpgrade::CreateDownloadIDBStep(dev.emDeviceType, vecStep);
 		pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_UPGRADE);
-		pUpgrade->RemoveStep(UPGRADE_STEP_DOWNLOAD_BOOT);
-		pUpgrade->RemoveStep(UPGRADE_STEP_WAIT_MASKROM);
 		pUpgrade->SetObject(pDevice, m_pScan);
 		pUpgrade->SetCallBackPointer(PromptThunk);
 		bSuccess = pUpgrade->Run();
@@ -177,9 +175,6 @@ bool UpgradeEngine::EraseFlash(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 	std::vector<STRUCT_UPGRADE_STEP> vecStep;
 	CRKUpgrade::CreateEraseAllBlocksStep(dev.emDeviceType, vecStep);
 	CRKUpgrade *pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_DOWNLOAD_IDB);
-	pUpgrade->RemoveStep(UPGRADE_STEP_DOWNLOAD_BOOT);
-	pUpgrade->RemoveStep(UPGRADE_STEP_WAIT_MASKROM);
-	pUpgrade->SetSkipPhaseSteps(false);
 	pUpgrade->SetObject(pDevice, m_pScan);
 	pUpgrade->SetCallBackPointer(PromptThunk);
 	Emit(LogLevel::Info, "Start to erase flash...\r\n");
@@ -257,9 +252,10 @@ bool UpgradeEngine::UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware,
 	{
 		std::vector<STRUCT_UPGRADE_STEP> vecStep;
 		CRKUpgrade::CreateUpgradeStep(dev.emDeviceType, vecStep, 0);
+		// Only the final reset is handled below by the GUI reboot option.
+		// Keep intermediate resets and waits needed to enter Loader mode.
+		vecStep.pop_back();
 		pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_UPGRADE);
-		pUpgrade->RemoveStep(UPGRADE_STEP_DOWNLOAD_BOOT);
-		pUpgrade->RemoveStep(UPGRADE_STEP_WAIT_MASKROM);
 		pUpgrade->SetObject(pDevice, m_pScan);
 		pUpgrade->SetCallBackPointer(PromptThunk);
 		bSuccess = pUpgrade->Run();
