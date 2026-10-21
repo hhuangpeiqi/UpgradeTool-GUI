@@ -42,7 +42,7 @@ AllwinnerWorkspace {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Choose a directory and extract…")
             iconSource: Icons.folderGray
-            enabled: !app.tasks.busy && page.valid
+            enabled: !app.interactionLocked && page.valid
             onClicked: extractPicker.open()
         }
     }
@@ -55,7 +55,7 @@ AllwinnerWorkspace {
             objectName: "awReboot"
             text: qsTr("Reboot Device")
             iconSource: Icons.refreshBlue
-            enabled: !app.tasks.busy && app.vendor === 1 && app.hasDevice
+            enabled: !app.interactionLocked && app.vendor === 1 && app.hasDevice
             onClicked: page.execute(Operations.AllwinnerReboot)
         }
     }
@@ -69,7 +69,7 @@ AllwinnerWorkspace {
         pickerMode: AppFilePicker.SaveFile
         placeholder: qsTr("Choose or enter the output image path")
         text: page.setting("output", "")
-        enabled: !app.tasks.busy
+        enabled: !app.interactionLocked
         persistKey: "allwinnerConvert"
         onEdited: page.saveSetting("output", text)
     }
@@ -79,7 +79,7 @@ AllwinnerWorkspace {
         AppComboBox {
             id: target
             Layout.fillWidth: true
-            enabled: !app.tasks.busy
+            enabled: !app.interactionLocked
             model: ["SPI NOR", qsTr("SD card"), "eMMC", "SD NAND", "UFS"]
             currentIndex: Number(page.setting("target", 2))
             onActivated: page.saveSetting("target", currentIndex)
@@ -93,7 +93,7 @@ AllwinnerWorkspace {
             columns: 2
             columnSpacing: 12
             rowSpacing: 10
-            enabled: !app.tasks.busy
+            enabled: !app.interactionLocked
             Text { text: qsTr("Logic offset (sectors)"); color: Theme.textSecondary; font.family: Theme.fontFamily }
             AppTextField {
                 id: offset
@@ -151,7 +151,7 @@ AllwinnerWorkspace {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Read Info Again")
             iconSource: Icons.refreshBlue
-            enabled: !app.tasks.busy && page.firmware !== ""
+            enabled: !app.interactionLocked && page.firmware !== ""
             onClicked: page.execute(Operations.AllwinnerInspect)
         },
         Item { Layout.fillWidth: true },
@@ -160,7 +160,7 @@ AllwinnerWorkspace {
             focusPolicy: Qt.StrongFocus
             objectName: "awConvertStart"
             text: qsTr("Convert Image")
-            enabled: !app.tasks.busy && page.valid && output.text.trim() !== ""
+            enabled: !app.interactionLocked && page.valid && output.text.trim() !== ""
             onClicked: page.execute(Operations.AllwinnerConvert, {output: output.text, target: target.currentIndex,
                 logicOffset: offset.text, ubootOffset: uboot.text, norMiB: nor.text,
                 storageSize: capacity.text, secure: secure.currentIndex})

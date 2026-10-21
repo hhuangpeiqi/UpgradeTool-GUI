@@ -124,6 +124,9 @@ AppController::AppController(platform::FileLog *pLog, QObject *parent)
     : AppController(pLog, DefaultEdlHooks(), 45000, parent) {}
 
 AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent)
+    : AppController(pLog, std::move(edlHooks), edlWaitMs, parent, DriverHooks{}, DriverController::hostAvailable()) {}
+
+AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent, DriverHooks driverHooks, bool driversAvailable)
 	: QObject(parent),
 	  m_pWorker(new EngineWorker(pLog)),
 	  m_pObserver(new QtObserver(this)),
@@ -144,8 +147,9 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	m_diskLog = pLog;
     m_deviceModel=new DeviceModel(this);
     m_tasks=new TaskController(this);
+    m_drivers=new DriverController(std::move(driverHooks), driversAvailable, this);
     connect(m_tasks,&TaskController::busyChanged,this,[this] {
-        const bool locked=m_tasks->busy(); m_allwinner->setLocked(locked); m_rockchip->setLocked(locked);
+        UpdateInteractionLock();
     });
     m_rockchip=new RockchipController(m_pConfig,this);
     connect(m_rockchip,&RockchipController::executeRequested,this,[this](const core::TaskJob &job) { StartJob(job); });
@@ -168,6 +172,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	qRegisterMetaType<core::OperationResult>();
 	qRegisterMetaType<core::TaskSummary>();
 	connect(this, &AppController::requestExecute, m_pWorker, &EngineWorker::execute);
+
 	connect(m_pThread, &QThread::finished, m_pWorker, &QObject::deleteLater);
 	connect(m_pWorker, &EngineWorker::devicesReady, this, &AppController::onDevicesReady);
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
@@ -192,11 +197,10 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         emit requestScan(); refreshEdl();
     });
     connect(m_qualcomm, &QualcommController::executeRequested, this, [this](const core::OperationRequest &request) {
-        if(m_vendor != 2 || m_tasks->busy()) return;
+        if(m_vendor != 2 || interactionLocked()) return;
         core::TaskJob job; job.steps.push_back(request); StartJob(job);
     });
     connect(m_qualcomm, &QualcommController::errorRequested, this, [this](const QString &message) { emit toastRequested(message,true); });
-    connect(m_tasks, &TaskController::busyChanged, this, [this] { m_qualcomm->setLocked(m_tasks->busy()); });
 	connect(m_pObserver, &QtObserver::outputReceived, this, &AppController::onOutput);
     connect(m_pObserver,&QtObserver::stageProgressReceived,m_tasks,&TaskController::onStageProgress);
     connect(m_pObserver,&QtObserver::progressReceived,m_tasks,&TaskController::onProgress);
@@ -237,6 +241,18 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	m_pLanguage->registerRetranslatable(this);
 	m_pLanguage->registerRetranslatable(m_pConfig);
     m_pLanguage->registerRetranslatable(m_qualcomm);
+    m_pLanguage->registerRetranslatable(m_drivers);
+    connect(m_drivers, &DriverController::busyChanged, this, &AppController::UpdateInteractionLock);
+    connect(m_drivers, &DriverController::maintenanceRequested, this, &AppController::BeginDriverMaintenance);
+    connect(m_drivers, &DriverController::diagnostic, this, [this](const QString &message) {
+        if (m_diskLog) m_diskLog->Record("[Driver installer]\n%s", message.toUtf8().constData());
+    });
+    connect(m_drivers, &DriverController::finished, this, [this](bool ok, const QString &message) {
+        if (m_shuttingDown) return;
+        AppendLog(message, !ok);
+        if (m_diskLog) m_diskLog->Record("Driver installation: %s", message.toUtf8().constData());
+        m_pAdb->Resume(); refresh();
+    });
 
 
 
@@ -262,6 +278,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 
 AppController::~AppController()
 {
+	m_drivers->shutdown();
 	m_scanTimer->stop();
 	m_pAdb->Stop();
     m_rockchip->cancelInspections();
@@ -273,11 +290,40 @@ AppController::~AppController()
 	m_pThread->wait();
 }
 
+void AppController::UpdateInteractionLock()
+{
+    const bool locked = interactionLocked();
+    m_allwinner->setLocked(locked);
+    m_rockchip->setLocked(locked);
+    m_qualcomm->setLocked(locked);
+    m_drivers->setSuspended(locked);
+    emit interactionLockedChanged();
+}
+
+void AppController::BeginDriverMaintenance()
+{
+    m_pAdb->Stop();
+    // A queued barrier drains earlier scans and inspections on the USB worker.
+    QMetaObject::invokeMethod(m_pWorker, [this] {
+        QMetaObject::invokeMethod(this, &AppController::TryDriverInstall, Qt::QueuedConnection);
+    }, Qt::QueuedConnection);
+}
+
+void AppController::TryDriverInstall()
+{
+    if (m_shuttingDown || !m_drivers->busy()) return;
+    if (!m_edl->stopped()) {
+        QTimer::singleShot(25, this, &AppController::TryDriverInstall);
+        return;
+    }
+    m_drivers->beginInstall();
+}
+
 void AppController::requestQuit()
 {
 	if (m_shuttingDown || m_quitConfirmationPending) return;
 	if (m_diskLog) m_diskLog->Record("Application exit requested");
-	if (m_tasks->busy() || m_bSwitching) {
+	if (interactionLocked() || m_bSwitching) {
 		m_quitConfirmationPending = true;
 		emit quitConfirmationRequested();
 		return;
@@ -296,6 +342,7 @@ void AppController::BeginShutdown()
 {
 	m_shuttingDown = true;
 	emit shuttingDownChanged();
+    UpdateInteractionLock();
 	if (m_diskLog) m_diskLog->Record("Stopping polling and cancelling outstanding work");
 	m_scanTimer->stop();
 	m_rockchip->setLocked(true);
@@ -307,6 +354,7 @@ void AppController::BeginShutdown()
 	m_rockchip->setCancelled(true);
 	m_pObserver->CancelSelection();
 	m_edl->shutdown();
+    m_drivers->shutdown();
 	m_pAdb->Stop();
 	// Leave the GUI event loop running while cooperative cancellation unwinds.
 	// This also lets queued worker completion and QThread deletion run normally.
@@ -316,7 +364,7 @@ void AppController::BeginShutdown()
 
 void AppController::CheckShutdown()
 {
-	if (m_shutdownReady || !m_pThread->isFinished() || !m_edl->stopped()) return;
+	if (m_shutdownReady || !m_pThread->isFinished() || !m_edl->stopped() || !m_drivers->stopped()) return;
 	m_shutdownReady = true;
 	m_shutdownTimer->stop();
 	if (m_diskLog) m_diskLog->Record("Worker threads stopped; application ready to exit");
@@ -635,7 +683,14 @@ void AppController::onDevicesReady(const QVariantList &incoming)
         if(!matches.isEmpty()) m_pendingEdl={};
     }
     QVariantList devices;
-    for(const auto &d:incoming) if(d.toMap().value("vendor",0).toInt()==m_vendor) devices.append(d);
+    for(const auto &d:incoming) {
+        const auto row = d.toMap();
+        if (row.value("vendor", 0).toInt() != m_vendor) continue;
+#ifdef Q_OS_WIN
+        if (m_vendor != 2 && row.value("accessError").toInt()) { m_drivers->poll(true); continue; }
+#endif
+        devices.append(d);
+    }
     // Compare complete snapshots, including mode, access and interface incarnation.
     if (devices == m_deviceModel->rows()) {
         if (!edlKey.isEmpty()) setDeviceIndex(m_deviceModel->keys().indexOf(edlKey));
@@ -686,7 +741,7 @@ bool AppController::PermissionMissing() const
 
 void AppController::setDeviceIndex(int iIndex)
 {
-	if (m_tasks->busy()) return;
+	if (interactionLocked()) return;
 	if (iIndex < -1 || iIndex >= m_deviceModel->rows().size())
 		return;
 	if (iIndex == m_iDeviceIndex && !m_bBatchMode)
@@ -707,7 +762,8 @@ void AppController::setDeviceIndex(int iIndex)
 
 void AppController::refresh()
 {
-	if (m_shuttingDown || m_tasks->busy()) return;
+	if (interactionLocked()) return;
+    m_drivers->poll();
 	emit requestScan();
     refreshEdl();
 }
@@ -758,7 +814,7 @@ QVariantList AppController::BatchTargets() const
 
 void AppController::StartJob(core::TaskJob job)
 {
-	if (m_shuttingDown || m_tasks->busy() || job.steps.empty()) return;
+	if (interactionLocked() || job.steps.empty()) return;
 	const bool local = !core::RequiresEnumeratedDevice(job.steps.front());
 	if (!local) {
 		QVariantList targets;
@@ -794,14 +850,17 @@ void AppController::StartJob(core::TaskJob job)
         AppendLog(tr("Simulation only; no device will be flashed"), false);
         m_tasks->setProgress(-1, tr("Simulation"));
     }
-	emit requestExecute(m_tasks->job());
+#ifdef Q_OS_WIN
+    if (!local && !QualcommSimulation(m_tasks->job())) m_tasks->setProgress(-1, tr("Checking device access…"));
+#endif
+    emit requestExecute(m_tasks->job());
 }
 
 
 
 void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnError)
 {
-	if (m_tasks->busy()) return;
+	if (interactionLocked()) return;
 	QStringList strAlive;
 	for (int i = 0; i < keys.size(); i++)
 		if (m_deviceModel->keys().contains(keys[i]))
@@ -838,7 +897,7 @@ void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnErr
 
 void AppController::clearBatch()
 {
-	if (m_tasks->busy()) return;
+	if (interactionLocked()) return;
 	if (!m_bBatchMode && m_batchKeys.isEmpty())
 		return;
 	m_bBatchMode = false;
@@ -876,6 +935,7 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 	if (m_vendor == 2) m_tasks->setSpeed({});
 	m_tasks->setProgress(ok ? 100 : qMax(0, m_tasks->progressValue()), text);
     m_tasks->finish(); m_rockchip->setCancelled(false);
+    m_drivers->refresh(true);
 	emit toastRequested(text, !ok && !cancelled);
 }
 
@@ -966,15 +1026,15 @@ void AppController::onOperationResult(const core::OperationResult &result)
 
 void AppController::refreshEdl()
 {
-    if (!m_shuttingDown && m_vendor == 2 && !m_tasks->busy()) m_edl->refresh(m_pAdb->AdbPath());
+    if (!m_shuttingDown && m_vendor == 2 && !interactionLocked()) m_edl->refresh(m_pAdb->AdbPath());
 }
 void AppController::switchToEdl(const QString &target, int method, const QString &endpoint)
 {
-    if (!m_shuttingDown && m_vendor == 2 && !m_tasks->busy()) m_edl->start(target, method, endpoint, m_pAdb->AdbPath());
+    if (!m_shuttingDown && m_vendor == 2 && !interactionLocked()) m_edl->start(target, method, endpoint, m_pAdb->AdbPath());
 }
 void AppController::requestEdlSwitch()
 {
-    if (!m_shuttingDown && m_vendor == 2 && !m_tasks->busy()) m_edl->requestSwitch(m_pAdb->AdbPath());
+    if (!m_shuttingDown && m_vendor == 2 && !interactionLocked()) m_edl->requestSwitch(m_pAdb->AdbPath());
 }
 
 void AppController::BeginModeSwitch(const QString &message)
@@ -1000,13 +1060,14 @@ void AppController::FinishModeSwitch(bool ok, const QString &message)
 	m_bSwitching = false;
 	emit switchingChanged();
 	m_tasks->setBusy(false);
+    m_drivers->refresh(true);
 	AppendLog(message, !ok);
 	emit toastRequested(message, !ok);
 }
 
 void AppController::switchToLoader()
 {
-	if (m_shuttingDown || m_tasks->busy() || m_bSwitching)
+	if (interactionLocked() || m_bSwitching)
 		return;
 	if (!adbReady()) {
 		emit toastRequested(tr("No ADB device detected; cannot switch."), true);
@@ -1019,7 +1080,7 @@ void AppController::switchToLoader()
 
 void AppController::switchToFel(int mode)
 {
-	if (m_shuttingDown || m_vendor != 1 || m_tasks->busy() || m_bSwitching) return;
+	if (interactionLocked() || m_vendor != 1 || m_bSwitching) return;
 	if (mode < 0 || mode > 1 || !adbReady()) {
 		emit toastRequested(tr("No ADB device detected or the switch method is invalid."), true);
 		return;
@@ -1101,10 +1162,10 @@ QVariantList AppController::availableVendors() const {
 
 void AppController::setVendor(int vendor)
 {
-    if(m_tasks->busy() || !availableVendors().contains(vendor) || vendor==m_vendor) return;
+    if(interactionLocked() || !availableVendors().contains(vendor) || vendor==m_vendor) return;
     m_vendorSelection[m_vendor] = m_iDeviceIndex >= 0 ? m_deviceModel->keys().value(m_iDeviceIndex) : QString();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
-    m_vendor=vendor; m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0); m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
+    m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0); m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
     m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();
     m_deviceModel->setRows({}); m_iDeviceIndex=-1;
     m_batchKeys=m_vendorBatch[m_vendor]; m_bBatchContinue=m_vendorContinue[m_vendor]; m_bBatchMode=m_batchKeys.size()>1;

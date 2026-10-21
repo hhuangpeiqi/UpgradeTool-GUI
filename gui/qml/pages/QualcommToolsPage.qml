@@ -8,7 +8,7 @@ QualcommWorkspace {
     objectName: "QualcommToolsPage"
     title: qsTr("Maintenance & Offline Tools")
     property int selectedTool: 0
-    readonly property bool compact: width < 760 || height < 590
+    readonly property bool compact: width < 760 || height < 560
     readonly property var tools: [
         {label: qsTr("Chip info"), group: qsTr("Device maintenance"), context: "chipinfo", operation: Operations.QualcommChipInfo},
         {label: qsTr("Reset"), group: qsTr("Device maintenance"), context: "reset", operation: Operations.QualcommReset},
@@ -31,7 +31,7 @@ QualcommWorkspace {
         return app.qualcomm.needsDevice(currentTool.operation) ? app.qualcommEligibility[currentTool.operation].reason : "";
     }
     function selectTool(index) {
-        if (!app.tasks.busy && index >= 0 && index < tools.length) selectedTool = index;
+        if (!app.interactionLocked && index >= 0 && index < tools.length) selectedTool = index;
     }
     onSelectedToolChanged: resetScroll()
 
@@ -89,7 +89,7 @@ QualcommWorkspace {
         objectName: "qcToolSelector"
         Layout.fillWidth: true
         visible: page.compact
-        enabled: !app.tasks.busy
+        enabled: !app.interactionLocked
         model: page.tools.map(function(tool) { return tool.group + " / " + tool.label; })
         displayText: page.currentTool.label
         selectedIndex: page.selectedTool
@@ -123,9 +123,9 @@ QualcommWorkspace {
             visible: index === page.selectedTool
             text: index === 7 && settings.dryRun
                   ? qsTranslate("QualcommToolPanel", "Simulate UFS provisioning") : page.tools[index].label
-            enabled: !app.tasks.busy && valid && (!deviceRequired || app.qualcommEligibility[operation].allowed)
+            enabled: !app.interactionLocked && valid && (!deviceRequired || app.qualcommEligibility[operation].allowed)
             onClicked: app.qualcomm.run(operation)
-            ToolTip.visible: hovered && !enabled && !app.tasks.busy
+            ToolTip.visible: hovered && !enabled && !app.interactionLocked
             ToolTip.text: page.footerMessage
         }
     }

@@ -22,7 +22,7 @@
 <context>
     <name>AdbDeviceDialog</name>
     <message>
-        <location filename="../qml/dialogs/AdbDeviceDialog.qml" line="+9"/>
+        <location filename="../qml/dialogs/AdbDeviceDialog.qml" line="+10"/>
         <source>Select Device</source>
         <translation>选择设备</translation>
     </message>
@@ -351,191 +351,192 @@
 <context>
     <name>Allwinner</name>
     <message>
-        <location filename="../../backends/allwinner/AllwinnerBackend.cpp" line="+40"/>
+        <location filename="../MessageCatalog.cpp" line="+35"/>
         <source>Writing / </source>
         <translation>写入 / </translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="-6"/>
         <source>Skipping blank / </source>
         <translation>跳过空白 / </translation>
     </message>
     <message>
-        <location line="+1"/>
-        <location line="+73"/>
+        <location line="-10"/>
         <source>Initializing DRAM</source>
         <translation>初始化 DRAM</translation>
     </message>
     <message>
-        <location line="-72"/>
+        <location line="+2"/>
         <source>Loading U-Boot</source>
         <translation>加载 U-Boot</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+12"/>
         <source>Waiting for FES reconnect</source>
         <translation>等待 FES 重连</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-7"/>
         <source>Querying device</source>
         <translation>查询设备</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+2"/>
         <source>Setting erase mode</source>
         <translation>设置擦除模式</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+12"/>
         <source>Writing partition table</source>
         <translation>写入分区表</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-1"/>
         <source>Writing Preboot</source>
         <translation>写入 Preboot</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-1"/>
         <source>Writing Boot1</source>
         <translation>写入 Boot1</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-1"/>
         <source>Writing Boot0</source>
         <translation>写入 Boot0</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-23"/>
         <source>Finishing action</source>
         <translation>完成动作</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+3"/>
         <source>Flashing complete</source>
         <translation>刷写完成</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-5"/>
         <source>Extracting firmware</source>
         <translation>解包固件</translation>
     </message>
     <message>
-        <location line="+83"/>
+        <location line="+22"/>
         <source>Waiting for the FES device to reconnect on the original USB port</source>
         <translation>等待原 USB 端口上的 FES 设备重新连接</translation>
     </message>
     <message>
-        <location line="+55"/>
+        <location line="-2"/>
         <source>Storage: %1, capacity: %2 MiB, boot mode: %3</source>
         <translation>存储：%1，容量：%2 MiB，启动模式：%3</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+9"/>
         <source>Writing partition: %1</source>
         <translation>写入分区：%1</translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="-28"/>
         <source>Failed to close storage access: %1</source>
         <translation>关闭存储访问失败：%1</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="-4"/>
         <source>Device mode</source>
         <translation>设备模式</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-1"/>
         <source>Chip ID</source>
         <translation>芯片 ID</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+17"/>
         <source>Protocol firmware</source>
         <translation>协议固件</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+6"/>
         <source>Storage type</source>
         <translation>存储类型</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-24"/>
         <source>Capacity (bytes)</source>
         <translation>容量（字节）</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-2"/>
         <source>Boot mode</source>
         <translation>启动模式</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+22"/>
         <source>Rebooting device</source>
         <translation>重启设备</translation>
     </message>
     <message>
-        <location filename="../../backends/allwinner/Convert.cpp" line="+96"/>
+        <location line="-7"/>
         <source>Initializing NOR image</source>
         <translation>初始化 NOR 镜像</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+2"/>
         <source>Missing optional component: %1</source>
         <translation>缺少可选组件：%1</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+2"/>
         <source>Output file</source>
         <translation>输出文件</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-18"/>
         <source>Bytes</source>
         <translation>字节数</translation>
     </message>
     <message>
-        <location filename="../../backends/allwinner/Firmware.cpp" line="+123"/>
+        <location line="+12"/>
         <source>Format</source>
         <translation>格式</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-3"/>
         <source>Firmware size</source>
         <translation>固件字节数</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-5"/>
         <source>Embedded files</source>
         <translation>嵌入文件</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Firmware version</source>
         <translation>固件版本</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-12"/>
         <source>Attributes</source>
         <translation>属性</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+7"/>
         <source>Encrypted</source>
         <translation>加密</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+12"/>
         <source>No</source>
         <translation>否</translation>
     </message>
     <message>
+        <location line="+13"/>
         <source>Writing / %1</source>
         <translation>写入 / %1</translation>
     </message>
     <message>
+        <location line="-6"/>
         <source>Skipping blank / %1</source>
         <translation>跳过空白 / %1</translation>
     </message>
@@ -616,7 +617,7 @@
         <translation>写入后校验</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+17"/>
         <location line="+1"/>
         <source>Batch flash</source>
         <translation>批量刷写</translation>
@@ -704,7 +705,7 @@
         <translation>留空则自动检测（支持 0x 十六进制）</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <location line="+1"/>
         <source>Batch flash</source>
         <translation>批量刷写</translation>
@@ -744,7 +745,7 @@
         <translation>选择目录并解包…</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>Device Operations</source>
         <translation>设备操作</translation>
     </message>
@@ -754,7 +755,7 @@
         <translation>重启设备</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Programmer Image Convert</source>
         <translation>引导程序镜像转换</translation>
     </message>
@@ -839,7 +840,7 @@
         <translation>重新读取信息</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+10"/>
         <source>Convert Image</source>
         <translation>转换镜像</translation>
     </message>
@@ -857,7 +858,7 @@
         <translation>固件包</translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+49"/>
         <source>Select an IMAGEWTY firmware package (.img)</source>
         <translation>请选择 IMAGEWTY 固件包（.img）</translation>
     </message>
@@ -890,11 +891,12 @@
 <context>
     <name>AppFilePicker</name>
     <message>
+        <location filename="../qml/components/AppFilePicker.qml" line="+62"/>
         <source>Storage is no longer available. Returned to Home.</source>
         <translation>存储已不可用，已返回主目录。</translation>
     </message>
     <message>
-        <location filename="../qml/components/AppFilePicker.qml" line="+58"/>
+        <location line="-4"/>
         <source>Directory created</source>
         <translation>已创建目录</translation>
     </message>
@@ -909,7 +911,7 @@
         <translation>文件名不能包含 “/”</translation>
     </message>
     <message>
-        <location line="+304"/>
+        <location line="+332"/>
         <source>Location</source>
         <translation>位置</translation>
     </message>
@@ -929,7 +931,7 @@
         <translation>刷新</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+11"/>
         <source>Show hidden</source>
         <translation>显示隐藏</translation>
     </message>
@@ -945,12 +947,12 @@
     </message>
     <message>
         <location line="+6"/>
-        <location line="+210"/>
+        <location line="+211"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="-204"/>
+        <location line="-205"/>
         <source>Create</source>
         <translation>创建</translation>
     </message>
@@ -975,7 +977,7 @@
         <translation>文件名</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+12"/>
         <source>Enter or choose a file to save</source>
         <translation>输入或选择要保存的文件</translation>
     </message>
@@ -1101,7 +1103,7 @@
         <translation>请至少勾选一个分区</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Switch</source>
         <translation>切换</translation>
     </message>
@@ -1111,7 +1113,7 @@
         <translation>未检测到 ADB 设备</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+4"/>
         <source>Clear</source>
         <translation>清空</translation>
     </message>
@@ -1137,51 +1139,109 @@
     </message>
 </context>
 <context>
-    <name>EdlSwitchDialog</name>
+    <name>DriverDialog</name>
     <message>
-        <location filename="../qml/dialogs/EdlSwitchDialog.qml" line="+58"/>
-        <source>Automatic</source>
-        <translation>自动</translation>
+        <location filename="../qml/dialogs/DriverDialog.qml" line="+191"/>
+        <source>Devices with the same hardware ID may also be updated.</source>
+        <translation>具有相同硬件 ID 的设备也可能被更新。</translation>
     </message>
     <message>
-        <location line="+12"/>
-        <source>Automatic (recognized interfaces)</source>
-        <translation>自动（已识别接口）</translation>
+        <location line="-182"/>
+        <source>USB Drivers</source>
+        <translation>USB 驱动</translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Cancel switch</source>
-        <translation>取消切换</translation>
+        <location line="+39"/>
+        <source>Checking…</source>
+        <translation>正在检测…</translation>
     </message>
     <message>
         <location line="+0"/>
+        <source>No flashing device found</source>
+        <translation>未发现烧录设备</translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Replace…</source>
+        <translation>替换…</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Install…</source>
+        <translation>安装…</translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Official Download</source>
+        <translation>官方下载</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Qualcomm USB Driver · Login required</source>
+        <translation>高通 USB 驱动 · 需要登录</translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
     <message>
-        <location line="-32"/>
+        <location line="+11"/>
+        <source>Install WinUSB?</source>
+        <translation>安装 WinUSB？</translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Install</source>
+        <translation>安装</translation>
+    </message>
+    <message>
+        <location line="-172"/>
+        <source>Continue setup…</source>
+        <translation>继续替换…</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Dismiss</source>
+        <translation>放弃任务</translation>
+    </message>
+    <message>
+        <location line="+154"/>
+        <source>If needed, the tool will restart the selected device and retry the driver installation.</source>
+        <translation>必要时，工具会重启所选设备并重试安装驱动。</translation>
+    </message>
+</context>
+<context>
+    <name>EdlSwitchDialog</name>
+    <message>
+        <location filename="../qml/dialogs/EdlSwitchDialog.qml" line="+85"/>
+        <source>Automatic (recognized interfaces)</source>
+        <translation>自动（已识别接口）</translation>
+    </message>
+    <message>
+        <location line="-24"/>
         <source>Device</source>
         <translation>设备</translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+45"/>
         <source>Switch</source>
         <translation>切换</translation>
     </message>
     <message>
-        <location line="-21"/>
+        <location line="-30"/>
         <source>Diagnostic interface</source>
         <translation>诊断接口</translation>
-    </message>
-    <message>
-        <location line="-52"/>
-        <source>Switch to EDL</source>
-        <translation>切换到 EDL</translation>
-    </message>
-    <message>
-        <location line="+48"/>
-        <source>Diagnostic port (DIAG)</source>
-        <translation>诊断口（DIAG）</translation>
     </message>
     <message>
         <location line="+17"/>
@@ -1189,23 +1249,22 @@
         <translation>刷新</translation>
     </message>
     <message>
-        <location line="-22"/>
-        <source>Switch method</source>
-        <translation>切换方式</translation>
-    </message>
-    <message>
+        <location line="-83"/>
         <source>Select switch target</source>
         <translation>选择切换目标</translation>
     </message>
     <message>
+        <location line="+88"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
+        <location line="+26"/>
         <source>Select a device first</source>
         <translation>请先选择设备</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>Select one diagnostic interface before switching.</source>
         <translation>请先选择一个诊断接口再切换。</translation>
     </message>
@@ -1246,7 +1305,7 @@
         <translation>浏览...</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+8"/>
         <source>Switch</source>
         <translation>切换</translation>
     </message>
@@ -1256,7 +1315,7 @@
         <translation>未检测到 ADB 设备</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+24"/>
         <source>Firmware Info</source>
         <translation>固件信息</translation>
     </message>
@@ -1457,27 +1516,32 @@
 <context>
     <name>Main</name>
     <message>
-        <source>Cancelling tasks and closing…</source>
-        <translation>正在取消任务并退出…</translation>
+        <location filename="../qml/Main.qml" line="+192"/>
+        <source>Device detected</source>
+        <translation>已检测到设备</translation>
     </message>
     <message>
+        <location line="+120"/>
         <source>Quit UpgradeTool-GUI?</source>
         <translation>退出 UpgradeTool-GUI？</translation>
     </message>
     <message>
+        <location line="+5"/>
         <source>A task is running. Cancelling a flash operation may leave the device unable to boot. Cancel the task and quit?</source>
         <translation>当前有任务正在执行。取消刷写可能导致设备无法启动。是否取消任务并退出？</translation>
     </message>
     <message>
+        <location line="+22"/>
         <source>Continue running</source>
         <translation>继续运行</translation>
     </message>
     <message>
+        <location line="-8"/>
         <source>Cancel task and quit</source>
         <translation>取消任务并退出</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="+238"/>
+        <location line="-103"/>
         <source>Preferences…</source>
         <translation>首选项…</translation>
     </message>
@@ -1487,7 +1551,7 @@
         <translation>生成 GPT…</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+11"/>
         <source>Device Info…</source>
         <translation>设备信息…</translation>
     </message>
@@ -1497,7 +1561,7 @@
         <translation>刷新</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Batch Select…</source>
         <translation>批量选择…</translation>
     </message>
@@ -1510,6 +1574,21 @@
         <location line="+3"/>
         <source>About</source>
         <translation>关于</translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Driver installation is running. Wait for it to finish and quit?</source>
+        <translation>驱动正在安装，等待安装结束后退出？</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Wait and quit</source>
+        <translation>等待后退出</translation>
+    </message>
+    <message>
+        <location line="-96"/>
+        <source>USB Drivers…</source>
+        <translation>USB 驱动…</translation>
     </message>
 </context>
 <context>
@@ -1813,7 +1892,7 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../backend/AppController.cpp" line="+90"/>
+        <location filename="../backend/RockchipController.cpp" line="+14"/>
         <source>Invalid or out-of-range parameter</source>
         <translation>参数无效或超出范围</translation>
     </message>
@@ -1848,7 +1927,7 @@
         <translation>操作失败，详见日志</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location filename="../backend/AppController.cpp" line="+69"/>
         <source>Downloading Boot</source>
         <translation>开始下载 Boot</translation>
     </message>
@@ -2087,99 +2166,86 @@
         <source>Low-level format succeeded</source>
         <translation>低级格式化成功</translation>
     </message>
-    <message>
-        <location filename="../FirmwareEntries.cpp" line="+117"/>
-        <source>loader</source>
-        <translation>loader</translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>parameter</source>
-        <translation>parameter</translation>
-    </message>
-    <message>
-        <location line="+20"/>
-        <source>image</source>
-        <translation>image</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Other</source>
-        <translation>其他</translation>
-    </message>
 </context>
 <context>
     <name>QualcommBackend</name>
     <message>
-        <location filename="../../backends/qualcomm/QualcommBackend.cpp" line="+63"/>
+        <location filename="../MessageCatalog.cpp" line="+17"/>
         <source>Invalid Qualcomm operation</source>
         <translation>无效的高通操作</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+1"/>
         <source>Invalid or conflicting Qualcomm options</source>
         <translation>高通参数无效或存在冲突</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="-3"/>
         <source>Device node cannot be combined with a transport selection</source>
         <translation>设备节点不能与传输方式选择同时使用</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+11"/>
         <source>UFS provisioning requires UFS storage</source>
         <translation>UFS 配置需要选择 UFS 存储</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="-5"/>
         <source>Select a digest output directory</source>
         <translation>请选择摘要输出目录</translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+1"/>
         <source>Selected Qualcomm device is missing or ambiguous</source>
         <translation>所选高通设备已断开或无法唯一识别</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+1"/>
         <source>Selected device does not use the requested transport</source>
         <translation>所选设备与指定传输方式不匹配</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="-4"/>
         <source>Qualcomm device identity is too long</source>
         <translation>高通设备标识过长</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+1"/>
         <source>Qualcomm operation failed</source>
         <translation>高通操作失败</translation>
     </message>
     <message>
+        <location line="-7"/>
         <source>Crash-dump mode only supports RAM dump; switch to EDL (9008) for this operation</source>
         <translation>崩溃转储模式仅支持内存转储；执行此操作请先切换到 EDL（9008）</translation>
     </message>
     <message>
+        <location line="+12"/>
         <source>The selected interface is not an EDL (9008) target</source>
         <translation>所选接口不是 EDL（9008）目标</translation>
     </message>
     <message>
+        <location line="-1"/>
         <source>The selected interface cannot be opened; check permissions and the USB driver</source>
         <translation>无法打开所选接口，请检查访问权限及 USB 驱动</translation>
     </message>
     <message>
+        <location line="-8"/>
         <source>EDL</source>
         <translation>EDL</translation>
     </message>
     <message>
+        <location line="-4"/>
         <source>Crash-dump candidate</source>
         <translation>崩溃转储候选</translation>
     </message>
     <message>
+        <location line="+2"/>
         <source>DIAG</source>
         <translation>DIAG</translation>
     </message>
     <message>
+        <location line="+13"/>
         <source>Unknown mode</source>
         <translation>未知模式</translation>
     </message>
@@ -2187,32 +2253,12 @@
 <context>
     <name>QualcommFlashPage</name>
     <message>
-        <location filename="../qml/pages/QualcommFlashPage.qml" line="+19"/>
-        <source>No device in EDL mode</source>
-        <translation>未检测到 EDL 模式设备</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Ready · simulation</source>
-        <translation>就绪 · 模拟执行</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Ready · %1 XML</source>
-        <translation>就绪 · %1 个 XML</translation>
-    </message>
-    <message>
-        <location line="-2"/>
-        <source>Select a programmer and load XML first</source>
-        <translation>请先选择引导程序并加载 XML</translation>
-    </message>
-    <message>
-        <location line="-8"/>
+        <location filename="../qml/pages/QualcommFlashPage.qml" line="+10"/>
         <source>Qualcomm Download</source>
         <translation>高通下载</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+6"/>
         <source>Build</source>
         <translation>固件</translation>
     </message>
@@ -2272,7 +2318,7 @@
         <translation>固件 XML</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+4"/>
         <source>Load XML…</source>
         <translation>加载 XML…</translation>
     </message>
@@ -2297,7 +2343,7 @@
         <translation>起始扇区</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+30"/>
         <source>Download</source>
         <translation>下载</translation>
     </message>
@@ -2310,11 +2356,6 @@
         <location line="+5"/>
         <source>Select a valid programmer and XML set first</source>
         <translation>请先选择有效的引导程序和 XML 文件</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
-        <translation>未检测到设备，请将设备置于 EDL(9008) 模式，或使用“切换到 EDL”</translation>
     </message>
 </context>
 <context>
@@ -2398,45 +2439,30 @@
 <context>
     <name>QualcommPartitionsPage</name>
     <message>
-        <location filename="../qml/pages/QualcommPartitionsPage.qml" line="+17"/>
-        <source>Add a programmer and at least one operation</source>
-        <translation>请添加引导程序和至少一个操作</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>No device in EDL mode</source>
-        <translation>未检测到 EDL 模式设备</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Ready · %1 operation(s)</source>
-        <translation>就绪 · %1 个操作</translation>
-    </message>
-    <message>
-        <location line="-9"/>
+        <location filename="../qml/pages/QualcommPartitionsPage.qml" line="+10"/>
         <source>Partition Tools</source>
         <translation>分区工具</translation>
     </message>
     <message>
-        <location line="+35"/>
-        <location line="+45"/>
+        <location line="+29"/>
+        <location line="+46"/>
         <source>Read</source>
         <translation>读取</translation>
     </message>
     <message>
-        <location line="-45"/>
-        <location line="+45"/>
+        <location line="-46"/>
+        <location line="+46"/>
         <source>Write</source>
         <translation>写入</translation>
     </message>
     <message>
-        <location line="-45"/>
-        <location line="+45"/>
+        <location line="-46"/>
+        <location line="+46"/>
         <source>Erase</source>
         <translation>擦除</translation>
     </message>
     <message>
-        <location line="-45"/>
+        <location line="-46"/>
         <source>Firehose reset</source>
         <translation>Firehose 重启</translation>
     </message>
@@ -2471,7 +2497,7 @@
         <translation>添加</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+13"/>
         <source>Operations</source>
         <translation>操作列表</translation>
     </message>
@@ -2486,17 +2512,17 @@
         <translation>移除</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+12"/>
         <source>Execute</source>
         <translation>执行</translation>
     </message>
     <message>
-        <location line="-7"/>
+        <location line="-8"/>
         <source>Firehose reset must be the last operation</source>
         <translation>Firehose 重启必须是最后一项操作</translation>
     </message>
     <message>
-        <location line="-75"/>
+        <location line="-76"/>
         <source>Programmer / Loader</source>
         <translation>引导程序 / 加载器</translation>
     </message>
@@ -2511,7 +2537,7 @@
         <translation>操作类型</translation>
     </message>
     <message>
-        <location line="+71"/>
+        <location line="+73"/>
         <source>Simulate</source>
         <translation>模拟执行</translation>
     </message>
@@ -2520,16 +2546,11 @@
         <source>Add a valid programmer and at least one operation first</source>
         <translation>请先添加有效的引导程序和至少一项操作</translation>
     </message>
-    <message>
-        <location line="+1"/>
-        <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
-        <translation>未检测到设备，请将设备置于 EDL(9008) 模式，或使用“切换到 EDL”</translation>
-    </message>
 </context>
 <context>
     <name>QualcommPathRow</name>
     <message>
-        <location filename="../qml/components/QualcommPathRow.qml" line="+32"/>
+        <location filename="../qml/components/QualcommPathRow.qml" line="+33"/>
         <source>Select a directory</source>
         <translation>选择目录</translation>
     </message>
@@ -2540,6 +2561,7 @@
     </message>
     <message>
         <location line="+3"/>
+        <location line="+1"/>
         <source>Browse…</source>
         <translation>浏览…</translation>
     </message>
@@ -2547,7 +2569,7 @@
 <context>
     <name>QualcommProgrammer</name>
     <message>
-        <location filename="../qml/components/QualcommProgrammer.qml" line="+18"/>
+        <location filename="../qml/components/QualcommProgrammer.qml" line="+19"/>
         <source>Programmer input</source>
         <translation>引导程序来源</translation>
     </message>
@@ -2562,7 +2584,7 @@
         <translation>Sahara 镜像映射</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Programmer</source>
         <translation>引导程序</translation>
     </message>
@@ -2593,86 +2615,82 @@
     </message>
 </context>
 <context>
+    <name>QualcommToolPanel</name>
+    <message>
+        <location filename="../qml/pages/QualcommToolsPage.qml" line="+125"/>
+        <source>Simulate UFS provisioning</source>
+        <translation>模拟 UFS 配置</translation>
+    </message>
+</context>
+<context>
     <name>QualcommToolsPage</name>
     <message>
+        <location filename="../qml/components/QualcommToolPanel.qml" line="+31"/>
         <source>Reset method</source>
         <translation>重启方式</translation>
     </message>
     <message>
-        <source>Quick actions</source>
-        <translation>快捷操作</translation>
-    </message>
-    <message>
+        <location filename="../qml/pages/QualcommToolsPage.qml" line="-112"/>
+        <location line="+1"/>
+        <location line="+1"/>
+        <location line="+1"/>
         <source>Device maintenance</source>
         <translation>设备维护</translation>
     </message>
     <message>
+        <location line="+1"/>
+        <location line="+1"/>
+        <location line="+1"/>
         <source>Offline tools</source>
         <translation>离线工具</translation>
     </message>
     <message>
-        <location filename="../qml/pages/QualcommToolsPage.qml" line="+28"/>
-        <source>No device in EDL mode</source>
-        <translation>未检测到 EDL 模式设备</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Ready</source>
-        <translation>就绪</translation>
-    </message>
-    <message>
-        <location line="-19"/>
+        <location line="-10"/>
         <source>Maintenance &amp; Offline Tools</source>
         <translation>维护与离线工具</translation>
     </message>
     <message>
-        <location line="+22"/>
-        <location line="+7"/>
-        <source>Operation</source>
-        <translation>操作</translation>
-    </message>
-    <message>
-        <location line="+13"/>
+        <location line="+4"/>
         <source>Chip info</source>
         <translation>芯片信息</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Reset</source>
         <translation>重启</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>RAM dump</source>
         <translation>内存转储</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Sahara kickstart</source>
         <translation>Sahara 引导</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Create ZIP</source>
         <translation>生成 ZIP</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Create Sahara archive</source>
         <translation>生成 Sahara 归档</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Create VIP digests</source>
         <translation>生成 VIP 摘要</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>UFS provisioning</source>
         <translation>UFS 配置</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location filename="../qml/components/QualcommToolPanel.qml" line="+24"/>
         <source>Input type</source>
         <translation>输入类型</translation>
     </message>
@@ -2682,12 +2700,7 @@
         <translation>引导程序 / Sahara 镜像</translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Input</source>
-        <translation>输入</translation>
-    </message>
-    <message>
-        <location line="+15"/>
+        <location line="+23"/>
         <source>Selector</source>
         <translation>selector</translation>
     </message>
@@ -2697,12 +2710,12 @@
         <translation>包内可选的 selector</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Output</source>
         <translation>输出路径</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+8"/>
         <source>Digest directory</source>
         <translation>摘要输出目录</translation>
     </message>
@@ -2717,12 +2730,12 @@
         <translation>逗号分隔的文件模式，例如 DDR*.bin</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Device node</source>
         <translation>设备节点</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+11"/>
         <source>Load XML…</source>
         <translation>加载 XML…</translation>
     </message>
@@ -2732,12 +2745,7 @@
         <translation>锁定 UFS 配置</translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Execute</source>
-        <translation>执行</translation>
-    </message>
-    <message>
-        <location line="-92"/>
+        <location line="-90"/>
         <source>Flat Build</source>
         <translation>Flat Build</translation>
     </message>
@@ -2767,7 +2775,7 @@
         <translation>contents.xml 的路径</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+28"/>
         <source>Output directory for the RAM dump</source>
         <translation>内存转储的输出目录</translation>
     </message>
@@ -2782,12 +2790,12 @@
         <translation>输出 Sahara 归档文件</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Output directory for the VIP digest tables</source>
         <translation>VIP 摘要表的输出目录</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+26"/>
         <source>Serial node, e.g. /dev/ttyUSB0 (Auto transport only)</source>
         <translation>串口节点，例如 /dev/ttyUSB0（仅自动传输方式）</translation>
     </message>
@@ -2801,32 +2809,11 @@
         <source>XML</source>
         <translation>XML</translation>
     </message>
-    <message>
-        <location line="+14"/>
-        <source>Simulate</source>
-        <translation>模拟执行</translation>
-    </message>
-    <message>
-        <location line="-136"/>
-        <location line="+141"/>
-        <source>Complete the required inputs first</source>
-        <translation>请先填写必填项</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>No device detected. Connect the device in EDL (9008) mode or use &quot;Switch to EDL&quot;</source>
-        <translation>未检测到设备，请将设备置于 EDL(9008) 模式，或使用“切换到 EDL”</translation>
-    </message>
 </context>
 <context>
     <name>QualcommWorkspace</name>
     <message>
-        <location filename="../qml/components/QualcommWorkspace.qml" line="+85"/>
-        <source>Switch settings…</source>
-        <translation>切换设置…</translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location filename="../qml/components/QualcommWorkspace.qml" line="+124"/>
         <source>Switch to EDL</source>
         <translation>切换到 EDL</translation>
     </message>
@@ -2839,7 +2826,7 @@
         <translation>移除</translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+47"/>
         <source>Load XML</source>
         <translation>加载 XML</translation>
     </message>
@@ -2854,12 +2841,12 @@
         <translation>尚未加载 XML。点击“加载 XML…”选择 rawprogram 与 patch 文件。</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-1"/>
         <source>No XML loaded. Use Load XML… to choose a UFS configuration file.</source>
         <translation>尚未加载 XML。点击“加载 XML…”选择 UFS 配置文件。</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+15"/>
         <source>Patch</source>
         <translation>Patch</translation>
     </message>
@@ -2869,7 +2856,7 @@
         <translation>RawProgram</translation>
     </message>
     <message>
-        <location line="+41"/>
+        <location line="+42"/>
         <source>Select rawprogram XML</source>
         <translation>选择 rawprogram XML</translation>
     </message>
@@ -2979,14 +2966,54 @@
 <context>
     <name>StatusBar</name>
     <message>
-        <location filename="../qml/components/StatusBar.qml" line="+87"/>
+        <location filename="../qml/components/StatusBar.qml" line="+283"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="-88"/>
         <source>Refresh</source>
         <translation>刷新</translation>
+    </message>
+    <message>
+        <location line="-52"/>
+        <source>USB Drivers</source>
+        <translation>USB 驱动</translation>
+    </message>
+    <message>
+        <location line="-114"/>
+        <source>Working…</source>
+        <translation>正在操作…</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Check USB driver details to continue</source>
+        <translation>请查看 USB 驱动详情以继续操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Connect a device to begin</source>
+        <translation>请连接设备后开始操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Waiting for an operation</source>
+        <translation>等待操作</translation>
+    </message>
+    <message>
+        <location line="+92"/>
+        <source>No selectable device</source>
+        <translation>无可选择的设备</translation>
+    </message>
+    <message>
+        <location line="+60"/>
+        <source>View USB driver details</source>
+        <translation>查看 USB 驱动详情</translation>
+    </message>
+    <message>
+        <location line="-158"/>
+        <source>Cancelling tasks and closing…</source>
+        <translation>正在取消任务并关闭…</translation>
     </message>
 </context>
 <context>
@@ -3083,32 +3110,29 @@
 <context>
     <name>gui::AdbRunner</name>
     <message>
+        <location filename="../AdbRunner.cpp" line="+261"/>
         <source>ADB command failed (%1): %2</source>
         <translation>ADB 命令失败（%1）：%2</translation>
     </message>
     <message>
+        <location line="+5"/>
         <source>Invalid ADB version output: %1</source>
         <translation>无效的 ADB 版本输出：%1</translation>
     </message>
     <message>
+        <location line="+37"/>
         <source>ADB command timed out.</source>
         <translation>ADB 命令超时。</translation>
     </message>
     <message>
-        <source>ADB [%1]: %2
-%3</source>
-        <translation>ADB [%1]：%2
-%3</translation>
-    </message>
-    <message>
-        <location filename="../AdbRunner.cpp" line="+135"/>
-        <location line="+102"/>
+        <location line="-155"/>
+        <location line="+145"/>
         <source>Cannot start ADB process: %1</source>
         <translation>无法启动 ADB 进程：%1</translation>
     </message>
     <message>
-        <location line="-30"/>
-        <location line="+64"/>
+        <location line="-58"/>
+        <location line="+95"/>
         <source>ADB executable not found; reinstall the application or install ADB and check PATH / ADB.</source>
         <translation>未找到 ADB 可执行文件，请重新安装应用，或安装 ADB 并检查 PATH / ADB。</translation>
     </message>
@@ -3193,7 +3217,7 @@
         <translation>已发送 FEL 切换请求，等待 USB 设备…</translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+22"/>
         <source>FEL flash device detected on the target USB port.</source>
         <translation>已在目标 USB 端口发现 FEL 设备。</translation>
     </message>
@@ -3221,37 +3245,37 @@
 <context>
     <name>gui::AppController</name>
     <message>
+        <location filename="../backend/AppController.cpp" line="+275"/>
         <source>Cannot create or access log directory: %1</source>
         <translation>无法创建或访问日志目录：%1</translation>
     </message>
     <message>
+        <location line="+4"/>
         <source>Cannot open log directory: %1</source>
         <translation>无法打开日志目录：%1</translation>
     </message>
     <message>
-        <location filename="../backend/AppController.cpp" line="+125"/>
-        <location line="+928"/>
+        <location filename="../MessageCatalog.cpp" line="+45"/>
         <source>Select the split package directory (with parameter.txt, per-partition .img and Loader .bin).</source>
         <translation>请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。</translation>
     </message>
     <message>
-        <location line="-927"/>
-        <location line="+1006"/>
+        <location line="-1"/>
         <source>Select firmware.</source>
         <translation>请选择固件。</translation>
     </message>
     <message>
-        <location line="-1005"/>
+        <location line="-8"/>
         <source>Ready</source>
         <translation>就绪</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location filename="../backend/AppController.cpp" line="-134"/>
         <source>Application started</source>
         <translation>应用已启动</translation>
     </message>
     <message>
-        <location line="+90"/>
+        <location line="+196"/>
         <source>Home</source>
         <translation>主目录</translation>
     </message>
@@ -3276,35 +3300,37 @@
         <translation>图片</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+2"/>
         <source>Root</source>
         <translation>根目录</translation>
     </message>
     <message>
-        <location line="+93"/>
+        <location line="+92"/>
         <source>Batch: %1 selected / %2 current</source>
         <translation>批量：已选 %1 个 / 当前 %2 个</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+43"/>
         <source>Found %1 device</source>
         <translation>发现 %1 设备</translation>
     </message>
     <message>
+        <location line="-21"/>
         <source>Interfaces found: %1</source>
         <translation>发现接口：%1</translation>
     </message>
     <message>
+        <location line="-3"/>
         <source>%1 *%2</source>
         <translation>%1 *%2</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+25"/>
         <source>Found %1 %2 device(s)</source>
         <translation>发现 %1 个 %2 设备</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+6"/>
         <source>ADB device found</source>
         <translation>发现 ADB 设备</translation>
     </message>
@@ -3314,37 +3340,40 @@
         <translation>发现 %1 个 ADB 设备</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="-30"/>
+        <location line="+33"/>
         <source>No device found</source>
         <translation>未发现设备</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-32"/>
+        <location line="+33"/>
         <source>, </source>
         <translation>、</translation>
     </message>
     <message>
-        <location line="+236"/>
+        <location line="+189"/>
         <source>Cancelling…</source>
         <translation>正在取消…</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="-265"/>
+        <location line="+289"/>
         <source>Select a device first</source>
         <translation>请先选择设备</translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+25"/>
         <source>Start: %1</source>
         <translation>开始：%1</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location filename="../MessageCatalog.cpp" line="-5"/>
         <source>Numeric parameter invalid or out of range</source>
         <translation>数值参数无效或超出范围</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location filename="../backend/AppController.cpp" line="+31"/>
         <source>Batch mode: %1 selected</source>
         <translation>批量模式：已选 %1 个</translation>
     </message>
@@ -3359,56 +3388,57 @@
         <translation>未选择设备</translation>
     </message>
     <message>
-        <location line="+21"/>
-        <location line="+32"/>
-        <location line="+125"/>
+        <location filename="../MessageCatalog.cpp" line="-20"/>
+        <location filename="../backend/AppController.cpp" line="+22"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location line="-157"/>
+        <location line="+21"/>
+        <location filename="../backend/AppController.cpp" line="+0"/>
         <source>Operation complete</source>
         <translation>操作完成</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
+        <location filename="../backend/AppController.cpp" line="+0"/>
         <source>Operation failed; see the log</source>
         <translation>操作失败，详见日志</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="-21"/>
         <source>Cancelled.</source>
         <translation>已取消。</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Download complete; reboot command sent.</source>
         <translation>下载完成，已发送重启指令。</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-1"/>
         <source>Download complete.</source>
         <translation>下载完成。</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+4"/>
         <source>Download finished with failures. Failed devices were not rebooted automatically.</source>
         <translation>下载结束，存在失败。失败设备未自动重启。</translation>
     </message>
     <message>
-        <location line="+12"/>
-        <location line="+15"/>
+        <location line="-11"/>
+        <location filename="../backend/AppController.cpp" line="+10"/>
         <source>Batch finished: %1 succeeded, %2 failed</source>
         <translation>批量结束：成功 %1 个，失败 %2 个</translation>
     </message>
     <message>
-        <location line="-14"/>
-        <location line="+15"/>
+        <location line="-1"/>
+        <location filename="../backend/AppController.cpp" line="+1"/>
         <source>, remaining operations cancelled</source>
         <translation>，已取消后续操作</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location filename="../backend/AppController.cpp" line="+24"/>
         <source>Running %1/%2: %3</source>
         <translation>正在执行 %1/%2：%3</translation>
     </message>
@@ -3418,112 +3448,113 @@
         <translation>，设备 %1/%2 %3</translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location filename="../MessageCatalog.cpp" line="-6"/>
         <source>%1  %2%</source>
         <translation>%1  %2%</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="-2"/>
         <source>  %1/s</source>
         <translation>  %1/s</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+7"/>
         <source>%1/s</source>
         <translation>%1/s</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="-6"/>
         <source>  remaining %1</source>
         <translation>  剩余 %1</translation>
     </message>
     <message>
-        <location line="+55"/>
+        <location line="+50"/>
         <source>done</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location line="+94"/>
+        <location line="-45"/>
         <source>%1, size %2, LBA 0x%3</source>
         <translation>%1，大小 %2，LBA 0x%3</translation>
     </message>
     <message>
-        <location line="-53"/>
+        <location line="+13"/>
         <source>Download failed; see the log.</source>
         <translation>下载失败，详见日志。</translation>
     </message>
     <message>
-        <location line="-893"/>
+        <location filename="../backend/AppController.cpp" line="-766"/>
+        <location line="+891"/>
         <source>Switching…</source>
         <translation>正在切换…</translation>
     </message>
     <message>
-        <location line="+894"/>
+        <location filename="../MessageCatalog.cpp" line="-1"/>
         <source>Download failed: %1</source>
         <translation>下载失败：%1</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+18"/>
         <source>Reboot command sent.</source>
         <translation>已发送重启指令。</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+2"/>
         <source>Reset device failed.</source>
         <translation>重启设备失败。</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+1"/>
         <source>Reset device succeeded</source>
         <translation>重启设备成功</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-2"/>
         <source>Reset device failed</source>
         <translation>重启设备失败</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+12"/>
         <source>Upgrade succeeded; device rebooted.</source>
         <translation>升级成功，设备已重启。</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-1"/>
         <source>Upgrade succeeded; device not rebooted.</source>
         <translation>升级成功，设备未重启。</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="-1"/>
         <source>Upgrade failed; see the log.</source>
         <translation>升级失败，详见日志。</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-1"/>
         <source>Upgrade failed: %1</source>
         <translation>升级失败：%1</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="-21"/>
         <source>Extraction succeeded.</source>
         <translation>解包成功。</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-1"/>
         <source>Extraction failed.</source>
         <translation>解包失败。</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+2"/>
         <source>Failed to read firmware info.</source>
         <translation>读取固件信息失败。</translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+1"/>
         <source>Firmware info read successfully.</source>
         <translation>固件信息读取成功。</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="-24"/>
         <source>%1 failed: %2</source>
         <translation>%1 失败：%2</translation>
     </message>
@@ -3533,54 +3564,52 @@
         <translation>%1 成功</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="-1"/>
         <source>%1 read successfully</source>
         <translation>%1 读取成功</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+48"/>
         <source>parameter.txt not found or failed to parse: %1</source>
         <translation>未找到 parameter.txt 或解析失败：%1</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="-19"/>
         <source>Parsed %2 entries from %1; check them and click &quot;Execute&quot; to download one by one.</source>
         <translation>已从 %1 解析 %2 个条目，勾选后点击“执行”逐条下载。</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="-19"/>
         <source>Cleared.</source>
         <translation>已清空。</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="-2"/>
         <source>Check entries and specify image files first.</source>
         <translation>请先勾选条目并指定镜像文件。</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+17"/>
         <source>Invalid firmware.</source>
         <translation>固件无效。</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="-1"/>
         <source>Firmware loaded with %1 partitions.</source>
         <translation>固件已加载，共 %1 个分区。</translation>
     </message>
     <message>
-        <location line="+13"/>
-        <location line="+12"/>
-        <location line="+13"/>
+        <location line="+14"/>
         <source>Select firmware first</source>
         <translation>请先选择固件</translation>
     </message>
     <message>
-        <location line="-20"/>
+        <location line="+8"/>
         <source>Upgrading firmware…</source>
         <translation>正在升级固件…</translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="-27"/>
         <source>Extracting firmware…</source>
         <translation>正在解包固件…</translation>
     </message>
@@ -3590,65 +3619,58 @@
         <translation>正在读取固件信息…</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location filename="../backend/AppController.cpp" line="-4"/>
         <source>No ADB device detected; cannot switch.</source>
         <translation>未检测到 ADB 设备，无法切换。</translation>
     </message>
     <message>
-        <location line="+7"/>
-        <location line="+1"/>
-        <location line="+1"/>
-        <source>Switching device to Loader mode…</source>
-        <translation>正在将设备切换到 Loader 模式…</translation>
-    </message>
-    <message>
-        <location line="+8"/>
+        <location line="+12"/>
         <source>No ADB device detected or the switch method is invalid.</source>
         <translation>未检测到 ADB 设备或切换方式无效。</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+4"/>
         <source>Preparing to switch ADB device to FEL mode…</source>
         <translation>准备将 ADB 设备切换到 FEL 模式…</translation>
     </message>
     <message>
-        <location line="+77"/>
+        <location filename="../MessageCatalog.cpp" line="-12"/>
         <source>Enter the start sector and count and choose an export file</source>
         <translation>请输入起始扇区、扇区数并选择导出文件</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="-1"/>
         <source>Enter the input parameter and output GPT</source>
         <translation>请填写输入 parameter 与输出 GPT</translation>
     </message>
     <message>
-        <location line="+142"/>
+        <location line="-8"/>
         <source>Check the file paths and parameters for this operation; numbers must be in range</source>
         <translation>请检查当前操作的文件路径与参数，数值须在有效范围内</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+2"/>
         <source>Connect and select an Allwinner device first</source>
         <translation>请先连接并选择全志设备</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+25"/>
         <source>Running: %1</source>
         <translation>正在执行：%1</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+1"/>
         <source>Select an online Allwinner device first</source>
         <translation>请先选择在线的全志设备</translation>
     </message>
     <message>
-        <location line="-1383"/>
-        <location line="+668"/>
+        <location line="+4"/>
+        <location filename="../backend/AppController.cpp" line="-170"/>
         <source>Simulation: %1</source>
         <translation>模拟执行：%1</translation>
     </message>
     <message>
-        <location line="-98"/>
+        <location filename="../backend/AppController.cpp" line="-69"/>
         <source>Simulation only; no device will be flashed</source>
         <translation>仅模拟执行，不会刷写设备</translation>
     </message>
@@ -3658,14 +3680,48 @@
         <translation>模拟执行</translation>
     </message>
     <message>
+        <location line="-315"/>
+        <location line="+290"/>
+        <location line="+13"/>
         <source>A selected device is no longer available; refresh and select the targets again</source>
         <translation>所选设备已不可用，请刷新后重新选择目标设备</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Checking device access…</source>
+        <translation>正在检查设备访问…</translation>
+    </message>
+    <message>
+        <location filename="../UsbAccess.cpp" line="+22"/>
+        <source>Cannot access the selected device (%1)</source>
+        <translation>无法访问所选设备（%1）</translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>The selected device is ambiguous; refresh and select it again</source>
+        <translation>无法唯一确认所选设备，请刷新后重新选择</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>The selected device disconnected; refresh and select it again</source>
+        <translation>所选设备已断开，请刷新后重新选择</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+22"/>
+        <source>Cannot access the selected USB interface: %1</source>
+        <translation>无法访问所选 USB 接口：%1</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>No compatible flashing interface was found</source>
+        <translation>未找到兼容的烧录接口</translation>
     </message>
 </context>
 <context>
     <name>gui::ConfigStore</name>
     <message>
-        <location filename="../backend/ConfigStore.cpp" line="+128"/>
+        <location filename="../backend/ConfigStore.cpp" line="+119"/>
         <source>Loaded: %1</source>
         <translation>已加载：%1</translation>
     </message>
@@ -3713,7 +3769,7 @@
 <context>
     <name>gui::DirModel</name>
     <message>
-        <location filename="../backend/DirModel.cpp" line="+169"/>
+        <location filename="../backend/DirModel.cpp" line="+185"/>
         <source>Directory name cannot be empty</source>
         <translation>目录名不能为空</translation>
     </message>
@@ -3749,92 +3805,210 @@
     </message>
 </context>
 <context>
+    <name>gui::DriverController</name>
+    <message>
+        <location filename="../backend/DriverController.cpp" line="+43"/>
+        <source>Driver missing</source>
+        <translation>未安装驱动</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Incompatible driver</source>
+        <translation>驱动不兼容</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+108"/>
+        <location line="+10"/>
+        <source>Driver installed</source>
+        <translation>驱动已安装</translation>
+    </message>
+    <message>
+        <location line="-117"/>
+        <source>Ready</source>
+        <translation>可用</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cannot access device</source>
+        <translation>无法访问设备</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Device error (%1)</source>
+        <translation>设备异常（%1）</translation>
+    </message>
+    <message>
+        <location line="+88"/>
+        <location line="+19"/>
+        <source>Driver detection failed: %1</source>
+        <translation>驱动检测失败：%1</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>Preparing driver installation…</source>
+        <translation>正在准备安装驱动…</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <location line="+7"/>
+        <source>Installing WinUSB…</source>
+        <translation>正在安装 WinUSB…</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+7"/>
+        <location line="+58"/>
+        <source>Driver installation cancelled</source>
+        <translation>已取消安装驱动</translation>
+    </message>
+    <message>
+        <location line="-58"/>
+        <source>Driver installation failed: %1</source>
+        <translation>驱动安装失败：%1</translation>
+    </message>
+    <message>
+        <location line="-142"/>
+        <location line="+124"/>
+        <location line="+20"/>
+        <location line="+30"/>
+        <source>Checking driver…</source>
+        <translation>正在检查驱动…</translation>
+    </message>
+    <message>
+        <location line="-174"/>
+        <source>Installing driver…</source>
+        <translation>正在安装驱动…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+174"/>
+        <source>Driver detection failed</source>
+        <translation>驱动检测失败</translation>
+    </message>
+    <message>
+        <location line="-172"/>
+        <source>Drivers need attention (%1)</source>
+        <translation>驱动需处理（%1）</translation>
+    </message>
+    <message>
+        <location line="-32"/>
+        <source>Restart Windows required</source>
+        <translation>需要重启 Windows</translation>
+    </message>
+    <message>
+        <location line="+36"/>
+        <source>Driver setup needs attention</source>
+        <translation>驱动安装需处理</translation>
+    </message>
+    <message>
+        <location line="+116"/>
+        <source>Recovering device…</source>
+        <translation>正在恢复设备…</translation>
+    </message>
+    <message>
+        <location line="-50"/>
+        <location line="+65"/>
+        <location line="+39"/>
+        <source>Restart Windows, then open this tool to check the driver.</source>
+        <translation>请重启 Windows，再打开本工具检查驱动。</translation>
+    </message>
+    <message>
+        <location line="-99"/>
+        <location line="+102"/>
+        <source>Device is not ready. Close other device tools, reconnect it, and refresh.</source>
+        <translation>设备尚不可用。请关闭其他设备工具，重新连接设备后刷新。</translation>
+    </message>
+    <message>
+        <location line="-2"/>
+        <source>Connect the original device and refresh. If its identity changed, select it again.</source>
+        <translation>请连接原设备并刷新。如果设备标识已变化，请重新选择。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Driver setup is unfinished. Continue to review and replace the driver.</source>
+        <translation>驱动安装尚未完成，请继续确认并替换驱动。</translation>
+    </message>
+</context>
+<context>
     <name>gui::EdlRunner</name>
     <message>
-        <location filename="../EdlTransport.cpp" line="+254"/>
-        <location line="+7"/>
+        <location filename="../EdlTransport.cpp" line="+236"/>
+        <location line="+10"/>
         <source>ADB command cancelled or timed out.</source>
         <translation>ADB 命令已取消或超时。</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="-5"/>
+        <location line="+7"/>
         <source>ADB failed: %1</source>
         <translation>ADB 执行失败：%1</translation>
     </message>
     <message>
-        <location line="+65"/>
+        <location line="+82"/>
         <source>Cannot initialize USB.</source>
         <translation>无法初始化 USB。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="+104"/>
+        <location filename="../EdlRunner.cpp" line="+171"/>
         <source>Checking the selected device…</source>
         <translation>正在检查所选设备…</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+32"/>
+        <location line="+4"/>
         <source>DIAG verification failed: %1</source>
         <translation>DIAG 验证失败：%1</translation>
     </message>
     <message>
-        <location filename="../EdlTransport.cpp" line="+23"/>
+        <location filename="../EdlTransport.cpp" line="+47"/>
         <source>Diagnostic USB write failed: %1</source>
         <translation>诊断 USB 写入失败：%1</translation>
     </message>
     <message>
-        <location line="-39"/>
+        <location line="-73"/>
         <source>Diagnostic write timed out or was cancelled.</source>
         <translation>诊断口写入超时或已取消。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="-36"/>
+        <location filename="../EdlRunner.cpp" line="-127"/>
         <source>Discovering diagnostic ports and ADB devices…</source>
         <translation>正在查找诊断口和 ADB 设备…</translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+135"/>
         <location line="+6"/>
         <source>EDL request could not be sent: %1</source>
         <translation>无法发送 EDL 切换请求：%1</translation>
     </message>
     <message>
-        <location line="-15"/>
+        <location line="-14"/>
         <source>Invalid or unsupported version response</source>
         <translation>版本响应无效或不受支持</translation>
     </message>
     <message>
-        <location line="-15"/>
+        <location line="-44"/>
         <source>No matching switch endpoint is available. Refresh the device list.</source>
         <translation>没有可用的匹配接口，请刷新设备列表。</translation>
     </message>
     <message>
-        <location filename="../EdlTransport.cpp" line="+9"/>
-        <location line="+38"/>
+        <location filename="../EdlTransport.cpp" line="+12"/>
+        <location line="+69"/>
         <source>No valid DIAG response (timeout, disconnect or CRC error).</source>
         <translation>未收到有效 DIAG 响应（超时、断连或 CRC 错误）。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="+45"/>
+        <location filename="../EdlRunner.cpp" line="+79"/>
         <source>Request sent, but the target USB location could not be identified; success cannot be confirmed.</source>
         <translation>请求已发送，但无法识别目标 USB 位置，不能确认切换成功。</translation>
     </message>
     <message>
-        <location line="-12"/>
+        <location line="-17"/>
         <source>Request sent; waiting for the target device in 9008 mode…</source>
         <translation>请求已发送，正在等待目标设备进入 9008 模式…</translation>
     </message>
     <message>
-        <location line="-47"/>
-        <source>Select a device. Unknown interfaces require a successful DIAG query.</source>
-        <translation>请选择设备。未知接口必须先通过 DIAG 查询。</translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>Select one diagnostic interface before switching.</source>
-        <translation>切换前请选择一个诊断接口。</translation>
-    </message>
-    <message>
-        <location line="+31"/>
+        <location line="-5"/>
         <source>Sending ADB EDL request…</source>
         <translation>正在发送 ADB EDL 切换请求…</translation>
     </message>
@@ -3844,69 +4018,84 @@
         <translation>正在发送 DIAG EDL 切换请求…</translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+36"/>
         <source>Switch cancelled. A reboot already sent cannot be undone.</source>
         <translation>已取消等待切换。已经发送的重启请求无法撤销。</translation>
     </message>
     <message>
-        <location line="-13"/>
+        <location line="-12"/>
         <source>Target device detected in 9008 mode.</source>
         <translation>已检测到目标设备进入 9008 模式。</translation>
     </message>
     <message>
-        <location line="-12"/>
+        <location line="-19"/>
         <source>The device rejected the DIAG EDL request.</source>
         <translation>设备拒绝了 DIAG EDL 切换请求。</translation>
     </message>
     <message>
-        <location filename="../EdlTransport.cpp" line="+14"/>
+        <location filename="../EdlTransport.cpp" line="+24"/>
         <source>The selected ADB device is disconnected or unauthorized.</source>
         <translation>所选 ADB 设备已断开或未授权。</translation>
     </message>
     <message>
-        <location line="-71"/>
+        <location line="-120"/>
+        <location line="+70"/>
         <source>The selected diagnostic port is no longer available.</source>
         <translation>所选诊断口已不可用。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="+20"/>
+        <location filename="../EdlRunner.cpp" line="+26"/>
         <source>The target device did not appear in 9008 mode before the timeout.</source>
         <translation>等待超时，未检测到目标设备进入 9008 模式。</translation>
     </message>
     <message>
-        <location line="-36"/>
+        <location line="-42"/>
         <source>Verifying the selected DIAG interface…</source>
         <translation>正在验证所选 DIAG 接口…</translation>
     </message>
     <message>
+        <location line="-122"/>
         <source>Switching device to EDL mode…</source>
         <translation>正在切换设备到 EDL 模式…</translation>
     </message>
     <message>
+        <location line="+3"/>
         <source>No diagnostic interface detected</source>
         <translation>未检测到诊断接口</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>No authorized ADB device detected; check ADB and USB debugging</source>
         <translation>未检测到已授权的 ADB 设备，请检查 ADB 和 USB 调试</translation>
     </message>
     <message>
+        <location line="+110"/>
+        <location line="+4"/>
         <source>The selected switch endpoint is no longer available. Refresh and select it again.</source>
         <translation>所选切换接口已失效，请刷新后重新选择。</translation>
     </message>
     <message>
+        <location filename="../EdlTransport.cpp" line="-172"/>
         <source>Cannot enumerate USB devices.</source>
         <translation>无法枚举 USB 设备。</translation>
     </message>
     <message>
+        <location filename="../EdlRunner.cpp" line="+35"/>
         <source>Multiple EDL interfaces appeared at the target location; refresh and select one explicitly.</source>
         <translation>目标位置出现多个 EDL 接口，请刷新后选择其一。</translation>
+    </message>
+    <message>
+        <location filename="../EdlTransport.cpp" line="+253"/>
+        <location line="+1"/>
+        <location line="+1"/>
+        <source>Qualcomm backend is not available</source>
+        <translation>高通后端不可用</translation>
     </message>
 </context>
 <context>
     <name>gui::QtObserver</name>
     <message>
-        <location filename="../QtObserver.cpp" line="+50"/>
+        <location filename="../QtObserver.cpp" line="+54"/>
         <source>Test device</source>
         <translation>检测设备</translation>
     </message>
@@ -3974,39 +4163,39 @@
 <context>
     <name>gui::QualcommController</name>
     <message>
-        <location filename="../backend/QualcommController.cpp" line="+110"/>
-        <location line="+62"/>
+        <location filename="../MessageCatalog.cpp" line="+9"/>
+        <location filename="../backend/QualcommController.cpp" line="+116"/>
         <source>Cannot open %1</source>
         <translation>无法打开 %1</translation>
     </message>
     <message>
-        <location line="-49"/>
-        <location line="+63"/>
+        <location line="-1"/>
+        <location filename="../backend/QualcommController.cpp" line="+13"/>
         <source>%1:%2: %3</source>
         <translation>%1:%2: %3</translation>
     </message>
     <message>
-        <location line="+116"/>
+        <location filename="../backend/QualcommController.cpp" line="+212"/>
         <source>Invalid numeric parameter or image mapping</source>
         <translation>数值参数或镜像映射无效</translation>
     </message>
     <message>
-        <location line="-135"/>
+        <location filename="../MessageCatalog.cpp" line="+2"/>
         <source>Select exactly one UFS provisioning XML</source>
         <translation>请选择且仅选择一个 UFS 配置 XML</translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+1"/>
         <source>UFS configuration and ordinary flashing XML require separate tasks</source>
         <translation>UFS 配置与普通刷写 XML 必须分开执行</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location filename="../backend/QualcommController.cpp" line="-91"/>
         <source>Invalid Qualcomm operation</source>
         <translation>无效的高通操作</translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+43"/>
         <source>Select a readable build package</source>
         <translation>请选择可读取的固件包</translation>
     </message>
@@ -4026,7 +4215,7 @@
         <translation>请选择可读取的引导程序</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Select XML files</source>
         <translation>请选择 XML 文件</translation>
     </message>
@@ -4071,12 +4260,7 @@
         <translation>使用设备节点时，请将传输方式设为 Auto</translation>
     </message>
     <message>
-        <location line="+38"/>
-        <source>Error</source>
-        <translation>错误</translation>
-    </message>
-    <message>
-        <location line="-214"/>
+        <location line="-209"/>
         <source>%1 is not a valid %2 XML</source>
         <translation>%1 不是有效的 %2 XML</translation>
     </message>
@@ -4086,15 +4270,9 @@
         <translation>请至少选择一个 rawprogram XML</translation>
     </message>
     <message>
+        <location line="+199"/>
         <source>XML inspection is still running</source>
         <translation>正在检查 XML，请稍候</translation>
-    </message>
-</context>
-<context>
-    <name>QualcommToolPanel</name>
-    <message>
-        <source>Simulate UFS provisioning</source>
-        <translation>模拟 UFS 配置</translation>
     </message>
 </context>
 </TS>

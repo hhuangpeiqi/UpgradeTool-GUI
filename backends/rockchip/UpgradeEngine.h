@@ -46,6 +46,7 @@ public:
 		unsigned int uiPid;
 		unsigned int uiLocationID;
 		int iUsbType;
+        int accessError = 0;
 		std::string strMode;
 		std::string strSerial;
 	};

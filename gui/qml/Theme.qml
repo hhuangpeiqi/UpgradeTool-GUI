@@ -34,6 +34,9 @@ QtObject {
 
     property color danger: dark ? "#FF6B6B" : "#C00000"
     property color success: dark ? "#57C271" : "#1E8E3E"
+    property color warning: dark ? "#F5BE62" : "#915600"
+    property color warningSoft: dark ? "#382F22" : "#FFF5E5"
+    property color warningBorder: dark ? "#6D5430" : "#E8C58F"
     property color track: dark ? "#3A3D42" : "#E6E8EB"
 
     property color fieldDisabled: dark ? "#26282B" : "#F5F6F8"
@@ -61,9 +64,9 @@ QtObject {
     readonly property int windowRadius: 10
     readonly property int titleBarHeight: 48
     readonly property int navBarHeight: 52
-    readonly property int statusBarHeight: 52
+    readonly property int statusBarHeight: 84
 
-    readonly property string fontFamily: Qt.platform.os === "osx" ? Qt.application.font.family : "Noto Sans CJK SC"
+    readonly property string fontFamily: Qt.application.font.family
     readonly property int fontSmall: 12
     readonly property int fontNormal: 13
     readonly property int fontMedium: 15

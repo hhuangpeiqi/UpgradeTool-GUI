@@ -8,6 +8,7 @@ Popup {
     property string titleText: ""
     property string hintText: ""
     property bool hintError: false
+    property real bodyRightInset: 14
 
     default property alias dialogContent: body.data
     property alias footerContent: footerRow.data
@@ -105,11 +106,10 @@ Popup {
 
             Column {
                 id: body
-                // Reserve a gutter for the vertical scroll bar so the content
-                // never sits underneath it (the bar overlays the flickable's
-                // right edge). Constant offset to avoid a binding loop with
-                // body.implicitHeight -> vbar.size.
-                width: bodyFlick.width - 14
+                // Reserve a fixed scroll bar gutter to avoid a binding loop
+                // with body.implicitHeight -> vbar.size. Content with its own
+                // right padding can opt out of the extra gutter.
+                width: bodyFlick.width - root.bodyRightInset
                 spacing: 12
             }
         }

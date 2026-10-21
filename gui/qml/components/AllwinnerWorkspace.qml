@@ -42,7 +42,7 @@ Item {
 
     Connections {
         target: app.tasks
-        function onBusyChanged() { if (!app.tasks.busy) workspace.ensureLoaded(); }
+        function onBusyChanged() { if (!app.interactionLocked) workspace.ensureLoaded(); }
     }
 
     Card {
@@ -58,7 +58,7 @@ Item {
                 caption: workspace.fileCaption
                 placeholder: qsTr("Select an IMAGEWTY firmware package (.img)")
                 text: workspace.firmware
-                enabled: !app.tasks.busy
+                enabled: !app.interactionLocked
                 persistKey: "allwinnerFirmware" + workspace.context
                 onEdited: (path) => {
                     if (path !== workspace.firmware || !workspace.valid)
@@ -139,14 +139,14 @@ Item {
                         objectName: "awSwitchMethod"
                         Layout.preferredWidth: 130
                         model: [qsTr("Auto"), qsTr("Alternate")]
-                        enabled: !app.tasks.busy
+                        enabled: !app.interactionLocked
                     }
                     SecondaryButton {
                         objectName: "awSwitchButton"
                         text: qsTr("Switch")
                         iconSource: Icons.switchBlue
                         busy: app.switching
-                        enabled: !app.tasks.busy && app.adbReady
+                        enabled: !app.interactionLocked && app.adbReady
                         onClicked: app.switchToFel(switchMethod.currentIndex)
                     }
                 }

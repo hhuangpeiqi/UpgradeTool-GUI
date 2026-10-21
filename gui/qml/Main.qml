@@ -189,16 +189,25 @@ ApplicationWindow {
             StatusBar {
                 Layout.fillWidth: true
                 cornerRadius: window.cornerRadius
-                statusText: app.deviceStatusText
+                statusText: !app.hasDevice && app.drivers.attentionCount > 0 ? qsTr("Device detected") : app.deviceStatusText
                 hasDevice: app.hasDevice
                 hasAdbDevice: app.vendor !== 2 && app.adbReady
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
                 progressValue: app.shuttingDown ? -1 : app.tasks.progressValue
-                progressSpeed: app.shuttingDown ? qsTr("Cancelling tasks and closing…")
-                    : app.switching ? app.tasks.progressText : app.tasks.progressSpeed
+                progressText: app.tasks.progressText
+                progressStage: app.tasks.progressStage
+                // Qualcomm reports the stage through progressSpeed as well.
+                progressSpeed: app.vendor === 2 ? "" : app.tasks.progressSpeed
                 busy: app.tasks.busy || app.shuttingDown
-                onRefreshClicked: app.refresh()
+                closing: app.shuttingDown
+                controlsLocked: app.interactionLocked
+                driverAttention: app.drivers.summaryLevel === "warning"
+                driverBusy: app.drivers.busy
+                driverText: app.drivers.summaryText
+                driverMessage: app.drivers.message
+                onDriverClicked: driverDialog.openDialog()
+                onRefreshClicked: { app.refresh(); app.drivers.refresh(); }
                 onCancelClicked: app.cancel()
                 onDeviceActivated: (index) => app.deviceIndex = index
             }
@@ -223,18 +232,24 @@ ApplicationWindow {
     AppMenu {
         id: deviceMenu
         AppMenuItem {
+            text: qsTr("USB Drivers…")
+            visible: app.drivers.available
+            onTriggered: driverDialog.openDialog()
+        }
+        AppMenuItem {
             text: qsTr("Device Info…")
             visible: app.vendor === 1
-            enabled: !app.tasks.busy && app.hasDevice
+            enabled: !app.interactionLocked && app.hasDevice
             onTriggered: allwinnerDeviceDialog.open()
         }
         AppMenuItem {
             text: qsTr("Refresh")
-            onTriggered: app.refresh()
+            enabled: !app.interactionLocked
+            onTriggered: { app.refresh(); app.drivers.refresh(); }
         }
         AppMenuItem {
             text: qsTr("Batch Select…")
-            enabled: app.devices.length > 0
+            enabled: !app.interactionLocked && app.devices.length > 0
             onTriggered: batchDialog.openDialog()
         }
     }
@@ -249,6 +264,7 @@ ApplicationWindow {
     }
 
     AllwinnerDeviceDialog { id: allwinnerDeviceDialog }
+    DriverDialog { id: driverDialog }
     EdlSwitchDialog { id: edlDialog }
     Connections {
         target: app.edl
@@ -257,7 +273,7 @@ ApplicationWindow {
 
     Connections {
         target: app.tasks
-        function onBusyChanged() { if (!app.tasks.busy) storageDialog.close(); }
+        function onBusyChanged() { if (!app.interactionLocked) storageDialog.close(); }
     }
 
     Toast {
@@ -297,7 +313,8 @@ ApplicationWindow {
         onClosed: app.confirmQuit(false)
         Text {
             width: parent.width
-            text: qsTr("A task is running. Cancelling a flash operation may leave the device unable to boot. Cancel the task and quit?")
+            text: app.drivers.busy ? qsTr("Driver installation is running. Wait for it to finish and quit?")
+                : qsTr("A task is running. Cancelling a flash operation may leave the device unable to boot. Cancel the task and quit?")
             color: Theme.textPrimary
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontNormal
@@ -311,7 +328,7 @@ ApplicationWindow {
 
             SecondaryButton {
                 objectName: "confirmQuitButton"
-                text: qsTr("Cancel task and quit")
+                text: app.drivers.busy ? qsTr("Wait and quit") : qsTr("Cancel task and quit")
                 onClicked: {
                     app.confirmQuit(true);
                     quitDialog.close();

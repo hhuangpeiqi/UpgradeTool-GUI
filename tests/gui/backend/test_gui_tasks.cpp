@@ -24,6 +24,16 @@ int TestTasks([[maybe_unused]] QGuiApplication &application) {
     qputenv("XDG_CONFIG_HOME", temporary.path().toUtf8());
     qputenv("XDG_STATE_HOME", temporary.path().toUtf8());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temporary.path());
+    {
+        gui::TaskController tasks;
+        tasks.onProgress("Write boot", 1024, 512, 0);
+        CHECK(tasks.progressStage() == "Write boot");
+        CHECK(tasks.progressValue() == 50 && tasks.progressText().contains("50%"));
+        tasks.setProgress(-1, "Checking device access");
+        CHECK(tasks.progressStage() == "Checking device access");
+        tasks.resetProgress();
+        CHECK(tasks.progressStage().isEmpty() && tasks.progressText().isEmpty());
+    }
 
 	{
 		gui::QtObserver observer;

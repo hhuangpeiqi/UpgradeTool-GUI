@@ -19,7 +19,7 @@ AppDialog {
     readonly property var endpoints: target ? target.endpoints : []
     readonly property bool ready: {
         app.edl.targets;
-        return app.edl.ready && !app.tasks.busy && app.edl.canStart(selectedTargetId, selectedEndpointId);
+        return app.edl.ready && !app.interactionLocked && app.edl.canStart(selectedTargetId, selectedEndpointId);
     }
     function syncSelection() {
         if (!device || !port) return;
@@ -57,7 +57,7 @@ AppDialog {
     ColumnLayout {
         width: parent.width
         spacing: 12
-        enabled: !app.tasks.busy
+        enabled: !app.interactionLocked
         Text { text: qsTr("Device"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppComboBox {
             id: device
@@ -91,7 +91,7 @@ AppDialog {
         spacing: 10
         SecondaryButton {
             text: qsTr("Refresh")
-            enabled: !app.tasks.busy && !app.edl.discovering
+            enabled: !app.interactionLocked && !app.edl.discovering
             onClicked: app.refreshEdl()
         }
         Item { Layout.fillWidth: true }
@@ -117,7 +117,7 @@ AppDialog {
             HoverHandler { id: startHover }
             ToolTip {
                 objectName: "qcEdlStartTooltip"
-                visible: startHover.hovered && !startButton.enabled && !app.tasks.busy
+                visible: startHover.hovered && !startButton.enabled && !app.interactionLocked
                 text: {
                     if (!app.edl.ready) return app.edl.unavailableReason +
                         (app.edl.discoveryError !== "" ? "\n" + app.edl.discoveryError : "");

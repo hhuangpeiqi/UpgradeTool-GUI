@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     qmlRegisterType<gui::DirModel>("UpgradeTool", 1, 0, "DirModel");
     if (libusb_init(nullptr) < 0) return 2;
     {
-        gui::AppController controller(nullptr);
+        gui::AppController controller(nullptr, gui::DefaultEdlHooks(), 45000, nullptr, gui::DriverHooks{}, false);
         controller.ignorePermission();
         CHECK(AwaitUi([&] { return controller.adbReady(); }));
         QQmlApplicationEngine engine;
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
                 CHECK(message->property("text").toString() == controller.tasks()->progressText());
                 CHECK(tooltip->property("text").toString() == controller.tasks()->progressText());
                 CHECK(!controller.tasks()->progressText().isEmpty());
-                CHECK(message->isVisible() == (width >= 1200));
+                CHECK(message->isVisible());
                 CHECK(button->property("text").toString() == text);
                 CHECK(button->mapToScene(QPointF()) == before);
                 CHECK(QSizeF(button->width(), button->height()) == size);
@@ -125,7 +125,9 @@ int main(int argc, char **argv) {
                 CHECK(!controller.switching() && !button->property("busy").toBool());
                 CHECK(button->isEnabled() && !progress->property("indeterminate").toBool());
                 CHECK(controller.tasks()->progressValue() == 0);
-                CHECK(message->property("text").toString().isEmpty());
+                CHECK(message->property("text").toString() == controller.tasks()->progressText());
+                CHECK(!message->property("text").toString().isEmpty());
+                CHECK(!qobject_cast<QQuickItem *>(progress)->isVisible());
             }
         }
     }

@@ -28,7 +28,7 @@ Item {
                     Layout.fillWidth: true
                     placeholderText: qsTr("Select the split package directory (with parameter.txt, per-partition .img and Loader.bin)")
                     text: app.rockchip.imageDir
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                     onAccepted: app.rockchip.setImageDir(text)
                     onEditingFinished: {
                         if (text.trim() !== app.rockchip.imageDir)
@@ -39,7 +39,7 @@ Item {
                 PrimaryButton {
                     text: qsTr("Browse...")
                     iconSource: Icons.folderWhite
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                     onClicked: folderDialog.open()
                 }
             }
@@ -63,7 +63,7 @@ Item {
                 emptySubtitle: qsTr("Click \"Browse\" above to choose a directory")
                 allChecked: app.rockchip.imageEntries.checkedCount > 0
                             && app.rockchip.imageEntries.checkedCount === app.rockchip.imageEntries.checkableCount
-                allEnabled: app.rockchip.imageEntries.checkableCount > 0 && !app.tasks.busy
+                allEnabled: app.rockchip.imageEntries.checkableCount > 0 && !app.interactionLocked
                 onRowChecked: (row, checked) => app.rockchip.imageEntries.setChecked(row, checked)
                 onAllToggled: (checked) => app.rockchip.imageEntries.setAllChecked(checked)
                 onPathDoubleClicked: (row) => {
@@ -80,7 +80,7 @@ Item {
                     id: rebootBox
                     text: qsTr("Reboot device when done")
                     checked: true
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                 }
 
                 AppCheckBox {
@@ -96,10 +96,10 @@ Item {
                 PrimaryButton {
                     text: qsTr("Execute")
                     iconSource: Icons.playWhite
-                    enabled: !app.tasks.busy && app.rockchip.imageEntries.checkedCount > 0 && app.hasDevice
+                    enabled: !app.interactionLocked && app.rockchip.imageEntries.checkedCount > 0 && app.hasDevice
                     onClicked: app.rockchip.executeImageDownload(rebootBox.checked)
 
-                    ToolTip.visible: hovered && !enabled && !app.tasks.busy
+                    ToolTip.visible: hovered && !enabled && !app.interactionLocked
                     ToolTip.text: !app.hasDevice ? qsTr("No device detected. Connect or switch to Loader/Maskrom mode")
                                                  : qsTr("Select at least one partition")
                 }
@@ -109,17 +109,17 @@ Item {
                     text: qsTr("Switch")
                     iconSource: Icons.switchBlue
                     busy: app.switching
-                    enabled: !app.tasks.busy && app.adbReady
+                    enabled: !app.interactionLocked && app.adbReady
                     onClicked: app.switchToLoader()
 
-                    ToolTip.visible: hovered && !enabled && !app.tasks.busy
+                    ToolTip.visible: hovered && !enabled && !app.interactionLocked
                     ToolTip.text: qsTr("No ADB device detected")
                 }
 
                 SecondaryButton {
                     text: qsTr("Clear")
                     iconSource: Icons.trashGray
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                     onClicked: app.rockchip.clearImage()
                 }
             }

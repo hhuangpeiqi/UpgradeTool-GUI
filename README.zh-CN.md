@@ -110,7 +110,7 @@ sudo scripts/install-udev.sh
 
 **macOS**：无需另装 USB 驱动。
 
-**Windows**：使用 [Zadig](https://zadig.akeo.ie/) 为瑞芯微 VID `2207` 或全志 `1f3a:efe8` 设备安装 WinUSB 驱动。高通另支持官方 QDLoader COM 驱动（QUD 后端）。尚未在真实 Windows 环境验证。
+**Windows 10/11 x64**：在 **设备 → USB 驱动** 中为瑞芯微、全志烧录接口安装 WinUSB（需要管理员权限）。高通支持已有的 WinUSB 或官方 QDLoader COM 驱动。安装后必要时重新连接设备 / 重启 Windows。
 
 Windows/macOS 发布包内置 ADB；`.deb` 自动安装发行版的 `adb` 依赖。可将 `ADB` 设为可执行文件路径或名称来覆盖默认选择。
 
@@ -222,6 +222,7 @@ Linux 默认路径：
 |---|---|---|
 | rkdeveloptool | GPL-2.0 | [backends/rockchip/legacy/license.txt](backends/rockchip/legacy/license.txt) |
 | libusb | LGPL-2.1 | `third_party/libusb/COPYING` |
+| libwdi | LGPL-3.0-or-later | `third_party/libwdi/COPYING-LGPL` |
 | OpenixCLI | MIT | [backends/allwinner/LICENSE.OpenixCLI](backends/allwinner/LICENSE.OpenixCLI) |
 | libefex | MIT | [third_party/libefex/README.md](third_party/libefex/LICENSE) |
 | qdl | BSD-3-Clause | [third_party/qdl/LICENSE](third_party/qdl/LICENSE) |

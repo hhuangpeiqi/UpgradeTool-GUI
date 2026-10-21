@@ -16,7 +16,7 @@ AppDialog {
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Read Again")
-            enabled: !app.tasks.busy && app.vendor === 1 && app.hasDevice
+            enabled: !app.interactionLocked && app.vendor === 1 && app.hasDevice
             onClicked: app.allwinner.run(Operations.AllwinnerDeviceInfo)
         }
         SecondaryButton {

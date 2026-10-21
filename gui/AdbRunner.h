@@ -20,6 +20,7 @@ struct AdbUsbDevice {
 	QVector<int> ports;
 	QString serial;
 	bool fel = false;
+    QString location;
 };
 
 class AdbRunner : public QObject
@@ -34,6 +35,7 @@ class AdbRunner : public QObject
 
 	QString AdbPath() const;
 	void Stop();
+	void Resume();
 
 	void Start();
 
@@ -85,7 +87,6 @@ class AdbRunner : public QObject
 	QStringList m_strDevices;
 	QString m_availabilityMessage;
 	QString m_pollPath;
-	QString m_pollSource;
 	QSet<QString> m_versionChecked;
 	bool m_versionPoll = false;
 	bool m_pollTimedOut = false;

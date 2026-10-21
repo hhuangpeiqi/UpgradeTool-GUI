@@ -27,7 +27,7 @@ Item {
         qsTr("Switch USB3")
     ]
 
-    readonly property bool canRun: !app.tasks.busy && app.hasDevice
+    readonly property bool canRun: !app.interactionLocked && app.hasDevice
 
     Card {
         anchors.fill: parent
@@ -65,11 +65,11 @@ Item {
 
                     Text { text: qsTr("Boot:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
                     AppTextField { id: bootField; Layout.fillWidth: true; placeholderText: qsTr("Loader / boot file path") }
-                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
 
                     Text { text: qsTr("Firmware:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
                     AppTextField { id: fwField; Layout.fillWidth: true; placeholderText: qsTr("Firmware file path") }
-                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
                 }
 
                 RowLayout {
@@ -83,7 +83,7 @@ Item {
                     }
                     SecondaryButton {
                         text: qsTr("Extract Firmware")
-                        enabled: !app.tasks.busy && fwField.text !== ""
+                        enabled: !app.interactionLocked && fwField.text !== ""
                         onClicked: { folderPicker.pending = "extract"; folderPicker.open(); }
                     }
                     SecondaryButton {
@@ -230,7 +230,7 @@ Item {
                             Text { text: qsTr("Write LBA"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
                             AppTextField { id: wlBegin; Layout.preferredWidth: 140; placeholderText: qsTr("Start sector") }
                             AppTextField { id: wlFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && wlBegin.text !== "" && wlFile.text !== ""
@@ -246,7 +246,7 @@ Item {
                             AppTextField { id: wsPage; Layout.preferredWidth: 100; placeholderText: qsTr("Page KB") }
                             AppTextField { id: wsSpare; Layout.preferredWidth: 100; placeholderText: qsTr("spare") }
                             AppTextField { id: wsFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && wsBegin.text !== "" && wsPage.text !== "" && wsSpare.text !== "" && wsFile.text !== ""
@@ -284,11 +284,11 @@ Item {
                             spacing: 10
                             Item { Layout.preferredWidth: 130 }
                             AppTextField { id: runUboot; Layout.fillWidth: true; placeholderText: qsTr("U-Boot file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
                             AppTextField { id: runTrust; Layout.fillWidth: true; placeholderText: qsTr("Trust file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
                             AppTextField { id: runBoot; Layout.fillWidth: true; placeholderText: qsTr("Boot file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.tasks.busy; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && runUbootAddr.text !== "" && runTrustAddr.text !== "" && runBootAddr.text !== ""

@@ -25,6 +25,7 @@ std::vector<DeviceDescriptor> RockchipBackend::Scan() {
         identity.vid=d.uiVid; identity.pid=d.uiPid;
         auto row=Describe(identity);
         row.index=d.iIndex; row.usbType=d.iUsbType; row.mode=d.strMode;
+        row.accessError=d.accessError;
         result.push_back(row);
     }
     return result;

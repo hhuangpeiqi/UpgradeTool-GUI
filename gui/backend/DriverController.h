@@ -1,0 +1,101 @@
+#pragma once
+#include "gui/WindowsUsbDriver.h"
+#include "gui/backend/Retranslatable.h"
+#include <QObject>
+#include <QAbstractNativeEventFilter>
+#include <QVariantList>
+#include <QElapsedTimer>
+#include <QTimer>
+#include <functional>
+
+class QThread;
+namespace gui {
+struct DriverHooks {
+    std::function<DriverScan(bool)> scan = ScanWindowsUsbDrivers;
+    std::function<DriverInstallResult(const DriverDevice &, const QVector<DriverDevice> &)> install;
+    int verificationTimeoutMs = 15000;
+};
+class DriverController : public QObject, public Retranslatable, public QAbstractNativeEventFilter {
+    Q_OBJECT
+    Q_PROPERTY(bool available READ available CONSTANT)
+    Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
+    Q_PROPERTY(int attentionCount READ attentionCount NOTIFY devicesChanged)
+    Q_PROPERTY(bool checking READ checking NOTIFY changed)
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(bool locked READ locked NOTIFY changed)
+    Q_PROPERTY(QString message READ message NOTIFY changed)
+    Q_PROPERTY(QString summaryText READ summaryText NOTIFY changed)
+    Q_PROPERTY(QString summaryLevel READ summaryLevel NOTIFY changed)
+    Q_PROPERTY(QVariantList confirmation READ confirmation NOTIFY confirmationChanged)
+    Q_PROPERTY(bool hasPending READ hasPending NOTIFY changed)
+    Q_PROPERTY(bool canResume READ canResume NOTIFY changed)
+    Q_PROPERTY(QString pendingText READ pendingText NOTIFY changed)
+public:
+    static constexpr bool hostAvailable() {
+#ifdef Q_OS_WIN
+        return true;
+#else
+        return false;
+#endif
+    }
+    explicit DriverController(QObject *parent = nullptr);
+    DriverController(DriverHooks hooks, bool available, QObject *parent = nullptr);
+    ~DriverController() override;
+    bool available() const { return m_available; }
+    QVariantList devices() const;
+    int attentionCount() const;
+    bool checking() const { return m_scanThread != nullptr; }
+    bool busy() const { return m_busy; }
+    bool locked() const { return m_suspended || m_busy; }
+    QString message() const { return m_message; }
+    QString summaryText() const;
+    QString summaryLevel() const;
+    QVariantList confirmation() const;
+    bool hasPending() const { return !m_pending.instance.isEmpty(); }
+    bool canResume() const;
+    QString pendingText() const;
+    void setVendor(int);
+    void setSuspended(bool);
+    void poll(bool probe = false);
+    void shutdown();
+    bool stopped() const;
+    void beginInstall();
+    void retranslate() override { emit devicesChanged(); emit changed(); emit confirmationChanged(); }
+    Q_INVOKABLE void refresh(bool probe = true);
+    Q_INVOKABLE void prepareInstall(const QString &instance);
+    Q_INVOKABLE void confirmInstall();
+    Q_INVOKABLE void resumePending();
+    Q_INVOKABLE void forgetPending();
+    Q_INVOKABLE void openOfficialDownload();
+    bool nativeEventFilter(const QByteArray &, void *, qintptr *) override;
+signals:
+    void changed();
+    void devicesChanged();
+    void busyChanged();
+    void confirmationChanged();
+    void confirmationRequested();
+    void maintenanceRequested();
+    void finished(bool ok, const QString &message);
+    void diagnostic(const QString &message);
+private:
+    QVariantMap describe(const DriverDevice &) const;
+    void scan(bool probe);
+    void finish(bool ok, const QString &message);
+    void setMessage(const QString &);
+    void rememberPending();
+    DriverHooks m_hooks;
+    bool m_available = false, m_suspended = false, m_stopping = false, m_busy = false;
+    bool m_scanAgain = false, m_probeAgain = false, m_installPending = false, m_verifying = false;
+    bool m_probeOnPoll = false;
+    bool m_detectionFailed = false;
+    int m_vendor = 0;
+    unsigned m_generation = 0;
+    QThread *m_scanThread = nullptr, *m_installThread = nullptr;
+    QTimer m_debounce, m_verifyTimer;
+    QElapsedTimer m_lastScan, m_verifyElapsed;
+    QVector<DriverDevice> m_devices, m_affected;
+    DriverDevice m_target, m_pending;
+    bool m_rebootRequired = false;
+    QString m_message;
+};
+}

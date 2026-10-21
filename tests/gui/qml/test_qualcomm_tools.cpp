@@ -142,7 +142,7 @@ bool QualcommUiTests::TestTools() {
         CHECK(QCoreApplication::translate("QualcommProgrammer","Programmer input")==QStringLiteral("引导程序来源"));
         CHECK(QCoreApplication::translate("gui::AppController","Simulation")==QStringLiteral("模拟执行"));
         CHECK(QCoreApplication::translate("gui::EdlRunner","Checking the selected device…")==QStringLiteral("正在检查所选设备…"));
-        CHECK(QCoreApplication::translate("EdlSwitchDialog","Diagnostic port (DIAG)")==QStringLiteral("诊断口（DIAG）"));
+        CHECK(QCoreApplication::translate("EdlSwitchDialog","Diagnostic interface")==QStringLiteral("诊断接口"));
         controller.language()->setMode("en"); CHECK(AwaitUi([&]{return ufsStart && ufsStart->property("text").toString()==QStringLiteral("Simulate UFS provisioning");}));
         CHECK(AwaitUi([&]{return vendorSelector && vendorSelector->property("currentIndex").toInt()==2;}));
         qc->setValue("packageBuild",false); qc->setValue("useImages",false);

@@ -28,10 +28,11 @@ QString FormatEta(double dSeconds)
 
 
 }
-void TaskController::setProgress(int iPct, const QString &strText)
+void TaskController::setProgress(int iPct, const QString &strText, const QString &stage)
 {
 	m_progressValue = iPct;
 	m_progressText = strText;
+    m_progressStage = stage.isEmpty() ? strText : stage;
 	emit progressChanged();
 }
 
@@ -75,7 +76,7 @@ void TaskController::onProgress(const QString &strPrompt, long long llTotal,
 			}
 		}
 	}
-	setProgress(iPct, strText);
+	setProgress(iPct, strText, strPrompt);
 }
 
 void TaskController::setBusy(bool bBusy)
@@ -95,8 +96,9 @@ void TaskController::onStageProgress(const QString &stage,long long total,long l
     if(qualcomm) {
         m_progressSpeed=stage;
         const bool simulation=m_job.steps.front().qualcomm().dryRun || m_job.steps.front().operation()==core::Operation::QualcommCreateDigests;
-        setProgress(total>0?qBound(0,static_cast<int>(100.0*current/total),100):-1,simulation?AppTr("Simulation: %1").arg(stage):stage);
+        const QString label = simulation ? AppTr("Simulation: %1").arg(stage) : stage;
+        setProgress(total>0?qBound(0,static_cast<int>(100.0*current/total),100):-1,label,label);
     } else onProgress(stage,total,current,current==0?static_cast<int>(core::CallStep::CALL_FIRST):static_cast<int>(core::CallStep::CALL_MIDDLE));
-    if(overall>=0) setProgress(overall,m_progressText);
+    if(overall>=0) setProgress(overall,m_progressText,m_progressStage);
 }
 }

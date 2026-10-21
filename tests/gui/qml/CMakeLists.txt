@@ -1,4 +1,8 @@
 find_package(Qt6 REQUIRED COMPONENTS Test QuickTest)
+upgrade_test(test_driver_ui LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 45
+  ARGUMENTS "${CMAKE_BINARY_DIR}/driver-preview" ENVIRONMENT ${test_gui_environment} LABELS gui qml drivers)
+upgrade_attach_gui_test_resources(test_driver_ui)
+upgrade_attach_test_translations(test_driver_ui)
 upgrade_test(test_allwinner_ui LIBRARIES upgrade_gui_backend TIMEOUT 30
   ARGUMENTS "${CMAKE_BINARY_DIR}/allwinner-fixtures/normal.img" "${CMAKE_CURRENT_BINARY_DIR}/allwinner-ui"
   FIXTURES_REQUIRED allwinner_firmware ENVIRONMENT ${test_gui_environment} LABELS gui qml allwinner)

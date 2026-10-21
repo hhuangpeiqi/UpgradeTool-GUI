@@ -16,7 +16,7 @@ AllwinnerWorkspace {
         caption: qsTr("Image to write")
         placeholder: qsTr("Select the image file to write")
         text: page.setting("rawImage", "")
-        enabled: !app.tasks.busy
+        enabled: !app.interactionLocked
         persistKey: "allwinnerRaw"
         onEdited: page.saveSetting("rawImage", text)
     }
@@ -26,7 +26,7 @@ AllwinnerWorkspace {
         AppComboBox {
             id: storage
             Layout.fillWidth: true
-            enabled: !app.tasks.busy
+            enabled: !app.interactionLocked
             model: ["SD / eMMC", "UFS", "SPI NOR"]
             currentIndex: Number(page.setting("rawStorage", 0))
             onActivated: page.saveSetting("rawStorage", currentIndex)
@@ -40,7 +40,7 @@ AllwinnerWorkspace {
             columns: 2
             columnSpacing: 12
             rowSpacing: 10
-            enabled: !app.tasks.busy
+            enabled: !app.interactionLocked
             Text { text: qsTr("Write method"); color: Theme.textSecondary; font.family: Theme.fontFamily }
             AppComboBox {
                 id: mode
@@ -67,7 +67,7 @@ AllwinnerWorkspace {
             objectName: "awRawStart"
             text: app.batchMode ? qsTr("Batch flash") : qsTr("Start Flashing")
             reserveText: app.batchMode ? qsTr("Start Flashing") : qsTr("Batch flash")
-            enabled: !app.tasks.busy && page.valid && app.hasDevice && rawImage.text.trim() !== ""
+            enabled: !app.interactionLocked && page.valid && app.hasDevice && rawImage.text.trim() !== ""
             onClicked: page.execute(Operations.AllwinnerRaw, {rawImage: rawImage.text, rawMode: mode.currentIndex,
                 rawStorage: storage.currentIndex, logicOffset: offset.text})
         }

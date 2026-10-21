@@ -315,7 +315,11 @@ std::vector<UpgradeEngine::DeviceInfo> UpgradeEngine::ScanDevices()
 		libusb_device *pUsbDev = (libusb_device *)desc.pUsbHandle;
 		libusb_device_handle *pUsbHandle = NULL;
 		if (pUsbDev) {
-			if (libusb_open(pUsbDev, &pUsbHandle) == 0) {
+            const int access = libusb_open(pUsbDev, &pUsbHandle);
+#ifdef _WIN32
+            info.accessError = access;
+#endif
+			if (access == 0) {
 				struct libusb_device_descriptor usbDesc;
 				if (libusb_get_device_descriptor(pUsbDev, &usbDesc) == 0 && usbDesc.iSerialNumber) {
 					unsigned char szSerial[128] = {0};

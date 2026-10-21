@@ -16,7 +16,7 @@ AllwinnerWorkspace {
         columns: 2
         columnSpacing: 12
         rowSpacing: 10
-        enabled: !app.tasks.busy
+        enabled: !app.interactionLocked
         Text { text: qsTr("Flash Mode"); color: Theme.textSecondary; font.family: Theme.fontFamily }
         AppComboBox {
             id: mode
@@ -40,7 +40,7 @@ AllwinnerWorkspace {
         id: verify
         objectName: "awVerify"
         text: qsTr("Verify after write")
-        enabled: !app.tasks.busy
+        enabled: !app.interactionLocked
         checked: String(page.setting("verify", true)) === "true"
         onToggled: page.saveSetting("verify", checked)
     }
@@ -58,7 +58,7 @@ AllwinnerWorkspace {
             objectName: "awFlashStart"
             text: app.batchMode ? qsTr("Batch flash") : qsTr("Start Flashing")
             reserveText: app.batchMode ? qsTr("Start Flashing") : qsTr("Batch flash")
-            enabled: !app.tasks.busy && page.valid && app.hasDevice && (mode.currentIndex !== 0 || page.selectedPartitions.length > 0)
+            enabled: !app.interactionLocked && page.valid && app.hasDevice && (mode.currentIndex !== 0 || page.selectedPartitions.length > 0)
             onClicked: page.execute(Operations.AllwinnerFlash, {mode: mode.currentIndex, verify: verify.checked,
                 postAction: postAction.currentIndex, partitions: page.selectedPartitions})
         }

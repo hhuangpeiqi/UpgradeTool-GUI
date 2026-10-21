@@ -99,10 +99,10 @@ QualcommWorkspace {
             iconSource: Icons.playWhite
             objectName: "qcRawStart"
             text: page.settings.dryRun ? qsTr("Simulate") : qsTr("Execute")
-            enabled: !app.tasks.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommRaw].allowed)
+            enabled: !app.interactionLocked && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommRaw].allowed)
             onClicked: app.qualcomm.run(Operations.QualcommRaw, {rawOperations: page.operations})
 
-            ToolTip.visible: hovered && !enabled && !app.tasks.busy
+            ToolTip.visible: hovered && !enabled && !app.interactionLocked
             ToolTip.text: !page.valid ? qsTr("Add a valid programmer and at least one operation first")
                                        : app.qualcommEligibility[Operations.QualcommRaw].reason
         }

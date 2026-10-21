@@ -95,6 +95,7 @@ bool QualcommUiTests::TestLayout() {
         auto *badge = window->findChild<QQuickItem *>("deviceStatusBadge"); CHECK(badge);
         auto *tooltip = window->findChild<QObject *>("statusSummaryTooltip"); CHECK(tooltip);
         auto *progress = window->findChild<QQuickItem *>("statusProgress"); CHECK(progress);
+        auto *taskMessage = window->findChild<QQuickItem *>("statusProgressMessage"); CHECK(taskMessage);
         auto *cancel = window->findChild<QQuickItem *>("statusCancel"); CHECK(cancel);
         auto *combo = window->findChild<QQuickItem *>("deviceCombo"); CHECK(combo);
         auto *vendorSelector = window->findChild<QObject *>("vendorSelector"); CHECK(vendorSelector);
@@ -131,10 +132,10 @@ bool QualcommUiTests::TestLayout() {
                             && summary->property("truncated").toBool()
                             && summary->width() > 0
                             && summary->width() <= window->width() * 0.25 + 1
-                            && progress->width() >= (width >= 1200 ? 220 : 140)
+                            && !progress->isVisible() && !cancel->isVisible()
                             && refresh->mapToScene(QPointF(refresh->width(), 0)).x() <= window->width();
                     }));
-                    const QList<QQuickItem *> controls{summary, progress, cancel, combo, refresh};
+                    const QList<QQuickItem *> controls{badge, combo, refresh};
                     for (int i = 1; i < controls.size(); ++i) {
                         CHECK(controls[i-1]->mapToScene(QPointF(controls[i-1]->width(), 0)).x()
                             <= controls[i]->mapToScene(QPointF(0, 0)).x());
@@ -175,9 +176,10 @@ bool QualcommUiTests::TestLayout() {
                             CHECK(AwaitUi([&] {
                                 return window->width() == width
                                     && badge->width() >= 180 && badge->width() <= width * 0.25 + 1
-                                    && progress->width() >= (width >= 1200 ? 220 : 140)
-                                    && badge->mapToScene(QPointF(badge->width(), 0)).x()
-                                        <= progress->mapToScene(QPointF(0, 0)).x()
+                                    && !progress->isVisible() && !cancel->isVisible()
+                                    && taskMessage && taskMessage->isVisible()
+                                    && badge->mapToScene(QPointF(0, badge->height())).y()
+                                        <= taskMessage->mapToScene(QPointF()).y()
                                     && refresh->mapToScene(QPointF(refresh->width(), 0)).x() <= width;
                             }));
                             CHECK(summary->property("text").toString() == controller.deviceStatusText());
@@ -229,13 +231,17 @@ bool QualcommUiTests::TestLayout() {
         // to measure the labels itself.
         auto *deviceCombo=window->findChild<QQuickItem *>("deviceCombo"); CHECK(deviceCombo);
         if(deviceCombo) {
+            CHECK(AwaitUi([&] { return deviceCombo->mapToScene(QPointF(deviceCombo->width(), 0)).x()
+                <= window->width(); }));
             const double comboWidth=deviceCombo->width();
             deviceCombo->setProperty("model",QVariantList{QStringLiteral(
-                "#0 05c6:9091 SN:0123456789ABCDEF [EDL] qualcomm:1:/dev/bus/usb/003/045:3-1.4")});
+                "#0 05c6:9091 SN:0123456789ABCDEF [EDL] qualcomm:1:/dev/bus/usb/003/045:3-1.4/")
+                + QString(128, QLatin1Char('A'))});
             auto *popup=deviceCombo->property("popup").value<QObject *>(); CHECK(popup);
             if(popup) {
                 CHECK(QMetaObject::invokeMethod(popup,"open"));
                 CHECK(AwaitUi([&]{return popup->property("width").toReal()>comboWidth;}));
+                CHECK(popup->property("width").toReal() <= window->width() - 24);
                 CHECK(QMetaObject::invokeMethod(popup,"close"));
             }
         }

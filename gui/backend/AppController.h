@@ -7,6 +7,7 @@
 #include "gui/backend/AllwinnerController.h"
 #include "gui/backend/RockchipController.h"
 #include "gui/backend/TaskController.h"
+#include "gui/backend/DriverController.h"
 #include "gui/backend/DeviceModel.h"
 #include "gui/EdlRunner.h"
 #include "gui/EngineWorker.h"
@@ -41,6 +42,8 @@ class AppController : public QObject, public Retranslatable
 
     Q_PROPERTY(gui::DeviceModel *deviceModel READ deviceModel CONSTANT)
     Q_PROPERTY(gui::TaskController *tasks READ tasks CONSTANT)
+    Q_PROPERTY(gui::DriverController *drivers READ drivers CONSTANT)
+    Q_PROPERTY(bool interactionLocked READ interactionLocked NOTIFY interactionLockedChanged)
     Q_PROPERTY(gui::RockchipController *rockchip READ rockchip CONSTANT)
     Q_PROPERTY(gui::AllwinnerController *allwinner READ allwinner CONSTANT)
     Q_PROPERTY(gui::QualcommController *qualcomm READ qualcomm CONSTANT)
@@ -78,6 +81,7 @@ class AppController : public QObject, public Retranslatable
 public:
 	explicit AppController(platform::FileLog *pLog, QObject *parent = NULL);
     AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent = nullptr);
+    AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent, DriverHooks driverHooks, bool driversAvailable);
 	~AppController();
 
 	// Rebuilds every cached translated string when the UI language changes.
@@ -86,6 +90,8 @@ public:
 
     DeviceModel *deviceModel() { return m_deviceModel; }
     TaskController *tasks() { return m_tasks; }
+    DriverController *drivers() { return m_drivers; }
+    bool interactionLocked() const { return m_shuttingDown || m_tasks->busy() || m_drivers->busy(); }
     RockchipController *rockchip() { return m_rockchip; }
     AllwinnerController *allwinner() { return m_allwinner; }
     QualcommController *qualcomm() { return m_qualcomm; }
@@ -162,6 +168,7 @@ public:
 
 
 signals:
+    void interactionLockedChanged();
 	void quitConfirmationRequested();
 	void shuttingDownChanged();
 	void shutdownReady();
@@ -184,6 +191,10 @@ signals:
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
 
 private:
+    void UpdateInteractionLock();
+    void BeginDriverMaintenance();
+    void TryDriverInstall();
+    DriverController *m_drivers = nullptr;
     EdlRunner *m_edl = nullptr;
     EdlEndpoint m_pendingEdl;
     int m_vendor = 0;

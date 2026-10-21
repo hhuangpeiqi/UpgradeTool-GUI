@@ -27,7 +27,7 @@ Item {
                     Layout.fillWidth: true
                     placeholderText: qsTr("Select a firmware file (.img)")
                     text: app.rockchip.firmwarePath
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                     onAccepted: app.rockchip.setFirmware(text)
                     onEditingFinished: {
                         if (text.trim() !== app.rockchip.firmwarePath)
@@ -38,7 +38,7 @@ Item {
                 PrimaryButton {
                     text: qsTr("Browse...")
                     iconSource: Icons.folderWhite
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                     onClicked: firmwareDialog.open()
                 }
 
@@ -47,10 +47,10 @@ Item {
                     text: qsTr("Switch")
                     iconSource: Icons.switchBlue
                     busy: app.switching
-                    enabled: !app.tasks.busy && app.adbReady
+                    enabled: !app.interactionLocked && app.adbReady
                     onClicked: app.switchToLoader()
 
-                    ToolTip.visible: hovered && !enabled && !app.tasks.busy
+                    ToolTip.visible: hovered && !enabled && !app.interactionLocked
                     ToolTip.text: qsTr("No ADB device detected")
                 }
             }
@@ -125,30 +125,30 @@ Item {
                     id: rebootBox
                     text: qsTr("Reboot device when done")
                     checked: true
-                    enabled: !app.tasks.busy
+                    enabled: !app.interactionLocked
                 }
 
                 Item { Layout.fillWidth: true }
 
                 SecondaryButton {
                     text: qsTr("View Firmware Info")
-                    enabled: !app.tasks.busy && app.rockchip.firmwarePath !== ""
+                    enabled: !app.interactionLocked && app.rockchip.firmwarePath !== ""
                     onClicked: app.rockchip.showFirmwareInfo()
                 }
 
                 SecondaryButton {
                     text: qsTr("Extract Firmware…")
-                    enabled: !app.tasks.busy && app.rockchip.firmwarePath !== ""
+                    enabled: !app.interactionLocked && app.rockchip.firmwarePath !== ""
                     onClicked: extractDialog.open()
                 }
 
                 PrimaryButton {
                     text: qsTr("Upgrade")
                     iconSource: Icons.playWhite
-                    enabled: !app.tasks.busy && app.rockchip.firmwareValid && app.hasDevice
+                    enabled: !app.interactionLocked && app.rockchip.firmwareValid && app.hasDevice
                     onClicked: app.rockchip.executeFirmwareUpgrade(rebootBox.checked)
 
-                    ToolTip.visible: hovered && !enabled && !app.tasks.busy
+                    ToolTip.visible: hovered && !enabled && !app.interactionLocked
                     ToolTip.text: !app.hasDevice ? qsTr("No device detected. Connect or switch to Loader/Maskrom mode")
                                                  : qsTr("Select a valid firmware first")
                 }

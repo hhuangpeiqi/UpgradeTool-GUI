@@ -134,6 +134,11 @@ std::vector<DeviceDescriptor> ScanUsb(libusb_context *context) {
         libusb_device_descriptor desc; if(libusb_get_device_descriptor(list[i],&desc)) continue;
         if(desc.idVendor==0x1f3a&&desc.idProduct==0xefe8) {
             auto d=Describe(Identity(list[i])); d.vid=desc.idVendor; d.pid=desc.idProduct; d.index=int(result.size()+1); d.mode="FEL/FES";
+#ifdef _WIN32
+            libusb_device_handle *handle = nullptr;
+            d.accessError = libusb_open(list[i], &handle);
+            if (handle) libusb_close(handle);
+#endif
             if(!d.ports.empty()) result.push_back(d);
         }
     }

@@ -50,7 +50,7 @@ int main(int argc,char **argv) {
             CHECK(serial == "board"); ++adbSwitches; requestSent = true; return true;
         };
         hooks.scan = [&] { return requestSent.load() && showEdl.load() ? QVector<gui::EdlEndpoint>{edl} : QVector<gui::EdlEndpoint>{}; };
-        gui::AppController controller(nullptr, hooks, 5000);
+        gui::AppController controller(nullptr, hooks, 5000, nullptr, gui::DriverHooks{}, false);
         // All devices are simulated. Vendor changes must not open host udev
         // permission dialogs over the controls exercised by these tests.
         QObject::connect(&controller, &gui::AppController::permissionChanged, &controller, [&] {

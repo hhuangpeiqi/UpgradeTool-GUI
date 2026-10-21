@@ -51,7 +51,7 @@ Item {
             onModelChanged: Qt.callLater(function() {
                 vendorSelector.currentIndex = Qt.binding(function() { return app.availableVendors.indexOf(app.vendor); });
             })
-            enabled: !app.tasks.busy
+            enabled: !app.interactionLocked
             onActivated: (index) => app.vendor = app.availableVendors[index]
         }
 

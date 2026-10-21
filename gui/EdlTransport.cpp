@@ -1,6 +1,7 @@
 #include "application/BuildFeatures.h"
 #if UPGRADE_TOOL_QUALCOMM
 #include "gui/EdlRunner.h"
+#include "gui/WindowsUsbDriver.h"
 #include "backends/qualcomm/qdl_bridge.h"
 #include <QDir>
 #include <QFile>
@@ -410,7 +411,23 @@ EdlHooks DefaultEdlHooks() {
         process(adb,{"-s",serial,"reboot","edl"},cancel,10000,output,error,&started);
         return started;
     };
-    hooks.scan=[] { QString error; return enumerate({},error); };
+    hooks.scan=[] {
+        QString error; auto result = enumerate({},error);
+#ifdef Q_OS_WIN
+        const auto drivers = ScanWindowsUsbDrivers().devices;
+        for (const auto &native : nativeDevices()) {
+            if (native.mode() != QTQ_EDL) continue;
+            bool missing = false;
+            for (const auto &d : drivers)
+                if (d.instance == native.instance && d.needsAttention()) missing = true;
+            if (!missing) continue;
+            bool mapped = false;
+            for (const auto &existing : result) if (existing.instance == native.instance) mapped = true;
+            if (!mapped) { auto e = native; e.kind = EdlEndpoint::Usb; e.id = "native:" + e.instance; result.append(e); }
+        }
+#endif
+        return result;
+    };
     return hooks;
 }
 }

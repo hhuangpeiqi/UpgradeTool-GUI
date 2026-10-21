@@ -4,6 +4,8 @@
 #include <QVariantMap>
 #include <QCoreApplication>
 #include "backends/qualcomm/OperationPolicy.h"
+#include "gui/UsbAccess.h"
+#include "gui/WindowsUsbDriver.h"
 namespace gui {
 struct EngineWorker::Runtime {
     std::vector<std::unique_ptr<core::IDeviceBackend>> backends;
@@ -17,6 +19,9 @@ EngineWorker::~EngineWorker() = default;
 void EngineWorker::SetObserver(core::IUpgradeObserver *observer) { m_observer=observer; }
 void EngineWorker::scanDevices()
 {
+#ifdef Q_OS_WIN
+    std::lock_guard<std::recursive_mutex> accessLock(UsbProbeMutex());
+#endif
 	QVariantList list;
     for (auto &backend : m_runtime->backends) {
         try {
@@ -53,6 +58,26 @@ void EngineWorker::scanDevices()
 }
 void EngineWorker::execute(const core::TaskJob &job)
 {
+#ifdef Q_OS_WIN
+    std::lock_guard<std::recursive_mutex> accessLock(UsbProbeMutex());
+    const bool simulation = !job.steps.empty() && job.steps.front().vendor() == core::Vendor::Qualcomm &&
+        (job.steps.front().qualcomm().dryRun || job.steps.front().operation() == core::Operation::QualcommCreateDigests);
+    if (!simulation) {
+        try {
+            for (const auto &target : job.targets) {
+                if (job.cancelled->stop_requested()) break;
+                const auto error = CheckUsbAccess(target);
+                if (!error.isEmpty()) {
+                    if (m_observer) m_observer->OnOutput(core::LogLevel::Error, error.toStdString());
+                    emit taskFinished({core::OperationStatus::Failed, 0, 1}); return;
+                }
+            }
+        } catch (const std::exception &error) {
+            if (m_observer) m_observer->OnOutput(core::LogLevel::Error, error.what());
+            emit taskFinished({core::OperationStatus::Failed, 0, 1}); return;
+        }
+    }
+#endif
     core::TaskService service(m_runtime->registry);
     auto summary=service.Run(job,m_observer,[this,&job](size_t step,size_t target,const core::DeviceRef &device) {
         emit stepStarted(static_cast<int>(step),static_cast<int>(target),

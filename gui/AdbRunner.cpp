@@ -1,5 +1,6 @@
 #include "gui/AdbRunner.h"
 #include "gui/AdbExecutable.h"
+#include "gui/WindowsUsbDriver.h"
 
 #include <QRegularExpression>
 #include <QTimer>
@@ -88,6 +89,21 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
 	if (list)
 		libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
+#ifdef Q_OS_WIN
+    if (readSerial) {
+        for (const auto &native : WindowsAdbLocations()) {
+            bool mapped = false;
+            for (auto &d : result) if (!d.fel && d.serial == native.first) { d.location = native.second; mapped = true; }
+            if (!mapped) { AdbUsbDevice d; d.serial = native.first; d.location = native.second; result.append(d); }
+        }
+    } else {
+        for (const auto &native : ScanWindowsUsbDrivers().devices) {
+            if (native.vendor != 1) continue;
+            AdbUsbDevice d; d.fel = true; d.location = native.location.toUpper();
+            d.location.remove(QRegularExpression("#USBMI\\([^)]*\\).*$")); result.append(d);
+        }
+    }
+#endif
 	return result;
 }
 
@@ -180,6 +196,12 @@ void AdbRunner::Start()
 	m_pPollTimer->start(kPollIntervalMs);
 }
 
+void AdbRunner::Resume()
+{
+	m_stopped = false;
+	Start();
+}
+
 void AdbRunner::UpdateAvailability(bool bAvailable, const QString &strMessage)
 {
 	if (m_bAvailabilityKnown && m_bAvailable == bAvailable && m_availabilityMessage == strMessage)
@@ -221,7 +243,6 @@ void AdbRunner::RunPoll()
 		}
 		m_pollPath = executable.path;
 	}
-	m_pollSource = executable.source;
 	m_versionPoll = !m_versionChecked.contains(m_pollPath);
 	m_pollTimedOut = false;
 	m_pPollProc->start(m_pollPath, {m_versionPoll ? QStringLiteral("version") : QStringLiteral("devices")});
@@ -246,7 +267,14 @@ void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 			return;
 		}
 		m_versionChecked.insert(m_pollPath);
-		emit diagnosticMessage(tr("ADB [%1]: %2\n%3").arg(m_pollSource, m_pollPath, QString::fromLocal8Bit(output).trimmed()));
+		QStringList versionLines;
+		for (const auto &line : QString::fromLocal8Bit(output).split('\n')) {
+			const auto text = line.trimmed();
+			if (text.startsWith(QStringLiteral("Android Debug Bridge version ")) ||
+			    text.startsWith(QStringLiteral("Version ")))
+				versionLines.append(text);
+		}
+		emit diagnosticMessage(versionLines.join('\n'));
 		RunPoll();
 		return;
 	}
@@ -491,9 +519,10 @@ void AdbRunner::CheckFel()
 {
 	if (!m_bRunning || (m_stage != Stage::Rebooting && m_stage != Stage::Waiting))
 		return;
-	if (!m_target.ports.isEmpty()) {
+	if (!m_target.ports.isEmpty() || !m_target.location.isEmpty()) {
 		for (const auto &d : m_usbScanner(false)) {
-			if (d.fel && d.bus == m_target.bus && d.ports == m_target.ports) {
+			if (d.fel && ((!m_target.location.isEmpty() && d.location == m_target.location) ||
+                (!m_target.ports.isEmpty() && d.bus == m_target.bus && d.ports == m_target.ports))) {
 				// Drain the old command before allowing another switch to use this process.
 				if (m_pProc->state() != ProcessAdapter::NotRunning) {
 					m_stage = Stage::Waiting;
@@ -508,7 +537,7 @@ void AdbRunner::CheckFel()
 	}
 	if (m_felElapsed.elapsed() >= m_felTimeoutMs) {
 		Complete(false,
-		         m_target.ports.isEmpty()
+		         m_target.ports.isEmpty() && m_target.location.isEmpty()
 		             ? tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.")
 		             : tr("No FEL device detected on the target USB port. Check system support, or choose \"Alternate\". %1")
 		                   .arg(m_commandError.isEmpty() ? QString() : "\n" + m_commandError));

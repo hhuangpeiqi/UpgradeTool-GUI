@@ -31,6 +31,19 @@ struct Handle {
     Handle& operator=(const Handle&) = delete;
 };
 void Require(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
+std::string Utf8(const std::wstring& text) {
+    int n = WideCharToMultiByte(CP_UTF8, 0, text.data(), int(text.size()), nullptr, 0, nullptr, nullptr);
+    std::string result(n, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text.data(), int(text.size()), result.data(), n, nullptr, nullptr);
+    return result;
+}
+[[noreturn]] void WindowsError(const char* operation, const fs::path& path, DWORD code = GetLastError()) {
+    wchar_t message[1024]{};
+    FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, code, 0,
+                   message, DWORD(std::size(message)), nullptr);
+    throw std::runtime_error(std::string(operation) + " [" + Utf8(path.native()) + "] (Windows error " +
+                             std::to_string(code) + "): " + Utf8(message));
+}
 std::wstring Wide(const std::string& text) {
     int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), int(text.size()), nullptr, 0);
     Require(n > 0, "Invalid UTF-8 in package.");
@@ -130,6 +143,30 @@ bool Valid(const fs::path& root, const std::vector<Entry>& entries, bool verifyH
     } catch (...) { return false; }
 }
 
+bool Complete(const fs::path& root, const std::string& id, const std::vector<Entry>& entries) {
+    DWORD attributes = GetFileAttributesW(root.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY) ||
+        (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return false;
+    auto markerPath = root / L".complete";
+    attributes = GetFileAttributesW(markerPath.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return false;
+    std::error_code error;
+    if (fs::file_size(markerPath, error) != id.size() || error) return false;
+    std::ifstream marker(markerPath, std::ios::binary);
+    std::string value((std::istreambuf_iterator<char>(marker)), {});
+    return value == id && Valid(root, entries, false);
+}
+
+bool Publish(const fs::path& staging, const fs::path& cache) {
+    for (unsigned attempt = 0; ; ++attempt) {
+        if (MoveFileExW(staging.c_str(), cache.c_str(), 0)) return true;
+        DWORD error = GetLastError();
+        if (attempt == 4 || (error != ERROR_ACCESS_DENIED && error != ERROR_SHARING_VIOLATION &&
+                             error != ERROR_LOCK_VIOLATION)) return false;
+        Sleep(100u << attempt);
+    }
+}
+
 struct Stream { HANDLE file = INVALID_HANDLE_VALUE; size_t offset = 0; bool input = false; };
 Resource cabinet{};
 FNALLOC(Allocate) { return std::malloc(cb); }
@@ -186,7 +223,7 @@ FNFDINOTIFY(Notify) {
             auto stream = std::make_unique<Stream>();
             stream->file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
                                        FILE_ATTRIBUTE_NORMAL, nullptr);
-            Require(stream->file != INVALID_HANDLE_VALUE, "Cannot extract runtime file.");
+            if (stream->file == INVALID_HANDLE_VALUE) WindowsError("Cannot extract runtime file.", path);
             entry.extracted = true;
             return reinterpret_cast<INT_PTR>(stream.release());
         }
@@ -236,51 +273,80 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         CoTaskMemFree(local);
         CheckDirectory(base);
         // A filesystem lock is naturally scoped to this user and also coordinates sessions.
-        Handle lock(CreateFileW((base / (Wide(id) + L".lock")).c_str(), GENERIC_READ | GENERIC_WRITE,
+        const auto lockPath = base / (Wide(id) + L".lock");
+        Handle lock(CreateFileW(lockPath.c_str(), GENERIC_READ | GENERIC_WRITE,
                                FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
                                FILE_ATTRIBUTE_NORMAL, nullptr));
-        Require(lock.value != INVALID_HANDLE_VALUE, "Cannot open runtime cache lock.");
+        if (lock.value == INVALID_HANDLE_VALUE) WindowsError("Cannot open runtime cache lock.", lockPath);
         OVERLAPPED overlap{};
-        Require(LockFileEx(lock.value, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlap), "Cannot lock runtime cache.");
-        const auto cache = base / Wide(id);
-        auto markerValid = [&] {
-            DWORD attributes = GetFileAttributesW(cache.c_str());
-            if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return false;
-            std::ifstream marker(cache / L".complete", std::ios::binary);
-            std::string value((std::istreambuf_iterator<char>(marker)), {});
-            return value == id && Valid(cache, entries, false);
-        };
-        if (!markerValid()) {
+        if (!LockFileEx(lock.value, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlap))
+            WindowsError("Cannot lock runtime cache.", lockPath);
+        const auto canonical = base / Wide(id);
+        auto cache = canonical;
+        DWORD attributes = GetFileAttributesW(canonical.c_str());
+        Require(attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_REPARSE_POINT),
+                "Runtime cache cannot contain links or junctions.");
+        bool cacheValid = Complete(cache, id, entries);
+        if (!cacheValid) {
+            // Completed staging directories are also durable caches when publication was blocked.
+            auto prefix = Wide(id) + L".tmp-";
+            std::vector<fs::path> candidates;
+            std::error_code scanError;
+            fs::directory_iterator current(base, scanError), end;
+            while (!scanError && current != end) {
+                auto path = current->path();
+                if (path.filename().native().starts_with(prefix)) candidates.push_back(path);
+                current.increment(scanError);
+            }
+            std::sort(candidates.begin(), candidates.end());
+            for (const auto& candidate : candidates) {
+                if (Complete(candidate, id, entries)) { cache = candidate; cacheValid = true; break; }
+            }
+        }
+        if (!cacheValid) {
             Hash hash; hash.Add(cabinet.data, cabinet.size);
             Require(hash.Finish() == id, "Embedded package failed SHA256 verification.");
-            // A shared lease is kept by every live launcher until its GUI has exited.
-            if (fs::exists(cache)) {
-                CheckDirectory(cache);
-                Handle exclusive(CreateFileW((cache / L".in-use").c_str(), GENERIC_READ | GENERIC_WRITE,
-                                            0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-                Require(exclusive.value != INVALID_HANDLE_VALUE,
-                        "Runtime cache is incomplete and in use. Close other UpgradeTool windows and retry.");
-            }
-            if (fs::exists(cache)) fs::remove_all(cache);
             // CREATE_NEW makes the staging identity unique, including after interrupted runs.
             fs::path staging;
             for (unsigned attempt = 0; attempt < 100; ++attempt) {
                 staging = base / (Wide(id) + L".tmp-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(attempt));
                 if (CreateDirectoryW(staging.c_str(), nullptr)) break;
-                Require(GetLastError() == ERROR_ALREADY_EXISTS && attempt < 99, "Cannot create runtime staging directory.");
+                DWORD error = GetLastError();
+                if (error != ERROR_ALREADY_EXISTS || attempt == 99)
+                    WindowsError("Cannot create runtime staging directory.", staging, error);
             }
             try {
                 Extract(staging, entries);
-                std::ofstream marker(staging / L".complete", std::ios::binary);
-                marker << id; marker.close();
-                Require(bool(marker), "Cannot write runtime completion marker.");
-                fs::rename(staging, cache);
+                auto markerPath = staging / L".complete";
+                Handle marker(CreateFileW(markerPath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                          FILE_ATTRIBUTE_NORMAL, nullptr));
+                if (marker.value == INVALID_HANDLE_VALUE) WindowsError("Cannot write runtime completion marker.", markerPath);
+                DWORD written = 0;
+                if (!WriteFile(marker.value, id.data(), DWORD(id.size()), &written, nullptr))
+                    WindowsError("Cannot write runtime completion marker.", markerPath);
+                if (written != id.size()) WindowsError("Cannot write full runtime completion marker.", markerPath, ERROR_WRITE_FAULT);
+                if (!CloseHandle(marker.value)) WindowsError("Cannot close runtime completion marker.", markerPath);
+                marker.value = INVALID_HANDLE_VALUE;
+
+                // Build a verified replacement before touching the old cache. A shared lease
+                // protects every running GUI; failure to clean up is never a startup blocker.
+                bool removable = false;
+                attributes = GetFileAttributesW(canonical.c_str());
+                Require(attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_REPARSE_POINT),
+                        "Runtime cache cannot contain links or junctions.");
+                if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                    Handle exclusive(CreateFileW((canonical / L".in-use").c_str(), GENERIC_READ | GENERIC_WRITE,
+                                                0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+                    removable = exclusive.value != INVALID_HANDLE_VALUE;
+                }
+                if (removable) { std::error_code ignored; fs::remove_all(canonical, ignored); }
+                cache = Publish(staging, canonical) ? canonical : staging;
             } catch (...) { std::error_code ignored; fs::remove_all(staging, ignored); throw; }
         }
         SECURITY_ATTRIBUTES leaseSecurity{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
         Handle lease(CreateFileW((cache / L".in-use").c_str(), GENERIC_READ, FILE_SHARE_READ,
                                 &leaseSecurity, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-        Require(lease.value != INVALID_HANDLE_VALUE, "Cannot lease runtime cache.");
+        if (lease.value == INVALID_HANDLE_VALUE) WindowsError("Cannot lease runtime cache.", cache / L".in-use");
         auto executable = cache / L"upgrade_tool_gui.exe";
         std::wstring command = Quote(executable.native());
         int argc = 0;
@@ -290,8 +356,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         LocalFree(argv);
         STARTUPINFOW startup{}; startup.cb = sizeof(startup);
         PROCESS_INFORMATION child{};
-        Require(CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, TRUE, 0,
-                               nullptr, nullptr, &startup, &child), "Cannot start UpgradeTool GUI from runtime cache.");
+        if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, TRUE, 0,
+                            nullptr, nullptr, &startup, &child))
+            WindowsError("Cannot start UpgradeTool GUI from runtime cache.", executable);
         Handle process(child.hProcess), thread(child.hThread);
         UnlockFileEx(lock.value, 0, 1, 0, &overlap);
         Require(WaitForSingleObject(process.value, INFINITE) == WAIT_OBJECT_0, "Cannot wait for UpgradeTool GUI.");

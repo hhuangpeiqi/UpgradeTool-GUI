@@ -52,7 +52,13 @@ static int FakeAdb(QStringList args)
 	log.close();
 	if (args == QStringList{"version"}) {
 		if (mode == "version-bad") std::printf("unrelated tool\n");
-		else std::printf("Android Debug Bridge version 1.0.41\nVersion fake-test\n");
+		else {
+			std::printf("Android Debug Bridge version 1.0.41\r\nVersion fake-test\r\n");
+			std::printf("Installed as C:\\Program Files\\UpgradeTool\\adb.exe\r\n");
+			const auto installed = QStringLiteral("Installed as C:\\Users\\\u6d4b\u8bd5\\Upgrade Tool\\adb.exe\r\n").toLocal8Bit();
+			std::printf("%s", installed.constData());
+			std::printf("Running on Windows\r\n");
+		}
 		return 0;
 	}
 	if (args.value(0) == "devices") {
@@ -74,7 +80,7 @@ static int FakeAdb(QStringList args)
 			return 0;
 		}
 		const bool android = mode == "android" || mode == "hang" || mode == "wrong-port" || mode == "unmapped" ||
-		                     mode == "normal-reboot" || mode == "duplicate";
+		                     mode == "normal-reboot" || mode == "duplicate" || mode.startsWith("native-");
 		std::printf(
 		    "AW_ANDROID=%s\nAW_BUILDROOT=%s\nAW_SOC=%s\nAW_UID=%s\nAW_DEVMEM=%s\nAW_REBOOT=%s\nAW_REBOOT_LINK=%s\n",
 		    android ? "12" : "", android ? "0" : "1", mode == "wrong-soc" ? "sun50i" : "arm,sun8iw11p1",
@@ -110,8 +116,9 @@ int main(int argc, char **argv)
 			++availability; available = ok; error = message;
 		});
 		QObject::connect(&runner, &gui::AdbRunner::diagnosticMessage, [&](const QString &message) {
-			++diagnostics; CHECK(message.contains(QCoreApplication::applicationFilePath()));
-			CHECK(message.contains("fake-test"));
+			++diagnostics;
+			CHECK(message == "Android Debug Bridge version 1.0.41\nVersion fake-test");
+			CHECK(!message.contains(QCoreApplication::applicationFilePath()));
 		});
 		runner.Start();
 		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
@@ -146,6 +153,11 @@ int main(int argc, char **argv)
 		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
 		CHECK(diagnostics == 1);
 		runner.Stop();
+		const int pollsBeforeResume = Read(dir.filePath("log")).count("devices");
+		runner.Resume();
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return Read(dir.filePath("log")).count("devices") > pollsBeforeResume; }));
+		runner.Stop();
 	}
 	{
 		QTemporaryDir dir;
@@ -178,6 +190,10 @@ int main(int argc, char **argv)
 					    return QVector<gui::AdbUsbDevice>{};
 				    const bool requested = QFile::exists(dir.path() + "/requested");
 				    gui::AdbUsbDevice d{1, {5, 4}, "board", !readSerial && requested && mode != "normal-reboot"};
+                    if (mode.startsWith("native-")) {
+                        d.bus = 0; d.ports.clear(); d.location = "PCIROOT(0)#USBROOT(0)#USB(5)#USB(4)";
+                        if (!readSerial && mode == "native-wrong-port") d.location += "#USB(2)";
+                    }
 				    if (!readSerial && mode == "wrong-port")
 					    d.ports = {5, 2};
 				    if (readSerial && mode == "duplicate")
@@ -240,6 +256,8 @@ int main(int argc, char **argv)
 	};
 	using Method = gui::AdbRunner::FelMethod;
 	scenario("android", Method::Auto, true, "adb");
+    scenario("native-location", Method::Auto, true, "adb");
+    scenario("native-wrong-port", Method::Auto, false, "adb");
 	scenario("linux", Method::Auto, true, "shell");
 	scenario("unknown", Method::Auto, true, "adb");
 	scenario("busybox", Method::Auto, true, "t3");

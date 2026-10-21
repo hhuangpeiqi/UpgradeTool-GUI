@@ -191,7 +191,7 @@ try {
         }
     }
     if (-not $iconvLibrary) { $problems.Add('Missing MinGW x64 Iconv headers/static library. Install Iconv and pass -IconvRoot <directory containing include/iconv.h and lib/libiconv.a>.') }
-    foreach ($file in @('libusb/libusb/core.c', 'libefex/src/efex-common.c', 'libzip/lib/zip.h', 'libxml2/CMakeLists.txt', 'qdl/src/qdl.c')) {
+    foreach ($file in @('libusb/libusb/core.c', 'libwdi/libwdi/libwdi.c', 'libefex/src/efex-common.c', 'libzip/lib/zip.h', 'libxml2/CMakeLists.txt', 'qdl/src/qdl.c')) {
         if (-not (Test-Path -LiteralPath "$Root/third_party/$file")) { $problems.Add("Missing submodule file $file. Run: git submodule update --init --recursive") }
     }
     if ($problems.Count) { throw ("Environment check failed:`n - " + ($problems -join "`n - ")) }
@@ -237,18 +237,23 @@ try {
     if (Test-Path -LiteralPath $stagePath) { Remove-Item -LiteralPath $stagePath -Recurse -Force }
     New-Item -ItemType Directory -Force $Stage | Out-Null
     Copy-Item (Join-Path $Build "upgrade_tool_gui.exe") $Stage
+    Copy-Item (Join-Path $Build "upgrade_driver_installer.exe") $Stage
+    Copy-Item (Join-Path $Build "libwdi.dll") $Stage
     Copy-Item (Join-Path $Root "config.ini") $Stage
     $AdbDir = Join-Path $Stage "tools/adb"
     Run-Checked { & $cmake -DADB_PLATFORM=win "-DADB_CACHE_DIR=$Build/adb-cache" "-DADB_DESTINATION=$AdbDir" -P (Join-Path $Root "scripts/prepare_adb.cmake") }
     Run-Checked { & "$AdbDir/adb.exe" version }
     Run-Checked { & $cmake "-DAPP=$AdbDir/adb.exe" "-DDESTINATION=$AdbDir" "-DSEARCH_DIRS=$AdbDir;$env:PATH" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
     Run-Checked { & $deploy --release --compiler-runtime --qmldir (Join-Path $Root "gui/qml") (Join-Path $Stage "upgrade_tool_gui.exe") }
-    $RuntimeSearch = $env:PATH
+    $RuntimeSearch = "$Build;$env:PATH"
     Run-Checked { & $cmake "-DAPP=$(Join-Path $Stage 'upgrade_tool_gui.exe')" "-DDESTINATION=$Stage" "-DSEARCH_DIRS=$RuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
+    Run-Checked { & $cmake "-DAPP=$(Join-Path $Stage 'upgrade_driver_installer.exe')" "-DDESTINATION=$Stage" "-DSEARCH_DIRS=$RuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
     $Licenses = Join-Path $Stage "licenses"
     New-Item -ItemType Directory -Force $Licenses | Out-Null
     Copy-Item (Join-Path $Root "backends/rockchip/legacy/license.txt") (Join-Path $Licenses "upgrade-tool-GPL-2.0.txt")
     Copy-Item (Join-Path $Root "third_party/libusb/COPYING") (Join-Path $Licenses "libusb-LGPL-2.1.txt")
+    Copy-Item (Join-Path $Root "third_party/libwdi/COPYING") (Join-Path $Licenses "libwdi-GPL-3.0.txt")
+    Copy-Item (Join-Path $Root "third_party/libwdi/COPYING-LGPL") (Join-Path $Licenses "libwdi-LGPL-3.0.txt")
     Copy-Item (Join-Path $Root "third_party/libefex/LICENSE") (Join-Path $Licenses "libefex-MIT.txt")
     Copy-Item (Join-Path $Root "backends/allwinner/LICENSE.OpenixCLI") (Join-Path $Licenses "OpenixCLI-MIT.txt")
     Copy-Item (Join-Path $Root "third_party/qdl/LICENSE") (Join-Path $Licenses "qdl-BSD-3-Clause.txt")

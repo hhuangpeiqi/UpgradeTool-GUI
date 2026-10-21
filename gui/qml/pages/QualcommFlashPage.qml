@@ -134,10 +134,10 @@ QualcommWorkspace {
             iconSource: Icons.playWhite
             objectName: "qcDownload"
             text: page.settings.dryRun ? qsTr("Simulate download") : qsTr("Download")
-            enabled: !app.tasks.busy && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommFlash].allowed)
+            enabled: !app.interactionLocked && page.valid && (!page.deviceRequired || app.qualcommEligibility[Operations.QualcommFlash].allowed)
             onClicked: app.qualcomm.run(Operations.QualcommFlash)
 
-            ToolTip.visible: hovered && !enabled && !app.tasks.busy
+            ToolTip.visible: hovered && !enabled && !app.interactionLocked
             ToolTip.text: !page.valid ? qsTr("Select a valid programmer and XML set first")
                                        : app.qualcommEligibility[Operations.QualcommFlash].reason
         }
