@@ -11,6 +11,7 @@ QString AppTr(const char *text) { return QCoreApplication::translate("gui::AppCo
 QString ErrorText(core::ErrorCode code)
 {
 	switch (code) {
+	case core::ErrorCode::Timeout: return AppTr("Timed out waiting for the target device to enter Maskrom");
 	case core::ErrorCode::InvalidInput: return QObject::tr("Invalid or out-of-range parameter");
 	case core::ErrorCode::DeviceMissing: return QObject::tr("Target device disconnected; select a device again");
 	case core::ErrorCode::DeviceAmbiguous: return QObject::tr("Device identity is ambiguous; select a device again");
@@ -128,7 +129,7 @@ void RockchipController::runOperation(int operation, const QVariantMap &paramete
 	if (m_locked) return;
 	core::OperationRequest r;
 	r=core::OperationRequest(static_cast<core::Operation>(operation));
-	if (operation < 0 || operation >= static_cast<int>(core::Operation::AllwinnerFlash) || !m_active) return;
+	if (r.operation() == core::Operation::Count || r.vendor() != core::Vendor::Rockchip || !m_active) return;
 	r.file().path = parameters.value("path").toString().toStdString();
 	r.file().output = parameters.value("output").toString().toStdString();
 	r.rockchip().partition = parameters.value("partition").toString().toStdString();
@@ -338,6 +339,19 @@ void RockchipController::applyResult(const core::OperationResult &result)
 
 		return;
 	}
+
+	if (id == core::Operation::EnterMaskrom) {
+        m_pResults->SetItems(items);
+        if (result.status == core::OperationStatus::Cancelled)
+            SetAdvancedHint([] { return AppTr("Cancelled"); }, false);
+        else if (bOk)
+            SetAdvancedHint([] { return AppTr("Entered Maskrom mode"); }, false);
+        else {
+            const auto error = result.error;
+            SetAdvancedHint([error] { return AppTr("Enter Maskrom failed: %1").arg(ErrorText(error)); }, true);
+        }
+        return;
+    }
 
 	if (id == core::Operation::ResetDevice) {
 		SetImageHint([bOk] { return bOk ? AppTr("Reboot command sent.") : AppTr("Reset device failed."); }, !bOk);

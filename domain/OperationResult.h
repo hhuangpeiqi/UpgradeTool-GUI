@@ -5,7 +5,7 @@
 namespace core {
 enum class ResultKind { None, DeviceList, FlashId, FlashInfo, ChipInfo, Capability, SecureMode, Sn, PartitionList, FirmwareInfo, Generic };
 enum class OperationStatus { Succeeded, Failed, Cancelled };
-enum class ErrorCode { None, InvalidInput, DeviceMissing, DeviceAmbiguous, FileAccess, InvalidFirmware, UnsupportedDevice, OperationFailed };
+enum class ErrorCode { None, InvalidInput, DeviceMissing, DeviceAmbiguous, FileAccess, InvalidFirmware, UnsupportedDevice, OperationFailed, Timeout };
 struct ResultItem { std::string label; std::string value; };
 struct PartitionInfo { std::string name; uint64_t begin; uint64_t count; };
 struct FlashInfo {

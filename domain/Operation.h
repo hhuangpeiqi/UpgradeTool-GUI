@@ -60,6 +60,7 @@ enum class Operation {
 	QualcommCreateArchive,
 	QualcommCreateDigests,
 	QualcommProvision,
+	EnterMaskrom,
 	Count
 };
 
@@ -132,6 +133,7 @@ template<Operation O, Vendor V, class Parameters> struct OperationPayload : Para
     static constexpr Operation operation=O;
     static constexpr Vendor vendor=V;
 };
+using EnterMaskromRequest = OperationPayload<Operation::EnterMaskrom,Vendor::Rockchip,RockchipParameters>;
 using FirmwareUpgradeRequest = OperationPayload<Operation::FirmwareUpgrade,Vendor::Rockchip,RockchipParameters>;
 using FirmwareExtractRequest = OperationPayload<Operation::FirmwareExtract,Vendor::Rockchip,RockchipParameters>;
 using FirmwareInfoRequest = OperationPayload<Operation::FirmwareInfo,Vendor::Rockchip,RockchipParameters>;
@@ -181,6 +183,7 @@ using QualcommProvisionRequest = OperationPayload<Operation::QualcommProvision,V
 class OperationRequest {
 public:
     using Payload = std::variant<std::monostate,
+        EnterMaskromRequest,
         FirmwareUpgradeRequest,
         FirmwareExtractRequest,
         FirmwareInfoRequest,
@@ -229,6 +232,7 @@ public:
         QualcommProvisionRequest>;
     explicit OperationRequest(Operation op=Operation::Count) {
         switch(op) {
+        case Operation::EnterMaskrom: payload.emplace<EnterMaskromRequest>(); break;
         case Operation::FirmwareUpgrade: payload.emplace<FirmwareUpgradeRequest>(); break;
         case Operation::FirmwareExtract: payload.emplace<FirmwareExtractRequest>(); break;
         case Operation::FirmwareInfo: payload.emplace<FirmwareInfoRequest>(); break;

@@ -13,6 +13,7 @@ QString Tr(const char *szText)
 
 QString OperationName(core::Operation operation) {
 	switch (operation) {
+	case core::Operation::EnterMaskrom: return Tr(QT_TRANSLATE_NOOP("Operations", "Enter Maskrom"));
 	case core::Operation::QualcommFlash: return Tr(QT_TRANSLATE_NOOP("Operations", "Download"));
 	case core::Operation::QualcommRaw: return Tr(QT_TRANSLATE_NOOP("Operations", "Partition Operations"));
 	case core::Operation::QualcommChipInfo: return Tr(QT_TRANSLATE_NOOP("Operations", "Chip Info"));

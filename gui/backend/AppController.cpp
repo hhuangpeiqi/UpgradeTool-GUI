@@ -521,6 +521,27 @@ QStringList AppController::deviceLabels() const
 }
 
 
+QVariantMap AppController::rockchipMaskromEligibility() const
+{
+    QVariantList targets;
+    QString reason;
+    if (m_vendor == 0) {
+        if (m_bBatchMode) targets = BatchTargets();
+        else if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceModel->rows().size())
+            targets.append(m_deviceModel->rows()[m_iDeviceIndex]);
+    }
+    if (targets.isEmpty()) reason = tr("Select a Loader device first");
+    else if (m_bBatchMode && targets.size() != m_batchKeys.size())
+        reason = tr("A selected device is no longer available; refresh and select the targets again");
+    for (const auto &target : targets) {
+        if (!reason.isEmpty()) break;
+        const auto row = target.toMap();
+        if (row.value("vendor", 0).toInt() != 0 || row.value("usbType").toInt() != 2)
+            reason = tr("All selected devices must be in Loader mode to enter Maskrom");
+    }
+    return {{"allowed", reason.isEmpty()}, {"reason", reason}};
+}
+
 QVariantMap AppController::qualcommEligibility() const
 {
     QVariantList targets;
@@ -815,6 +836,15 @@ QVariantList AppController::BatchTargets() const
 void AppController::StartJob(core::TaskJob job)
 {
 	if (interactionLocked() || job.steps.empty()) return;
+    for (const auto &step : job.steps) {
+        if (step.operation() == core::Operation::EnterMaskrom) {
+            const auto eligibility = rockchipMaskromEligibility();
+            if (!eligibility.value("allowed").toBool()) {
+                emit toastRequested(eligibility.value("reason").toString(), true);
+                return;
+            }
+        }
+    }
 	const bool local = !core::RequiresEnumeratedDevice(job.steps.front());
 	if (!local) {
 		QVariantList targets;
@@ -937,6 +967,8 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
     m_tasks->finish(); m_rockchip->setCancelled(false);
     m_drivers->refresh(true);
 	emit toastRequested(text, !ok && !cancelled);
+    if (!m_tasks->job().steps.empty() && m_tasks->job().steps.front().operation() == core::Operation::EnterMaskrom)
+        refresh();
 }
 
 void AppController::onStepStarted(int step, int target, int total, const QString &device)
@@ -976,6 +1008,9 @@ void AppController::onUpgradePrompt(int prompt)
 	bool failed = false;
 	QString text = PromptText(prompt, failed);
 	if (!text.isEmpty()) AppendLog(text, failed);
+    if (prompt == static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MASKROM_START) &&
+        m_tasks->busy() && m_tasks->runningOperation() == core::Operation::EnterMaskrom)
+        m_tasks->setProgress(-1, text);
 }
 
 void AppController::onStorageSelection(const QStringList &strOptions, int iCurrent)

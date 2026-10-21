@@ -2,6 +2,7 @@
 #include "backends/rockchip/UpgradeEngine.h"
 #include "backends/rockchip/FirmwareService.h"
 #include "domain/DeviceSelection.h"
+#include "backends/rockchip/MaskromTransition.h"
 
 #include <cctype>
 #include <cstdarg>
@@ -44,6 +45,39 @@ bool UpgradeEngine::TestDevice(STRUCT_RKDEVICE_DESC &dev)
 		Emit(LogLevel::Info, "Test Device OK.\r\n");
 	delete pComm;
 	return bSuccess;
+}
+
+bool UpgradeEngine::EnterMaskrom(STRUCT_RKDEVICE_DESC &dev)
+{
+    const rockchip::MaskromHooks hooks{
+        [this, &dev](BYTE subcode) { return ResetDevice(dev, subcode); },
+        [this] {
+            std::vector<rockchip::ModeDevice> devices;
+            m_pScan->Search(RKUSB_MASKROM | RKUSB_LOADER);
+            for (int i = 0; i < m_pScan->GetDEVICE_COUNTS(); ++i) {
+                STRUCT_RKDEVICE_DESC current{};
+                if (m_pScan->GetDevice(current, i))
+                    devices.push_back({current.uiLocationID, static_cast<int>(current.emUsbType)});
+            }
+            return devices;
+        },
+        [this] { return IsAborted(); },
+        [this] { EmitUpgradePrompt(PROMPT_WAIT_MASKROM_START, 0); }
+    };
+    const auto result = rockchip::EnterMaskrom(dev.emUsbType, dev.uiLocationID,
+        std::chrono::seconds(m_pScan->GetRKUSB_TIMEOUT()), hooks);
+    if (result == rockchip::MaskromResult::Succeeded) {
+        EmitUpgradePrompt(PROMPT_WAIT_MASKROM_SUCCESS, 0);
+        return true;
+    }
+    if (result == rockchip::MaskromResult::Cancelled) return false;
+    if (result == rockchip::MaskromResult::UnsupportedMode) {
+        Emit(LogLevel::Error, "Entering Maskrom requires Loader mode");
+        return Fail(ErrorCode::UnsupportedDevice);
+    }
+    EmitUpgradePrompt(PROMPT_WAIT_MASKROM_FAIL, 0);
+    return Fail(result == rockchip::MaskromResult::TimedOut ? ErrorCode::Timeout :
+                result == rockchip::MaskromResult::Ambiguous ? ErrorCode::DeviceAmbiguous : ErrorCode::OperationFailed);
 }
 
 bool UpgradeEngine::ResetDevice(STRUCT_RKDEVICE_DESC &dev, BYTE subCode)

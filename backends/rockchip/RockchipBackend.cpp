@@ -33,6 +33,7 @@ std::vector<DeviceDescriptor> RockchipBackend::Scan() {
 FirmwareInfo RockchipBackend::InspectDirectory(const std::string &path,const Cancellation &cancelled) { return FirmwareService::InspectDirectory(path,cancelled); }
 bool RockchipBackend::Supports(Operation op) const {
         switch(op) {
+        case Operation::EnterMaskrom:
         case Operation::FirmwareUpgrade:
         case Operation::FirmwareExtract:
         case Operation::FirmwareInfo:

@@ -21,7 +21,6 @@ Item {
     ]
 
     readonly property var unsupportedOperations: [
-        qsTr("Enter Maskrom"),
         qsTr("Clear Serial"),
         qsTr("Get Current Storage"),
         qsTr("Switch USB3")
@@ -107,6 +106,16 @@ Item {
                             enabled: page.canRun
                             onClicked: app.rockchip.runOperation(modelData.operation)
                         }
+                    }
+
+                    SecondaryButton {
+                        objectName: "enterMaskromButton"
+                        text: qsTr("Enter Maskrom")
+                        enabled: !app.interactionLocked && app.rockchipMaskromEligibility.allowed
+                        hoverEnabled: true
+                        ToolTip.visible: hovered && !app.rockchipMaskromEligibility.allowed
+                        ToolTip.text: app.rockchipMaskromEligibility.reason
+                        onClicked: app.rockchip.runOperation(Operations.EnterMaskrom)
                     }
 
                     Repeater {

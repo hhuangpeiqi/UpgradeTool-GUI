@@ -54,6 +54,7 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(QStringList deviceLabels READ deviceLabels NOTIFY devicesChanged)
 	Q_PROPERTY(QString deviceStatusText READ deviceStatusText NOTIFY devicesChanged)
 	Q_PROPERTY(bool hasDevice READ hasDevice NOTIFY devicesChanged)
+    Q_PROPERTY(QVariantMap rockchipMaskromEligibility READ rockchipMaskromEligibility NOTIFY devicesChanged)
 	Q_PROPERTY(QVariantMap qualcommEligibility READ qualcommEligibility NOTIFY devicesChanged)
 	Q_PROPERTY(int deviceIndex READ deviceIndex WRITE setDeviceIndex NOTIFY deviceIndexChanged)
 
@@ -109,6 +110,7 @@ public:
 	QString deviceStatusText() const { return m_strDeviceStatus; }
 	bool hasDevice() const { return !m_deviceModel->rows().isEmpty(); }
 	QVariantMap qualcommEligibility() const;
+    QVariantMap rockchipMaskromEligibility() const;
 
 	int deviceIndex() const { return m_iDeviceIndex; }
 	void setDeviceIndex(int iIndex);

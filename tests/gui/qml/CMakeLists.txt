@@ -21,3 +21,7 @@ foreach(name test_allwinner_ui test_qualcomm_ui test_qml_controls test_switching
 endforeach()
 upgrade_attach_test_translations(test_qualcomm_ui)
 upgrade_attach_test_translations(test_switching_ui)
+upgrade_test(test_maskrom_ui LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui qml rockchip)
+upgrade_attach_gui_test_resources(test_maskrom_ui)
+upgrade_attach_test_translations(test_maskrom_ui)

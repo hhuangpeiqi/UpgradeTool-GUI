@@ -1818,6 +1818,10 @@
         <source>Unknown Operation</source>
         <translation>未知操作</translation>
     </message>
+    <message>
+        <source>Enter Maskrom</source>
+        <translation>进入 Maskrom</translation>
+    </message>
 </context>
 <context>
     <name>PermissionDialog</name>
@@ -3706,6 +3710,26 @@
         <location line="+5"/>
         <source>No compatible flashing interface was found</source>
         <translation>未找到兼容的烧录接口</translation>
+    </message>
+    <message>
+        <source>Select a Loader device first</source>
+        <translation>请先选择 Loader 模式的设备</translation>
+    </message>
+    <message>
+        <source>All selected devices must be in Loader mode to enter Maskrom</source>
+        <translation>进入 Maskrom 前，所选设备须处于 Loader 模式</translation>
+    </message>
+    <message>
+        <source>Timed out waiting for the target device to enter Maskrom</source>
+        <translation>等待目标设备进入 Maskrom 超时</translation>
+    </message>
+    <message>
+        <source>Enter Maskrom failed: %1</source>
+        <translation>进入 Maskrom 失败：%1</translation>
+    </message>
+    <message>
+        <source>Entered Maskrom mode</source>
+        <translation>已进入 Maskrom 模式</translation>
     </message>
 </context>
 <context>

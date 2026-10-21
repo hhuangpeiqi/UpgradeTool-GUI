@@ -100,6 +100,7 @@ private:
 	std::string GetErrString(UINT uiErr);
 
 	bool TestDevice(STRUCT_RKDEVICE_DESC &dev);
+	bool EnterMaskrom(STRUCT_RKDEVICE_DESC &dev);
 	bool ResetDevice(STRUCT_RKDEVICE_DESC &dev, BYTE subCode = RST_NONE_SUBCODE);
 	bool ReadFlashId(STRUCT_RKDEVICE_DESC &dev);
 	bool ReadFlashInfo(STRUCT_RKDEVICE_DESC &dev);

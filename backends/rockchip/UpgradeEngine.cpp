@@ -531,6 +531,7 @@ bool UpgradeEngine::Dispatch(const OperationRequest &r)
 	case Operation::ReadOtpChip: return ReadOtpChip(dev);
 	case Operation::ReadSecureMode: return ReadSecureMode(dev);
 	case Operation::TestDevice: return TestDevice(dev);
+	case Operation::EnterMaskrom: return EnterMaskrom(dev);
 	case Operation::ResetDevice: return ResetDevice(dev, static_cast<BYTE>(r.rockchip().subcode));
 	case Operation::ResetPipe: return ResetPipe(dev, static_cast<BYTE>(r.rockchip().pipe));
 	case Operation::ReadLba: return ReadLba(dev, r.rockchip().lba.begin, r.rockchip().lba.count, r.file().output.empty() ? NULL : output);

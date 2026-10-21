@@ -54,6 +54,7 @@ public:
 		QualcommCreateArchive = static_cast<int>(core::Operation::QualcommCreateArchive),
 		QualcommCreateDigests = static_cast<int>(core::Operation::QualcommCreateDigests),
 		QualcommProvision = static_cast<int>(core::Operation::QualcommProvision),
+		EnterMaskrom = static_cast<int>(core::Operation::EnterMaskrom),
 		Count = static_cast<int>(core::Operation::Count)
 	};
 	Q_ENUM(Id)
