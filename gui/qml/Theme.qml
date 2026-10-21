@@ -19,6 +19,8 @@ QtObject {
     property color tableHeader: dark ? "#32353A" : "#F7F8FA"
     property color hover: dark ? "#3A3D42" : "#F0F2F5"
     property color selected: dark ? "#2A3B52" : "#EAF2FD"
+    property color filePickerHover: dark ? hover : "#E2ECF9"
+    property color filePickerSelected: dark ? selected : "#C9DFFD"
     property color rowAlt: dark ? "#2F3237" : "#FBFCFD"
     property color statusBar: dark ? "#24262A" : "#FAFBFC"
     property color thumbBg: dark ? "#34373C" : "#F1F3F5"

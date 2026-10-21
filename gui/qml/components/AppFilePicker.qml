@@ -750,12 +750,14 @@ AppDialog {
 
                         delegate: Rectangle {
                             id: entryRow
+                            readonly property bool rowSelected: root.multiple && !isDir
+                                                               ? root.selectedPaths.indexOf(path) >= 0
+                                                               : root.selectedPath === path
                             width: entryList.width
                             height: 30
                             radius: 4
-                            color: (root.multiple && !isDir ? root.selectedPaths.indexOf(path) >= 0 : root.selectedPath === path)
-                                   ? Theme.selected
-                                   : (entryMouse.containsMouse ? Theme.hover : "transparent")
+                            color: rowSelected ? Theme.filePickerSelected
+                                               : (entryMouse.containsMouse ? Theme.filePickerHover : "transparent")
 
                             Image {
                                 id: entryIcon

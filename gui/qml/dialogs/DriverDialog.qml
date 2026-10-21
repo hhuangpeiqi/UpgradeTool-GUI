@@ -187,15 +187,6 @@ AppDialog {
                 font.pixelSize: Theme.fontNormal
             }
         }
-        Text {
-            width: parent.width
-            text: qsTr("Devices with the same hardware ID may also be updated.")
-                + "\n" + qsTr("If needed, the tool will restart the selected device and retry the driver installation.")
-            wrapMode: Text.WordWrap
-            color: Theme.textSecondary
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
-        }
         footerContent: RowLayout {
             width: parent.width
             spacing: 10

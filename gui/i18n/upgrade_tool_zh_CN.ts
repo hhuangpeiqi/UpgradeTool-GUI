@@ -1141,12 +1141,7 @@
 <context>
     <name>DriverDialog</name>
     <message>
-        <location filename="../qml/dialogs/DriverDialog.qml" line="+191"/>
-        <source>Devices with the same hardware ID may also be updated.</source>
-        <translation>具有相同硬件 ID 的设备也可能被更新。</translation>
-    </message>
-    <message>
-        <location line="-182"/>
+        <location filename="../qml/dialogs/DriverDialog.qml" line="+9"/>
         <source>USB Drivers</source>
         <translation>USB 驱动</translation>
     </message>
@@ -1214,11 +1209,6 @@
         <location line="+6"/>
         <source>Dismiss</source>
         <translation>放弃任务</translation>
-    </message>
-    <message>
-        <location line="+154"/>
-        <source>If needed, the tool will restart the selected device and retry the driver installation.</source>
-        <translation>必要时工具会重启所选设备并重试安装驱动。</translation>
     </message>
 </context>
 <context>
@@ -3189,7 +3179,7 @@
     <message>
         <location line="+23"/>
         <source>Detecting device system and switch capability…</source>
-        <translation>正在识别设备系统和切换能力…</translation>
+        <translation>正在识别设备系统和切换方式…</translation>
     </message>
     <message>
         <location line="+13"/>
