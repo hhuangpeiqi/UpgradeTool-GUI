@@ -127,7 +127,7 @@ private:
 
 	bool PrintGpt(STRUCT_RKDEVICE_DESC &dev);	bool PrintParameter(STRUCT_RKDEVICE_DESC &dev);
 	bool DownloadBoot(STRUCT_RKDEVICE_DESC &dev, char *szLoader);
-	bool UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader);
+	bool UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader, bool reboot);
 	bool EraseFlash(STRUCT_RKDEVICE_DESC &dev, char *szLoader);
 	bool UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware, bool bNoReset);
 	bool CreateGptByParameter(char *pParameter, char *pOutput);

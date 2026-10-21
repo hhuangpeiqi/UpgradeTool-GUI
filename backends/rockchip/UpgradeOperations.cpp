@@ -70,7 +70,7 @@ bool UpgradeEngine::DownloadBoot(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 	return bSuccess;
 }
 
-bool UpgradeEngine::UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
+bool UpgradeEngine::UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader, bool reboot)
 {
 	if (!CheckDeviceType(dev, RKUSB_MASKROM | RKUSB_LOADER))
 		return false;
@@ -127,7 +127,7 @@ bool UpgradeEngine::UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 	{
 		std::vector<STRUCT_UPGRADE_STEP> vecStep;
 		CRKUpgrade::CreateDownloadIDBStep(dev.emDeviceType, vecStep);
-		pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_UPGRADE);
+		pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_UPGRADE, reboot);
 		pUpgrade->SetObject(pDevice, m_pScan);
 		pUpgrade->SetCallBackPointer(PromptThunk);
 		bSuccess = pUpgrade->Run();
@@ -252,10 +252,8 @@ bool UpgradeEngine::UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware,
 	{
 		std::vector<STRUCT_UPGRADE_STEP> vecStep;
 		CRKUpgrade::CreateUpgradeStep(dev.emDeviceType, vecStep, 0);
-		// Only the final reset is handled below by the GUI reboot option.
-		// Keep intermediate resets and waits needed to enter Loader mode.
-		vecStep.pop_back();
-		pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_UPGRADE);
+		// Reset through the live connection refreshed by the upgrade workflow.
+		pUpgrade = new CRKUpgrade(vecStep, WORKFLOW_UPGRADE, !bNoReset);
 		pUpgrade->SetObject(pDevice, m_pScan);
 		pUpgrade->SetCallBackPointer(PromptThunk);
 		bSuccess = pUpgrade->Run();
@@ -267,14 +265,6 @@ bool UpgradeEngine::UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware,
 	delete pImage;
 	if (pDevice) { CDeviceFactory::FreeDevice(pDevice); pComm = NULL; }
 	if (pComm) delete pComm;
-	if (bSuccess && !bNoReset) {
-		bool bRet2 = false;
-		CRKUsbComm *pReset = new CRKUsbComm(dev, m_pLog, bRet2);
-		if (bRet2) {
-			pReset->RKU_ResetDevice();
-			delete pReset;
-		}
-	}
 	return bSuccess;
 }
 }

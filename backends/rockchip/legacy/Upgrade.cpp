@@ -175,13 +175,15 @@ bool CRKUpgrade::CreateRestoreStep(ENUM_RKDEVICE_TYPE emDeviceType, vector<STRUC
 // ---------------------------------------------------------------------------
 // Object lifecycle / configuration.
 // ---------------------------------------------------------------------------
-CRKUpgrade::CRKUpgrade(const vector<STRUCT_UPGRADE_STEP> &vecStep, ENUM_WORKFLOW emWorkFlow)
+CRKUpgrade::CRKUpgrade(const vector<STRUCT_UPGRADE_STEP> &vecStep, ENUM_WORKFLOW emWorkFlow, bool reboot)
 {
 	m_pDevice = NULL;
 	m_pScan = NULL;
 	m_emWorkFlow = emWorkFlow;
 	m_pCallBack = NULL;
 	m_vecStep = vecStep;
+	if (!reboot && !m_vecStep.empty() && m_vecStep.back().uiStep == UPGRADE_STEP_RESET_DEVICE)
+		m_vecStep.pop_back();
 }
 
 CRKUpgrade::~CRKUpgrade()
@@ -348,7 +350,7 @@ bool CRKUpgrade::RunStep(const STRUCT_UPGRADE_STEP &step, bool &bCondition)
 		Prompt(PROMPT_WAIT_LOADER_START);
 		if (!m_pScan->Wait(desc, RKUSB_LOADER)) { Prompt(PROMPT_WAIT_LOADER_FAIL); return false; }
 		// The device re-enumerated: rebuild the comm for the new USB address.
-		m_pDevice->RefreshComm(desc);
+		if (!m_pDevice->RefreshComm(desc)) { Prompt(PROMPT_WAIT_LOADER_FAIL); return false; }
 		Prompt(PROMPT_WAIT_LOADER_SUCCESS);
 		return true;
 
@@ -356,7 +358,7 @@ bool CRKUpgrade::RunStep(const STRUCT_UPGRADE_STEP &step, bool &bCondition)
 		if (!m_pScan) return false;
 		Prompt(PROMPT_WAIT_MASKROM_START);
 		if (!m_pScan->Wait(desc, RKUSB_MASKROM)) { Prompt(PROMPT_WAIT_MASKROM_FAIL); return false; }
-		m_pDevice->RefreshComm(desc);
+		if (!m_pDevice->RefreshComm(desc)) { Prompt(PROMPT_WAIT_MASKROM_FAIL); return false; }
 		Prompt(PROMPT_WAIT_MASKROM_SUCCESS);
 		return true;
 

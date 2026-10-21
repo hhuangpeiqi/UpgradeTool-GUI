@@ -1,5 +1,6 @@
 #include "tests/support/TestFiles.h"
 #include "AndroidDevice.h"
+#include "Upgrade.h"
 #include "platform/FileLog.h"
 #include "crc.h"
 #include "MD5Checksum.h"
@@ -43,6 +44,8 @@ public:
 	int readCalls;
 	DWORD testReadyCurrent;
 	int writeResult;
+	int resetCalls = 0;
+	int resetResult = ERR_SUCCESS;
 
 	int RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE = RWMETHOD_IMAGE)
 	{
@@ -84,7 +87,7 @@ public:
 		memset(lpBuffer, 0, 512);
 		return ERR_SUCCESS;
 	}
-	int RKU_ResetDevice(BYTE = RST_NONE_SUBCODE) { return ERR_SUCCESS; }
+	int RKU_ResetDevice(BYTE = RST_NONE_SUBCODE) { ++resetCalls; return resetResult; }
 	int RKU_TestDeviceReady(DWORD *dwTotal = NULL, DWORD *dwCurrent = NULL, BYTE = TU_NONE_SUBCODE)
 	{
 		if (dwTotal) *dwTotal = 1;
@@ -123,6 +126,79 @@ struct Probe : public CRKAndroidDevice {
 	using CRKAndroidDevice::WriteParameter;
 	using CRKAndroidDevice::ExtractEntry;
 };
+
+class ConnectionProbe : public CRKDevice {
+public:
+	explicit ConnectionProbe(STRUCT_RKDEVICE_DESC &desc) : CRKDevice(desc) {
+		auto *original = new FakeComm;
+		original->resetResult = ERR_FAILED;
+		SetObject(nullptr, original, nullptr);
+	}
+	FakeComm *current = nullptr;
+	int completedResets = 0;
+	int bootResult = ERR_SUCCESS;
+	std::stop_source *cancelAfterBoot = nullptr;
+	int DownloadBoot() override {
+		// Simulate the upgrade's connection replacement after USB re-enumeration.
+		completedResets += static_cast<FakeComm *>(m_pComm)->resetCalls;
+		delete m_pComm;
+		current = new FakeComm;
+		m_pComm = current;
+		SetUsbType(RKUSB_LOADER);
+		if (cancelAfterBoot) cancelAfterBoot->request_stop();
+		return bootResult;
+	}
+};
+
+static void test_upgrade_reboot_connection()
+{
+	STRUCT_UPGRADE_STEP boot{};
+	boot.uiStep = UPGRADE_STEP_DOWNLOAD_BOOT; boot.uiMask = 3;
+	STRUCT_UPGRADE_STEP reset{};
+	reset.uiStep = UPGRADE_STEP_RESET_DEVICE; reset.uiMask = 3;
+	for (auto mode : {RKUSB_MASKROM, RKUSB_LOADER}) {
+		for (bool reboot : {false, true}) {
+			STRUCT_RKDEVICE_DESC desc{}; desc.emUsbType = mode;
+			ConnectionProbe device(desc);
+			CRKUpgrade upgrade({boot, reset}, WORKFLOW_UPGRADE, reboot);
+			upgrade.SetDeviceObject(&device);
+			CHECK(upgrade.Run());
+			CHECK(device.current->resetCalls == (reboot ? 1 : 0));
+		}
+		for (bool cancel : {false, true}) {
+			STRUCT_RKDEVICE_DESC desc{}; desc.emUsbType = mode;
+			ConnectionProbe device(desc);
+			std::stop_source cancellation;
+			device.SetCancellation(cancellation.get_token());
+			if (cancel) device.cancelAfterBoot = &cancellation;
+			else device.bootResult = ERR_FAILED;
+			CRKUpgrade upgrade({boot, reset}, WORKFLOW_UPGRADE);
+			upgrade.SetDeviceObject(&device);
+			CHECK(!upgrade.Run());
+			CHECK(device.current->resetCalls == 0);
+		}
+		{
+			STRUCT_RKDEVICE_DESC desc{}; desc.emUsbType = mode;
+			Probe device(desc);
+			auto *comm = new FakeComm;
+			comm->resetResult = ERR_FAILED;
+			device.SetObject(nullptr, comm, nullptr);
+			CRKUpgrade upgrade({reset, reset}, WORKFLOW_UPGRADE);
+			upgrade.SetDeviceObject(&device);
+			CHECK(!upgrade.Run());
+			CHECK(comm->resetCalls == 1);
+		}
+		{
+			STRUCT_RKDEVICE_DESC desc{}; desc.emUsbType = mode;
+			ConnectionProbe device(desc);
+			CRKUpgrade upgrade({boot, reset, boot, reset}, WORKFLOW_UPGRADE, false);
+			upgrade.SetDeviceObject(&device);
+			CHECK(upgrade.Run()); // Intermediate reset is kept even without final reboot.
+			CHECK(device.completedResets == 1);
+			CHECK(device.current->resetCalls == 0);
+		}
+	}
+}
 
 static void put_le16(unsigned char *p, unsigned short v)
 {
@@ -526,6 +602,7 @@ static void test_small_stack() { test_parameter_stack(); }
 
 int main()
 {
+	test_upgrade_reboot_connection();
 	test_entry_mapping();
 	test_shared_payload();
 	test_device_band();

@@ -23,6 +23,7 @@ static core::TaskJob Job() {
 	core::OperationRequest loader, image;
 	loader=core::OperationRequest(core::Operation::LoaderUpgrade); image=core::OperationRequest(core::Operation::DownloadImage);
 	job.steps = {loader, image}; job.rebootAfter = true;
+	job.steps.front().rockchip().reboot = false;
 	core::DeviceIdentity a, b; a.location = 11; b.location = 22; job.targets = {a, b};
 	return job;
 }
@@ -35,6 +36,19 @@ int main() {
 		CHECK(executor.operations.size() == 6 && callbacks == 6);
 		CHECK(executor.operations[0] == core::Operation::LoaderUpgrade && executor.operations[2] == core::Operation::DownloadImage);
 		CHECK(executor.locations == std::vector<uint32_t>({11, 22, 11, 22, 11, 22}));
+	}
+	{
+		auto job = Job(); job.rebootAfter = false; FakeExecutor executor;
+		auto result = runner.Run(job, executor);
+		CHECK(result.status == core::OperationStatus::Succeeded && result.succeeded == 2);
+		CHECK(executor.operations == std::vector<core::Operation>({core::Operation::LoaderUpgrade,
+		    core::Operation::LoaderUpgrade, core::Operation::DownloadImage, core::Operation::DownloadImage}));
+	}
+	{
+		auto job = Job(); FakeExecutor executor; executor.failAt = 4;
+		auto result = runner.Run(job, executor);
+		CHECK(result.status == core::OperationStatus::Failed && result.failed == 1 && result.succeeded == 1);
+		CHECK(executor.operations.size() == 5 && executor.operations.back() == core::Operation::ResetDevice);
 	}
 	{
 		auto job = Job(); FakeExecutor executor; executor.failAt = 0;

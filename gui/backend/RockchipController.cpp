@@ -201,6 +201,8 @@ void RockchipController::executeImageDownload(bool reboot)
 		core::OperationRequest request;
 		request=core::OperationRequest(row.isLoader ? core::Operation::LoaderUpgrade : core::Operation::DownloadImage);
 		request.file().path = row.path.toStdString(); request.rockchip().partition = row.name.toStdString();
+		// Keep the device available for subsequent partitions; the job owns the final reset.
+		request.rockchip().reboot = false;
 		job.steps.push_back(request);
 	}
 	if (job.steps.empty()) { SetImageHint([] { return AppTr("Check entries and specify image files first."); }, true); return; }

@@ -7,7 +7,8 @@
 class CRKUpgrade
 {
 public:
-	CRKUpgrade(const vector<STRUCT_UPGRADE_STEP> &vecStep, ENUM_WORKFLOW emWorkFlow);
+	// The reboot option controls only the final reset; transition resets remain.
+	CRKUpgrade(const vector<STRUCT_UPGRADE_STEP> &vecStep, ENUM_WORKFLOW emWorkFlow, bool reboot = true);
 	virtual ~CRKUpgrade();
 
 	void SetDeviceObject(void *pDevice);

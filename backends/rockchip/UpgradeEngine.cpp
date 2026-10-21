@@ -515,7 +515,7 @@ bool UpgradeEngine::Dispatch(const OperationRequest &r)
 	if (!ResolveDevice(dev) || IsAborted()) return false;
 	switch (r.operation()) {
 	case Operation::FirmwareUpgrade: return UpgradeFirmware(dev, path, !r.rockchip().reboot);
-	case Operation::LoaderUpgrade: return UpgradeLoader(dev, path);
+	case Operation::LoaderUpgrade: return UpgradeLoader(dev, path, r.rockchip().reboot);
 	case Operation::DownloadBoot: return DownloadBoot(dev, path);
 	case Operation::EraseFlash: return EraseFlash(dev, path);
 	case Operation::PartitionList: return PrintGpt(dev) || PrintParameter(dev);

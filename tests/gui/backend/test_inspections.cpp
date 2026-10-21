@@ -104,6 +104,38 @@ int main(int argc, char **argv) {
             CHECK(rows[0].isLoader && rows[0].path == path);
             CHECK(rows[2].name == "boot" && rows[2].path == partition.fileName() && rows[2].selectable);
         }
+        std::vector<core::TaskJob> jobs;
+        QObject::connect(&controller, &gui::RockchipController::executeRequested,
+            [&](const auto &job) { jobs.push_back(job); });
+        controller.imageEntries()->setAllChecked(true);
+        for (bool reboot : {false, true}) {
+            jobs.clear();
+            controller.executeImageDownload(reboot);
+            CHECK(jobs.size() == 1);
+            const auto &job = jobs.back();
+            CHECK(job.rebootAfter == reboot && job.steps.size() == 3);
+            if (job.steps.size() == 3) {
+                CHECK(job.steps[0].operation() == core::Operation::LoaderUpgrade);
+                CHECK(!job.steps[0].rockchip().reboot);
+                CHECK(job.steps[1].operation() == core::Operation::DownloadImage);
+                CHECK(job.steps[1].rockchip().partition == "parameter");
+                CHECK(job.steps[2].rockchip().partition == "boot");
+            }
+            controller.executeFirmwareUpgrade(reboot);
+            CHECK(jobs.size() == 2);
+            CHECK(jobs.back().steps.size() == 1);
+            CHECK(jobs.back().steps.front().operation() == core::Operation::FirmwareUpgrade);
+            CHECK(jobs.back().steps.front().rockchip().reboot == reboot);
+        }
+        controller.runOperation(static_cast<int>(core::Operation::LoaderUpgrade), {{"path", path}});
+        CHECK(jobs.back().steps.front().rockchip().reboot); // Standalone default is unchanged.
+        core::OperationResult resetFailure;
+        resetFailure.operation = core::Operation::FirmwareUpgrade;
+        resetFailure.status = core::OperationStatus::Failed;
+        resetFailure.error = core::ErrorCode::OperationFailed;
+        controller.applyResult(resetFailure);
+        CHECK(controller.firmwareHintError());
+        CHECK(!controller.firmwareHint().contains("device rebooted"));
         // setFirmware persists the path, so restore submits the startup inspection.
         controller.restore();
         CHECK(controller.firmwareValid());

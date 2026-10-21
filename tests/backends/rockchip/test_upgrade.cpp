@@ -149,12 +149,72 @@ static void test_workflow_entry_steps() {
     }
 }
 
+static void test_final_reset_option() {
+    for (bool firmware : {false, true}) {
+        std::vector<STRUCT_UPGRADE_STEP> steps;
+        if (firmware) CRKUpgrade::CreateUpgradeStep(RK32_DEVICE, steps, 0);
+        else CRKUpgrade::CreateDownloadIDBStep(RK32_DEVICE, steps);
+        CHECK(steps.back().uiStep == UPGRADE_STEP_RESET_DEVICE);
+        CRKUpgrade withReset(steps, WORKFLOW_UPGRADE);
+        CRKUpgrade withoutReset(steps, WORKFLOW_UPGRADE, false);
+        CHECK(withReset.GetStepCount() == steps.size());
+        CHECK(withoutReset.GetStepCount() == steps.size() - 1);
+        // The original sequence, including transition resets/waits, is intact.
+        CHECK(steps.back().uiStep == UPGRADE_STEP_RESET_DEVICE);
+    }
+    CRKUpgrade empty({}, WORKFLOW_UPGRADE, false);
+    CHECK(empty.GetStepCount() == 0);
+    CRKUpgrade noReset({bootStep(3)}, WORKFLOW_UPGRADE, false);
+    CHECK(noReset.GetStepCount() == 1);
+}
+
+class ProbeScan : public CRKScan {
+public:
+    bool found = true;
+    int calls = 0;
+    bool Wait(STRUCT_RKDEVICE_DESC &desc, ENUM_RKUSB_TYPE mode, USHORT, USHORT) override {
+        ++calls;
+        desc.emUsbType = mode;
+        // Enumeration succeeded, but the new device cannot be opened.
+        desc.pUsbHandle = nullptr;
+        return found;
+    }
+};
+
+static std::vector<ENUM_UPGRADE_PROMPT> prompts;
+static void capturePrompt(UINT, ENUM_UPGRADE_PROMPT prompt, UINT) { prompts.push_back(prompt); }
+
+static void test_required_wait_and_refresh_failure() {
+    for (auto wait : {UPGRADE_STEP_WAIT_MASKROM, UPGRADE_STEP_WAIT_LOADER}) {
+        for (bool found : {false, true}) {
+            auto desc = descriptor(RKUSB_MASKROM);
+            ProbeDevice device(desc);
+            ProbeScan scan;
+            scan.found = found;
+            STRUCT_UPGRADE_STEP step{};
+            step.uiStep = wait;
+            step.uiMask = 3;
+            CRKUpgrade upgrade({bootStep(3), step, bootStep(3)}, WORKFLOW_UPGRADE);
+            CHECK(upgrade.SetObject(&device, &scan));
+            prompts.clear();
+            upgrade.SetCallBackPointer(capturePrompt);
+            CHECK(!upgrade.Run());
+            CHECK(scan.calls == 1 && device.calls == 1);
+            CHECK(prompts.size() == 4);
+            CHECK(prompts.back() == (wait == UPGRADE_STEP_WAIT_MASKROM ?
+                                    PROMPT_WAIT_MASKROM_FAIL : PROMPT_WAIT_LOADER_FAIL));
+        }
+    }
+}
+
 int main() {
     test_mode_filter();
     test_live_mode_and_phase_params();
     test_failure_and_cancellation();
     test_required_wait_without_scanner();
     test_workflow_entry_steps();
+    test_final_reset_option();
+    test_required_wait_and_refresh_failure();
     std::printf("test_upgrade: %s\n", failures ? "FAIL" : "PASS");
     return failures ? 1 : 0;
 }
