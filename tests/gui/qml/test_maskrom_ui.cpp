@@ -77,8 +77,9 @@ int main(int argc, char **argv) {
         controller.setBatchTargets({"1", "2"}, true);
         CHECK(!button->isEnabled()); run(); CHECK(submissions == 0 && !controller.tasks()->busy());
         controller.language()->setMode("zh");
-        CHECK(controller.rockchipMaskromEligibility().value("reason").toString().contains(QStringLiteral("所有所选设备")));
+        CHECK(controller.rockchipMaskromEligibility().value("reason").toString() == QStringLiteral("进入 Maskrom 前，所选设备须处于 Loader 模式"));
         controller.language()->setMode("en");
+        CHECK(controller.rockchipMaskromEligibility().value("reason").toString() == "All selected devices must be in Loader mode to enter Maskrom");
         inject({device(1, 2), device(2, 2)});
         CHECK(button->isEnabled());
         CHECK(QMetaObject::invokeMethod(button, "clicked"));

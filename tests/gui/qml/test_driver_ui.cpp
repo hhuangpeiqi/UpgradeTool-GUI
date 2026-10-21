@@ -260,7 +260,12 @@ int main(int argc, char **argv) {
         [&](const core::InspectionRequest &request) { inspection = request.cancelled; });
     controller.rockchip()->setFirmware(temporary.filePath("inspect-before-install.img"));
     CHECK(inspection && !inspection->stop_requested());
+    CHECK(AwaitUi([&] { return !dialog->property("visible").toBool(); }));
     controller.drivers()->prepareInstall(board.instance);
+    CHECK(AwaitUi([&] { return confirmation->property("visible").toBool(); }));
+    CHECK(!dialog->property("visible").toBool());
+    CHECK(installs == 0);
+    CHECK(QMetaObject::invokeMethod(confirmation, "close"));
     holdInstall = true;
     controller.drivers()->confirmInstall();
     CHECK(controller.interactionLocked() && !controller.tasks()->busy());

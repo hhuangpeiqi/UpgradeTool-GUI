@@ -171,6 +171,7 @@ AppDialog {
 
     AppDialog {
         id: confirmation
+        parent: dialog.parent
         objectName: "driverConfirmationDialog"
         titleText: qsTr("Install WinUSB?")
         width: Math.min(540, Overlay.overlay ? Overlay.overlay.width - 32 : 540)
