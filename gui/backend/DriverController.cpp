@@ -1,8 +1,6 @@
 #include "gui/backend/DriverController.h"
 #include <QCoreApplication>
-#include <QDesktopServices>
 #include <QThread>
-#include <QUrl>
 #include <QSettings>
 #include <QJsonDocument>
 #include <QDateTime>
@@ -56,9 +54,12 @@ QVariantMap DriverController::describe(const DriverDevice &d) const {
     }
     const bool installing = m_busy && d.bindingId() == m_target.bindingId();
     if (installing) state = phaseText();
+    QString diagnostic = d.diagnostic;
+    if (d.vendor == 2 && d.state == DriverState::Missing && !d.canInstall())
+        diagnostic = tr("Install the device manufacturer's driver for this interface.");
     return {{"instance", d.instance}, {"hardwareId", d.hardwareId}, {"label", d.label}, {"service", installing ? QString{} : d.service},
-        {"location", d.location}, {"stateText", state}, {"diagnostic", d.diagnostic}, {"attention", !installing && d.needsAttention()},
-        {"canInstall", !installing && d.canInstall()}, {"replace", !d.service.isEmpty()}, {"vendor", d.vendor},
+        {"location", d.location}, {"stateText", state}, {"diagnostic", diagnostic}, {"attention", !installing && d.needsAttention()},
+        {"canInstall", !installing && !m_detectionFailed && d.canInstall()}, {"replace", d.vendor != 2 && !d.service.isEmpty()}, {"vendor", d.vendor},
         {"identity", QString("%1:%2").arg(d.vid, 4, 16, QChar('0')).arg(d.pid, 4, 16, QChar('0'))}};
 }
 QVariantList DriverController::devices() const {
@@ -75,6 +76,24 @@ QVariantList DriverController::confirmation() const {
     QVariantList result;
     for (const auto &d : m_affected) result.append(describe(d));
     return result;
+}
+bool DriverController::canUninstallQualcomm() const {
+    return m_available && m_vendor == 2 && m_qualcommInstalled && !locked() && !checking() && !m_stopping;
+}
+QString DriverController::confirmationTitle() const {
+    if (m_operation == DriverOperation::QualcommUninstall) return tr("Uninstall Qualcomm drivers?");
+    if (m_operation == DriverOperation::QualcommInstall) return tr("Install Qualcomm drivers?");
+    return tr("Install WinUSB?");
+}
+QString DriverController::confirmationText() const {
+    if (m_operation == DriverOperation::QualcommUninstall)
+        return tr("This removes the system Qualcomm driver package and may affect other Qualcomm devices.");
+    return {};
+}
+bool DriverController::canConfirm() const {
+    return m_available && !locked() && !checking() && !m_stopping &&
+        (m_operation == DriverOperation::QualcommUninstall ? canUninstallQualcomm() :
+            !m_detectionFailed && !m_affected.isEmpty());
 }
 QString DriverController::summaryLevel() const {
     if (!m_available) return QStringLiteral("neutral");
@@ -94,6 +113,10 @@ QString DriverController::summaryText() const {
     return {};
 }
 QString DriverController::phaseText() const {
+    if (m_operation == DriverOperation::QualcommUninstall) {
+        if (m_phase == DriverPhase::Preparing) return tr("Preparing driver removal…");
+        return tr("Windows is removing the Qualcomm drivers…");
+    }
     switch (m_phase) {
     case DriverPhase::Preparing: return tr("Preparing driver installation…");
     case DriverPhase::Installing: return tr("Windows is installing the driver…");
@@ -120,7 +143,8 @@ void DriverController::retranslate() {
 }
 void DriverController::setVendor(int vendor) {
     if (m_vendor == vendor) return;
-    m_vendor = vendor; m_affected.clear(); emit devicesChanged(); emit changed(); emit confirmationChanged();
+    m_vendor = vendor; m_affected.clear(); m_operation = DriverOperation::WinUsb;
+    emit devicesChanged(); emit changed(); emit confirmationChanged();
     refresh(false);
 }
 void DriverController::setSuspended(bool suspended) {
@@ -152,20 +176,23 @@ void DriverController::scan(bool probe) {
     thread->setParent(this); m_scanThread = thread; m_lastScan.start();
     connect(thread, &QThread::finished, this, [this, thread, result, generation, probe] {
         m_scanThread = nullptr; thread->deleteLater();
+        m_qualcommInstalled = m_hooks.qualcommInstalled();
         if (!m_stopping && generation == m_generation) {
             if (result->error.isEmpty()) {
                 if (!probe) for (auto &d : result->devices) {
-                    if (d.state != DriverState::Bound) continue;
+                    if (d.state != DriverState::Bound || (d.vendor == 2 && !d.verifiedInterface)) continue;
                     for (const auto &previous : m_devices) if (previous.fingerprint() == d.fingerprint() &&
                         (previous.state == DriverState::Ready || previous.state == DriverState::AccessFailed)) {
                         d.state = previous.state; d.diagnostic = previous.diagnostic; break;
                     }
                 }
                 if (m_devices != result->devices) { m_devices = result->devices; emit devicesChanged(); }
-                if (m_detectionFailed) setMessage({});
-                m_detectionFailed = false;
+                if (m_detectionFailed) {
+                    m_detectionFailed = false; setMessage({}); emit devicesChanged();
+                }
             } else {
                 m_detectionFailed = true;
+                emit devicesChanged();
                 setMessage(tr("Driver detection failed: %1").arg(result->error));
             }
         }
@@ -183,16 +210,26 @@ void DriverController::scan(bool probe) {
                 m_rebootRequired = true;
                 finish(false, tr("Restart Windows, then open this tool to check the driver.")); return;
             }
-            if (device && device->state == DriverState::Ready) { finish(true, tr("Driver installed")); return; }
+            if (device && (device->state == DriverState::Ready ||
+                (device->vendor == 2 && device->state == DriverState::Bound && !device->port.isEmpty() && device->problem == 0))) {
+                finish(true, tr("Driver installed")); return;
+            }
             if (m_verifyElapsed.elapsed() >= m_hooks.verificationTimeoutMs) {
-                finish(false, m_detectionFailed ? tr("Driver detection failed: %1").arg(result->error) :
-                    tr("Device is not ready. Close other device tools, reconnect it, and refresh.")); return;
+                QString message = tr("Device is not ready. Close other device tools, reconnect it, and refresh.");
+                if (m_detectionFailed) message = tr("Driver detection failed: %1").arg(result->error);
+                else if (m_operation == DriverOperation::QualcommInstall) {
+                    if (!device) message = tr("Device disconnected. Reconnect it and refresh to check the driver.");
+                    else if (device->state == DriverState::Missing)
+                        message = tr("The device driver is still missing. See the driver log for details.");
+                }
+                finish(false, message); return;
             }
             m_verifyTimer.start(); return;
         }
         if (fresh && hasPending() && !m_busy && !m_rebootRequired) {
             const auto *device = FindDriverDevice(result->devices, m_pending);
-            if (device && device->state == DriverState::Ready) {
+            if (device && (device->state == DriverState::Ready ||
+                (device->vendor == 2 && device->state == DriverState::Bound && !device->port.isEmpty() && device->problem == 0))) {
                 forgetPending(); setMessage(tr("Driver installed"));
             }
         }
@@ -203,17 +240,24 @@ void DriverController::scan(bool probe) {
     thread->start(); emit changed();
 }
 void DriverController::prepareInstall(const QString &instance) {
-    if (locked() || checking() || m_stopping) return;
+    if (!m_available || locked() || checking() || m_stopping || m_detectionFailed) return;
     m_affected.clear();
     m_target = {};
     for (const auto &d : m_devices) if (d.instance == instance && d.vendor == m_vendor && d.canInstall()) m_target = d;
     if (m_target.instance != instance || !m_target.canInstall()) return;
+    m_operation = m_target.vendor == 2 ? DriverOperation::QualcommInstall : DriverOperation::WinUsb;
     for (const auto &d : m_devices)
         if (d.bindingId() == m_target.bindingId()) m_affected.append(d);
     emit confirmationChanged(); emit confirmationRequested();
 }
+void DriverController::prepareQualcommUninstall() {
+    if (!canUninstallQualcomm()) return;
+    m_operation = DriverOperation::QualcommUninstall;
+    m_target = {}; m_affected.clear();
+    emit confirmationChanged(); emit confirmationRequested();
+}
 void DriverController::confirmInstall() {
-    if (locked() || checking() || m_stopping || m_affected.isEmpty()) return;
+    if (!canConfirm()) return;
     m_busy = true; ++m_generation; m_scanAgain = m_probeAgain = false;
     m_installElapsed.start(); m_elapsedSeconds = 0; m_phase = DriverPhase::Preparing;
     m_progressTimer.start(); setMessage(phaseText());
@@ -225,12 +269,15 @@ void DriverController::beginInstall() {
     if (!m_busy || m_installThread || m_verifying || m_stopping) return;
     if (m_scanThread) { m_installPending = true; return; }
     m_installPending = false;
-    rememberPending();
+    if (m_operation != DriverOperation::QualcommUninstall) rememberPending();
     const auto result = std::make_shared<DriverInstallResult>();
     const auto installer = m_hooks.install;
     const auto installerWithProgress = m_hooks.installWithProgress;
+    const auto operation = m_operation;
+    const auto qualcommOperation = m_hooks.qualcommOperation;
+    const auto scanner = m_hooks.scan;
     const auto target = m_target; const auto affected = m_affected;
-    auto *thread = QThread::create([this, result, installer, installerWithProgress, target, affected] {
+    auto *thread = QThread::create([this, result, installer, installerWithProgress, target, affected, operation, qualcommOperation, scanner] {
         try {
             const DriverProgress progress = [this](DriverPhase phase) {
                 QMetaObject::invokeMethod(this, [this, phase] {
@@ -238,7 +285,16 @@ void DriverController::beginInstall() {
                     setPhase(phase);
                 }, Qt::QueuedConnection);
             };
-            if (installerWithProgress) *result = installerWithProgress(target, affected, progress);
+            if (operation == DriverOperation::QualcommInstall) {
+                const auto current = scanner(false);
+                const auto *device = FindDriverDevice(current.devices, target);
+                if (!current.error.isEmpty() || !device || device->vendor != 2 || !device->canInstall() ||
+                    device->fingerprint() != target.fingerprint()) {
+                    result->error = tr("Device or driver changed; refresh and select it again."); return;
+                }
+            }
+            if (operation != DriverOperation::WinUsb) *result = qualcommOperation(operation, target, affected, progress);
+            else if (installerWithProgress) *result = installerWithProgress(target, affected, progress);
             else if (installer) { progress(DriverPhase::Installing); *result = installer(target, affected); }
             else *result = InstallWindowsUsbDriverWithProgress(target, affected, progress);
         }
@@ -255,8 +311,14 @@ void DriverController::beginInstall() {
             finish(false, tr("Restart Windows, then open this tool to check the driver.")); return;
         }
         if (!result->ok) {
-            if (result->cancelled) forgetPending();
-            finish(false, result->cancelled ? tr("Driver installation cancelled") : tr("Driver installation failed: %1").arg(result->error)); return;
+            if (result->cancelled && m_operation != DriverOperation::QualcommUninstall) forgetPending();
+            finish(false, result->cancelled ? tr("Driver setup cancelled") : tr("Driver setup failed: %1").arg(result->error)); return;
+        }
+        if (m_operation == DriverOperation::QualcommUninstall) {
+            m_qualcommInstalled = m_hooks.qualcommInstalled();
+            if (m_pending.hardwareId.contains("VID_05C6", Qt::CaseInsensitive)) forgetPending();
+            finish(true, tr("Qualcomm drivers uninstalled"));
+            refresh(true); return;
         }
         m_verifying = true; m_verifyElapsed.start(); setPhase(DriverPhase::Verifying); scan(true);
     });
@@ -268,7 +330,7 @@ void DriverController::finish(bool ok, const QString &message) {
     emit diagnostic(QStringLiteral("Installation finished [%1 ms]: ok=%2 reboot=%3 %4")
         .arg(m_installElapsed.elapsed()).arg(ok).arg(m_rebootRequired).arg(message));
     m_verifyTimer.stop(); m_verifying = m_installPending = false; m_busy = false;
-    if (ok && !m_stopping) forgetPending();
+    if (ok && !m_stopping && m_operation != DriverOperation::QualcommUninstall) forgetPending();
     m_affected.clear(); setMessage(message); emit busyChanged(); emit devicesChanged(); emit confirmationChanged(); emit finished(ok, message);
 }
 void DriverController::rememberPending() {
@@ -306,15 +368,13 @@ void DriverController::resumePending() {
     const auto *device = FindDriverDevice(m_devices, m_pending);
     // Resumption may concern a different vendor than the currently selected workspace.
     m_affected.clear(); m_target = *device;
+    m_operation = device->vendor == 2 ? DriverOperation::QualcommInstall : DriverOperation::WinUsb;
     for (const auto &d : m_devices) if (d.bindingId() == m_target.bindingId()) m_affected.append(d);
     emit confirmationChanged(); emit confirmationRequested();
 }
 void DriverController::setMessage(const QString &message) {
     if (message == m_message) return;
     m_message = message; emit changed();
-}
-void DriverController::openOfficialDownload() {
-    QDesktopServices::openUrl(QUrl("https://www.qualcomm.com/developer/software/list"));
 }
 void DriverController::shutdown() {
     m_stopping = true; ++m_generation; m_debounce.stop(); m_verifyTimer.stop();

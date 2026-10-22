@@ -1,0 +1,5 @@
+#pragma once
+namespace gui {
+inline constexpr char qualcommPackageSha256[] = "@QUALCOMM_DRIVER_SHA256@";
+inline constexpr char qualcommPackageRelativePath[] = "tools/qualcomm/@QUALCOMM_DRIVER_FILENAME@";
+}

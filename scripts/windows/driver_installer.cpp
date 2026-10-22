@@ -21,6 +21,8 @@ int main(int argc, char **argv) {
     const auto document = QJsonDocument::fromJson(request.readAll(), &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) return 2;
     const auto object = document.object();
+    const auto action = object.value("operation").toString("winusb");
+    if (action != "winusb" && action != "qualcomm-install" && action != "qualcomm-uninstall") return 2;
     const auto target = gui::DriverDevice::fromJson(object["target"].toObject());
     QVector<gui::DriverDevice> affected;
     for (const auto &value : object["affected"].toArray()) affected.append(gui::DriverDevice::fromJson(value.toObject()));
@@ -33,14 +35,17 @@ int main(int argc, char **argv) {
     QElapsedTimer elapsed; elapsed.start();
     gui::DriverInstallResult result;
     try {
-        result = gui::InstallWindowsUsbDriverElevated(target, affected, [&](gui::DriverPhase phase) {
+        const gui::DriverProgress progressCallback = [&](gui::DriverPhase phase) {
             std::fprintf(stdout, "[%lld ms] phase=%d\n", static_cast<long long>(elapsed.elapsed()), int(phase));
             QSaveFile progress(directory.filePath("progress.json"));
             if (progress.open(QIODevice::WriteOnly)) {
                 progress.write(QJsonDocument(QJsonObject{{"phase", int(phase)}}).toJson(QJsonDocument::Compact));
                 progress.commit();
             }
-        });
+        };
+        if (action == "winusb") result = gui::InstallWindowsUsbDriverElevated(target, affected, progressCallback);
+        else result = gui::RunQualcommDriverElevated(action == "qualcomm-install" ?
+            gui::DriverOperation::QualcommInstall : gui::DriverOperation::QualcommUninstall, target, progressCallback);
     }
     catch (const std::exception &exception) { result.error = QString::fromUtf8(exception.what()); }
     std::fprintf(stdout, "[%lld ms] installation finished ok=%d reboot=%d\n",

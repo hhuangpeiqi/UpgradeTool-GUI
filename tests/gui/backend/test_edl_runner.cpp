@@ -65,6 +65,67 @@ int main(int argc,char **argv) {
     CHECK(EdlRunner::sameLocation(native, usb));
     usb.ports = {2,4}; CHECK(!EdlRunner::sameLocation(native, usb));
     native = {}; usb = {}; CHECK(!EdlRunner::sameLocation(native, usb));
+    {
+        EdlEndpoint diag;
+        diag.vid=0x05c6; diag.pid=0x9092; diag.interfaceNumber=0;
+        diag.instance="USB\\VID_05C6&PID_9092&MI_00\\board";
+        diag.serial="board"; diag.ports={2,3}; diag.location="native:board";
+        diag.accessError=-12; diag.accessReason="Driver missing";
+        auto adb=diag; adb.interfaceNumber=3; adb.instance="ADB"; adb.accessError=0;
+        adb.driverService="WinUSB";
+        auto row=diag; row.instance.clear(); row.location="usb:1-2.3"; row.accessError=0; row.accessReason.clear();
+        CHECK(BindEdlNativeInterface(row,{adb,diag}));
+        CHECK(row.instance==diag.instance && row.accessError==diag.accessError);
+        CHECK(row.accessReason=="Driver missing");
+        row.instance.clear(); row.accessError=0;
+        auto other=diag; other.instance="other"; other.ports={2,4}; other.accessError=0;
+        CHECK(BindEdlNativeInterface(row,{other,diag}) && row.accessError!=0);
+        row.instance.clear();
+        CHECK(!BindEdlNativeInterface(row,{diag,diag}));
+        row.instance.clear(); row.serial="replacement";
+        CHECK(!BindEdlNativeInterface(row,{diag}));
+        row.serial=diag.serial; row.instance.clear();
+        CHECK(!BindEdlNativeInterface(row,{adb}));
+        diag.accessError=0; diag.accessReason.clear(); diag.driverService="WinUSB";
+        row.instance.clear(); row.accessError=0; row.accessReason.clear();
+        CHECK(BindEdlNativeInterface(row,{diag}) && row.accessError==0);
+        diag.path="COM7"; diag.driverService="qcusbser";
+        row.instance.clear(); row.accessError=0;
+        CHECK(BindEdlNativeInterface(row,{diag}) && row.accessError!=0);
+        row.instance.clear(); row.serial.clear(); row.ports.clear(); row.location.clear();
+        CHECK(!BindEdlNativeInterface(row,{diag}));
+    }
+    for (bool suggested : {true,false}) {
+        EdlEndpoint diag;
+        diag.id="diag"; diag.location="usb:1-2"; diag.vid=0x2c7c; diag.pid=0x0700;
+        diag.suggested=suggested;
+        auto adb=diag; adb.kind=EdlEndpoint::Adb; adb.id="adb:board"; adb.serial="board";
+        bool missing=true; int opens=0, reboots=0;
+        EdlHooks injected;
+        injected.discover=[&](const QString &,const EdlCancel &,QString &) {
+            auto current=diag;
+            if(missing) { current.accessError=-12; current.accessReason="Driver missing"; }
+            return QVector<EdlEndpoint>{current,adb};
+        };
+        injected.openDiag=[&](const EdlEndpoint &,const EdlCancel &,QString &) -> std::unique_ptr<DiagSession> { ++opens; return {}; };
+        injected.reboot=[&](const QString &,const QString &,const EdlCancel &,QString &) { ++reboots; return false; };
+        EdlRunner runner(injected,100);
+        runner.refresh(""); CHECK(await([&]{return !runner.discovering();}));
+        CHECK(!runner.ready() && runner.targets().isEmpty());
+        CHECK(runner.unavailableReason()=="Driver missing");
+        CHECK(!runner.canStart("usb:1-2","diag"));
+        runner.requestSwitch(""); CHECK(opens==0 && reboots==0);
+        runner.setMethod(EdlRunner::Adb); CHECK(runner.ready());
+        runner.setMethod(EdlRunner::Diag);
+        missing=false; runner.refresh(""); CHECK(await([&]{return !runner.discovering();}));
+        CHECK(runner.ready() && runner.canStart("usb:1-2","diag"));
+        // The driver disappears after discovery but before the command starts.
+        missing=true; runner.start("usb:1-2",EdlRunner::Diag,"diag","");
+        CHECK(await([&]{return !runner.running() && runner.stopped();}));
+        CHECK(opens==0 && reboots==0 && runner.message()=="Driver missing");
+        runner.refresh(""); CHECK(await([&]{return !runner.discovering();}));
+        CHECK(!runner.ready());
+    }
     for(int scenario=0;scenario<23;++scenario) {
         EdlEndpoint diag; diag.id="diag"; diag.label="DIAG"; diag.location="usb:1-2"; diag.suggested=true;
         diag.vid=scenario%2 ? 0x2c7c : 0x05c6; diag.pid=scenario%2 ? 0x0125 : 0x9091; diag.interfaceNumber=3;

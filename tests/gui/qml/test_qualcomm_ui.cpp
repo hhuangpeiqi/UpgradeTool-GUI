@@ -39,6 +39,11 @@ int main(int argc,char **argv) {
             if (mask & 4) { auto second = diag; second.id = "diag:second-port"; endpoints.append(second); }
             if (mask & 8) { auto second = diag; second.id = "diag:other-board"; second.location = "usb:1-3"; endpoints.append(second); }
             if (mask & 16) { auto unknown = diag; unknown.suggested = false; endpoints.append(unknown); }
+            if (mask & 32) {
+                auto missing = diag; missing.accessError = LIBUSB_ERROR_NOT_SUPPORTED;
+                missing.accessReason = gui::EdlRunner::tr("The interface driver is missing. Open USB Drivers to install it.");
+                endpoints.append(missing);
+            }
             return endpoints;
         };
         hooks.openDiag = FakeDiagFactory([&](const gui::EdlEndpoint &, const QByteArray &request, const gui::EdlCancel &, QString &, bool &sent) {

@@ -1273,6 +1273,8 @@ int CRKAndroidDevice::DownloadBoot()
 			return -2;
 		}
 		if (dwSize > 0) {
+			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0471 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(pBoot->GetRc4DisableFlag()), int(pBoot->GetSignFlag()));
 			pBuffer = new BYTE[dwSize];
 			if (!pBoot->GetEntryData(ENTRY471, i, pBuffer)) {
 				m_iError = 0x6f;
@@ -1302,6 +1304,8 @@ int CRKAndroidDevice::DownloadBoot()
 			return -2;
 		}
 		if (dwSize > 0) {
+			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0472 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(pBoot->GetRc4DisableFlag()), int(pBoot->GetSignFlag()));
 			pBuffer = new BYTE[dwSize];
 			if (!pBoot->GetEntryData(ENTRY472, i, pBuffer)) {
 				m_iError = 0x70;

@@ -16,8 +16,9 @@ struct DriverDevice {
     DriverState state = DriverState::DeviceError;
     QString diagnostic;
     bool canInstall() const {
-        return vendor >= 0 && vendor < 2 && verifiedInterface &&
-            (state == DriverState::Missing || state == DriverState::Incompatible);
+        return verifiedInterface && ((vendor >= 0 && vendor < 2 &&
+            (state == DriverState::Missing || state == DriverState::Incompatible)) ||
+            (vendor == 2 && vid == 0x05c6 && state == DriverState::Missing));
     }
     bool needsAttention() const { return state != DriverState::Ready && state != DriverState::Bound; }
     QString fingerprint() const;
@@ -28,6 +29,10 @@ struct DriverDevice {
 };
 struct DriverScan { QVector<DriverDevice> devices; QString error; };
 bool RecognizeWindowsFlashingInterface(DriverDevice &, const QStringList &compatibleIds);
+bool WindowsUsbServiceCompatible(const QString &service);
+#ifdef Q_OS_WIN
+void ClassifyWindowsUsbDriver(DriverDevice &, unsigned long status, unsigned long problem);
+#endif
 struct DriverInstallResult {
     bool ok = false, cancelled = false;
     QString error;
@@ -35,7 +40,14 @@ struct DriverInstallResult {
     bool rebootRequired = false, retryable = false;
 };
 enum class DriverPhase { Installing, Recovering, Verifying, Preparing, Bound };
+enum class DriverOperation { WinUsb, QualcommInstall, QualcommUninstall };
 using DriverProgress = std::function<void(DriverPhase)>;
+bool QualcommDriverInstalled();
+QString QualcommDriverPackageError(const QString &path);
+QStringList QualcommDriverArguments(DriverOperation);
+DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation, const DriverDevice &,
+    const QVector<DriverDevice> &, const DriverProgress &);
+DriverInstallResult RunQualcommDriverElevated(DriverOperation, const DriverDevice &, const DriverProgress &);
 const DriverDevice *FindDriverDevice(const QVector<DriverDevice> &, const DriverDevice &);
 DriverScan ScanWindowsUsbDrivers(bool probe = false);
 QVector<QPair<QString, QString>> WindowsAdbLocations();

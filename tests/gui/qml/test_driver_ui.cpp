@@ -44,11 +44,24 @@ int main(int argc, char **argv) {
     }
     auto aw = board; aw.vendor = 1; aw.label = "Allwinner FEL"; aw.instance += "-AW";
     auto qc = board; qc.vendor = 2; qc.label = "Qualcomm HS-USB QDLoader 9008"; qc.instance += "-QC";
+    qc.vid = 0x05c6; qc.pid = 0x9008; qc.hardwareId = "USB\\VID_05C6&PID_9008";
     gui::DriverHooks hooks;
+    hooks.qualcommInstalled = [] { return true; };
+    hooks.qualcommOperation = [&](auto, const auto &, const auto &, const auto &) {
+        return gui::DriverInstallResult{false, true, {}};
+    };
     hooks.scan = [&, board, aw, qc](bool) {
         const int mode = scanMode;
         if (mode == 2) return gui::DriverScan{};
         if (mode == 3) return gui::DriverScan{{}, "Test detection failure"};
+        if (mode == 5) {
+            auto diagnostic = qc;
+            diagnostic.pid = 0x9092; diagnostic.interfaceNumber = 0;
+            diagnostic.instance = "USB\\VID_05C6&PID_9092&MI_00\\BOARD";
+            diagnostic.hardwareId = "USB\\VID_05C6&PID_9092&MI_00";
+            diagnostic.label = "Qualcomm diagnostic interface"; diagnostic.problem = 28;
+            return gui::DriverScan{{diagnostic}, {}};
+        }
         if (mode == 4) {
             gui::DriverScan result;
             for (int i = 0; i < 8; ++i) {
@@ -251,9 +264,37 @@ int main(int argc, char **argv) {
     controller.setVendor(2);
     CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
     CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-    auto *official = FindVisualItem(window->contentItem(), "officialDriverButton");
-    CHECK(official && official->isVisible());
-    for (auto *item : window->findChildren<QQuickItem *>("driverInstallButton")) CHECK(!item->isVisible());
+    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    auto *uninstall = FindVisualItem(window->contentItem(), "qualcommUninstallButton");
+    CHECK(uninstall && uninstall->isVisible() && uninstall->isEnabled());
+    for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
+        controller.language()->setMode(language); controller.theme()->setMode(theme);
+        window->setWidth(1024); window->setHeight(640);
+        QCoreApplication::processEvents();
+        auto *qcInstall = FindVisualItem(window->contentItem(), "driverInstallButton");
+        CHECK(qcInstall && qcInstall->isVisible() && qcInstall->isEnabled());
+        if (!qcInstall) return 1;
+        CHECK(QMetaObject::invokeMethod(qcInstall, "clicked"));
+        CHECK(AwaitUi([&] { return confirmation->property("visible").toBool(); }));
+        CHECK(controller.drivers()->confirmationTitle() == QString::fromUtf8(QByteArray(language) == "zh" ? "安装高通驱动？" : "Install Qualcomm drivers?"));
+        CHECK(QMetaObject::invokeMethod(confirmation, "close"));
+        CHECK(QMetaObject::invokeMethod(uninstall, "clicked"));
+        CHECK(AwaitUi([&] { return confirmation->property("visible").toBool(); }));
+        CHECK(controller.drivers()->confirmationTitle() == QString::fromUtf8(QByteArray(language) == "zh" ? "卸载高通驱动？" : "Uninstall Qualcomm drivers?"));
+        CHECK(controller.drivers()->canConfirm());
+        if (argc > 1) {
+            QTest::qWait(80);
+            CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1]) + QString("/qualcomm-driver-confirmation-%1-%2.png").arg(language, theme)));
+        }
+        CHECK(QMetaObject::invokeMethod(confirmation, "close"));
+    }
+    scanMode = 5; controller.drivers()->refresh();
+    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    CHECK(controller.drivers()->summaryLevel() == "warning");
+    CHECK(controller.drivers()->attentionCount() == 1);
+    CHECK(controller.drivers()->devices().first().toMap()["canInstall"].toBool());
+    CHECK(FindVisualItem(window->contentItem(), "statusDriver")->isVisible());
+    scanMode = 0;
     CHECK(installs == 0);
     CHECK(QMetaObject::invokeMethod(dialog, "close"));
     controller.setVendor(0);

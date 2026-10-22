@@ -240,6 +240,7 @@ try {
     Copy-Item (Join-Path $Build "upgrade_driver_installer.exe") $Stage
     Copy-Item (Join-Path $Build "libwdi.dll") $Stage
     Copy-Item (Join-Path $Root "config.ini") $Stage
+    Run-Checked { & $cmake "-DQUALCOMM_DRIVER_CACHE_DIR=$Build/qualcomm-driver-cache" "-DQUALCOMM_DRIVER_DESTINATION=$Stage/tools/qualcomm" -P (Join-Path $Root "scripts/prepare_qualcomm_driver.cmake") }
     $AdbDir = Join-Path $Stage "tools/adb"
     Run-Checked { & $cmake -DADB_PLATFORM=win "-DADB_CACHE_DIR=$Build/adb-cache" "-DADB_DESTINATION=$AdbDir" -P (Join-Path $Root "scripts/prepare_adb.cmake") }
     Run-Checked { & "$AdbDir/adb.exe" version }

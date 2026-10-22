@@ -1076,6 +1076,8 @@ int CRKDevice::DownloadBoot()
 			return -2;
 		}
 		if (dwSize>0) {
+			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0471 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(m_pImage->m_bootObject->GetRc4DisableFlag()), int(m_pImage->m_bootObject->GetSignFlag()));
 			pBuffer = new BYTE[dwSize];
 			if ( !m_pImage->m_bootObject->GetEntryData(ENTRY471, i, pBuffer) ) {
 				if (m_pLog) {
@@ -1116,6 +1118,8 @@ int CRKDevice::DownloadBoot()
 				delete []pBuffer;
 				return -3;
 			}
+			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0472 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(m_pImage->m_bootObject->GetRc4DisableFlag()), int(m_pImage->m_bootObject->GetSignFlag()));
 			if ( !Boot_VendorRequest(0x0472, pBuffer, dwSize) ) {
 				if (m_pLog) {
 					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->Boot_VendorRequest472 failed,index(%d)", m_layerName.c_str(), i);

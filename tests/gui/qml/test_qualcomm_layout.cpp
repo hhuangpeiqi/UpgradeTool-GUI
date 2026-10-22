@@ -5,21 +5,24 @@ bool QualcommUiTests::TestLayout() {
     // horizontal overflow, including expanded advanced options and keyboard focus.
     window->setProperty("currentPage",2);
     window->setWidth(1300); window->setHeight(640);
+    CHECK(waitForLayout());
     CHECK(AwaitUi([&]{return toolSelector->isVisible() && !toolNavigation->isVisible();}));
     auto *shortWindowAction=FindVisualItem(toolsPage, "qcToolStart-chipinfo");
     CHECK(shortWindowAction->mapToScene(QPointF(0,shortWindowAction->height())).y()
           <= toolsPage->mapToScene(QPointF(0,toolsPage->height())).y());
     if (argc>2) CHECK(window->grabWindow().save(QDir(QString::fromLocal8Bit(argv[2])).filePath("tools-wide-short.png")));
     window->setWidth(1024); window->setHeight(640);
+    CHECK(waitForLayout());
     auto *toolsScroll=toolsPage->findChild<QObject *>("qcWorkspaceScroll"); CHECK(toolsScroll);
     auto *toolsContent=toolsScroll ? qvariant_cast<QQuickItem *>(toolsScroll->property("contentItem")) : nullptr; CHECK(toolsContent);
     if (toolsContent) for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
         controller.language()->setMode(language); controller.theme()->setMode(theme);
+        CHECK(waitForLayout());
         CHECK(AwaitUi([&]{return toolSelector->isVisible() && !toolNavigation->isVisible();}));
         for (const auto &context : toolContexts) {
             toolSelector->setProperty("currentIndex", toolContexts.indexOf(context));
             CHECK(QMetaObject::invokeMethod(toolSelector, "activated", Q_ARG(int, toolContexts.indexOf(context))));
-            QCoreApplication::processEvents();
+            CHECK(waitForLayout());
             CHECK(toolsPage->property("context").toString() == context);
             CHECK(toolsContent->property("contentY").toReal() == 0);
             const QStringList methods = context == "reset" ? QStringList{"sahara", "firehose"} : QStringList{"sahara"};
@@ -29,7 +32,9 @@ bool QualcommUiTests::TestLayout() {
                 auto *button=FindVisualItem(toolsPage, "qcToolStart-"+context);
                 auto *advanced=panel->findChild<QObject *>("qcAdvanced");
                 advanced->setProperty("expanded",true);
-                QElapsedTimer layout; layout.start(); AwaitUi([&]{return layout.elapsed()>30;});
+                // Compare settled layouts, including after scrolling: a fixed delay
+                // can capture an intermediate position before Qt's next polish pass.
+                CHECK(waitForLayout());
                 const QPointF position=button->mapToScene(QPointF());
                 CHECK(button->isVisible() && panel->isVisible());
                 CHECK(position.x()>=toolsPage->mapToScene(QPointF()).x());
@@ -38,10 +43,10 @@ bool QualcommUiTests::TestLayout() {
                 CHECK(position.y()+button->height()<=toolsPage->mapToScene(QPointF(0,toolsPage->height())).y());
                 const qreal maximum=qMax(qreal(0),toolsContent->property("contentHeight").toReal()-toolsContent->height());
                 toolsContent->setProperty("contentY",maximum);
-                QCoreApplication::processEvents();
+                CHECK(waitForLayout());
                 CHECK(button->mapToScene(QPointF()) == position);
                 toolsContent->setProperty("contentY",0);
-                QCoreApplication::processEvents();
+                CHECK(waitForLayout());
                 if (context == "reset") {
                     auto *choice=panel->findChild<QQuickItem *>("qcResetMethod"); CHECK(choice);
                     CHECK(choice && choice->property("currentIndex").toInt() == (method == "firehose" ? 1 : 0));

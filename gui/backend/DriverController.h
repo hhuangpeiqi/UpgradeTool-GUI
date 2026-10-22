@@ -15,6 +15,9 @@ struct DriverHooks {
     std::function<DriverInstallResult(const DriverDevice &, const QVector<DriverDevice> &)> install;
     int verificationTimeoutMs = 15000;
     std::function<DriverInstallResult(const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress &)> installWithProgress;
+    std::function<bool()> qualcommInstalled = QualcommDriverInstalled;
+    std::function<DriverInstallResult(DriverOperation, const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress &)>
+        qualcommOperation = RunWindowsDriverOperationWithProgress;
 };
 class DriverController : public QObject, public Retranslatable, public QAbstractNativeEventFilter {
     Q_OBJECT
@@ -33,6 +36,10 @@ class DriverController : public QObject, public Retranslatable, public QAbstract
     Q_PROPERTY(bool hasPending READ hasPending NOTIFY changed)
     Q_PROPERTY(bool canResume READ canResume NOTIFY changed)
     Q_PROPERTY(QString pendingText READ pendingText NOTIFY changed)
+    Q_PROPERTY(bool canUninstallQualcomm READ canUninstallQualcomm NOTIFY changed)
+    Q_PROPERTY(QString confirmationTitle READ confirmationTitle NOTIFY confirmationChanged)
+    Q_PROPERTY(QString confirmationText READ confirmationText NOTIFY confirmationChanged)
+    Q_PROPERTY(bool canConfirm READ canConfirm NOTIFY confirmationChanged)
 public:
     static constexpr bool hostAvailable() {
 #ifdef Q_OS_WIN
@@ -59,6 +66,10 @@ public:
     bool hasPending() const { return !m_pending.instance.isEmpty(); }
     bool canResume() const;
     QString pendingText() const;
+    bool canUninstallQualcomm() const;
+    QString confirmationTitle() const;
+    QString confirmationText() const;
+    bool canConfirm() const;
     void setVendor(int);
     void setSuspended(bool);
     void poll(bool probe = false);
@@ -71,7 +82,7 @@ public:
     Q_INVOKABLE void confirmInstall();
     Q_INVOKABLE void resumePending();
     Q_INVOKABLE void forgetPending();
-    Q_INVOKABLE void openOfficialDownload();
+    Q_INVOKABLE void prepareQualcommUninstall();
     bool nativeEventFilter(const QByteArray &, void *, qintptr *) override;
 signals:
     void changed();
@@ -95,6 +106,8 @@ private:
     bool m_scanAgain = false, m_probeAgain = false, m_installPending = false, m_verifying = false;
     bool m_probeOnPoll = false;
     bool m_detectionFailed = false;
+    bool m_qualcommInstalled = false;
+    DriverOperation m_operation = DriverOperation::WinUsb;
     int m_vendor = 0;
     unsigned m_generation = 0;
     QThread *m_scanThread = nullptr, *m_installThread = nullptr;

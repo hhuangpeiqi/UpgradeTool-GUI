@@ -3,6 +3,7 @@
 #include <QThread>
 #include <QMap>
 #include <utility>
+#include <libusb.h>
 namespace gui {
 namespace {
 quint16 crc(const QByteArray &data) {
@@ -50,6 +51,40 @@ bool EdlRunner::sameLocation(const EdlEndpoint &a, const EdlEndpoint &b) {
     if (!a.location.isEmpty() && a.location == b.location) return true;
     return !a.ports.isEmpty() && a.bus == b.bus && a.ports == b.ports;
 }
+bool BindEdlNativeInterface(EdlEndpoint &endpoint, const QVector<EdlEndpoint> &native) {
+    const EdlEndpoint *binding = nullptr;
+    for (const auto &row : native) {
+        if (row.vid != endpoint.vid || row.pid != endpoint.pid ||
+            row.interfaceNumber != endpoint.interfaceNumber || row.instance.isEmpty()) continue;
+        if (!endpoint.instance.isEmpty() && endpoint.instance.compare(row.instance, Qt::CaseInsensitive)) continue;
+        if (!endpoint.serial.isEmpty() && !row.serial.isEmpty() && endpoint.serial != row.serial) continue;
+        if (!endpoint.ports.isEmpty() && !row.ports.isEmpty() && endpoint.ports != row.ports) continue;
+        if (endpoint.bus && row.bus && endpoint.bus != row.bus) continue;
+        if (endpoint.instance.isEmpty() && !EdlRunner::sameLocation(endpoint, row) &&
+            (endpoint.serial.isEmpty() || endpoint.serial != row.serial) &&
+            (endpoint.ports.isEmpty() || endpoint.ports != row.ports)) continue;
+        if (binding) { binding = nullptr; break; }
+        binding = &row;
+    }
+    if (!binding) {
+        endpoint.accessError = LIBUSB_ERROR_NOT_FOUND;
+        endpoint.accessReason = EdlRunner::tr("Cannot uniquely identify the interface driver. Reconnect the device and refresh.");
+        return false;
+    }
+    endpoint.instance = binding->instance;
+    if (!binding->location.isEmpty()) endpoint.location = binding->location;
+    endpoint.driverService = binding->driverService;
+    endpoint.suggested |= binding->suggested;
+    if (binding->accessError) {
+        endpoint.accessError = binding->accessError;
+        endpoint.accessReason = binding->accessReason;
+    } else if (!binding->path.isEmpty()) {
+        // An official COM binding is usable through the serial endpoint only.
+        endpoint.accessError = LIBUSB_ERROR_NOT_SUPPORTED;
+        endpoint.accessReason = EdlRunner::tr("Use the diagnostic COM port for this interface.");
+    }
+    return true;
+}
 EdlRunner::EdlRunner(QObject *parent) : EdlRunner(DefaultEdlHooks(), 45000, parent) {}
 EdlRunner::EdlRunner(EdlHooks hooks, int waitMs, QObject *parent)
     : QObject(parent), m_hooks(std::move(hooks)), m_waitMs(waitMs) {}
@@ -79,16 +114,24 @@ QString EdlRunner::unavailableReason() const {
     if (running()) return tr("Switching device to EDL mode…");
     if (!m_discovered) return tr("Discovering diagnostic ports and ADB devices…");
     if (!m_targets.isEmpty()) return {};
+    for (const auto &endpoint : m_endpoints)
+        if (candidate(endpoint) && endpoint.accessError)
+            return endpoint.accessReason.isEmpty()
+                ? tr("Cannot access the selected interface; check its USB driver and close other device tools.")
+                : endpoint.accessReason;
     return m_method == Diag ? tr("No diagnostic interface detected")
                             : tr("No authorized ADB device detected; check ADB and USB debugging");
 }
-bool EdlRunner::eligible(const EdlEndpoint &e) const {
+bool EdlRunner::candidate(const EdlEndpoint &e) const {
     if (qtq_download_identity(e.vid,e.pid)) return false;
     if (m_method == Adb) return e.kind == EdlEndpoint::Adb && !e.serial.isEmpty();
     // Host UARTs are not diagnostic candidates. Unknown USB interfaces remain
     // selectable, but require explicit selection and a valid DIAG version reply.
     return e.kind != EdlEndpoint::Adb && (e.suggested ||
         (e.vid != 0 && (!e.location.isEmpty() || !e.ports.isEmpty())));
+}
+bool EdlRunner::eligible(const EdlEndpoint &e) const {
+    return candidate(e) && !e.accessError;
 }
 QVector<EdlEndpoint> EdlRunner::selectedEndpoints(const QString &targetId, const QString &endpointId) const {
     QVector<EdlEndpoint> selected;
@@ -195,6 +238,12 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
             }
         }
         if (!found) { result->message = tr("The selected switch endpoint is no longer available. Refresh and select it again."); return; }
+        if (target.accessError) {
+            result->message = target.accessReason.isEmpty()
+                ? tr("Cannot access the selected interface; check its USB driver and close other device tools.")
+                : target.accessReason;
+            return;
+        }
         const bool useDiag = method == Diag;
         std::unique_ptr<DiagSession> session;
         if (useDiag) {

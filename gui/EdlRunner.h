@@ -13,7 +13,7 @@ class QThread;
 namespace gui {
 // An enumeration snapshot. Candidate modes never confirm a protocol session.
 struct EdlEndpoint {
-    QString id, label, path, serial, location, instance;
+    QString id, label, path, serial, location, instance, driverService, accessReason;
     enum Kind { Serial, Usb, Adb } kind = Serial;
     quint16 vid = 0, pid = 0;
     int bus = 0, interfaceNumber = -1, alternate = 0, in = 0, out = 0;
@@ -94,6 +94,7 @@ private:
     void setMessage(const QString &message);
     void setState(State state);
     void rebuildTargets();
+    bool candidate(const EdlEndpoint &endpoint) const;
     bool eligible(const EdlEndpoint &endpoint) const;
     QVector<EdlEndpoint> selectedEndpoints(const QString &targetId, const QString &endpointId) const;
     void reject(const QString &message);
@@ -113,6 +114,8 @@ private:
     QString m_message, m_discoveryError;
 };
 EdlHooks DefaultEdlHooks();
+// Match a USB interface to one native binding, never to a sibling interface.
+bool BindEdlNativeInterface(EdlEndpoint &, const QVector<EdlEndpoint> &);
 }
 Q_DECLARE_METATYPE(gui::EdlEndpoint)
 #endif

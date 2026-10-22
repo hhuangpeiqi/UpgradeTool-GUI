@@ -9,6 +9,8 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QCryptographicHash>
+#include <QFileInfo>
 #include <algorithm>
 #include <vector>
 
@@ -18,9 +20,36 @@
 #include <cfgmgr32.h>
 #include <winusb.h>
 #include <shellapi.h>
+#include <shlobj.h>
+#include "application/QualcommDriverPackage.h"
 #endif
 
 namespace gui {
+bool QualcommDriverInstalled() {
+#ifdef Q_OS_WIN
+    wchar_t directory[MAX_PATH] = {};
+    if (FAILED(SHGetFolderPathW(nullptr, CSIDL_PROGRAM_FILES, nullptr, SHGFP_TYPE_CURRENT, directory))) return false;
+    return QFileInfo(QDir(QString::fromWCharArray(directory)).filePath("Qualcomm/Qualcomm USB Drivers/qdinstall.exe")).isFile();
+#else
+    return false;
+#endif
+}
+QString QualcommDriverPackageError(const QString &path) {
+#ifdef Q_OS_WIN
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return QStringLiteral("Bundled Qualcomm driver tool is missing or unreadable: %1").arg(path);
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file) || hash.result().toHex() != QByteArray(qualcommPackageSha256))
+        return QStringLiteral("Bundled Qualcomm driver tool failed SHA256 verification.");
+    return {};
+#else
+    Q_UNUSED(path);
+    return QStringLiteral("Qualcomm driver installation is unavailable on this platform.");
+#endif
+}
+QStringList QualcommDriverArguments(DriverOperation operation) {
+    return operation == DriverOperation::QualcommUninstall ? QStringList{"-u"} : QStringList{};
+}
 std::recursive_mutex &UsbProbeMutex() { static std::recursive_mutex mutex; return mutex; }
 bool RecognizeWindowsFlashingInterface(DriverDevice &d, const QStringList &compatibleIds) {
     d.vendor = -1; d.verifiedInterface = false;
@@ -40,12 +69,18 @@ bool RecognizeWindowsFlashingInterface(DriverDevice &d, const QStringList &compa
         }
 #endif
 #if UPGRADE_TOOL_QUALCOMM
-        if (qtq_download_identity(d.vid, d.pid)) {
+        const bool vendorInterface = classes.contains("USB\\CLASS_FF") &&
+            !classes.contains("SUBCLASS_42&PROT_01");
+        const bool diag = qtq_known_diag(d.vid, d.pid, d.interfaceNumber) ||
+            qtq_diag_name(d.label.toUtf8().constData());
+        if (d.vendor < 0 && vendorInterface && (d.vid == 0x05c6 || diag)) {
             d.vendor = 2;
-            for (const auto &id : compatibleIds) d.verifiedInterface |= qtq_download_compatible_id(id.toLatin1().constData());
+            d.verifiedInterface = diag;
+            if (qtq_download_identity(d.vid, d.pid))
+                for (const auto &id : compatibleIds) d.verifiedInterface |= qtq_download_compatible_id(id.toLatin1().constData());
         }
 #endif
-    return d.vendor >= 0 && d.verifiedInterface;
+    return d.vendor >= 0 && (d.verifiedInterface || d.vendor == 2);
 }
 
 QString DriverDevice::fingerprint() const {
@@ -108,6 +143,10 @@ QStringList registryStrings(HDEVINFO set, SP_DEVINFO_DATA &info, const wchar_t *
 bool matchesInterface(const DriverDevice &d, const USB_INTERFACE_DESCRIPTOR &alt) {
     if (d.vendor == 0) return alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass == 6 && alt.bInterfaceProtocol == 5;
     if (d.vendor == 1) return alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass != 0x42;
+    if (d.interfaceNumber >= 0 && alt.bInterfaceNumber != d.interfaceNumber) return false;
+    if (!qtq_download_identity(d.vid, d.pid))
+        return alt.bInterfaceClass == 0xff &&
+            !(alt.bInterfaceSubClass == 0x42 && alt.bInterfaceProtocol == 1);
     return qtq_download_interface(alt.bInterfaceClass, alt.bInterfaceSubClass, alt.bInterfaceProtocol, 0x81, 1, 1, 1);
 }
 void probeWinusb(HDEVINFO devices, SP_DEVINFO_DATA &info, DriverDevice &d) {
@@ -156,12 +195,29 @@ void probeWinusb(HDEVINFO devices, SP_DEVINFO_DATA &info, DriverDevice &d) {
     d.state = DriverState::AccessFailed;
     d.diagnostic = QStringLiteral("WinUSB: %1").arg(lastError);
 }
-bool compatibleService(const QString &service) {
+}
+#endif
+bool WindowsUsbServiceCompatible(const QString &service) {
     if (service.compare("WinUSB", Qt::CaseInsensitive) == 0) return true;
     if (service.compare("libusbK", Qt::CaseInsensitive) && service.compare("libusb0", Qt::CaseInsensitive)) return false;
     QLibrary library("libusbK");
     return library.load();
 }
+
+#ifdef Q_OS_WIN
+void ClassifyWindowsUsbDriver(DriverDevice &d, unsigned long status, unsigned long problem) {
+    const bool hasProblem = (status & DN_HAS_PROBLEM) != 0;
+    d.problem = hasProblem ? problem : 0;
+    if (d.problem == CM_PROB_NEED_RESTART) d.state = DriverState::RebootRequired;
+    else if (d.problem == CM_PROB_FAILED_INSTALL || (d.service.isEmpty() && !hasProblem)) d.state = DriverState::Missing;
+    else if (hasProblem) d.state = DriverState::DeviceError;
+    // Auxiliary Qualcomm interfaces (for example WWAN) are not flashing transports.
+    // Their started flag can change without Windows reporting a device problem.
+    else if (d.vendor == 2 && !d.verifiedInterface) d.state = DriverState::Bound;
+    else if (!(status & DN_STARTED)) d.state = DriverState::DeviceError;
+    else if ((d.vendor == 2 && !d.port.isEmpty() && !d.service.isEmpty()) ||
+        WindowsUsbServiceCompatible(d.service)) d.state = DriverState::Bound;
+    else d.state = DriverState::Incompatible;
 }
 #endif
 
@@ -187,26 +243,26 @@ DriverScan ScanWindowsUsbDrivers(bool probe) {
         const auto interfaceMatch = QRegularExpression("&MI_([0-9A-F]{2})", QRegularExpression::CaseInsensitiveOption).match(d.hardwareId);
         if (interfaceMatch.hasMatch()) d.interfaceNumber = interfaceMatch.captured(1).toInt(nullptr, 16);
         d.service = property(set, info, SPDRP_SERVICE).value(0);
+        d.label = property(set, info, SPDRP_FRIENDLYNAME).value(0);
+        if (d.label.isEmpty()) d.label = property(set, info, SPDRP_DEVICEDESC).value(0);
         const auto compatible = property(set, info, SPDRP_COMPATIBLEIDS);
         const QString classes = compatible.join('|').toUpper();
         if (classes.contains("USB\\COMPOSITE") || !d.service.compare("usbccgp", Qt::CaseInsensitive)) continue;
         if (!RecognizeWindowsFlashingInterface(d, compatible)) continue;
-        if (d.vendor < 0 || !d.verifiedInterface) continue;
         d.instance = instanceId(set, info);
         if (d.instance.isEmpty()) continue;
-        d.label = property(set, info, SPDRP_FRIENDLYNAME).value(0);
-        if (d.label.isEmpty()) d.label = property(set, info, SPDRP_DEVICEDESC).value(0);
         d.location = property(set, info, SPDRP_LOCATION_PATHS).value(0);
         d.port = registryStrings(set, info, L"PortName").value(0);
         ULONG status = 0, problem = 0;
-        if (CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0) != CR_SUCCESS) continue;
-        d.problem = problem;
-        if (problem == CM_PROB_NEED_RESTART) d.state = DriverState::RebootRequired;
-        else if (problem == CM_PROB_FAILED_INSTALL || (d.service.isEmpty() && problem == 0)) d.state = DriverState::Missing;
-        else if (problem) d.state = DriverState::DeviceError;
-        else if ((d.vendor == 2 && !d.port.isEmpty()) || compatibleService(d.service)) d.state = DriverState::Bound;
-        else d.state = DriverState::Incompatible;
-        if (probe && d.state == DriverState::Bound && !d.service.compare("WinUSB", Qt::CaseInsensitive)) probeWinusb(set, info, d);
+        const auto statusResult = CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0);
+        if (statusResult != CR_SUCCESS) {
+            d.state = DriverState::AccessFailed;
+            d.diagnostic = QStringLiteral("CM_Get_DevNode_Status: %1").arg(statusResult);
+            result.devices.append(d); continue;
+        }
+        ClassifyWindowsUsbDriver(d, status, problem);
+        if (probe && d.state == DriverState::Bound && (d.vendor != 2 || d.verifiedInterface) &&
+            !d.service.compare("WinUSB", Qt::CaseInsensitive)) probeWinusb(set, info, d);
         result.devices.append(d);
     }
     SetupDiDestroyDeviceInfoList(set);
@@ -256,6 +312,10 @@ DriverInstallResult InstallWindowsUsbDriver(const DriverDevice &target, const QV
 }
 DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &target, const QVector<DriverDevice> &affected,
                                                        const DriverProgress &progress) {
+    return RunWindowsDriverOperationWithProgress(DriverOperation::WinUsb, target, affected, progress);
+}
+DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation operation, const DriverDevice &target,
+    const QVector<DriverDevice> &affected, const DriverProgress &progress) {
 #ifdef Q_OS_WIN
     DriverInstallResult result;
     QTemporaryDir directory(QDir::tempPath() + "/upgrade-driver-request-XXXXXX");
@@ -263,7 +323,9 @@ DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &targ
     QJsonArray targets;
     for (const auto &d : affected) targets.append(d.toJson());
     QFile request(directory.filePath("request.json"));
-    const auto bytes = QJsonDocument(QJsonObject{{"target", target.toJson()}, {"affected", targets}}).toJson();
+    const QString action = operation == DriverOperation::QualcommInstall ? "qualcomm-install" :
+        operation == DriverOperation::QualcommUninstall ? "qualcomm-uninstall" : "winusb";
+    const auto bytes = QJsonDocument(QJsonObject{{"operation", action}, {"target", target.toJson()}, {"affected", targets}}).toJson();
     if (!request.open(QIODevice::WriteOnly) || request.write(bytes) != bytes.size()) {
         result.error = QStringLiteral("Cannot write the driver installation request."); return result;
     }
@@ -311,7 +373,7 @@ DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &targ
     result.rebootRequired = value["rebootRequired"].toBool();
     return result;
 #else
-    Q_UNUSED(target); Q_UNUSED(affected); Q_UNUSED(progress);
+    Q_UNUSED(operation); Q_UNUSED(target); Q_UNUSED(affected); Q_UNUSED(progress);
     return {false, false, QStringLiteral("Windows driver installation is unavailable on this platform.")};
 #endif
 }

@@ -46,7 +46,9 @@ AppDialog {
     Text {
         width: parent.width
         visible: app.drivers.devices.length === 0
-        text: app.drivers.checking ? qsTr("Checking…") : qsTr("No flashing device found")
+        text: app.drivers.checking ? qsTr("Checking…") : app.vendor === 2
+            ? qsTr("Installation is available when the connected Qualcomm device's driver is missing.")
+            : qsTr("No flashing device found")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -155,12 +157,13 @@ AppDialog {
         }
         Item { Layout.fillWidth: true }
         PrimaryButton {
-            objectName: "officialDriverButton"
+            objectName: "qualcommUninstallButton"
             visible: app.vendor === 2
-            text: qsTr("Official Download")
-            onClicked: app.drivers.openOfficialDownload()
+            text: qsTr("Uninstall drivers")
+            enabled: !app.interactionLocked && app.drivers.canUninstallQualcomm
+            onClicked: app.drivers.prepareQualcommUninstall()
             ToolTip.visible: hovered
-            ToolTip.text: qsTr("Qualcomm USB Driver · Login required")
+            ToolTip.text: qsTr("Remove the installed Qualcomm driver package")
         }
         SecondaryButton {
             objectName: "driverCloseButton"
@@ -178,8 +181,18 @@ AppDialog {
         id: confirmation
         parent: dialog.parent
         objectName: "driverConfirmationDialog"
-        titleText: qsTr("Install WinUSB?")
+        titleText: app.drivers.confirmationTitle
         width: Math.min(540, Overlay.overlay ? Overlay.overlay.width - 32 : 540)
+
+        Text {
+            width: parent.width
+            visible: text !== ""
+            text: app.drivers.confirmationText
+            wrapMode: Text.WordWrap
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+        }
 
         Repeater {
             model: app.drivers.confirmation
@@ -200,8 +213,8 @@ AppDialog {
             SecondaryButton { text: qsTr("Cancel"); onClicked: confirmation.close() }
             PrimaryButton {
                 objectName: "driverConfirmButton"
-                text: qsTr("Install")
-                enabled: !app.interactionLocked && !app.drivers.checking && app.drivers.confirmation.length > 0
+                text: app.drivers.confirmation.length > 0 ? qsTr("Install") : qsTr("Uninstall")
+                enabled: !app.interactionLocked && !app.drivers.checking && app.drivers.canConfirm
                 onClicked: { confirmation.close(); app.drivers.confirmInstall(); }
             }
         }

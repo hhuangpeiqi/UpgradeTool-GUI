@@ -69,6 +69,16 @@ bool QualcommUiTests::TestDevices() {
     controller.language()->setMode("zh");
     hoverButton(switchEdl, switchTooltip, QStringLiteral("未检测到诊断接口"));
     controller.language()->setMode("en");
+    // A working ADB sibling must not enable DIAG when its driver is missing.
+    endpointMask = 34; refreshSwitch();
+    CHECK(!switchEdl->isEnabled());
+    hoverButton(switchEdl, switchTooltip, QStringLiteral("driver is missing"));
+    controller.edl()->setMethod(gui::EdlRunner::Adb);
+    CHECK(switchEdl->isEnabled());
+    controller.edl()->setMethod(gui::EdlRunner::Diag);
+    CHECK(!switchEdl->isEnabled());
+    CHECK(diagSwitches == 0 && adbSwitches == 0);
+    endpointMask = 0; refreshSwitch();
     // First entry discovers candidates without ever opening a settings dialog.
     endpointMask = 1;
     CHECK(AwaitUi([&]{ return switchEdl->isEnabled(); })); // automatic polling

@@ -314,7 +314,7 @@ ApplicationWindow {
         onClosed: app.confirmQuit(false)
         Text {
             width: parent.width
-            text: app.drivers.busy ? qsTr("Driver installation is running. Wait for it to finish and quit?")
+            text: app.drivers.busy ? qsTr("Driver setup is running. Wait for it to finish and quit?")
                 : qsTr("A task is running. Cancelling a flash operation may leave the device unable to boot. Cancel the task and quit?")
             color: Theme.textPrimary
             font.family: Theme.fontFamily

@@ -62,6 +62,7 @@ struct QualcommUiTests {
         QCoreApplication::processEvents();
         CHECK(toolsPage->property("selectedTool").toInt() == index);
     }
+    bool waitForLayout();
     bool TestDevices();
     bool TestFlash();
     bool TestTools();

@@ -61,10 +61,14 @@ add_library(upgrade_gui_backend STATIC
 target_include_directories(upgrade_gui_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/backends/rockchip/legacy)
 target_link_libraries(upgrade_gui_backend PUBLIC upgradetool upgrade_platform usb1 Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::SerialPort)
 if(WIN32)
+  include(${CMAKE_SOURCE_DIR}/scripts/qualcomm_driver_manifest.cmake)
+  configure_file(${CMAKE_SOURCE_DIR}/application/QualcommDriverPackage.h.in
+    ${CMAKE_BINARY_DIR}/generated/application/QualcommDriverPackage.h @ONLY)
   include(${CMAKE_SOURCE_DIR}/cmake/Libwdi.cmake)
   target_link_libraries(upgrade_gui_backend PUBLIC cfgmgr32 winusb shell32 ole32)
   qt_add_executable(upgrade_driver_installer ${CMAKE_SOURCE_DIR}/scripts/windows/driver_installer.cpp
-    ${CMAKE_SOURCE_DIR}/scripts/windows/DriverInstall.cpp WindowsUsbDriver.cpp DriverRecovery.cpp)
+    ${CMAKE_SOURCE_DIR}/scripts/windows/DriverInstall.cpp
+    ${CMAKE_SOURCE_DIR}/scripts/windows/QualcommDriverInstall.cpp WindowsUsbDriver.cpp DriverRecovery.cpp)
   target_include_directories(upgrade_driver_installer PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
   target_link_libraries(upgrade_driver_installer PRIVATE Qt6::Core wdi setupapi cfgmgr32 winusb shell32 ole32)
   set_target_properties(upgrade_driver_installer PROPERTIES WIN32_EXECUTABLE TRUE)

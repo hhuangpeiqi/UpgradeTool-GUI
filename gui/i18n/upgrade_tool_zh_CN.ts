@@ -1214,6 +1214,22 @@
         <source>Dismiss</source>
         <translation>放弃任务</translation>
     </message>
+    <message>
+        <source>Installation is available when the connected Qualcomm device's driver is missing.</source>
+        <translation>连接的高通设备驱动缺失后可安装。</translation>
+    </message>
+    <message>
+        <source>Uninstall drivers</source>
+        <translation>卸载驱动</translation>
+    </message>
+    <message>
+        <source>Remove the installed Qualcomm driver package</source>
+        <translation>移除已安装的高通驱动包</translation>
+    </message>
+    <message>
+        <source>Uninstall</source>
+        <translation>卸载</translation>
+    </message>
 </context>
 <context>
     <name>EdlSwitchDialog</name>
@@ -1583,6 +1599,10 @@
         <location line="-96"/>
         <source>USB Drivers…</source>
         <translation>USB 驱动…</translation>
+    </message>
+    <message>
+        <source>Driver setup is running. Wait for it to finish and quit?</source>
+        <translation>驱动操作正在进行，是否等待完成后退出？</translation>
     </message>
 </context>
 <context>
@@ -3963,6 +3983,58 @@
         <source>Driver setup is unfinished. Continue to review and replace the driver.</source>
         <translation>驱动安装尚未完成，请继续确认并重新安装驱动。</translation>
     </message>
+    <message>
+        <source>Install WinUSB?</source>
+        <translation>安装 WinUSB？</translation>
+    </message>
+    <message>
+        <source>Uninstall Qualcomm drivers?</source>
+        <translation>卸载高通驱动？</translation>
+    </message>
+    <message>
+        <source>Install Qualcomm drivers?</source>
+        <translation>安装高通驱动？</translation>
+    </message>
+    <message>
+        <source>This removes the system Qualcomm driver package and may affect other Qualcomm devices.</source>
+        <translation>此操作将移除系统中的高通驱动包，可能影响其他高通设备。</translation>
+    </message>
+    <message>
+        <source>Preparing driver removal…</source>
+        <translation>正在准备卸载驱动…</translation>
+    </message>
+    <message>
+        <source>Windows is removing the Qualcomm drivers…</source>
+        <translation>Windows 正在卸载高通驱动…</translation>
+    </message>
+    <message>
+        <source>Device disconnected. Reconnect it and refresh to check the driver.</source>
+        <translation>设备已断开，请重新连接并刷新以检查驱动。</translation>
+    </message>
+    <message>
+        <source>The device driver is still missing. See the driver log for details.</source>
+        <translation>设备仍缺少驱动，请查看驱动日志了解详情。</translation>
+    </message>
+    <message>
+        <source>Device or driver changed; refresh and select it again.</source>
+        <translation>设备或驱动状态已变化，请刷新后重新选择。</translation>
+    </message>
+    <message>
+        <source>Driver setup cancelled</source>
+        <translation>已取消驱动操作</translation>
+    </message>
+    <message>
+        <source>Driver setup failed: %1</source>
+        <translation>驱动操作失败：%1</translation>
+    </message>
+    <message>
+        <source>Qualcomm drivers uninstalled</source>
+        <translation>高通驱动已卸载</translation>
+    </message>
+    <message>
+        <source>Install the device manufacturer's driver for this interface.</source>
+        <translation>请为此接口安装设备制造商提供的驱动。</translation>
+    </message>
 </context>
 <context>
     <name>gui::EdlRunner</name>
@@ -4124,6 +4196,34 @@
         <location line="+1"/>
         <source>Qualcomm backend is not available</source>
         <translation>高通后端不可用</translation>
+    </message>
+    <message>
+        <source>Cannot access the selected interface; check its USB driver and close other device tools.</source>
+        <translation>无法访问所选接口，请检查其 USB 驱动并关闭其他设备工具。</translation>
+    </message>
+    <message>
+        <source>Cannot uniquely identify the interface driver. Reconnect the device and refresh.</source>
+        <translation>无法唯一确定接口驱动，请重新连接设备并刷新。</translation>
+    </message>
+    <message>
+        <source>Use the diagnostic COM port for this interface.</source>
+        <translation>请使用此接口的诊断 COM 端口。</translation>
+    </message>
+    <message>
+        <source>Cannot check the interface driver. Refresh the device list.</source>
+        <translation>无法检查接口驱动，请刷新设备列表。</translation>
+    </message>
+    <message>
+        <source>The interface driver is missing. Open USB Drivers to install it.</source>
+        <translation>接口驱动缺失，请打开 USB 驱动页面进行安装。</translation>
+    </message>
+    <message>
+        <source>The interface driver is not ready (Windows error %1). Open USB Drivers for details.</source>
+        <translation>接口驱动尚未就绪（Windows 错误 %1），请打开 USB 驱动页面查看详情。</translation>
+    </message>
+    <message>
+        <source>The interface driver does not support this transport. Open USB Drivers for details.</source>
+        <translation>接口驱动不支持此传输方式，请打开 USB 驱动页面查看详情。</translation>
     </message>
 </context>
 <context>

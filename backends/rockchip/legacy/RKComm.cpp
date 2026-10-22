@@ -92,6 +92,17 @@ bool CRKUsbComm::InitializeUsb(STRUCT_RKDEVICE_DESC devDesc)
 					    }
 					    return false;
 					}
+					if (m_log) {
+						const auto *version = libusb_get_version();
+						m_log->Record("USB opened: vid=0x%04x pid=0x%04x bcdUSB=0x%04x mode=%s bus=%u address=%u interface=%d bulk_in=0x%02x bulk_out=0x%02x speed=%d libusb=%u.%u.%u.%u",
+							unsigned(devDesc.usVid), unsigned(devDesc.usPid), unsigned(devDesc.usbcdUsb),
+							devDesc.emUsbType == RKUSB_MASKROM ? "Maskrom" : devDesc.emUsbType == RKUSB_LOADER ? "Loader" : "MSC",
+							unsigned(libusb_get_bus_number((libusb_device *)devDesc.pUsbHandle)),
+							unsigned(libusb_get_device_address((libusb_device *)devDesc.pUsbHandle)),
+							m_interfaceNum, unsigned(m_pipeBulkIn), unsigned(m_pipeBulkOut),
+							libusb_get_device_speed((libusb_device *)devDesc.pUsbHandle),
+							unsigned(version->major), unsigned(version->minor), unsigned(version->micro), unsigned(version->nano));
+					}
 					return true;
 				}
 			}
@@ -829,6 +840,7 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 	}
 
 	bool bSendPendPacket = false;
+	const DWORD payloadSize = dwDataSize;
 	USHORT crcValue = 0xffff;
 	BYTE *pData = NULL;
 	pData = new BYTE[dwDataSize + 5];
@@ -855,13 +867,16 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 	UINT nSendBytes = 0;
 	DWORD dwTotalSended = 0;
 	int iRet;
+	if (m_log) m_log->Record("Maskrom payload: index=0x%04x payload_bytes=%u wire_bytes=%u crc=0x%04x pending=%d",
+		unsigned(dwRequest), unsigned(payloadSize), unsigned(dwDataSize), unsigned(crcValue), int(bSendPendPacket));
 
 	while(dwTotalSended < dwDataSize) {
 		nSendBytes = ( (dwDataSize - dwTotalSended) > 4096) ? 4096 : (dwDataSize - dwTotalSended);
 		iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x40, 0xC, 0, dwRequest, pData + dwTotalSended, nSendBytes, 5000);
 		if (iRet != (int)nSendBytes) {
 			if (m_log) {
-				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x failed, err=%d",dwRequest, iRet);
+				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=%u pending=0 failed, err=%d (%s)",
+					dwRequest, unsigned(dwTotalSended), nSendBytes, iRet, iRet < 0 ? libusb_error_name(iRet) : "short-transfer");
 			}
 			delete []pData;
 			return ERR_REQUEST_FAIL;
@@ -874,7 +889,8 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 		iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x40, 0xC, 0, dwRequest, &ucFillByte, 1, 5000);
 		if (iRet != 0) {
 			if (m_log) {
-				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x failed, err=%d", dwRequest, iRet);
+				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=1 pending=1 failed, err=%d (%s)",
+					dwRequest, unsigned(dwTotalSended), iRet, iRet < 0 ? libusb_error_name(iRet) : "unexpected-length");
 			}
 			delete []pData;
 			return ERR_REQUEST_FAIL;

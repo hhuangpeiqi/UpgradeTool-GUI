@@ -80,6 +80,10 @@ QVector<EdlEndpoint> nativeDevices() {
     SP_DEVINFO_DATA info; info.cbSize = sizeof(info);
     for (DWORD index = 0; SetupDiEnumDeviceInfo(set,index,&info); ++index) {
         const QString hardware = winProperty(set,info,SPDRP_HARDWAREID);
+        const QString compatible = winProperty(set,info,SPDRP_COMPATIBLEIDS,true);
+        const QString service = winProperty(set,info,SPDRP_SERVICE);
+        if (compatible.contains("USB\\COMPOSITE", Qt::CaseInsensitive) ||
+            !service.compare("usbccgp", Qt::CaseInsensitive)) continue;
         const auto match = QRegularExpression("VID_([0-9A-F]{4})&PID_([0-9A-F]{4})", QRegularExpression::CaseInsensitiveOption).match(hardware);
         if (!match.hasMatch()) continue;
         EdlEndpoint e;
@@ -87,13 +91,16 @@ QVector<EdlEndpoint> nativeDevices() {
         if(CM_Get_Device_IDW(info.DevInst,instance,MAX_DEVICE_ID_LEN,0)==CR_SUCCESS) e.instance=QString::fromWCharArray(instance);
         e.vid = match.captured(1).toUShort(nullptr,16); e.pid = match.captured(2).toUShort(nullptr,16);
         const auto mi = QRegularExpression("&MI_([0-9A-F]{2})", QRegularExpression::CaseInsensitiveOption).match(hardware);
-        if (mi.hasMatch()) e.interfaceNumber = mi.captured(1).toInt(nullptr,16);
+        e.interfaceNumber = mi.hasMatch() ? mi.captured(1).toInt(nullptr,16) : 0;
         e.label = winProperty(set,info,SPDRP_FRIENDLYNAME);
         if (e.label.isEmpty()) e.label = winProperty(set,info,SPDRP_DEVICEDESC);
-        e.suggested = diagName(e.label);
+        e.suggested = diagName(e.label) || qtq_known_diag(e.vid,e.pid,e.interfaceNumber);
+        e.driverService = service;
         // Physical location paths survive a PID/driver/COM-number change.
         e.location = winProperty(set,info,SPDRP_LOCATION_PATHS).toUpper();
         e.location.remove(QRegularExpression("#USBMI\\([^)]*\\).*$"));
+        auto portMatches = QRegularExpression("#USB\\(([0-9]+)\\)").globalMatch(e.location);
+        while (portMatches.hasNext()) e.ports.append(portMatches.next().captured(1).toInt());
         DEVINST dev = info.DevInst;
         for (int depth = 0; depth < 8; ++depth) {
             wchar_t instance[MAX_DEVICE_ID_LEN] = {};
@@ -113,8 +120,23 @@ QVector<EdlEndpoint> nativeDevices() {
                 e.path = QString::fromWCharArray(port);
             RegCloseKey(key);
         }
-        for(const auto &id:winProperty(set,info,SPDRP_COMPATIBLEIDS,true).split('|'))
+        for(const auto &id:compatible.split('|'))
             e.downloadInterface |= qtq_download_compatible_id(id.toLatin1().constData());
+        if (compatible.contains("SUBCLASS_42&PROT_01", Qt::CaseInsensitive)) e.kind = EdlEndpoint::Adb;
+        ULONG status = 0, problem = 0;
+        if (CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0) != CR_SUCCESS) {
+            e.accessError = LIBUSB_ERROR_OTHER;
+            e.accessReason = EdlRunner::tr("Cannot check the interface driver. Refresh the device list.");
+        } else if (problem == CM_PROB_FAILED_INSTALL || (service.isEmpty() && !problem)) {
+            e.accessError = LIBUSB_ERROR_NOT_SUPPORTED;
+            e.accessReason = EdlRunner::tr("The interface driver is missing. Open USB Drivers to install it.");
+        } else if (problem || !(status & DN_STARTED)) {
+            e.accessError = LIBUSB_ERROR_OTHER;
+            e.accessReason = EdlRunner::tr("The interface driver is not ready (Windows error %1). Open USB Drivers for details.").arg(problem);
+        } else if (e.path.isEmpty() && !WindowsUsbServiceCompatible(service)) {
+            e.accessError = LIBUSB_ERROR_NOT_SUPPORTED;
+            e.accessReason = EdlRunner::tr("The interface driver does not support this transport. Open USB Drivers for details.");
+        }
         result.append(e);
     }
     SetupDiDestroyDeviceInfoList(set); return result;
@@ -168,10 +190,21 @@ EdlEndpoint serialEndpoint(const QSerialPortInfo &port, const QVector<EdlEndpoin
 #ifdef Q_OS_LINUX
     linuxIdentity(e);
 #endif
+    int bindings = 0;
     for (const auto &n : native) if (!n.path.isEmpty() && (n.path.compare(e.path,Qt::CaseInsensitive)==0 || n.path.compare(port.portName(),Qt::CaseInsensitive)==0)) {
         e.vid=n.vid; e.pid=n.pid; e.instance=n.instance; e.downloadInterface=n.downloadInterface; e.location=n.location; e.interfaceNumber=n.interfaceNumber; e.suggested |= n.suggested;
+        ++bindings;
+        e.accessError=n.accessError; e.accessReason=n.accessReason; e.driverService=n.driverService;
         if (e.serial.isEmpty()) e.serial=n.serial;
     }
+#ifdef Q_OS_WIN
+    if (bindings != 1) {
+        e.accessError=LIBUSB_ERROR_NOT_FOUND;
+        e.accessReason=EdlRunner::tr("Cannot uniquely identify the interface driver. Reconnect the device and refresh.");
+    }
+#else
+    Q_UNUSED(bindings);
+#endif
     e.suggested |= qtq_known_diag(e.vid,e.pid,e.interfaceNumber);
     return e;
 }
@@ -184,7 +217,7 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
     }
     qtq_usb_endpoint *rows = nullptr; size_t count = 0;
     if (qtq_discover_usb(&rows, &count)) {
-        error = EdlRunner::tr("Cannot enumerate USB devices."); return result;
+        error = EdlRunner::tr("Cannot enumerate USB devices.");
     }
     for (size_t i = 0; i < count; ++i) {
         if (cancel && cancel->stop_requested()) break;
@@ -209,8 +242,11 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
                 nativeLocations.insert(n.location);
         if (nativeLocations.size()==1) e.location=*nativeLocations.begin();
         e.interfaceNumber=d.interface_number; e.alternate=d.alternate; e.in=d.in; e.out=d.out;
+#ifdef Q_OS_WIN
+        BindEdlNativeInterface(e, native);
+#endif
         e.downloadInterface=qtq_download_interface(row.cls,row.subclass,row.protocol,e.in,e.out,row.in_size,row.out_size);
-        e.suggested=d.mode==QTQ_DIAG;
+        e.suggested |= d.mode==QTQ_DIAG;
         if(d.mode==QTQ_ADB) {
             e.kind=EdlEndpoint::Adb; e.id="usb-adb:"+e.location; result.append(e); continue;
         }
@@ -229,7 +265,18 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
         e.label=QString("USB %1 / %2 / IF %3 — %4").arg(hexId(e),e.location).arg(e.interfaceNumber).arg(QString::fromUtf8(row.name));
         if(e.in && e.out && row.in_size && row.out_size) result.append(e);
     }
-    free(rows); return result;
+    free(rows);
+#ifdef Q_OS_WIN
+    // Keep missing-driver candidates visible even when libusb cannot enumerate them.
+    for (const auto &n : native) {
+        if (!n.accessError || n.kind == EdlEndpoint::Adb ||
+            !(n.suggested || qtq_download_identity(n.vid,n.pid))) continue;
+        bool mapped = false;
+        for (const auto &existing : result) if (existing.instance == n.instance) mapped = true;
+        if (!mapped) { auto e=n; e.kind=EdlEndpoint::Usb; e.id="native:"+e.instance; result.append(e); }
+    }
+#endif
+    return result;
 }
 
 bool process(const QString &exe,const QStringList &args,const EdlCancel &cancel,int timeout,QByteArray &output,QString &error,bool *started=nullptr) {

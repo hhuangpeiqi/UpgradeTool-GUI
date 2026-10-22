@@ -6,12 +6,24 @@
 #include <mutex>
 #include <QTemporaryDir>
 #include <QSettings>
+#include <QFile>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <cfgmgr32.h>
+#endif
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     QTemporaryDir settingsDirectory;
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDirectory.path());
     int failures = 0;
+#ifdef Q_OS_WIN
+    CHECK(!gui::QualcommDriverPackageError(settingsDirectory.filePath("missing.exe")).isEmpty());
+    QFile corruptPackage(settingsDirectory.filePath("corrupt.exe"));
+    CHECK(corruptPackage.open(QIODevice::WriteOnly));
+    corruptPackage.write("not an official package"); corruptPackage.close();
+    CHECK(gui::QualcommDriverPackageError(corruptPackage.fileName()).contains("SHA256"));
+#endif
     gui::DriverDevice rockchip;
     rockchip.vid = 0x2207; rockchip.pid = 0x350b;
     CHECK(gui::RecognizeWindowsFlashingInterface(rockchip, {"USB\\Class_ff&SubClass_06&Prot_05"}));
@@ -32,9 +44,113 @@ int main(int argc, char **argv) {
     qualcomm.vid = 0x05c6; qualcomm.pid = 0x9008;
     CHECK(gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
     qualcomm.state = gui::DriverState::Missing;
-    CHECK(!qualcomm.canInstall());
+    CHECK(qualcomm.canInstall());
+    for (const auto state : {gui::DriverState::Incompatible, gui::DriverState::Bound, gui::DriverState::Ready,
+            gui::DriverState::AccessFailed, gui::DriverState::DeviceError, gui::DriverState::RebootRequired}) {
+        qualcomm.state = state; CHECK(!qualcomm.canInstall());
+    }
     qualcomm.pid = 0x9091;
-    CHECK(!gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
+    qualcomm.interfaceNumber = 0; qualcomm.state = gui::DriverState::Missing;
+    for (const int pid : {0x9091, 0x9092, 0x901d, 0x676c}) {
+        qualcomm.pid = pid;
+        CHECK(gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_ff&Prot_30"}));
+        CHECK(qualcomm.canInstall());
+    }
+    qualcomm.pid = 0x9091; qualcomm.interfaceNumber = 2;
+    CHECK(gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
+    CHECK(!qualcomm.canInstall()); // Unknown vendor interface is diagnostic information only.
+    CHECK(!gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_42&Prot_01"}));
+    CHECK(!gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\COMPOSITE"}));
+    qualcomm.vid = 0x2c7c; qualcomm.pid = 0x0125; qualcomm.interfaceNumber = 0;
+    CHECK(gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
+    CHECK(!qualcomm.canInstall()); // OEM bindings never use the Qualcomm installer.
+    qualcomm.vid = 0x1234; qualcomm.pid = 0xabcd; qualcomm.label = "OEM Diagnostic port";
+    CHECK(gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_00&Prot_00"}));
+    CHECK(!qualcomm.canInstall());
+
+#ifdef Q_OS_WIN
+    {
+        gui::DriverDevice diag;
+        diag.vid = 0x05c6; diag.pid = 0x9091; diag.interfaceNumber = 0;
+        diag.instance = "qualcomm-diag"; diag.service = "qcwdfserial"; diag.port = "COM4";
+        CHECK(gui::RecognizeWindowsFlashingInterface(diag, {"USB\\Class_ff&SubClass_ff&Prot_30"}));
+        CHECK(diag.verifiedInterface);
+        auto modem = diag;
+        modem.instance = "qualcomm-modem"; modem.interfaceNumber = 1;
+        modem.service = "Modem"; modem.port = "COM5";
+        CHECK(gui::RecognizeWindowsFlashingInterface(modem, {"USB\\Class_ff&SubClass_00&Prot_00"}));
+        auto wwan = diag;
+        wwan.instance = "qualcomm-wwan"; wwan.interfaceNumber = 2;
+        wwan.service = "qcusbwwan"; wwan.port.clear();
+        CHECK(gui::RecognizeWindowsFlashingInterface(wwan, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
+        CHECK(!modem.verifiedInterface && !wwan.verifiedInterface);
+
+        gui::DriverScan outcome;
+        gui::DriverHooks auxiliaryHooks;
+        auxiliaryHooks.scan = [&](bool) { return outcome; };
+        gui::DriverController controller(auxiliaryHooks, true);
+        controller.setVendor(2);
+        CHECK(Await([&] { return !controller.checking(); }));
+        auto refresh = [&](bool probe = true) {
+            controller.refresh(probe); CHECK(Await([&] { return !controller.checking(); }));
+        };
+        gui::ClassifyWindowsUsbDriver(diag, DN_STARTED, 0);
+        for (int i = 0; i < 6; ++i) {
+            const unsigned long status = i % 2 ? DN_STARTED : 0;
+            gui::ClassifyWindowsUsbDriver(modem, status, 0);
+            gui::ClassifyWindowsUsbDriver(wwan, status, CM_PROB_FAILED_INSTALL);
+            CHECK(wwan.problem == 0); // Problem output is undefined without DN_HAS_PROBLEM.
+            CHECK(modem.state == gui::DriverState::Bound && wwan.state == gui::DriverState::Bound);
+            CHECK(!modem.canInstall() && !wwan.canInstall());
+            outcome = {{diag, modem, wwan}, {}}; refresh(i % 2);
+            CHECK(controller.devices().size() == 3 && controller.attentionCount() == 0);
+            CHECK(controller.summaryLevel() == "neutral" && controller.summaryText().isEmpty());
+            for (const auto &row : controller.devices()) {
+                CHECK(!row.toMap()["attention"].toBool());
+                CHECK(row.toMap()["stateText"].toString() == "Driver installed");
+            }
+        }
+        for (auto device : {diag, modem, wwan}) {
+            gui::ClassifyWindowsUsbDriver(device, DN_HAS_PROBLEM | DN_STARTED, CM_PROB_DISABLED);
+            CHECK(device.state == gui::DriverState::DeviceError && device.problem == CM_PROB_DISABLED);
+            gui::ClassifyWindowsUsbDriver(device, DN_HAS_PROBLEM, CM_PROB_NEED_RESTART);
+            CHECK(device.state == gui::DriverState::RebootRequired);
+            gui::ClassifyWindowsUsbDriver(device, DN_HAS_PROBLEM, CM_PROB_FAILED_INSTALL);
+            CHECK(device.state == gui::DriverState::Missing);
+            gui::ClassifyWindowsUsbDriver(device, DN_HAS_PROBLEM, 0);
+            CHECK(device.state == gui::DriverState::DeviceError);
+            device.service.clear();
+            gui::ClassifyWindowsUsbDriver(device, 0, 0);
+            CHECK(device.state == gui::DriverState::Missing);
+        }
+        gui::ClassifyWindowsUsbDriver(wwan, DN_HAS_PROBLEM, CM_PROB_DISABLED);
+        outcome = {{diag, modem, wwan}, {}}; refresh();
+        CHECK(controller.attentionCount() == 1 && controller.summaryText() == "Device error (22)");
+        // A temporary query/probe failure must not stick to a healthy auxiliary interface.
+        wwan.problem = 0; wwan.state = gui::DriverState::AccessFailed;
+        outcome = {{diag, modem, wwan}, {}}; refresh();
+        gui::ClassifyWindowsUsbDriver(wwan, 0, 0);
+        outcome = {{diag, modem, wwan}, {}}; refresh(false);
+        CHECK(controller.attentionCount() == 0 && controller.summaryText().isEmpty());
+
+        gui::ClassifyWindowsUsbDriver(diag, 0, 0);
+        CHECK(diag.state == gui::DriverState::DeviceError);
+        diag.port.clear();
+        gui::ClassifyWindowsUsbDriver(diag, DN_STARTED, 0);
+        CHECK(diag.state == gui::DriverState::Incompatible);
+        diag.service = "WinUSB";
+        gui::ClassifyWindowsUsbDriver(diag, DN_STARTED, 0);
+        CHECK(diag.state == gui::DriverState::Bound);
+        auto edl = diag; edl.pid = 0x9008; edl.interfaceNumber = -1;
+        CHECK(gui::RecognizeWindowsFlashingInterface(edl, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
+        edl.service = "UnsupportedUSB";
+        gui::ClassifyWindowsUsbDriver(edl, DN_STARTED, 0);
+        CHECK(edl.state == gui::DriverState::Incompatible);
+        auto rk = rockchip; rk.service = "UnsupportedUSB";
+        gui::ClassifyWindowsUsbDriver(rk, DN_STARTED, 0);
+        CHECK(rk.state == gui::DriverState::Incompatible);
+    }
+#endif
 
     allwinner.instance = "USB\\VID_1F3A&PID_EFE8\\board";
     allwinner.hardwareId = "USB\\VID_1F3A&PID_EFE8"; allwinner.location = "port-1";
@@ -263,6 +379,84 @@ int main(int argc, char **argv) {
             CHECK(controller.hasPending() && !controller.canResume());
             controller.forgetPending(); CHECK(!controller.hasPending());
         }
+    }
+    for (const int pid : {0x9008, 0x9092}) {
+        auto qc = qualcomm;
+        qc.vid = 0x05c6; qc.pid = pid; qc.vendor = 2; qc.verifiedInterface = true;
+        qc.state = gui::DriverState::Missing;
+        qc.hardwareId = QString("USB\\VID_05C6&PID_%1").arg(pid, 4, 16, QChar('0'));
+        qc.interfaceNumber = pid == 0x9092 ? 0 : -1;
+        if (pid == 0x9092) qc.hardwareId += "&MI_00";
+        qc.instance = qc.hardwareId + "\\BOARD"; qc.location = "port-qc";
+        gui::DriverScan outcome{{qc}, {}};
+        bool installed = false, cancelOperation = false, failOperation = false, holdOperation = false;
+        int calls = 0, confirmations = 0;
+        gui::DriverHooks qcHooks;
+        qcHooks.verificationTimeoutMs = 0;
+        qcHooks.scan = [&](bool) { return outcome; };
+        qcHooks.qualcommInstalled = [&] { return installed; };
+        qcHooks.qualcommOperation = [&](auto operation, const auto &target, const auto &, const auto &progress) {
+            ++calls;
+            progress(gui::DriverPhase::Installing);
+            if (cancelOperation) return gui::DriverInstallResult{false, true, {}};
+            if (failOperation) return gui::DriverInstallResult{false, false, "exit code 7"};
+            if (operation == gui::DriverOperation::QualcommUninstall) {
+                CHECK(gui::QualcommDriverArguments(operation) == QStringList{"-u"});
+                installed = false; outcome = {};
+            } else {
+                CHECK(operation == gui::DriverOperation::QualcommInstall && target.instance == qc.instance);
+                CHECK(gui::QualcommDriverArguments(operation).isEmpty());
+                installed = true;
+                if (!holdOperation) {
+                    auto bound = qc; bound.state = gui::DriverState::Bound;
+                    bound.service = "QUSB_BULK"; bound.port = "COM7";
+                    outcome = {{bound}, {}};
+                }
+            }
+            return gui::DriverInstallResult{true, false, {}};
+        };
+        gui::DriverController controller(qcHooks, true);
+        QObject::connect(&controller, &gui::DriverController::confirmationRequested, [&] { ++confirmations; });
+        controller.setVendor(2); CHECK(Await([&] { return !controller.checking(); }));
+        auto refresh = [&] { controller.refresh(); CHECK(Await([&] { return !controller.checking(); })); };
+        auto run = [&] {
+            controller.confirmInstall(); controller.confirmInstall(); controller.beginInstall();
+            CHECK(Await([&] { return !controller.busy(); }));
+            CHECK(Await([&] { return !controller.checking(); }));
+        };
+        CHECK(!controller.canUninstallQualcomm());
+        for (const auto state : {gui::DriverState::Incompatible, gui::DriverState::Bound, gui::DriverState::Ready,
+                gui::DriverState::AccessFailed, gui::DriverState::DeviceError, gui::DriverState::RebootRequired}) {
+            auto d = qc; d.state = state; outcome = {{d}, {}}; refresh();
+            controller.prepareInstall(qc.instance); CHECK(confirmations == 0 && calls == 0);
+        }
+        outcome = {}; refresh(); controller.prepareInstall(qc.instance); CHECK(confirmations == 0);
+        outcome = {{qc}, "scan failed"}; refresh();
+        controller.prepareInstall(qc.instance); CHECK(confirmations == 0);
+        outcome = {{qc}, {}}; refresh(); controller.prepareInstall(qc.instance);
+        CHECK(confirmations == 1 && controller.confirmationTitle() == "Install Qualcomm drivers?");
+        // Unplugging after confirmation must not invoke the official tool.
+        outcome = {}; run(); CHECK(calls == 0 && controller.message().contains("changed"));
+        outcome = {{qc}, {}}; refresh(); controller.prepareInstall(qc.instance);
+        cancelOperation = true; run(); CHECK(calls == 1 && !controller.hasPending());
+        cancelOperation = false; failOperation = true;
+        refresh(); controller.prepareInstall(qc.instance); run();
+        CHECK(calls == 2 && controller.message().contains("exit code 7") && controller.hasPending());
+        failOperation = false; holdOperation = true;
+        refresh(); controller.prepareInstall(qc.instance); run();
+        CHECK(calls == 3 && controller.message().contains("still missing"));
+        holdOperation = false;
+        refresh(); controller.prepareInstall(qc.instance); run();
+        CHECK(calls == 4 && controller.message() == "Driver installed" && !controller.hasPending());
+        CHECK(controller.canUninstallQualcomm());
+        CHECK(controller.attentionCount() == 0);
+        // Package removal is possible without a connected device.
+        outcome = {}; refresh(); controller.prepareQualcommUninstall();
+        CHECK(controller.canConfirm() && controller.confirmation().isEmpty());
+        CHECK(controller.confirmationTitle() == "Uninstall Qualcomm drivers?");
+        run(); CHECK(calls == 5 && controller.message() == "Qualcomm drivers uninstalled");
+        CHECK(!controller.canUninstallQualcomm() && !controller.hasPending());
+        controller.prepareInstall(qc.instance); CHECK(!controller.canConfirm());
     }
     return failures ? 1 : 0;
 }

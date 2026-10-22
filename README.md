@@ -110,7 +110,7 @@ The `.deb` installs all vendor rule sets automatically. If you see a permission 
 
 **macOS**: No extra USB driver is needed.
 
-**Windows 10/11 x64**: Open **Device → USB Drivers** to install WinUSB for Rockchip or Allwinner flashing interfaces (administrator permission required). Qualcomm supports existing WinUSB or official QDLoader COM drivers. Reconnect the device or restart Windows if necessary after installation.
+**Windows 10/11 x64**: Open **Device → USB Drivers** to install WinUSB for Rockchip or Allwinner flashing interfaces (administrator permission required). Built-in Qualcomm driver installation tool, supporting existing drivers.
 
 Windows/macOS release packages include ADB; the `.deb` installs the distribution's `adb` dependency. Set `ADB` to an executable path or name to override it.
 
