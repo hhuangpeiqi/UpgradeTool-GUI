@@ -30,6 +30,6 @@ AddReg = AddDeviceInterfaceGUID
 HKR,,DeviceInterfaceGUIDs,0x10000,%DeviceGUID%
 
 [Strings]
-DeviceName = "Upgrade Tool WinUSB (#DEVICE_HARDWARE_ID#)"
+DeviceName = "USB Download Device"
 VendorName = "#DEVICE_MANUFACTURER#"
 DeviceGUID = "#DEVICE_INTERFACE_GUID#"

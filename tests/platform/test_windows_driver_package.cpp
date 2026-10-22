@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     CHECK(text.contains("Needs = WINUSB.NT.Services"));
     CHECK(text.contains("Needs = WINUSB.NT.HW"));
     CHECK(text.contains("DeviceInterfaceGUIDs"));
-    CHECK(text.contains("DeviceName = \"Upgrade Tool WinUSB (VID_2207&PID_350B)\""));
+    CHECK(text.contains("DeviceName = \"USB Download Device\""));
     CHECK(!text.contains("CoInstaller"));
     CHECK(!text.contains("#DEVICE_"));
     CHECK(QFile::exists(directory.filePath("installer_x64.exe")));

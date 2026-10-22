@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     for (const auto &language : {"en", "zh"}) {
         controller.language()->setMode(language);
         window->setWidth(1024); window->setHeight(640);
-        CHECK(resume->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "继续替换…" : "Continue setup…"));
+        CHECK(resume->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "继续安装…" : "Continue setup…"));
         if (argc > 1) {
             QDir().mkpath(QString::fromLocal8Bit(argv[1])); QTest::qWait(80);
             CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1]) + QString("/driver-pending-%1.png").arg(language)));

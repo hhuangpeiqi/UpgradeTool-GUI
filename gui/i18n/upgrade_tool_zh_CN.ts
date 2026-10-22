@@ -1162,7 +1162,7 @@
     <message>
         <location line="+51"/>
         <source>Replace…</source>
-        <translation>替换…</translation>
+        <translation>重新安装…</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -1207,7 +1207,7 @@
     <message>
         <location line="-172"/>
         <source>Continue setup…</source>
-        <translation>继续替换…</translation>
+        <translation>继续安装…</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -3834,7 +3834,7 @@
     </message>
     <message>
         <source>Driver bound. Waiting for Windows to finish…</source>
-        <translation>驱动已绑定，正在等待 Windows 完成…</translation>
+        <translation>正在等待 Windows 完成…</translation>
     </message>
     <message>
         <source>%1 · %2 s elapsed</source>
@@ -3961,7 +3961,7 @@
     <message>
         <location line="+1"/>
         <source>Driver setup is unfinished. Continue to review and replace the driver.</source>
-        <translation>驱动安装尚未完成，请继续确认并替换驱动。</translation>
+        <translation>驱动安装尚未完成，请继续确认并重新安装驱动。</translation>
     </message>
 </context>
 <context>
