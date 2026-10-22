@@ -5,6 +5,7 @@
 #include <QUrl>
 #include <QSettings>
 #include <QJsonDocument>
+#include <QDateTime>
 #include <memory>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -30,6 +31,11 @@ DriverController::DriverController(DriverHooks hooks, bool available, QObject *p
     connect(&m_debounce, &QTimer::timeout, this, [this] { refresh(false); });
     m_verifyTimer.setSingleShot(true); m_verifyTimer.setInterval(500);
     connect(&m_verifyTimer, &QTimer::timeout, this, [this] { scan(true); });
+    m_progressTimer.setInterval(1000);
+    connect(&m_progressTimer, &QTimer::timeout, this, [this] {
+        m_elapsedSeconds = int(m_installElapsed.elapsed() / 1000);
+        emit changed();
+    });
     if (m_available) QCoreApplication::instance()->installNativeEventFilter(this);
 }
 DriverController::~DriverController() {
@@ -48,9 +54,11 @@ QVariantMap DriverController::describe(const DriverDevice &d) const {
     case DriverState::DeviceError: state = tr("Device error (%1)").arg(d.problem); break;
     case DriverState::RebootRequired: state = tr("Restart Windows required"); break;
     }
-    return {{"instance", d.instance}, {"hardwareId", d.hardwareId}, {"label", d.label}, {"service", d.service},
-        {"location", d.location}, {"stateText", state}, {"diagnostic", d.diagnostic}, {"attention", d.needsAttention()},
-        {"canInstall", d.canInstall()}, {"replace", !d.service.isEmpty()}, {"vendor", d.vendor},
+    const bool installing = m_busy && d.bindingId() == m_target.bindingId();
+    if (installing) state = phaseText();
+    return {{"instance", d.instance}, {"hardwareId", d.hardwareId}, {"label", d.label}, {"service", installing ? QString{} : d.service},
+        {"location", d.location}, {"stateText", state}, {"diagnostic", d.diagnostic}, {"attention", !installing && d.needsAttention()},
+        {"canInstall", !installing && d.canInstall()}, {"replace", !d.service.isEmpty()}, {"vendor", d.vendor},
         {"identity", QString("%1:%2").arg(d.vid, 4, 16, QChar('0')).arg(d.pid, 4, 16, QChar('0'))}};
 }
 QVariantList DriverController::devices() const {
@@ -75,7 +83,7 @@ QString DriverController::summaryLevel() const {
 }
 QString DriverController::summaryText() const {
     if (!m_available) return {};
-    if (m_busy) return m_verifying ? tr("Checking driver…") : tr("Installing driver…");
+    if (m_busy) return phaseText();
     if (m_detectionFailed) return tr("Driver detection failed");
     const int count = attentionCount();
     if (count > 1) return tr("Drivers need attention (%1)").arg(count);
@@ -84,6 +92,31 @@ QString DriverController::summaryText() const {
             return describe(device).value("stateText").toString();
     if (hasPending()) return tr("Driver setup needs attention");
     return {};
+}
+QString DriverController::phaseText() const {
+    switch (m_phase) {
+    case DriverPhase::Preparing: return tr("Preparing driver installation…");
+    case DriverPhase::Installing: return tr("Windows is installing the driver…");
+    case DriverPhase::Bound: return tr("Driver bound. Waiting for Windows to finish…");
+    case DriverPhase::Recovering: return tr("Recovering device…");
+    case DriverPhase::Verifying: return tr("Checking driver…");
+    }
+    return {};
+}
+QString DriverController::progressText() const {
+    return m_busy ? tr("%1 · %2 s elapsed").arg(m_message).arg(m_elapsedSeconds) : m_message;
+}
+void DriverController::setPhase(DriverPhase phase) {
+    if (m_phase != phase) {
+        m_phase = phase;
+        emit diagnostic(QStringLiteral("Phase [%1 ms]: %2").arg(m_installElapsed.elapsed()).arg(phaseText()));
+        emit devicesChanged();
+    }
+    setMessage(phaseText());
+}
+void DriverController::retranslate() {
+    if (m_busy) setMessage(phaseText());
+    emit devicesChanged(); emit changed(); emit confirmationChanged();
 }
 void DriverController::setVendor(int vendor) {
     if (m_vendor == vendor) return;
@@ -182,7 +215,11 @@ void DriverController::prepareInstall(const QString &instance) {
 void DriverController::confirmInstall() {
     if (locked() || checking() || m_stopping || m_affected.isEmpty()) return;
     m_busy = true; ++m_generation; m_scanAgain = m_probeAgain = false;
-    setMessage(tr("Preparing driver installation…")); emit busyChanged(); emit maintenanceRequested();
+    m_installElapsed.start(); m_elapsedSeconds = 0; m_phase = DriverPhase::Preparing;
+    m_progressTimer.start(); setMessage(phaseText());
+    emit diagnostic(QStringLiteral("Installation started %1 target=%2 binding=%3 affected=%4")
+        .arg(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs), m_target.instance, m_target.bindingId()).arg(m_affected.size()));
+    emit busyChanged(); emit devicesChanged(); emit maintenanceRequested();
 }
 void DriverController::beginInstall() {
     if (!m_busy || m_installThread || m_verifying || m_stopping) return;
@@ -191,22 +228,24 @@ void DriverController::beginInstall() {
     rememberPending();
     const auto result = std::make_shared<DriverInstallResult>();
     const auto installer = m_hooks.install;
+    const auto installerWithProgress = m_hooks.installWithProgress;
     const auto target = m_target; const auto affected = m_affected;
-    auto *thread = QThread::create([this, result, installer, target, affected] {
+    auto *thread = QThread::create([this, result, installer, installerWithProgress, target, affected] {
         try {
-            if (installer) *result = installer(target, affected);
-            else *result = InstallWindowsUsbDriverWithProgress(target, affected, [this](DriverPhase phase) {
+            const DriverProgress progress = [this](DriverPhase phase) {
                 QMetaObject::invokeMethod(this, [this, phase] {
                     if (!m_busy || m_stopping || m_verifying) return;
-                    setMessage(phase == DriverPhase::Recovering ? tr("Recovering device…") :
-                        phase == DriverPhase::Verifying ? tr("Checking driver…") : tr("Installing WinUSB…"));
+                    setPhase(phase);
                 }, Qt::QueuedConnection);
-            });
+            };
+            if (installerWithProgress) *result = installerWithProgress(target, affected, progress);
+            else if (installer) { progress(DriverPhase::Installing); *result = installer(target, affected); }
+            else *result = InstallWindowsUsbDriverWithProgress(target, affected, progress);
         }
         catch (const std::exception &e) { result->error = QString::fromUtf8(e.what()); }
     });
     thread->setParent(this); m_installThread = thread;
-    setMessage(tr("Installing WinUSB…"));
+    setPhase(DriverPhase::Preparing);
     connect(thread, &QThread::finished, this, [this, thread, result] {
         m_installThread = nullptr; thread->deleteLater();
         if (!result->log.isEmpty()) emit diagnostic(result->log);
@@ -219,14 +258,18 @@ void DriverController::beginInstall() {
             if (result->cancelled) forgetPending();
             finish(false, result->cancelled ? tr("Driver installation cancelled") : tr("Driver installation failed: %1").arg(result->error)); return;
         }
-        m_verifying = true; m_verifyElapsed.start(); setMessage(tr("Checking driver…")); scan(true);
+        m_verifying = true; m_verifyElapsed.start(); setPhase(DriverPhase::Verifying); scan(true);
     });
     thread->start();
 }
 void DriverController::finish(bool ok, const QString &message) {
+    m_progressTimer.stop();
+    m_elapsedSeconds = int(m_installElapsed.elapsed() / 1000);
+    emit diagnostic(QStringLiteral("Installation finished [%1 ms]: ok=%2 reboot=%3 %4")
+        .arg(m_installElapsed.elapsed()).arg(ok).arg(m_rebootRequired).arg(message));
     m_verifyTimer.stop(); m_verifying = m_installPending = false; m_busy = false;
     if (ok && !m_stopping) forgetPending();
-    m_affected.clear(); setMessage(message); emit busyChanged(); emit confirmationChanged(); emit finished(ok, message);
+    m_affected.clear(); setMessage(message); emit busyChanged(); emit devicesChanged(); emit confirmationChanged(); emit finished(ok, message);
 }
 void DriverController::rememberPending() {
     m_pending = m_target;

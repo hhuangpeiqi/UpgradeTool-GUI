@@ -21,6 +21,7 @@ EdgeRoundedRect {
     property bool driverBusy: false
     property string driverText: ""
     property string driverMessage: ""
+    property int driverElapsedSeconds: 0
     property bool controlsLocked: busy
     property int cornerRadius: Theme.windowRadius
     readonly property bool progressVisible: root.busy || root.driverBusy
@@ -255,6 +256,16 @@ EdgeRoundedRect {
                 visible: progressHover.hovered && text !== ""
                 text: root.driverBusy || root.closing ? root.taskMessage : root.progressText
             }
+        }
+
+        Text {
+            objectName: "statusDriverElapsed"
+            visible: root.driverBusy
+            text: qsTr("%1 s elapsed").arg(root.driverElapsedSeconds)
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+            Layout.preferredWidth: implicitWidth
         }
 
         Text {

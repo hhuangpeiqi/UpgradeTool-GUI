@@ -205,7 +205,8 @@ ApplicationWindow {
                 driverAttention: app.drivers.summaryLevel === "warning"
                 driverBusy: app.drivers.busy
                 driverText: app.drivers.summaryText
-                driverMessage: app.drivers.message
+                driverMessage: app.drivers.progressText
+                driverElapsedSeconds: app.drivers.elapsedSeconds
                 onDriverClicked: driverDialog.openDialog()
                 onRefreshClicked: { app.refresh(); app.drivers.refresh(); }
                 onCancelClicked: app.cancel()

@@ -18,6 +18,7 @@ DriverInstallResult RecoverWindowsUsbDriver(const DriverDevice &target, const QV
                                            const DriverRecoveryHooks &hooks) {
     QElapsedTimer elapsed; elapsed.start();
     QString log;
+    int installAttempts = 0;
     DriverScan snapshot;
     auto record = [&](const QString &text) { log += QStringLiteral("[%1 ms] %2\n").arg(elapsed.elapsed()).arg(text); };
     auto scan = [&] {
@@ -52,7 +53,7 @@ DriverInstallResult RecoverWindowsUsbDriver(const DriverDevice &target, const QV
                 result.ok = true; result.rebootRequired = true; return result;
             }
             if (hooks.progress) hooks.progress(DriverPhase::Installing);
-            record("install attempt " + QString::number(attempt + 1));
+            record("install attempt " + QString::number(++installAttempts));
             result = hooks.install(*FindDriverDevice(snapshot.devices, target));
             log += result.log; result.log.clear();
             record(QStringLiteral("install ok=%1 reboot=%2 error=%3").arg(result.ok).arg(result.rebootRequired).arg(result.error));

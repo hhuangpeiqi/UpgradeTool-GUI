@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
     CHECK(text.contains("Needs = WINUSB.NT.Services"));
     CHECK(text.contains("Needs = WINUSB.NT.HW"));
     CHECK(text.contains("DeviceInterfaceGUIDs"));
+    CHECK(text.contains("DeviceName = \"Upgrade Tool WinUSB (VID_2207&PID_350B)\""));
     CHECK(!text.contains("CoInstaller"));
     CHECK(!text.contains("#DEVICE_"));
     CHECK(QFile::exists(directory.filePath("installer_x64.exe")));
@@ -37,6 +38,8 @@ int main(int argc, char **argv) {
     CHECK(installer.open(QIODevice::ReadOnly));
     const auto installerBytes = installer.readAll();
     CHECK(installerBytes.contains("upgrade-install-status.json"));
-    CHECK(installerBytes.contains("{\"rebootRequired\":%s}"));
+    CHECK(installerBytes.contains("{\"rebootRequired\":%s,"));
+    CHECK(installerBytes.contains("\"windowsInstallMs\":%llu"));
+    CHECK(installerBytes.contains("\"reenumerationMs\":%llu"));
     return failures ? 1 : 0;
 }

@@ -123,6 +123,50 @@ int main(int argc, char **argv) {
         CHECK(unavailable.summaryLevel() == "neutral" && unavailable.summaryText().isEmpty());
     }
     {
+        std::atomic<bool> installerHeld{true}, verificationHeld{true}, reachedBinding{false}, verificationEntered{false};
+        std::atomic<int> calls{0};
+        gui::DriverHooks progressHooks;
+        progressHooks.scan = [&](bool probe) {
+            auto d = allwinner;
+            if (reachedBinding) {
+                d.service = "WinUSB";
+                d.state = gui::DriverState::Bound;
+                if (probe) {
+                    verificationEntered = true;
+                    while (verificationHeld) QThread::msleep(1);
+                    d.state = gui::DriverState::Ready;
+                }
+            }
+            return gui::DriverScan{{d}, {}};
+        };
+        progressHooks.installWithProgress = [&](const auto &, const auto &, const gui::DriverProgress &progress) {
+            ++calls;
+            progress(gui::DriverPhase::Preparing);
+            progress(gui::DriverPhase::Installing);
+            reachedBinding = true;
+            progress(gui::DriverPhase::Bound);
+            while (installerHeld) QThread::msleep(1);
+            return gui::DriverInstallResult{true, false, {}};
+        };
+        gui::DriverController controller(progressHooks, true);
+        controller.setVendor(1); CHECK(Await([&] { return !controller.checking(); }));
+        controller.prepareInstall(allwinner.instance); controller.confirmInstall(); controller.beginInstall();
+        CHECK(Await([&] { return controller.message().contains("Waiting for Windows"); }));
+        CHECK(controller.busy() && controller.locked() && controller.hasPending());
+        CHECK(controller.progressText().contains("elapsed"));
+        CHECK(!controller.devices().first().toMap()["canInstall"].toBool());
+        controller.confirmInstall(); controller.beginInstall();
+        CHECK(calls == 1);
+        CHECK(Await([&] { return controller.elapsedSeconds() >= 1; }));
+        installerHeld = false;
+        CHECK(Await([&] { return verificationEntered.load(); }));
+        CHECK(controller.busy() && controller.locked() && controller.message() == "Checking driver…");
+        verificationHeld = false;
+        CHECK(Await([&] { return !controller.busy(); }));
+        CHECK(!controller.hasPending() && controller.message() == "Driver installed");
+        CHECK(controller.progressText() == controller.message() && calls == 1);
+    }
+    {
         gui::DriverScan outcome;
         gui::DriverHooks summaryHooks;
         summaryHooks.scan = [&](bool) { return outcome; };

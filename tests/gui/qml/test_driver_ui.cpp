@@ -62,8 +62,11 @@ int main(int argc, char **argv) {
         if (mode == 1) device.state = gui::DriverState::Ready;
         return gui::DriverScan{{device, aw, qc}, {}};
     };
-    hooks.install = [&](const auto &, const auto &) {
+    hooks.installWithProgress = [&](const auto &, const auto &, const gui::DriverProgress &progress) {
         ++installs; installerEntered = true;
+        progress(gui::DriverPhase::Preparing);
+        progress(gui::DriverPhase::Installing);
+        progress(gui::DriverPhase::Bound);
         while (holdInstall) QThread::msleep(1);
         return gui::DriverInstallResult{false, true, {}};
     };
@@ -273,6 +276,29 @@ int main(int argc, char **argv) {
     auto *installProgress = FindVisualItem(window->contentItem(), "statusProgress");
     CHECK(AwaitUi([&] { return installProgress->isVisible() && installProgress->property("indeterminate").toBool(); }));
     CHECK(!FindVisualItem(window->contentItem(), "statusCancel")->isVisible());
+    CHECK(AwaitUi([&] { return controller.drivers()->elapsedSeconds() >= 1; }));
+    CHECK(FindVisualItem(window->contentItem(), "statusDriverElapsed")->isVisible());
+    for (const auto &language : {"en", "zh"}) {
+        controller.language()->setMode(language);
+        CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
+        CHECK(AwaitUi([&] { return dialog->property("visible").toBool(); }));
+        auto *background = FindVisualItem(window->contentItem(), "driverCloseButton");
+        CHECK(background && background->isEnabled());
+        if (!background) { holdInstall = false; return 1; }
+        CHECK(background->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "转到后台" : "Run in background"));
+        CHECK(controller.drivers()->progressText().contains(QString::fromUtf8(QByteArray(language) == "zh" ? "等待 Windows" : "Waiting for Windows")));
+        if (argc > 1) {
+            QTest::qWait(40);
+            CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1]) + QString("/driver-installing-%1.png").arg(language)));
+        }
+        CHECK(QMetaObject::invokeMethod(background, "clicked"));
+        CHECK(AwaitUi([&] { return !dialog->property("visible").toBool(); }));
+        CHECK(controller.drivers()->busy() && controller.interactionLocked() && installs == 1);
+        if (argc > 1) {
+            QTest::qWait(40);
+            CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1]) + QString("/driver-background-%1.png").arg(language)));
+        }
+    }
     CHECK(inspection && !inspection->stop_requested());
     controller.setVendor(1); CHECK(controller.vendor() == 0);
     controller.rockchip()->runOperation(gui::Operations::EraseFlash);

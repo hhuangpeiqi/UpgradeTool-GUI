@@ -1141,6 +1141,10 @@
 <context>
     <name>DriverDialog</name>
     <message>
+        <source>Run in background</source>
+        <translation>转到后台</translation>
+    </message>
+    <message>
         <location filename="../qml/dialogs/DriverDialog.qml" line="+9"/>
         <source>USB Drivers</source>
         <translation>USB 驱动</translation>
@@ -2960,6 +2964,10 @@
 <context>
     <name>StatusBar</name>
     <message>
+        <source>%1 s elapsed</source>
+        <translation>已等待 %1 秒</translation>
+    </message>
+    <message>
         <location filename="../qml/components/StatusBar.qml" line="+283"/>
         <source>Cancel</source>
         <translation>取消</translation>
@@ -3820,6 +3828,18 @@
 </context>
 <context>
     <name>gui::DriverController</name>
+    <message>
+        <source>Windows is installing the driver…</source>
+        <translation>Windows 正在安装驱动…</translation>
+    </message>
+    <message>
+        <source>Driver bound. Waiting for Windows to finish…</source>
+        <translation>驱动已绑定，正在等待 Windows 完成…</translation>
+    </message>
+    <message>
+        <source>%1 · %2 s elapsed</source>
+        <translation>%1 · 已等待 %2 秒</translation>
+    </message>
     <message>
         <location filename="../backend/DriverController.cpp" line="+43"/>
         <source>Driver missing</source>

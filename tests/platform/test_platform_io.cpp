@@ -2,6 +2,7 @@
 #include "platform/SerialPort.h"
 #include "platform/Text.h"
 #include "platform/File.h"
+#include "platform/FileLog.h"
 #include "tests/support/TestFiles.h"
 #include <chrono>
 #include <cerrno>
@@ -87,6 +88,24 @@ static void TestFile() {
     size_t entries=0; for(const auto &e:std::filesystem::directory_iterator(dir.path)) { (void)e; ++entries; } CHECK(entries==1);
     { platform::AtomicFile file(output); file.resize(uint64_t(5)*1024*1024*1024); file.seek(uint64_t(5)*1024*1024*1024-1); file.write("z",1); file.commit(); }
     { platform::File file(output); CHECK(file.size()==uint64_t(5)*1024*1024*1024); file.seek(file.size()-1); CHECK(file.read(1)[0]=='z'); }
+}
+
+static void TestLongLog() {
+    TemporaryDirectory dir;
+    platform::FileLog log(platform::Utf8(dir.path), "driver-test-", true);
+    const std::string payload = std::string(80 * 1024, 'x') + "\n完整驱动安装日志";
+    log.Record("installer: %s\nfinal status=%d", payload.c_str(), 17);
+    std::string content;
+    for (const auto &entry : std::filesystem::directory_iterator(dir.path)) {
+        std::ifstream file(entry.path(), std::ios::binary);
+        content.append(std::istreambuf_iterator<char>(file), {});
+    }
+    CHECK(content.find("installer: " + payload + "\nfinal status=17\r\n") != std::string::npos);
+    const auto logPath = std::filesystem::directory_iterator(dir.path)->path();
+    const auto size = std::filesystem::file_size(logPath);
+    log.SetEnableLog(false);
+    log.Record("must not be written");
+    CHECK(std::filesystem::file_size(logPath) == size);
 }
 
 static void TestOpenFile() {
@@ -181,6 +200,7 @@ int main(int argc,char **argv) {
     TestAdbServerLifetime(argv[0]);
     TestText();
     TestFile();
+    TestLongLog();
     TestOpenFile();
     TestSerialPort();
     return failures?1:0;

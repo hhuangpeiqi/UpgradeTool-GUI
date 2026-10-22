@@ -28,17 +28,21 @@ file(CONFIGURE OUTPUT "${WDI_BUILD}/config.h" CONTENT "#define OPT_M64 1\n#defin
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${WDI_SOURCE}/installer.c")
 file(READ "${WDI_SOURCE}/installer.c" _wdi)
 wdi_replace("HANDLE pipe_handle = INVALID_HANDLE_VALUE;"
-  "static BOOL upgrade_reboot_required = FALSE;\nHANDLE pipe_handle = INVALID_HANDLE_VALUE;")
+  "static BOOL upgrade_reboot_required = FALSE;\nstatic ULONGLONG upgrade_install_started = 0, upgrade_windows_install_ms = 0, upgrade_reenumeration_ms = 0;\nHANDLE pipe_handle = INVALID_HANDLE_VALUE;")
 wdi_replace("UpdateDriverForPlugAndPlayDevicesU(NULL, hardware_id, path, INSTALLFLAG_FORCE, NULL)"
   "UpdateDriverForPlugAndPlayDevicesU(NULL, hardware_id, path, INSTALLFLAG_FORCE, &upgrade_reboot_required)")
+wdi_replace("\t\tb = UpdateDriverForPlugAndPlayDevicesU"
+  "\t\tupgrade_install_started = GetTickCount64();\n\t\tb = UpdateDriverForPlugAndPlayDevicesU")
 wdi_replace("\t\tsend_status(IC_SET_TIMEOUT_DEFAULT);\n\t\tif (b == TRUE)"
-  "\t\tDWORD upgrade_error = b ? ERROR_SUCCESS : GetLastError();\n\t\tsend_status(IC_SET_TIMEOUT_DEFAULT);\n\t\tif (b == TRUE)")
+  "\t\tDWORD upgrade_error = b ? ERROR_SUCCESS : GetLastError();\n\t\tupgrade_windows_install_ms = GetTickCount64() - upgrade_install_started;\n\t\tsend_status(IC_SET_TIMEOUT_DEFAULT);\n\t\tif (b == TRUE)")
+wdi_replace("\tstatus = pfCM_Reenumerate_DevNode(dev_inst, CM_REENUMERATE_RETRY_INSTALLATION);"
+  "\tULONGLONG upgrade_reenumeration_started = GetTickCount64();\n\tstatus = pfCM_Reenumerate_DevNode(dev_inst, CM_REENUMERATE_RETRY_INSTALLATION);\n\tupgrade_reenumeration_ms += GetTickCount64() - upgrade_reenumeration_started;")
 wdi_replace("\t\tret = process_error(GetLastError(), path);"
   "\t\tret = process_error(upgrade_error, path);")
 wdi_replace("case ERROR_SUCCESS_REBOOT_REQUIRED:\n"
   "case ERROR_SUCCESS_REBOOT_REQUIRED:\n\t\tupgrade_reboot_required = TRUE;\n")
 wdi_replace("out:\n\t// Report any error status code"
-  "out:\n\t{\n\t\tFILE *status = fopenU(\"upgrade-install-status.json\", \"wb\");\n\t\tif (status != NULL) {\n\t\t\tfprintf(status, \"{\\\"rebootRequired\\\":%s}\", upgrade_reboot_required ? \"true\" : \"false\");\n\t\t\tfclose(status);\n\t\t}\n\t}\n\t// Report any error status code")
+  "out:\n\t{\n\t\tFILE *status = fopenU(\"upgrade-install-status.json\", \"wb\");\n\t\tif (status != NULL) {\n\t\t\tfprintf(status, \"{\\\"rebootRequired\\\":%s,\\\"windowsInstallMs\\\":%llu,\\\"reenumerationMs\\\":%llu}\", upgrade_reboot_required ? \"true\" : \"false\", (unsigned long long)upgrade_windows_install_ms, (unsigned long long)upgrade_reenumeration_ms);\n\t\t\tfclose(status);\n\t\t}\n\t}\n\t// Report any error status code")
 file(CONFIGURE OUTPUT "${WDI_BUILD}/installer.c" CONTENT "${_wdi}" @ONLY)
 add_executable(wdi_installer "${WDI_BUILD}/installer.c")
 set_target_properties(wdi_installer PROPERTIES AUTOMOC OFF OUTPUT_NAME installer_x64 RUNTIME_OUTPUT_DIRECTORY "${WDI_BUILD}")

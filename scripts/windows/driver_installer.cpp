@@ -5,6 +5,8 @@
 #include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QElapsedTimer>
+#include <libwdi.h>
 #include <cstdio>
 #include <exception>
 #include <io.h>
@@ -25,9 +27,14 @@ int main(int argc, char **argv) {
     const auto logPath = QDir::toNativeSeparators(directory.filePath("libwdi.log"));
     _wfreopen(reinterpret_cast<const wchar_t *>(logPath.utf16()), L"w", stdout);
     _dup2(_fileno(stdout), _fileno(stderr));
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    std::setvbuf(stderr, nullptr, _IONBF, 0);
+    wdi_set_log_level(WDI_LOG_LEVEL_DEBUG);
+    QElapsedTimer elapsed; elapsed.start();
     gui::DriverInstallResult result;
     try {
         result = gui::InstallWindowsUsbDriverElevated(target, affected, [&](gui::DriverPhase phase) {
+            std::fprintf(stdout, "[%lld ms] phase=%d\n", static_cast<long long>(elapsed.elapsed()), int(phase));
             QSaveFile progress(directory.filePath("progress.json"));
             if (progress.open(QIODevice::WriteOnly)) {
                 progress.write(QJsonDocument(QJsonObject{{"phase", int(phase)}}).toJson(QJsonDocument::Compact));
@@ -36,6 +43,8 @@ int main(int argc, char **argv) {
         });
     }
     catch (const std::exception &exception) { result.error = QString::fromUtf8(exception.what()); }
+    std::fprintf(stdout, "[%lld ms] installation finished ok=%d reboot=%d\n",
+        static_cast<long long>(elapsed.elapsed()), result.ok, result.rebootRequired);
     std::fflush(stdout); std::fflush(stderr);
     QFile log(directory.filePath("libwdi.log"));
     if (log.open(QIODevice::ReadOnly)) result.log += QString::fromUtf8(log.read(1024 * 1024));

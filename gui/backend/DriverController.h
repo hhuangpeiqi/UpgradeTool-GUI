@@ -14,6 +14,7 @@ struct DriverHooks {
     std::function<DriverScan(bool)> scan = ScanWindowsUsbDrivers;
     std::function<DriverInstallResult(const DriverDevice &, const QVector<DriverDevice> &)> install;
     int verificationTimeoutMs = 15000;
+    std::function<DriverInstallResult(const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress &)> installWithProgress;
 };
 class DriverController : public QObject, public Retranslatable, public QAbstractNativeEventFilter {
     Q_OBJECT
@@ -24,6 +25,8 @@ class DriverController : public QObject, public Retranslatable, public QAbstract
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(bool locked READ locked NOTIFY changed)
     Q_PROPERTY(QString message READ message NOTIFY changed)
+    Q_PROPERTY(QString progressText READ progressText NOTIFY changed)
+    Q_PROPERTY(int elapsedSeconds READ elapsedSeconds NOTIFY changed)
     Q_PROPERTY(QString summaryText READ summaryText NOTIFY changed)
     Q_PROPERTY(QString summaryLevel READ summaryLevel NOTIFY changed)
     Q_PROPERTY(QVariantList confirmation READ confirmation NOTIFY confirmationChanged)
@@ -48,6 +51,8 @@ public:
     bool busy() const { return m_busy; }
     bool locked() const { return m_suspended || m_busy; }
     QString message() const { return m_message; }
+    QString progressText() const;
+    int elapsedSeconds() const { return m_elapsedSeconds; }
     QString summaryText() const;
     QString summaryLevel() const;
     QVariantList confirmation() const;
@@ -60,7 +65,7 @@ public:
     void shutdown();
     bool stopped() const;
     void beginInstall();
-    void retranslate() override { emit devicesChanged(); emit changed(); emit confirmationChanged(); }
+    void retranslate() override;
     Q_INVOKABLE void refresh(bool probe = true);
     Q_INVOKABLE void prepareInstall(const QString &instance);
     Q_INVOKABLE void confirmInstall();
@@ -82,6 +87,8 @@ private:
     void scan(bool probe);
     void finish(bool ok, const QString &message);
     void setMessage(const QString &);
+    void setPhase(DriverPhase);
+    QString phaseText() const;
     void rememberPending();
     DriverHooks m_hooks;
     bool m_available = false, m_suspended = false, m_stopping = false, m_busy = false;
@@ -91,8 +98,10 @@ private:
     int m_vendor = 0;
     unsigned m_generation = 0;
     QThread *m_scanThread = nullptr, *m_installThread = nullptr;
-    QTimer m_debounce, m_verifyTimer;
-    QElapsedTimer m_lastScan, m_verifyElapsed;
+    QTimer m_debounce, m_verifyTimer, m_progressTimer;
+    QElapsedTimer m_lastScan, m_verifyElapsed, m_installElapsed;
+    int m_elapsedSeconds = 0;
+    DriverPhase m_phase = DriverPhase::Preparing;
     QVector<DriverDevice> m_devices, m_affected;
     DriverDevice m_target, m_pending;
     bool m_rebootRequired = false;

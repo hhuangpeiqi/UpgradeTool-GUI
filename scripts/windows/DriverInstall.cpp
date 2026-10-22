@@ -6,6 +6,10 @@
 #include <QJsonDocument>
 #include <QScopeGuard>
 #include <QThread>
+#include <QElapsedTimer>
+#include <atomic>
+#include <condition_variable>
+#include <thread>
 #include <windows.h>
 #include <setupapi.h>
 #include <shlobj.h>
@@ -71,11 +75,17 @@ DriverInstallResult InstallWindowsUsbDriverElevated(const DriverDevice &target, 
     hooks.wait = [](int ms) { QThread::msleep(ms); };
     hooks.progress = progress;
     hooks.restart = restartDevice;
+    bool packagePrepared = false;
     hooks.install = [&](const DriverDevice &deviceTarget) {
         DriverInstallResult outcome;
+        QElapsedTimer elapsed; elapsed.start();
+        auto record = [&](const QString &stage) {
+            outcome.log += QStringLiteral("[%1 ms] %2\n").arg(elapsed.elapsed()).arg(stage);
+        };
         wdi_device_info *list = nullptr;
         wdi_options_create_list enumerate = {}; enumerate.list_all = TRUE;
         int rc = wdi_create_list(&list, &enumerate);
+        record(QStringLiteral("libwdi enumeration rc=%1").arg(rc));
         if (rc != WDI_SUCCESS) { outcome.error = QString::fromUtf8(wdi_strerror(rc)); return outcome; }
         auto cleanup = qScopeGuard([&] { wdi_destroy_list(list); });
         wdi_device_info *device = list;
@@ -86,18 +96,67 @@ DriverInstallResult InstallWindowsUsbDriverElevated(const DriverDevice &target, 
         }
         const auto path = directory.path().toUtf8();
         wdi_options_prepare_driver prepare = {}; prepare.driver_type = WDI_WINUSB;
-        rc = wdi_prepare_driver(device, path.constData(), "upgrade_winusb.inf", &prepare);
+        if (!packagePrepared) {
+            if (progress) progress(DriverPhase::Preparing);
+            record(QStringLiteral("driver preparation and signing started"));
+            rc = wdi_prepare_driver(device, path.constData(), "upgrade_winusb.inf", &prepare);
+            packagePrepared = rc == WDI_SUCCESS;
+            record(QStringLiteral("driver preparation and signing finished rc=%1").arg(rc));
+        } else {
+            record(QStringLiteral("reusing the signed driver package for this installation"));
+        }
         if (rc == WDI_SUCCESS) {
             const auto statusPath = directory.filePath("upgrade-install-status.json");
             QFile::remove(statusPath);
             wdi_options_install_driver install = {}; install.pending_install_timeout = 10000;
-            rc = wdi_install_driver(device, path.constData(), "upgrade_winusb.inf", &install);
+            if (progress) progress(DriverPhase::Installing);
+            record(QStringLiteral("Windows installation started"));
+            QString bindingLog;
+            {
+                std::atomic<bool> finished{false};
+                std::mutex waitMutex;
+                std::condition_variable wake;
+                std::thread observer([&] {
+                    try {
+                        bool wasBound = false;
+                        QString previous;
+                        while (!finished) {
+                            // Metadata only: never open the USB interface while Windows is installing it.
+                            const auto snapshot = ScanWindowsUsbDrivers(false);
+                            const auto *current = snapshot.error.isEmpty() ? FindDriverDevice(snapshot.devices, deviceTarget) : nullptr;
+                            const QString state = current ? current->fingerprint() : snapshot.error.isEmpty()
+                                ? QStringLiteral("Device absent or ambiguous") : snapshot.error;
+                            if (state != previous) {
+                                bindingLog += QStringLiteral("[%1 ms] binding: %2\n").arg(elapsed.elapsed()).arg(state);
+                                previous = state;
+                            }
+                            const bool bound = current && !current->service.compare("WinUSB", Qt::CaseInsensitive) && current->problem == 0;
+                            if (!finished && bound != wasBound) {
+                                wasBound = bound;
+                                if (progress) progress(bound ? DriverPhase::Bound : DriverPhase::Installing);
+                            }
+                            std::unique_lock<std::mutex> lock(waitMutex);
+                            wake.wait_for(lock, std::chrono::milliseconds(500), [&] { return finished.load(); });
+                        }
+                    } catch (const std::exception &e) {
+                        bindingLog += QStringLiteral("Binding observation failed: %1\n").arg(QString::fromUtf8(e.what()));
+                    }
+                });
+                auto stopObserver = qScopeGuard([&] { finished = true; wake.notify_one(); observer.join(); });
+                rc = wdi_install_driver(device, path.constData(), "upgrade_winusb.inf", &install);
+                record(QStringLiteral("Windows installation returned rc=%1").arg(rc));
+            }
+            outcome.log += bindingLog;
             QFile status(statusPath);
             if (status.open(QIODevice::ReadOnly) && status.size() <= 1024) {
                 QJsonParseError error;
                 const auto document = QJsonDocument::fromJson(status.readAll(), &error);
-                if (error.error == QJsonParseError::NoError && document.isObject() && document.object()["rebootRequired"].isBool())
+                if (error.error == QJsonParseError::NoError && document.isObject() && document.object()["rebootRequired"].isBool()) {
                     outcome.rebootRequired = document.object()["rebootRequired"].toBool();
+                    const auto statusObject = document.object();
+                    outcome.log += QStringLiteral("Windows API: %1 ms; device re-enumeration: %2 ms\n")
+                        .arg(statusObject["windowsInstallMs"].toInteger(-1)).arg(statusObject["reenumerationMs"].toInteger(-1));
+                }
                 else if (rc == WDI_SUCCESS) { outcome.error = QStringLiteral("The installer returned an invalid restart status."); return outcome; }
             } else if (rc == WDI_SUCCESS) {
                 outcome.error = QStringLiteral("The installer did not return a restart status."); return outcome;

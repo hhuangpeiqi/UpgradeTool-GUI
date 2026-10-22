@@ -289,7 +289,7 @@ DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &targ
         if (progress && phaseFile.open(QIODevice::ReadOnly) && phaseFile.size() <= 1024) {
             const auto object = QJsonDocument::fromJson(phaseFile.readAll()).object();
             const int phase = object.value("phase").toInt(-1);
-            if (phase >= int(DriverPhase::Installing) && phase <= int(DriverPhase::Verifying) && phase != previousPhase) {
+            if (phase >= int(DriverPhase::Installing) && phase <= int(DriverPhase::Bound) && phase != previousPhase) {
                 previousPhase = phase; progress(static_cast<DriverPhase>(phase));
             }
         }

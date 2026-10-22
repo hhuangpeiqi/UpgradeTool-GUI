@@ -135,7 +135,8 @@ AppDialog {
         Spinner { visible: app.drivers.busy; running: visible; Layout.preferredWidth: 16; Layout.preferredHeight: 16 }
         Text {
             Layout.fillWidth: true
-            text: app.drivers.message
+            objectName: "driverProgressText"
+            text: app.drivers.progressText
             wrapMode: Text.WordWrap
             color: Theme.textSecondary
             font.family: Theme.fontFamily
@@ -161,7 +162,11 @@ AppDialog {
             ToolTip.visible: hovered
             ToolTip.text: qsTr("Qualcomm USB Driver · Login required")
         }
-        SecondaryButton { text: qsTr("Close"); onClicked: dialog.close() }
+        SecondaryButton {
+            objectName: "driverCloseButton"
+            text: app.drivers.busy ? qsTr("Run in background") : qsTr("Close")
+            onClicked: dialog.close()
+        }
     }
 
     Connections {

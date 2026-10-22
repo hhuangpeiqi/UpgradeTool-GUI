@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <ctime>
 #include <fstream>
+#include <vector>
 namespace platform {
 FileLog::FileLog(std::string directory,std::string name,bool enabled)
     : m_name(name.empty()?"Log":std::move(name)),m_enabled(enabled) {
@@ -13,8 +14,11 @@ FileLog::FileLog(std::string directory,std::string name,bool enabled)
 }
 void FileLog::Record(const char *format,...) {
     if(!m_enabled.load() || m_path.empty()) return;
-    char text[1024]; va_list args; va_start(args,format);
-    std::vsnprintf(text,sizeof(text),format,args); va_end(args);
+    va_list args, countArgs; va_start(args,format); va_copy(countArgs,args);
+    const int length=std::vsnprintf(nullptr,0,format,countArgs); va_end(countArgs);
+    if(length<0) { va_end(args); return; }
+    std::vector<char> text(size_t(length)+1);
+    std::vsnprintf(text.data(),text.size(),format,args); va_end(args);
     std::lock_guard<std::mutex> lock(m_mutex);
     const auto now=std::time(nullptr); std::tm local{};
 #ifdef _WIN32
@@ -25,7 +29,7 @@ void FileLog::Record(const char *format,...) {
     char date[32],stamp[32]; std::strftime(date,sizeof(date),"%Y-%m-%d.txt",&local);
     std::strftime(stamp,sizeof(stamp),"%H:%M:%S \t",&local);
     std::ofstream out(Path(m_path)/Path(m_name+date),std::ios::binary|std::ios::app);
-    if(out) out<<stamp<<text<<"\r\n";
+    if(out) { out<<stamp; out.write(text.data(),length); out<<"\r\n"; }
 }
 bool FileLog::SaveBuffer(std::string fileName,unsigned char *bytes,uint32_t size) {
     try { AtomicFile out(Path(fileName)); out.write(bytes,size); out.commit(); return true; }

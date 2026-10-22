@@ -34,7 +34,7 @@ struct DriverInstallResult {
     QString log = {};
     bool rebootRequired = false, retryable = false;
 };
-enum class DriverPhase { Installing, Recovering, Verifying };
+enum class DriverPhase { Installing, Recovering, Verifying, Preparing, Bound };
 using DriverProgress = std::function<void(DriverPhase)>;
 const DriverDevice *FindDriverDevice(const QVector<DriverDevice> &, const DriverDevice &);
 DriverScan ScanWindowsUsbDrivers(bool probe = false);
