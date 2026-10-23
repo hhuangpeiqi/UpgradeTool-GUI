@@ -86,6 +86,7 @@ foreach(source IN LISTS QDL_SOURCES)
   list(APPEND QDL_SOURCE_FILES "${QDL_EMBEDDED_DIR}/src/${source}.c")
 endforeach()
 add_library(qdl_embedded STATIC ${QDL_SOURCE_FILES}
+  "${CMAKE_SOURCE_DIR}/backends/qualcomm/PathCompat.cpp"
   "${CMAKE_SOURCE_DIR}/backends/qualcomm/qdl_bridge.c"
   "${CMAKE_SOURCE_DIR}/backends/qualcomm/Discovery.c"
   "${CMAKE_SOURCE_DIR}/backends/qualcomm/qdl_ux.c")

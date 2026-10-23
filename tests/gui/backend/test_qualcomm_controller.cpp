@@ -20,6 +20,24 @@ int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     const QStringList booleanKeys = {"packageBuild", "archiveContents", "useImages", "debug", "dryRun", "allowMissing", "allowFusing", "finalize", "skipReset", "skipblock"};
     QTemporaryDir temp;
+    {
+        const QString folder = temp.filePath(QString::fromUtf8("中文目录 空格"));
+        CHECK(QDir().mkpath(folder));
+        const QString programmer = folder + QString::fromUtf8("/引导.mbn");
+        const QString definition = folder + QString::fromUtf8("/刷机.xml");
+        Write(programmer, QByteArray(512, 'L'));
+        Write(definition, "<data><program filename=\"boot.bin\"/></data>");
+        gui::QualcommController unicode;
+        core::OperationRequest request; int count = 0;
+        QObject::connect(&unicode, &gui::QualcommController::executeRequested,
+            [&](const core::OperationRequest &submitted) { request = submitted; ++count; });
+        unicode.setValue("programmer", programmer); unicode.setValue("dryRun", true);
+        CHECK(unicode.replaceFlashXml({definition}, {})); AwaitInspection(unicode);
+        unicode.run(int(core::Operation::QualcommFlash));
+        CHECK(count == 1);
+        CHECK(request.qualcomm().programmer == programmer.toUtf8().toStdString());
+        CHECK(request.qualcomm().xml == std::vector<std::string>{definition.toUtf8().toStdString()});
+    }
     const QString loader = temp.filePath("loader.mbn"), raw = temp.filePath("raw.xml"), ufs = temp.filePath("ufs.xml");
     Write(loader, QByteArray(512,'L'));
     Write(raw, "<data><program filename=\"boot.bin\" label=\"boot\"/></data>");

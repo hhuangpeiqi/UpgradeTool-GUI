@@ -1,5 +1,6 @@
 upgrade_test(test_qualcomm_policy LIBRARIES upgrade_qualcomm qdl_embedded LABELS backend qualcomm)
 upgrade_test(test_qualcomm LIBRARIES upgrade_qualcomm upgrade_application qdl_embedded upgrade_platform LABELS backend qualcomm)
+upgrade_test(test_qualcomm_paths LIBRARIES qdl_embedded upgrade_platform LABELS backend qualcomm)
 upgrade_test(test_qualcomm_sahara SOURCES test_qualcomm_sahara.c LIBRARIES qdl_embedded TIMEOUT 10 LABELS backend qualcomm)
 target_include_directories(test_qualcomm_sahara PRIVATE "${QDL_EMBEDDED_DIR}/include" "${QDL_EMBEDDED_DIR}/src")
 if(WIN32)
