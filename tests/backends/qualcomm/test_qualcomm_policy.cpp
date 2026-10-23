@@ -1,6 +1,7 @@
 #include "backends/DeviceIdentity.h"
 #include "backends/qualcomm/QualcommBackend.h"
 #include "backends/qualcomm/OperationPolicy.h"
+#include "backends/qualcomm/QudError.h"
 #include "domain/DeviceSelection.h"
 #include "qdl_bridge.h"
 #include <cstdio>
@@ -9,6 +10,7 @@ namespace platform { class FileLog; }
 static int failures;
 #define CHECK(x) do { if(!(x)) { std::fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x); ++failures; } } while(0)
 using namespace core;
+extern "C" struct qtq_callbacks qtq_hooks;
 class FakeBackend : public qualcomm::QualcommBackend {
 public:
     std::vector<DeviceDescriptor> devices;
@@ -16,6 +18,34 @@ public:
 };
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
+    {
+        // Verify categorization without depending on Windows language or hardware.
+        const auto denied = qualcomm::QudErrorMessage("\\\\.\\COM52", false, 5, "denied");
+        CHECK(denied.English().find("COM52: opening failed (Windows error 5: denied)") != std::string::npos);
+        CHECK(denied.English().find("port may be in use") != std::string::npos);
+        CHECK(qualcomm::QudErrorMessage("COM52", false, 32, "sharing").key == denied.key);
+        for (unsigned long code : {2ul, 3ul, 433ul, 1167ul}) {
+            const auto missing = qualcomm::QudErrorMessage("COM52", false, code, "missing");
+            CHECK(missing.English().find("device path is unavailable") != std::string::npos);
+            CHECK(missing.English().find("enter EDL (9008) mode, and retry") != std::string::npos);
+            CHECK(missing.English().find("virtual machine") == std::string::npos);
+        }
+        CHECK(qualcomm::QudErrorMessage("COM52", true, 5, "denied").English().find("configuration failed") != std::string::npos);
+        CHECK(qualcomm::QudErrorMessage("COM52", false, 31, "failed").English().find("Windows error 31") != std::string::npos);
+        struct Failure { int calls = 0; unsigned long error = 0; std::string path, description; bool configuring = false; } failure;
+        qtq_hooks = {};
+        qtq_hooks.user = &failure;
+        qtq_hooks.qud_error = [](void *p, const char *path, int configuring, unsigned long error, const char *description) {
+            auto &f = *static_cast<Failure *>(p); ++f.calls; f.error = error;
+            f.path = path; f.configuring = configuring; f.description = description;
+        };
+        qtq_report_qud_error("\\\\.\\COM52", 0, 5);
+        CHECK(failure.calls == 1 && failure.error == 5 && !failure.configuring);
+        CHECK(failure.path == "\\\\.\\COM52" && !failure.description.empty());
+        qtq_report_qud_error("COM52", 1, 31);
+        CHECK(failure.calls == 2 && failure.error == 31 && failure.configuring);
+        qtq_hooks = {};
+    }
     // Descriptor resemblance alone cannot turn DIAG, an OEM PID or another
     // vendor's 9008 into a download target.
     for(int protocol : {0xff,0x10,0x11,0x13}) {

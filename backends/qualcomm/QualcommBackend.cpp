@@ -2,6 +2,7 @@
 #include "backends/qualcomm/QualcommBackend.h"
 #include "domain/DeviceSelection.h"
 #include "backends/qualcomm/OperationPolicy.h"
+#include "backends/qualcomm/QudError.h"
 #include "qdl_bridge.h"
 #include <cerrno>
 #include <climits>
@@ -32,6 +33,11 @@ void progress(void *p, const char *stage, uint64_t current, uint64_t total) {
 }
 void item(void *p, const char *label, const char *value) {
     static_cast<Context *>(p)->result->items.push_back({label, value});
+}
+void qudError(void *p, const char *path, int configuring, unsigned long error, const char *description) {
+    auto &result = *static_cast<Context *>(p)->result;
+    result.diagnosticMessage = QudErrorMessage(path, configuring != 0, error, description);
+    result.diagnostic = result.diagnosticMessage.English();
 }
 std::string Tr(const char *text) { return text; }
 }
@@ -70,7 +76,8 @@ std::vector<DeviceDescriptor> QualcommBackend::Scan() {
         auto d=Describe(identity); d.index=static_cast<int>(i+1);
         d.modeCode = static_cast<DeviceMode>(rows[i].mode); d.accessError = rows[i].access_error;
         d.mode = Tr(ModeLabel(static_cast<qtq_mode>(d.modeCode))) + " / " +
-            (rows[i].backend == 2 ? rows[i].path : "USB IF " + std::to_string(rows[i].interface_number));
+            (rows[i].backend == 2 ? "QDLoader (" + identity.devicePath.substr(identity.devicePath.find_last_of('\\') + 1) + ")"
+                                  : "USB IF " + std::to_string(rows[i].interface_number));
         devices.push_back(d);
     }
     qtq_free_devices(rows);
@@ -146,9 +153,10 @@ OperationResult QualcommBackend::Execute(const OperationRequest &request, const 
         std::snprintf(r.target.path,sizeof(r.target.path),"%s",identity.devicePath.c_str());
     }
     Context context{cancellation,observer,&result};
-    qtq_callbacks callbacks{&context,log,progress,cancelled,item};
+    qtq_callbacks callbacks{&context,log,progress,cancelled,item,qudError};
     int code;
     { std::lock_guard<std::mutex> lock(qdlMutex); code=qtq_execute(&r,&callbacks); }
+    if (!result.diagnosticMessage.key.empty()) result.diagnostic = result.diagnosticMessage.English();
     result.status=code == -ECANCELED ? OperationStatus::Cancelled : code == 0 ? OperationStatus::Succeeded : OperationStatus::Failed;
     result.error=code == 0 || code == -ECANCELED ? ErrorCode::None : code == -EINVAL ? ErrorCode::InvalidInput : ErrorCode::OperationFailed;
     if (code && code != -ECANCELED && result.diagnostic.empty()) result.diagnostic=Tr("Qualcomm operation failed") + ": " + std::strerror(-code);

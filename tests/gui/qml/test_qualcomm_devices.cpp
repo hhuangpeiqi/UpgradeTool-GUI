@@ -16,6 +16,10 @@ bool QualcommUiTests::TestDevices() {
         };
         QVariantMap diag{{"vendor",2},{"index",1},{"key","diag"},{"vid",0x05c6},{"pid",0x9091},{"qualcommMode",QTQ_DIAG}};
         auto edl=diag; edl["key"]="edl"; edl["index"]=2; edl["pid"]=0x9008; edl["qualcommMode"]=QTQ_EDL;
+        auto usb = edl; usb["key"] = "usb"; usb["transport"] = 0; usb["accessError"] = LIBUSB_ERROR_NOT_SUPPORTED;
+        auto com = edl; com["key"] = "com"; com["transport"] = 2; com["devicePath"] = "\\\\.\\COM52";
+        update({usb, com}); CHECK(controller.deviceIndex() == 1); CHECK(download->isEnabled());
+        controller.setDeviceIndex(0); CHECK(!download->isEnabled());
         update({diag,edl}); controller.setDeviceIndex(0);
         CHECK(!download->isEnabled());
         controller.setDeviceIndex(1); CHECK(download->isEnabled());

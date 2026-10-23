@@ -5,6 +5,9 @@
 #include "gui/QtObserver.h"
 #include "gui/OperationSpec.h"
 #include "gui/AdbRunner.h"
+#include "gui/UsbAccess.h"
+#include "gui/backend/QualcommController.h"
+#include "backends/qualcomm/QudError.h"
 #include "platform/FileLog.h"
 #include <QGuiApplication>
 #include <QTemporaryDir>
@@ -232,6 +235,60 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
 		CHECK(!controller.deviceLabels().first().contains("SN:"));
 	}
 
+    {
+        gui::AppController controller(nullptr); controller.setVendor(2);
+        controller.language()->setMode("en");
+        auto update = [&](const QVariantList &devices) {
+            CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                Q_ARG(QVariantList, SnapshotDevices(devices))));
+        };
+        QVariantMap diag{{"vendor",2},{"key","diag"},{"vid",0x05c6},{"pid",0x9091},{"qualcommMode",QTQ_DIAG}};
+        auto usb = diag; usb["key"] = "usb"; usb["pid"] = 0x9008; usb["qualcommMode"] = QTQ_EDL;
+        usb["transport"] = 0; usb["accessError"] = LIBUSB_ERROR_NOT_SUPPORTED;
+        auto com = usb; com["key"] = "com"; com["transport"] = 2; com["accessError"] = 0;
+        com["devicePath"] = "\\\\.\\COM52"; com["deviceInstance"] = "test-QDLoader";
+        update({diag, usb, com}); CHECK(controller.deviceIndex() == 2);
+        CHECK(controller.deviceLabels()[1].contains("Driver does not support this transport"));
+        update({com, usb, diag}); CHECK(controller.deviceIndex() == 0);
+        // An explicit selection is retained even when its transport cannot open.
+        controller.setDeviceIndex(1); update({diag, com, usb}); CHECK(controller.deviceIndex() == 2);
+        const auto eligibility = controller.qualcommEligibility()[QString::number(int(core::Operation::QualcommFlash))].toMap();
+        CHECK(!eligibility["allowed"].toBool()); CHECK(eligibility["reason"].toString().contains("QDLoader"));
+        update({diag}); CHECK(controller.deviceIndex() == -1);
+        update({diag, com}); CHECK(controller.deviceIndex() == -1);
+        // No serial-port probe: an intentionally nonexistent COM path is left
+        // to the real transport's identity validation/open, without touching hardware.
+        const auto reference = SnapshotDevices({com}).first().toMap()["reference"].value<core::DeviceRef>();
+        CHECK(gui::CheckUsbAccess(reference).isEmpty());
+        core::OperationResult result; result.operation = core::Operation::QualcommFlash;
+        result.diagnosticMessage = core::qualcomm::QudErrorMessage("\\\\.\\COM52", false, 5, "Access is denied");
+        result.diagnostic = result.diagnosticMessage.English();
+        CHECK(QMetaObject::invokeMethod(&controller, "onOperationResult", Qt::DirectConnection, Q_ARG(core::OperationResult, result)));
+        CHECK(controller.qualcomm()->operationErrorFor("flash").contains("COM52"));
+        CHECK(controller.qualcomm()->operationErrorFor("flash").contains("Windows error 5"));
+        controller.language()->setMode("zh_CN");
+        CHECK(controller.qualcomm()->operationErrorFor("flash").contains(QStringLiteral("访问被拒绝")));
+        CHECK(controller.qualcomm()->operationErrorFor("flash").contains("COM52"));
+        controller.language()->setMode("en");
+        CHECK(controller.qualcomm()->operationErrorFor("flash").contains("opening failed"));
+    }
+    {
+        gui::AppController controller(nullptr); controller.setVendor(2);
+        QVariantMap usb{{"vendor",2},{"key","usb"},{"vid",0x05c6},{"pid",0x9008},
+            {"qualcommMode",QTQ_EDL},{"transport",0},{"accessError",0}};
+        auto other = usb; other["key"] = "other";
+        CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+            Q_ARG(QVariantList, SnapshotDevices({usb, other}))));
+        CHECK(controller.deviceIndex() == 0);
+        CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+            Q_ARG(QVariantList, SnapshotDevices({other}))));
+        CHECK(controller.deviceIndex() == -1);
+        // Further updates must not silently target another physical device.
+        other["index"] = 2;
+        CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+            Q_ARG(QVariantList, SnapshotDevices({other}))));
+        CHECK(controller.deviceIndex() == -1);
+    }
     {
         gui::AppController controller(nullptr); controller.setVendor(2);
         auto allowed=[&](core::Operation operation) {

@@ -2,6 +2,11 @@ upgrade_test(test_qualcomm_policy LIBRARIES upgrade_qualcomm qdl_embedded LABELS
 upgrade_test(test_qualcomm LIBRARIES upgrade_qualcomm upgrade_application qdl_embedded upgrade_platform LABELS backend qualcomm)
 upgrade_test(test_qualcomm_sahara SOURCES test_qualcomm_sahara.c LIBRARIES qdl_embedded TIMEOUT 10 LABELS backend qualcomm)
 target_include_directories(test_qualcomm_sahara PRIVATE "${QDL_EMBEDDED_DIR}/include" "${QDL_EMBEDDED_DIR}/src")
+if(WIN32)
+  upgrade_test(test_qualcomm_qud SOURCES test_qualcomm_qud.c LIBRARIES LibXml2::LibXml2 setupapi advapi32 TIMEOUT 10 LABELS backend qualcomm)
+  target_include_directories(test_qualcomm_qud PRIVATE "${CMAKE_SOURCE_DIR}/backends/qualcomm"
+    "${QDL_EMBEDDED_DIR}/include" "${QDL_EMBEDDED_DIR}/src")
+endif()
 if(UNIX)
   upgrade_test(test_qualcomm_node LIBRARIES upgrade_qualcomm qdl_embedded upgrade_platform Threads::Threads LABELS backend qualcomm)
 endif()

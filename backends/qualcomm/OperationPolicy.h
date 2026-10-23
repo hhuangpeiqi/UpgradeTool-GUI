@@ -11,6 +11,8 @@ inline std::string EligibilityReason(Operation operation, qtq_mode mode, int acc
         reason = mode == QTQ_DUMP
             ? "Crash-dump mode only supports RAM dump; switch to EDL (9008) for this operation"
             : "The selected interface is not an EDL (9008) target";
+    else if (accessError == -12) // LIBUSB_ERROR_NOT_SUPPORTED
+        reason = "The driver does not support this transport. Select a compatible USB or QDLoader (COM) entry.";
     else if (accessError)
         reason = "The selected interface cannot be opened; check permissions and the USB driver";
     return reason ? reason : "";

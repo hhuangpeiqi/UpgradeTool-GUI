@@ -63,6 +63,7 @@ private:
     QMap<QString, QVariantList> m_xmlEntries;
     QMap<QString, QString> m_errors, m_operationErrors;
     QMap<QString,core::Message> m_errorMessages;
+    QMap<QString,core::Message> m_operationMessages;
     KeyValueModel m_results;
     QMap<QString, KeyValueModel *> m_contextResults;
     bool m_locked = false;

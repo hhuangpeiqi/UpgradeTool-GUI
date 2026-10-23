@@ -9,9 +9,6 @@
 #include <QCoreApplication>
 #include <QScopeGuard>
 #include <libusb.h>
-#ifdef Q_OS_WIN
-#include <windows.h>
-#endif
 
 namespace gui {
 QString CheckUsbAccess(const core::DeviceRef &reference) {
@@ -25,14 +22,9 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
                            .arg(QString::fromStdString(core::rockchip::UsbError(error))) : QString{};
     }
 #endif
-    if (target.transport == core::QualcommTransport::Qud) {
-        const QString path = QString::fromStdString(target.devicePath);
-        HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(path.utf16()), GENERIC_READ | GENERIC_WRITE,
-            0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
-        if (handle == INVALID_HANDLE_VALUE)
-            return QCoreApplication::translate("gui::AppController", "Cannot access the selected device (%1)").arg(GetLastError());
-        CloseHandle(handle); return {};
-    }
+    // QUD validates the selected identity and opens the port for the actual
+    // operation. A separate open/close probe can disturb the serial driver.
+    if (target.vendor == core::Vendor::Qualcomm && target.transport == core::QualcommTransport::Qud) return {};
     libusb_context *context = nullptr;
     int rc = libusb_init(&context);
     if (rc) return QString::fromLatin1(libusb_error_name(rc));

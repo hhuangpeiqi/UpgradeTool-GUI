@@ -798,7 +798,7 @@
  			if (!win_read_iproduct_sn(devinfo, &info,
  						  out[count].serial,
  						  sizeof(out[count].serial)))
-@@ -365,39 +356,17 @@
+@@ -365,51 +356,29 @@
  	int found;
  	int i;
  
@@ -849,20 +849,36 @@
  
  	h = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL,
  			OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-@@ -421,6 +390,13 @@
- 	return 0;
- }
+ 	if (h == INVALID_HANDLE_VALUE) {
+-		ux_err("qud: CreateFile(%s) failed (error %lu)\n",
+-		       path, (unsigned long)GetLastError());
++		const DWORD error = GetLastError();
++		qtq_report_qud_error(path, 0, error);
+ 		return -1;
+ 	}
  
+ 	if (win_configure_handle(h) < 0) {
+-		ux_err("qud: failed to configure %s (error %lu)\n",
+-		       path, (unsigned long)GetLastError());
++		const DWORD error = GetLastError();
++		qtq_report_qud_error(path, 1, error);
+ 		CloseHandle(h);
+ 		return -1;
+ 	}
+@@ -419,6 +388,13 @@
+ 
+ 	ux_debug("qud: opened %s\n", path);
+ 	return 0;
++}
++
 +/* Only a confirmed unplug is a successful reset, not an arbitrary IO error. */
 +static int qud_io_error(DWORD error)
 +{
 +    return error == ERROR_DEVICE_NOT_CONNECTED || error == ERROR_NO_SUCH_DEVICE
 +        ? -ENODEV : -EIO;
-+}
-+
+ }
+ 
  static int win_overlapped_io(HANDLE h, void *buf, size_t len,
- 			     unsigned int timeout_ms, bool is_write)
- {
 @@ -441,11 +417,24 @@
  		ok = ReadFile(h, buf, (DWORD)len, NULL, &ovl);
  

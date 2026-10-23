@@ -7,6 +7,8 @@
 #include <libxml/globals.h>
 #ifndef _WIN32
 #include <poll.h>
+#else
+#include <windows.h>
 #endif
 #include "qdl_bridge.h"
 #define QDL_EMBEDDED 1
@@ -22,6 +24,21 @@ int qtq_target_pinned(void) { return active && active->target.vid; }
 int qtq_require_sahara(void) { return active && active->command == QTQ_KICKSTART; }
 int qtq_failed(void) { return allocation_failed; }
 void qtq_error(void) { allocation_failed = 1; }
+void qtq_report_qud_error(const char *path, int configuring, unsigned long error)
+{
+    char description[2048] = {0};
+#ifdef _WIN32
+    wchar_t message[512] = {0};
+    DWORD length = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, error, 0, message, sizeof(message) / sizeof(message[0]), NULL);
+    while (length && (message[length - 1] == L'\r' || message[length - 1] == L'\n' || message[length - 1] == L' ')) --length;
+    message[length] = 0;
+    if (length) WideCharToMultiByte(CP_UTF8, 0, message, -1, description, sizeof(description), NULL, NULL);
+#endif
+    if (!description[0]) snprintf(description, sizeof(description), "Windows error %lu", error);
+    ux_err("QUD port=%s stage=%s Windows error=%lu: %s\n", path, configuring ? "configure" : "open", error, description);
+    if (qtq_hooks.qud_error) qtq_hooks.qud_error(qtq_hooks.user, path, configuring, error, description);
+}
 void qtq_item(const char *label, const char *value)
 { if (qtq_hooks.item) qtq_hooks.item(qtq_hooks.user, label, value); }
 void qtq_progress(const char *stage, uint64_t current, uint64_t total)

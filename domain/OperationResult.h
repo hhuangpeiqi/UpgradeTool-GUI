@@ -2,6 +2,7 @@
 #define CORE_OPERATION_RESULT_H
 #include "domain/Operation.h"
 #include "domain/FirmwareInfo.h"
+#include "domain/Message.h"
 namespace core {
 enum class ResultKind { None, DeviceList, FlashId, FlashInfo, ChipInfo, Capability, SecureMode, Sn, PartitionList, FirmwareInfo, Generic };
 enum class OperationStatus { Succeeded, Failed, Cancelled };
@@ -20,6 +21,7 @@ struct OperationResult {
 	ErrorCode error = ErrorCode::None;
 	ResultKind kind = ResultKind::None;
 	std::string diagnostic;
+	Message diagnosticMessage;
 	// Display-only rows; business decisions use typed fields below.
 	std::vector<ResultItem> items;
 	FirmwareInfo firmware;

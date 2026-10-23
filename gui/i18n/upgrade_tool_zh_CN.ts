@@ -2271,6 +2271,30 @@
         <source>Unknown mode</source>
         <translation>未知模式</translation>
     </message>
+    <message>
+        <source>Driver does not support this transport</source>
+        <translation>驱动不支持此传输</translation>
+    </message>
+    <message>
+        <source>The driver does not support this transport. Select a compatible USB or QDLoader (COM) entry.</source>
+        <translation>驱动不支持此传输方式，请选择兼容的 USB 或 QDLoader（COM）。</translation>
+    </message>
+    <message>
+        <source>QDLoader (COM) %1: port configuration failed (Windows error %2: %3). Reconnect the device and enter EDL (9008) again.</source>
+        <translation>QDLoader（COM）%1：端口配置失败（Windows 错误 %2：%3）。请重新连接设备并再次进入 EDL（9008）。</translation>
+    </message>
+    <message>
+        <source>QDLoader (COM) %1: opening failed (Windows error %2: %3). Access denied. The port may be in use or access permissions may be restricted. Check port usage and access permissions.</source>
+        <translation>QDLoader（COM）%1：打开失败（Windows 错误 %2：%3）。访问被拒绝，可能存在端口占用或访问权限限制。请检查端口占用情况及访问权限。</translation>
+    </message>
+    <message>
+        <source>QDLoader (COM) %1: opening failed (Windows error %2: %3). The device path is unavailable. Reconnect the device, enter EDL (9008) mode, and retry.</source>
+        <translation>QDLoader（COM）%1：打开失败（Windows 错误 %2：%3）。设备路径不可用，请重新连接设备、进入 EDL（9008）并重试。</translation>
+    </message>
+    <message>
+        <source>QDLoader (COM) %1: opening failed (Windows error %2: %3). Check the device connection and driver, reconnect the device, and re-enter EDL (9008) mode.</source>
+        <translation>QDLoader（COM）%1：打开失败（Windows 错误 %2：%3）。请检查连接和驱动，重新连接设备并再次进入 EDL（9008）。</translation>
+    </message>
 </context>
 <context>
     <name>QualcommFlashPage</name>

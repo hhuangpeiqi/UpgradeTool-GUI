@@ -1,4 +1,5 @@
 #include "gui/backend/AppController.h"
+#include "gui/MessageDisplay.h"
 #include "application/BuildFeatures.h"
 
 #include <QDesktopServices>
@@ -15,6 +16,7 @@
 #include <QVariantMap>
 
 #include <cstring>
+#include <libusb.h>
 #include <utility>
 
 #ifdef Q_OS_LINUX
@@ -518,11 +520,15 @@ QStringList AppController::deviceLabels() const
 				.arg(map["vid"].toUInt(), 4, 16, QChar('0'))
 				.arg(map["pid"].toUInt(), 4, 16, QChar('0'));
 			const QString strSerial = map["serial"].toString();
+            QString mode = map["mode"].toString();
+            if (map.value("transport", -1).toInt() == int(core::QualcommTransport::Usb) &&
+                map.value("accessError").toInt() == LIBUSB_ERROR_NOT_SUPPORTED)
+                mode += " / " + QCoreApplication::translate("QualcommBackend", "Driver does not support this transport");
 			strLabel = QString("#%1 %2%3 [%4] %5")
 				.arg(map["index"].toInt())
 				.arg(strIdentity)
 				.arg(strSerial.isEmpty() ? QString() : QStringLiteral(" SN:") + strSerial)
-				.arg(map["mode"].toString())
+				.arg(mode)
 				.arg(map["key"].toString());
 		}
 		list << strLabel;
@@ -731,12 +737,24 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 	QString strPrevious = m_vendorSelection[m_vendor];
 	if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceModel->keys().size())
 		strPrevious = m_deviceModel->keys().value(m_iDeviceIndex);
+    // Remember automatic selections too, so later scans cannot silently switch
+    // to another Qualcomm device after the original target disappears.
+    m_vendorSelection[m_vendor] = strPrevious;
 
     m_deviceModel->setRows(devices);
 
 	int iSelected = m_deviceModel->keys().indexOf(edlKey.isEmpty() ? strPrevious : edlKey);
-	if (iSelected < 0 && !devices.isEmpty() && (m_vendor != 2 || strPrevious.isEmpty()))
+	if (iSelected < 0 && !devices.isEmpty() && (m_vendor != 2 || strPrevious.isEmpty())) {
 		iSelected = 0;
+        if (m_vendor == 2) {
+            for (int i = 0; i < devices.size(); ++i) {
+                const auto row = devices[i].toMap();
+                if (row.value("qualcommMode").toInt() == QTQ_EDL && !row.value("accessError").toInt()) {
+                    iSelected = i; break;
+                }
+            }
+        }
+    }
 
 	if (iSelected != m_iDeviceIndex) {
 		m_iDeviceIndex = iSelected;
@@ -1042,8 +1060,8 @@ void AppController::answerStorage(int iIndex)
 void AppController::onOperationResult(const core::OperationResult &result)
 {
     if(result.operation >= core::Operation::QualcommFlash && result.operation <= core::Operation::QualcommProvision) {
-        if (result.status == core::OperationStatus::Failed && !result.diagnostic.empty())
-            onOutput(static_cast<int>(core::LogLevel::Error), QString::fromStdString(result.diagnostic));
+        if (result.status == core::OperationStatus::Failed && (!result.diagnostic.empty() || !result.diagnosticMessage.key.empty()))
+            onOutput(static_cast<int>(core::LogLevel::Error), DisplayDiagnostic(result));
         m_qualcomm->applyResult(result); return;
     }
     if(result.operation >= core::Operation::AllwinnerFlash && result.operation <= core::Operation::AllwinnerReboot) {

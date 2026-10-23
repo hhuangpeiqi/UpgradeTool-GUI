@@ -70,6 +70,8 @@ QVariantMap QualcommController::settingsFor(const QString &context) const {
 QStringList QualcommController::xmlFilesFor(const QString &context) const { return m_profiles.value(context).value("xmlFiles").toStringList(); }
 void QualcommController::retranslate() {
     for(auto it=m_errorMessages.begin();it!=m_errorMessages.end();++it) m_errors[it.key()]=it.value().key.empty()?QString():Display(it.value());
+    for (auto it = m_operationMessages.begin(); it != m_operationMessages.end(); ++it)
+        m_operationErrors[it.key()] = Display(it.value());
     emit changed();
 }
 void QualcommController::setValue(const QString &key, const QVariant &value) { setContextValue("flash", key, value); }
@@ -86,6 +88,7 @@ void QualcommController::setContextValue(const QString &context, const QString &
         profile["selector"] = QString();
     }
     m_operationErrors.remove(context);
+    m_operationMessages.remove(context);
     if (key == "xmlFiles") inspect();
     emit changed();
 }
@@ -365,6 +368,7 @@ void QualcommController::run(int operation, const QVariantMap &overrides) {
     core::OperationRequest request;
     const QString context = contextFor(static_cast<core::Operation>(operation));
     const QString error = buildRequest(operation, overrides, request);
+    m_operationMessages.remove(context);
     m_operationErrors[context] = error; emit changed();
     if (!error.isEmpty()) { emit errorRequested(error); return; }
     m_results.Clear(); m_contextResults[context]->Clear(); emit executeRequested(request);
@@ -373,7 +377,11 @@ void QualcommController::applyResult(const core::OperationResult &result) {
     QVariantList rows;
     for (const auto &item : result.items) rows.append(QVariantMap{{"label",QString::fromStdString(item.label)},{"value",QString::fromStdString(item.value)}});
     const auto context = contextFor(result.operation);
-    m_operationErrors[context] = result.status == core::OperationStatus::Failed ? QCoreApplication::translate("QualcommBackend",result.diagnostic.c_str()) : QString();
+    m_operationErrors[context] = result.status == core::OperationStatus::Failed ? DisplayDiagnostic(result) : QString();
+    m_operationMessages.remove(context);
+    if (result.status == core::OperationStatus::Failed)
+        m_operationMessages[context] = result.diagnosticMessage.key.empty()
+            ? core::Message{"QualcommBackend", result.diagnostic, {}} : result.diagnosticMessage;
     m_results.SetItems(rows);
     if (m_contextResults.contains(context)) m_contextResults[context]->SetItems(rows);
     m_profiles[context]["allowFusing"] = false; m_profiles[context]["finalize"] = false;

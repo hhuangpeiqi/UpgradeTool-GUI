@@ -57,6 +57,7 @@ struct qtq_callbacks {
     void (*progress)(void *, const char *stage, uint64_t current, uint64_t total);
     int (*cancelled)(void *);
     void (*item)(void *, const char *label, const char *value);
+    void (*qud_error)(void *, const char *path, int configuring, unsigned long error, const char *description);
 };
 /* All entry points are serialized by the caller. Requests are borrowed for the call. */
 void qtq_defaults(struct qtq_request *request);
@@ -72,6 +73,7 @@ int qtq_require_sahara(void);
 int qtq_target_pinned(void);
 int qtq_failed(void);
 void qtq_error(void);
+void qtq_report_qud_error(const char *path, int configuring, unsigned long error);
 void qtq_item(const char *label, const char *value);
 int qtq_match_usb(unsigned int bus, const unsigned char *ports, int count,
                   unsigned int vid, unsigned int pid, unsigned int address);
