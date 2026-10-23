@@ -6,10 +6,10 @@ int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     int failures = 0;
     gui::DriverDevice original;
-    original.instance = "USB\\VID_2207&PID_350B\\BOARD";
-    original.hardwareId = "USB\\VID_2207&PID_350B&REV_0100";
+    original.instance = "USB\\VID_1F3A&PID_EFE8\\BOARD";
+    original.hardwareId = "USB\\VID_1F3A&PID_EFE8&REV_0100";
     original.location = "USBROOT(0)#USB(1)";
-    original.vendor = 0; original.interfaceNumber = -1;
+    original.vendor = 1; original.interfaceNumber = -1;
     original.verifiedInterface = true;
     original.service = "VendorUSB"; original.state = gui::DriverState::Incompatible;
     enum Scenario { First, Restart, Retry, Reboot, RestartReboot, Cancel, Busy, BusyExhausted,
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
             gui::DriverInstallResult result{true, false, {}};
             if (scenario == Restart) {
                 ready(); devices[0].instance += "-new";
-                devices[0].hardwareId = "USB\\VID_2207&PID_350B";
+                devices[0].hardwareId = "USB\\VID_1F3A&PID_EFE8";
             }
             if (scenario == RestartReboot) result.rebootRequired = true;
             if (scenario == RestartDenied) { result.ok = false; result.error = "device restart denied"; }

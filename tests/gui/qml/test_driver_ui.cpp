@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
     qc.vid = 0x05c6; qc.pid = 0x9008; qc.hardwareId = "USB\\VID_05C6&PID_9008";
     gui::DriverHooks hooks;
     hooks.qualcommInstalled = [] { return true; };
-    hooks.qualcommOperation = [&](auto, const auto &, const auto &, const auto &) {
+    hooks.driverOperation = [&](auto operation, const auto &target, const auto &affected, const auto &progress) {
+        if (operation == gui::DriverOperation::RockusbAssistant) return hooks.installWithProgress(target, affected, progress);
         return gui::DriverInstallResult{false, true, {}};
     };
     hooks.scan = [&, board, aw, qc](bool) {
@@ -79,7 +80,6 @@ int main(int argc, char **argv) {
         ++installs; installerEntered = true;
         progress(gui::DriverPhase::Preparing);
         progress(gui::DriverPhase::Installing);
-        progress(gui::DriverPhase::Bound);
         while (holdInstall) QThread::msleep(1);
         return gui::DriverInstallResult{false, true, {}};
     };
@@ -154,12 +154,18 @@ int main(int argc, char **argv) {
         auto *install = FindVisualItem(window->contentItem(), "driverInstallButton");
         CHECK(install && install->isEnabled());
         if (!install) return 1;
+        CHECK(install->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "安装…" : "Install…"));
         controller.tasks()->setBusy(true);
         CHECK(AwaitUi([&] { return !install->isEnabled(); }));
         controller.tasks()->finish();
         CHECK(AwaitUi([&] { return !controller.drivers()->checking() && install->isEnabled(); }));
         CHECK(QMetaObject::invokeMethod(install, "clicked"));
         CHECK(AwaitUi([&] { return confirmation->property("visible").toBool(); }));
+        CHECK(controller.drivers()->confirmationTitle() == QString::fromUtf8(QByteArray(language) == "zh" ? "安装瑞芯微驱动？" : "Install Rockchip drivers?"));
+        auto *confirmInstall = FindVisualItem(window->contentItem(), "driverConfirmButton");
+        CHECK(confirmInstall);
+        if (!confirmInstall) return 1;
+        CHECK(confirmInstall->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "安装" : "Install"));
         CHECK(installs == 0);
         if (argc > 1) {
             QTest::qWait(40);
@@ -327,7 +333,7 @@ int main(int argc, char **argv) {
         CHECK(background && background->isEnabled());
         if (!background) { holdInstall = false; return 1; }
         CHECK(background->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "转到后台" : "Run in background"));
-        CHECK(controller.drivers()->progressText().contains(QString::fromUtf8(QByteArray(language) == "zh" ? "等待 Windows" : "Waiting for Windows")));
+        CHECK(controller.drivers()->progressText().contains(QString::fromUtf8(QByteArray(language) == "zh" ? "瑞芯微驱动助手" : "Rockchip driver assistant")));
         if (argc > 1) {
             QTest::qWait(40);
             CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1]) + QString("/driver-installing-%1.png").arg(language)));

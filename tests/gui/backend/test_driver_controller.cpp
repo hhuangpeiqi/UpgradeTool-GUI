@@ -380,6 +380,71 @@ int main(int argc, char **argv) {
             controller.forgetPending(); CHECK(!controller.hasPending());
         }
     }
+    // The official RK GUI can close successfully without installing anything.
+    // Only a fresh, accessible Rockusb target can complete setup.
+    {
+        auto rk = allwinner;
+        rk.vendor = 0; rk.vid = 0x2207; rk.pid = 0x350b;
+        rk.instance = "USB\\VID_2207&PID_350B\\RK-BOARD";
+        rk.hardwareId = "USB\\VID_2207&PID_350B";
+        rk.service.clear(); rk.state = gui::DriverState::Missing;
+        gui::DriverScan outcome{{rk}, {}};
+        enum Scenario { NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, Installed } scenario = NoAction;
+        int calls = 0;
+        gui::DriverHooks rkHooks;
+        rkHooks.verificationTimeoutMs = 0;
+        rkHooks.scan = [&](bool) { return outcome; };
+        rkHooks.installWithProgress = [&](const auto &, const auto &, const auto &) {
+            CHECK(false); return gui::DriverInstallResult{}; // RK must never use libwdi.
+        };
+        rkHooks.driverOperation = [&](auto operation, const auto &target, const auto &, const auto &progress) {
+            CHECK(operation == gui::DriverOperation::RockusbAssistant && target.instance == rk.instance);
+            ++calls; progress(gui::DriverPhase::Installing);
+            if (scenario == Cancelled) return gui::DriverInstallResult{false, true, {}};
+            if (scenario == Failed) return gui::DriverInstallResult{false, false, "assistant failed"};
+            if (scenario == Disconnected) outcome = {};
+            if (scenario == Inaccessible || scenario == Reboot || scenario == Installed) {
+                auto bound = rk; bound.service = "Rockusb";
+                bound.state = scenario == Inaccessible ? gui::DriverState::AccessFailed :
+                              scenario == Reboot ? gui::DriverState::RebootRequired : gui::DriverState::Ready;
+                outcome = {{bound}, {}};
+            }
+            return gui::DriverInstallResult{true, false, {}};
+        };
+        gui::DriverController controller(rkHooks, true);
+        auto refresh = [&] { controller.refresh(); CHECK(Await([&] { return !controller.checking(); })); };
+        refresh();
+        CHECK(controller.devices().size() == 1 && controller.devices().first().toMap()["canInstall"].toBool());
+        for (auto next : {NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, Installed}) {
+            scenario = next; outcome = {{rk}, {}};
+            controller.forgetPending(); refresh();
+            controller.prepareInstall(rk.instance);
+            CHECK(controller.confirmationTitle() == "Install Rockchip drivers?");
+            CHECK(controller.confirmationText().contains("close its window"));
+            controller.confirmInstall(); controller.beginInstall();
+            CHECK(Await([&] { return !controller.busy(); }));
+            CHECK(controller.hasPending() == (next != Cancelled && next != Installed));
+            CHECK((controller.message() == "Driver installed") == (next == Installed));
+        }
+        CHECK(calls == 7);
+        for (const auto state : {gui::DriverState::Incompatible, gui::DriverState::Bound, gui::DriverState::Ready,
+                                gui::DriverState::AccessFailed, gui::DriverState::DeviceError}) {
+            auto changed = rk; changed.state = state;
+            outcome = {{changed}, {}}; refresh();
+            CHECK(!controller.devices().first().toMap()["canInstall"].toBool());
+        }
+        outcome = {}; refresh(); controller.prepareInstall(rk.instance);
+        CHECK(!controller.canConfirm() && calls == 7);
+#ifdef Q_OS_WIN
+        rk.service = "Rockusb";
+        gui::ClassifyWindowsUsbDriver(rk, DN_STARTED, 0); CHECK(rk.state == gui::DriverState::Bound);
+        rk.service = "WinUSB";
+        gui::ClassifyWindowsUsbDriver(rk, DN_STARTED, 0); CHECK(rk.state == gui::DriverState::Incompatible);
+        rk.service = "libusbK";
+        gui::ClassifyWindowsUsbDriver(rk, DN_STARTED, 0); CHECK(rk.state == gui::DriverState::Incompatible);
+        CHECK(!gui::RockusbDriverPackageError(settingsDirectory.path()).isEmpty());
+#endif
+    }
     for (const int pid : {0x9008, 0x9092}) {
         auto qc = qualcomm;
         qc.vid = 0x05c6; qc.pid = pid; qc.vendor = 2; qc.verifiedInterface = true;
@@ -395,7 +460,7 @@ int main(int argc, char **argv) {
         qcHooks.verificationTimeoutMs = 0;
         qcHooks.scan = [&](bool) { return outcome; };
         qcHooks.qualcommInstalled = [&] { return installed; };
-        qcHooks.qualcommOperation = [&](auto operation, const auto &target, const auto &, const auto &progress) {
+        qcHooks.driverOperation = [&](auto operation, const auto &target, const auto &, const auto &progress) {
             ++calls;
             progress(gui::DriverPhase::Installing);
             if (cancelOperation) return gui::DriverInstallResult{false, true, {}};

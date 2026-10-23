@@ -1,0 +1,8 @@
+#pragma once
+#include <array>
+#include <utility>
+namespace gui {
+inline constexpr char rockusbPackageRelativePath[] = "tools/rockusb";
+inline constexpr std::array<std::pair<const char *, const char *>, @ROCKUSB_DRIVER_FILE_COUNT@> rockusbPackageFiles{{
+@ROCKUSB_DRIVER_CPP_FILES@}};
+}

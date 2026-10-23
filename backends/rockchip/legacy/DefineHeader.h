@@ -15,8 +15,9 @@
 #else
 #include <direct.h>
 #include <io.h>
+#include <windows.h>
 #endif
-#include <libusb.h>
+#include "backends/rockchip/UsbTransport.h"
 
 #include "Property.hpp"
 #include <list>
@@ -181,7 +182,7 @@ typedef struct _STRUCT_RKDEVICE_DESC{
 	UINT     uiLocationID;
 	ENUM_RKUSB_TYPE emUsbType;
 	ENUM_RKDEVICE_TYPE emDeviceType;
-	void   *pUsbHandle;
+	std::shared_ptr<const core::rockchip::UsbDevice> usbDevice;
 } STRUCT_RKDEVICE_DESC, *PSTRUCT_RKDEVICE_DESC;
 typedef	struct {
 	DWORD	dwTag;

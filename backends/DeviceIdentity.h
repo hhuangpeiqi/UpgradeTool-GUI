@@ -31,7 +31,8 @@ inline int MatchDevice(const std::vector<DeviceIdentity> &devices, const DeviceI
                 devices[i].alternate != target.alternate || devices[i].inEndpoint != target.inEndpoint ||
                 devices[i].outEndpoint != target.outEndpoint)) continue;
         }
-        if (!target.devicePath.empty() && devices[i].devicePath != target.devicePath) continue;
+        // RK mode transitions replace the native interface path; location remains authoritative.
+        if (target.vendor != Vendor::Rockchip && !target.devicePath.empty() && devices[i].devicePath != target.devicePath) continue;
         if (target.transport != QualcommTransport::Auto && devices[i].transport != target.transport) continue;
         if (!target.ports.empty() && (devices[i].bus != target.bus || devices[i].ports != target.ports)) continue;
 		if (target.location && devices[i].location != target.location) continue;

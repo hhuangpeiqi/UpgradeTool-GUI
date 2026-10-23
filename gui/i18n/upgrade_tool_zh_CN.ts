@@ -3980,7 +3980,7 @@
     </message>
     <message>
         <location line="+1"/>
-        <source>Driver setup is unfinished. Continue to review and replace the driver.</source>
+        <source>Driver setup is unfinished. Continue to review driver setup.</source>
         <translation>驱动安装尚未完成，请继续确认并重新安装驱动。</translation>
     </message>
     <message>
@@ -4034,6 +4034,18 @@
     <message>
         <source>Install the device manufacturer's driver for this interface.</source>
         <translation>请为此接口安装设备制造商提供的驱动。</translation>
+    </message>
+    <message>
+        <source>Install Rockchip drivers?</source>
+        <translation>安装瑞芯微驱动？</translation>
+    </message>
+    <message>
+        <source>Install the driver in the Rockchip driver assistant, then close its window. This tool will check the connected device afterward.</source>
+        <translation>请在瑞芯微驱动助手中完成安装，然后关闭助手窗口。本工具将重新检查已连接的设备。</translation>
+    </message>
+    <message>
+        <source>Complete installation in the Rockchip driver assistant, then close it…</source>
+        <translation>请在瑞芯微驱动助手中完成安装并关闭窗口…</translation>
     </message>
 </context>
 <context>

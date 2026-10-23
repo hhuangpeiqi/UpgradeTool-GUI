@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     if (error.error != QJsonParseError::NoError || !document.isObject()) return 2;
     const auto object = document.object();
     const auto action = object.value("operation").toString("winusb");
-    if (action != "winusb" && action != "qualcomm-install" && action != "qualcomm-uninstall") return 2;
+    if (action != "winusb" && action != "rockusb-assistant" && action != "qualcomm-install" && action != "qualcomm-uninstall") return 2;
     const auto target = gui::DriverDevice::fromJson(object["target"].toObject());
     QVector<gui::DriverDevice> affected;
     for (const auto &value : object["affected"].toArray()) affected.append(gui::DriverDevice::fromJson(value.toObject()));
@@ -44,6 +44,7 @@ int main(int argc, char **argv) {
             }
         };
         if (action == "winusb") result = gui::InstallWindowsUsbDriverElevated(target, affected, progressCallback);
+        else if (action == "rockusb-assistant") result = gui::RunRockusbDriverElevated(target, progressCallback);
         else result = gui::RunQualcommDriverElevated(action == "qualcomm-install" ?
             gui::DriverOperation::QualcommInstall : gui::DriverOperation::QualcommUninstall, target, progressCallback);
     }

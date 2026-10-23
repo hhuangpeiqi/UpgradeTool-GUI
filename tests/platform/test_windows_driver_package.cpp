@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     QTemporaryDir directory;
     wdi_device_info device = {};
     char description[] = "Firmware download interface";
-    device.vid = 0x2207; device.pid = 0x350b; device.desc = description;
+    device.vid = 0x1f3a; device.pid = 0xefe8; device.desc = description;
     wdi_options_prepare_driver prepare = {};
     prepare.driver_type = WDI_WINUSB;
     // Prepare files only; never sign, trust certificates, bind, or install a driver.
@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     CHECK(inf.open(QIODevice::ReadOnly));
     const auto bytes = inf.readAll();
     const auto text = QString::fromUtf16(reinterpret_cast<const char16_t *>(bytes.constData() + 2), (bytes.size() - 2) / 2);
-    CHECK(text.contains("USB\\VID_2207&PID_350B"));
+    CHECK(text.contains("USB\\VID_1F3A&PID_EFE8"));
     CHECK(text.contains("Needs = WINUSB.NT.Services"));
     CHECK(text.contains("Needs = WINUSB.NT.HW"));
     CHECK(text.contains("DeviceInterfaceGUIDs"));

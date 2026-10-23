@@ -22,9 +22,28 @@
 #include <shellapi.h>
 #include <shlobj.h>
 #include "application/QualcommDriverPackage.h"
+#include "application/RockusbDriverPackage.h"
+#if UPGRADE_TOOL_ROCKCHIP
+#include "backends/rockchip/UsbTransport.h"
+#endif
 #endif
 
 namespace gui {
+QString RockusbDriverPackageError(const QString &directory) {
+#ifdef Q_OS_WIN
+    for (const auto &[relative, expected] : rockusbPackageFiles) {
+        QFile file(QDir(directory).filePath(QString::fromUtf8(relative)));
+        if (!file.open(QIODevice::ReadOnly)) return QStringLiteral("Bundled Rockusb driver file is missing or unreadable: %1").arg(QString::fromUtf8(relative));
+        QCryptographicHash hash(QCryptographicHash::Sha256);
+        if (!hash.addData(&file) || hash.result().toHex() != expected)
+            return QStringLiteral("Bundled Rockusb driver file failed SHA256 verification: %1").arg(QString::fromUtf8(relative));
+    }
+    return {};
+#else
+    Q_UNUSED(directory);
+    return QStringLiteral("Rockusb driver installation is unavailable on this platform.");
+#endif
+}
 bool QualcommDriverInstalled() {
 #ifdef Q_OS_WIN
     wchar_t directory[MAX_PATH] = {};
@@ -141,7 +160,6 @@ QStringList registryStrings(HDEVINFO set, SP_DEVINFO_DATA &info, const wchar_t *
     return result;
 }
 bool matchesInterface(const DriverDevice &d, const USB_INTERFACE_DESCRIPTOR &alt) {
-    if (d.vendor == 0) return alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass == 6 && alt.bInterfaceProtocol == 5;
     if (d.vendor == 1) return alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass != 0x42;
     if (d.interfaceNumber >= 0 && alt.bInterfaceNumber != d.interfaceNumber) return false;
     if (!qtq_download_identity(d.vid, d.pid))
@@ -216,7 +234,7 @@ void ClassifyWindowsUsbDriver(DriverDevice &d, unsigned long status, unsigned lo
     else if (d.vendor == 2 && !d.verifiedInterface) d.state = DriverState::Bound;
     else if (!(status & DN_STARTED)) d.state = DriverState::DeviceError;
     else if ((d.vendor == 2 && !d.port.isEmpty() && !d.service.isEmpty()) ||
-        WindowsUsbServiceCompatible(d.service)) d.state = DriverState::Bound;
+        (d.vendor == 0 ? !d.service.compare("Rockusb", Qt::CaseInsensitive) : WindowsUsbServiceCompatible(d.service))) d.state = DriverState::Bound;
     else d.state = DriverState::Incompatible;
 }
 #endif
@@ -263,6 +281,13 @@ DriverScan ScanWindowsUsbDrivers(bool probe) {
         ClassifyWindowsUsbDriver(d, status, problem);
         if (probe && d.state == DriverState::Bound && (d.vendor != 2 || d.verifiedInterface) &&
             !d.service.compare("WinUSB", Qt::CaseInsensitive)) probeWinusb(set, info, d);
+#if UPGRADE_TOOL_ROCKCHIP
+        if (probe && d.vendor == 0 && d.state == DriverState::Bound) {
+            const int error = core::rockchip::ProbeRockusb(d.instance.toStdString());
+            d.state = error ? DriverState::AccessFailed : DriverState::Ready;
+            if (error) d.diagnostic = QString::fromStdString(core::rockchip::UsbError(error));
+        }
+#endif
         result.devices.append(d);
     }
     SetupDiDestroyDeviceInfoList(set);
@@ -312,6 +337,7 @@ DriverInstallResult InstallWindowsUsbDriver(const DriverDevice &target, const QV
 }
 DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &target, const QVector<DriverDevice> &affected,
                                                        const DriverProgress &progress) {
+    if (target.vendor != 1) return {false, false, QStringLiteral("WinUSB installation is only available for Allwinner flashing interfaces.")};
     return RunWindowsDriverOperationWithProgress(DriverOperation::WinUsb, target, affected, progress);
 }
 DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation operation, const DriverDevice &target,
@@ -324,7 +350,8 @@ DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation operat
     for (const auto &d : affected) targets.append(d.toJson());
     QFile request(directory.filePath("request.json"));
     const QString action = operation == DriverOperation::QualcommInstall ? "qualcomm-install" :
-        operation == DriverOperation::QualcommUninstall ? "qualcomm-uninstall" : "winusb";
+        operation == DriverOperation::QualcommUninstall ? "qualcomm-uninstall" :
+        operation == DriverOperation::RockusbAssistant ? "rockusb-assistant" : "winusb";
     const auto bytes = QJsonDocument(QJsonObject{{"operation", action}, {"target", target.toJson()}, {"affected", targets}}).toJson();
     if (!request.open(QIODevice::WriteOnly) || request.write(bytes) != bytes.size()) {
         result.error = QStringLiteral("Cannot write the driver installation request."); return result;

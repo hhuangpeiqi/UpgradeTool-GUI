@@ -1,15 +1,25 @@
 #include "backends/DeviceIdentity.h"
 #include "backends/rockchip/RockchipBackend.h"
 #include "backends/rockchip/UpgradeEngine.h"
+#ifndef _WIN32
 #include "platform/UsbContext.h"
+#endif
 #include "backends/rockchip/FirmwareService.h"
 namespace core {
 class RockchipRuntime {
 public:
+#ifndef _WIN32
     platform::UsbContext usb;
+#endif
     CRKScan scan;
     UpgradeEngine engine;
-    explicit RockchipRuntime(platform::FileLog *log) : scan(30,20,usb.get()) {
+    explicit RockchipRuntime(platform::FileLog *log) : scan(30,20,
+#ifdef _WIN32
+        nullptr
+#else
+        usb.get()
+#endif
+    ) {
         scan.SetVidPid(); engine.SetLogObject(log); engine.SetScan(&scan);
     }
 };
@@ -23,6 +33,9 @@ std::vector<DeviceDescriptor> RockchipBackend::Scan() {
     for(const auto &d:runtime->engine.ScanDevices()) {
         DeviceIdentity identity; identity.location=d.uiLocationID; identity.serial=d.strSerial;
         identity.vid=d.uiVid; identity.pid=d.uiPid;
+#ifdef _WIN32
+        identity.devicePath=d.devicePath; identity.deviceInstance=d.deviceInstance;
+#endif
         auto row=Describe(identity);
         row.index=d.iIndex; row.usbType=d.iUsbType; row.mode=d.strMode;
         row.accessError=d.accessError;

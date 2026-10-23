@@ -176,7 +176,7 @@ public:
         ++calls;
         desc.emUsbType = mode;
         // Enumeration succeeded, but the new device cannot be opened.
-        desc.pUsbHandle = nullptr;
+        desc.usbDevice.reset();
         return found;
     }
 };

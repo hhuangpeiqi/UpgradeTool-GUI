@@ -110,7 +110,7 @@ sudo scripts/install-udev.sh
 
 **macOS**：无需另装 USB 驱动。
 
-**Windows 10/11 x64**：在 **设备 → USB 驱动** 中为瑞芯微、全志烧录接口安装 WinUSB（需要管理员权限）。内置高通驱动安装工具，支持已有的 驱动。
+**Windows 10/11 x64**：在 **设备 → USB 驱动** 中，为已连接且缺驱动的 RK / 高通（需要管理员权限）设备安装驱动，为全志安装 WinUSB。
 
 Windows/macOS 发布包内置 ADB；`.deb` 自动安装发行版的 `adb` 依赖。可将 `ADB` 设为可执行文件路径或名称来覆盖默认选择。
 

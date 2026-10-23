@@ -1,6 +1,10 @@
 #include "gui/UsbAccess.h"
 #include "gui/WindowsUsbDriver.h"
 #include "backends/DeviceIdentity.h"
+#include "application/BuildFeatures.h"
+#if UPGRADE_TOOL_ROCKCHIP
+#include "backends/rockchip/UsbTransport.h"
+#endif
 #include "backends/qualcomm/DevicePolicy.h"
 #include <QCoreApplication>
 #include <QScopeGuard>
@@ -14,6 +18,13 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
 #ifdef Q_OS_WIN
     std::lock_guard<std::recursive_mutex> lock(UsbProbeMutex());
     const auto &target = core::DeviceAccess::Identity(reference);
+#if UPGRADE_TOOL_ROCKCHIP
+    if (target.vendor == core::Vendor::Rockchip) {
+        const int error = core::rockchip::ProbeRockusb(target.deviceInstance, target.devicePath);
+        return error ? QCoreApplication::translate("gui::AppController", "Cannot access the selected USB interface: %1")
+                           .arg(QString::fromStdString(core::rockchip::UsbError(error))) : QString{};
+    }
+#endif
     if (target.transport == core::QualcommTransport::Qud) {
         const QString path = QString::fromStdString(target.devicePath);
         HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(path.utf16()), GENERIC_READ | GENERIC_WRITE,
@@ -36,11 +47,7 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
         if (libusb_get_device_descriptor(list[i], &descriptor) || descriptor.idVendor != target.vid || descriptor.idProduct != target.pid) continue;
         uint8_t ports[16]; const int depth = libusb_get_port_numbers(list[i], ports, sizeof(ports));
         if (depth <= 0) continue;
-        if (target.vendor == core::Vendor::Rockchip) {
-            uint32_t location = libusb_get_bus_number(list[i]) & 0xf;
-            for (int j = 0; j < depth; ++j) location = (location << 4) + (ports[j] & 0xf);
-            if (location != target.location) continue;
-        } else if (libusb_get_bus_number(list[i]) != target.bus || std::vector<uint8_t>(ports, ports + depth) != target.ports ||
+        if (libusb_get_bus_number(list[i]) != target.bus || std::vector<uint8_t>(ports, ports + depth) != target.ports ||
             (target.usbAddress && libusb_get_device_address(list[i]) != target.usbAddress)) continue;
         if (selected) return QCoreApplication::translate("gui::AppController", "The selected device is ambiguous; refresh and select it again");
         selected = list[i];
@@ -59,7 +66,6 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
         for (int j = 0; j < usbInterface.num_altsetting; ++j) {
             const auto &alt = usbInterface.altsetting[j];
             if (target.interfaceNumber >= 0 && alt.bInterfaceNumber != target.interfaceNumber) continue;
-            if (target.vendor == core::Vendor::Rockchip && !(alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass == 6 && alt.bInterfaceProtocol == 5)) continue;
             if (target.vendor == core::Vendor::Allwinner && alt.bInterfaceClass != 0xff) continue;
             if (target.vendor == core::Vendor::Qualcomm && !qtq_download_interface(alt.bInterfaceClass, alt.bInterfaceSubClass, alt.bInterfaceProtocol, 0x81, 1, 1, 1)) continue;
             bool in = false, out = false;

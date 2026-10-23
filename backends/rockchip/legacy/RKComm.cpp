@@ -14,7 +14,7 @@
 extern unsigned short CRC_CCITT(unsigned char* p, UINT CalculateNumber);
 CRKComm::CRKComm(platform::FileLog *pLog)
 {
-	memset(&m_deviceDesc,0,sizeof(STRUCT_RKDEVICE_DESC));
+	m_deviceDesc = {};
 	m_log = pLog;
 }
 CRKComm::~CRKComm()
@@ -32,94 +32,23 @@ CRKUsbComm::~CRKUsbComm()
 
 bool CRKUsbComm::InitializeUsb(STRUCT_RKDEVICE_DESC devDesc)
 {
-	m_pUsbHandle = NULL;
-	m_pipeBulkIn = m_pipeBulkOut = 0;
-	m_interfaceNum = -1;
-	if (!devDesc.pUsbHandle) {
-		return false;
-	}
-	memcpy(&m_deviceDesc, &devDesc, sizeof(STRUCT_RKDEVICE_DESC));
-	int iRet;
-	iRet = libusb_open((libusb_device *)devDesc.pUsbHandle, (libusb_device_handle **)&m_pUsbHandle);
-	if (iRet!=0) {
-		if (m_log) {
-			m_log->Record("Error:InitializeUsb-->open device failed,err=%d", iRet);
-		}
-		return false;
-	}
-	struct libusb_config_descriptor *pConfigDesc=NULL;
-	iRet = libusb_get_active_config_descriptor((libusb_device *)devDesc.pUsbHandle, &pConfigDesc);
-	if (iRet!=0) {
-		if (m_log) {
-			m_log->Record("Error:InitializeUsb-->get device config descriptor failed, err=%d", iRet);
-		}
-		return false;
-	}
-	int i, j, k;
-	const struct libusb_interface *pInterface;
-	const struct libusb_endpoint_descriptor *pEndpointDesc;
-	const struct libusb_interface_descriptor *pInterfaceDesc;
-	for(i = 0; i < pConfigDesc->bNumInterfaces; i++) {
-		pInterface = pConfigDesc->interface + i;
-		for(j = 0; j < pInterface->num_altsetting; j++) {
-			pInterfaceDesc = pInterface->altsetting+j;
-			if (m_deviceDesc.emUsbType == RKUSB_MSC) {
-				if( (pInterfaceDesc->bInterfaceClass != 8) || (pInterfaceDesc->bInterfaceSubClass != 6) || (pInterfaceDesc->bInterfaceProtocol != 0x50))
-					continue;
-			}
-			else
-			{
-				if( (pInterfaceDesc->bInterfaceClass != 0xff) || (pInterfaceDesc->bInterfaceSubClass != 6) || (pInterfaceDesc->bInterfaceProtocol != 5))
-					continue;
-			}
-			for(k = 0; k < pInterfaceDesc->bNumEndpoints; k++) {
-				pEndpointDesc = pInterfaceDesc->endpoint+k;
-				if ((pEndpointDesc->bEndpointAddress & 0x80) == 0) {
-					if (m_pipeBulkOut == 0)
-						m_pipeBulkOut = pEndpointDesc->bEndpointAddress;
-				}
-				else {
-					if (m_pipeBulkIn == 0)
-						m_pipeBulkIn = pEndpointDesc->bEndpointAddress;
-				}
-				if ((m_pipeBulkIn != 0) && (m_pipeBulkOut != 0)) {//found it
-					m_interfaceNum = i;
-					libusb_free_config_descriptor(pConfigDesc);
-					iRet = libusb_claim_interface((libusb_device_handle *)m_pUsbHandle, m_interfaceNum);
-					if (iRet != 0) {
-						if (m_log) {
-					    	m_log->Record("Error:libusb_claim_interface failed,err=%d", iRet);
-					    }
-					    return false;
-					}
-					if (m_log) {
-						const auto *version = libusb_get_version();
-						m_log->Record("USB opened: vid=0x%04x pid=0x%04x bcdUSB=0x%04x mode=%s bus=%u address=%u interface=%d bulk_in=0x%02x bulk_out=0x%02x speed=%d libusb=%u.%u.%u.%u",
-							unsigned(devDesc.usVid), unsigned(devDesc.usPid), unsigned(devDesc.usbcdUsb),
-							devDesc.emUsbType == RKUSB_MASKROM ? "Maskrom" : devDesc.emUsbType == RKUSB_LOADER ? "Loader" : "MSC",
-							unsigned(libusb_get_bus_number((libusb_device *)devDesc.pUsbHandle)),
-							unsigned(libusb_get_device_address((libusb_device *)devDesc.pUsbHandle)),
-							m_interfaceNum, unsigned(m_pipeBulkIn), unsigned(m_pipeBulkOut),
-							libusb_get_device_speed((libusb_device *)devDesc.pUsbHandle),
-							unsigned(version->major), unsigned(version->minor), unsigned(version->micro), unsigned(version->nano));
-					}
-					return true;
-				}
-			}
-		}
-	}
-	libusb_free_config_descriptor(pConfigDesc);
-	return false;
+    m_deviceDesc = std::move(devDesc);
+    m_pipeBulkIn = m_pipeBulkOut = 0;
+    if (!m_deviceDesc.usbDevice) return false;
+    int error = 0;
+    m_usb = core::rockchip::OpenUsb(*m_deviceDesc.usbDevice, m_deviceDesc.emUsbType == RKUSB_MSC, error, m_log);
+    if (!m_usb) {
+        if (m_log) m_log->Record("Error:InitializeUsb: %s", core::rockchip::UsbError(error).c_str());
+        return false;
+    }
+    m_pipeBulkIn = m_usb->bulkIn; m_pipeBulkOut = m_usb->bulkOut;
+    return true;
 }
 void CRKUsbComm::UninitializeUsb()
 {
-	if (m_pUsbHandle) {
-		libusb_close((libusb_device_handle *)m_pUsbHandle);
-		m_pUsbHandle = NULL;
-	}
-	memset(&m_deviceDesc, 0, sizeof(STRUCT_RKDEVICE_DESC));
-	m_pipeBulkIn = m_pipeBulkOut = 0;
-	return ;
+    m_usb.reset();
+    m_deviceDesc = {};
+    m_pipeBulkIn = m_pipeBulkOut = 0;
 }
 bool CRKUsbComm::Reset_Usb_Config(STRUCT_RKDEVICE_DESC devDesc)
 {
@@ -130,18 +59,14 @@ bool CRKUsbComm::Reset_Usb_Config(STRUCT_RKDEVICE_DESC devDesc)
 }
 bool CRKUsbComm::Reset_Usb_Device()
 {
-	int iRet = -1;
-    if (m_pUsbHandle) {
-		iRet=libusb_reset_device((libusb_device_handle *)m_pUsbHandle);
-	}
-    return (iRet == 0) ? true : false;
+    return m_usb && m_usb->Reset() == 0;
 }
 
 bool CRKUsbComm::RKU_Read(BYTE* lpBuffer, DWORD dwSize)
 {
 	int  iRet;
 	int  nRead;
-	iRet = libusb_bulk_transfer((libusb_device_handle *)m_pUsbHandle, m_pipeBulkIn, lpBuffer, dwSize, &nRead, 5000);
+	iRet = m_usb->Bulk(m_pipeBulkIn, lpBuffer, dwSize, nRead, 5000);
 	if (iRet!=0) {
 	    if (m_log) {
 	        m_log->Record("Error:RKU_Read failed,err=%d", iRet);
@@ -161,7 +86,7 @@ bool CRKUsbComm::RKU_Write(BYTE* lpBuffer, DWORD dwSize)
 {
 	int  iRet;
 	int nWrite;
-	iRet = libusb_bulk_transfer((libusb_device_handle *)m_pUsbHandle, m_pipeBulkOut, lpBuffer, dwSize, &nWrite, 5000);
+	iRet = m_usb->Bulk(m_pipeBulkOut, lpBuffer, dwSize, nWrite, 5000);
 	if (iRet != 0) {
 	    if (m_log) {
 	        m_log->Record("Error:RKU_Write failed, err=%d", iRet);
@@ -283,7 +208,7 @@ DWORD CRKUsbComm::RKU_Read_EX(BYTE* lpBuffer, DWORD dwSize)
 {
 	int  iRet;
 	int  nRead;
-	iRet = libusb_bulk_transfer((libusb_device_handle *)m_pUsbHandle, m_pipeBulkIn, lpBuffer, dwSize, &nRead, 5000);
+	iRet = m_usb->Bulk(m_pipeBulkIn, lpBuffer, dwSize, nRead, 5000);
 	if (iRet != 0) {
 	    if (m_log) {
 	        m_log->Record("Error:RKU_Read_EX failed, err=%d", iRet);
@@ -872,11 +797,11 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 
 	while(dwTotalSended < dwDataSize) {
 		nSendBytes = ( (dwDataSize - dwTotalSended) > 4096) ? 4096 : (dwDataSize - dwTotalSended);
-		iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x40, 0xC, 0, dwRequest, pData + dwTotalSended, nSendBytes, 5000);
+		iRet = m_usb->Control(0x40, 0xC, 0, dwRequest, pData + dwTotalSended, nSendBytes, 5000);
 		if (iRet != (int)nSendBytes) {
 			if (m_log) {
 				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=%u pending=0 failed, err=%d (%s)",
-					dwRequest, unsigned(dwTotalSended), nSendBytes, iRet, iRet < 0 ? libusb_error_name(iRet) : "short-transfer");
+					dwRequest, unsigned(dwTotalSended), nSendBytes, iRet, iRet < 0 ? core::rockchip::UsbError(iRet).c_str() : "short-transfer");
 			}
 			delete []pData;
 			return ERR_REQUEST_FAIL;
@@ -886,11 +811,11 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 
 	if(bSendPendPacket) {
 		BYTE ucFillByte = 0;
-		iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x40, 0xC, 0, dwRequest, &ucFillByte, 1, 5000);
+		iRet = m_usb->Control(0x40, 0xC, 0, dwRequest, &ucFillByte, 1, 5000);
 		if (iRet != 0) {
 			if (m_log) {
 				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=1 pending=1 failed, err=%d (%s)",
-					dwRequest, unsigned(dwTotalSended), iRet, iRet < 0 ? libusb_error_name(iRet) : "unexpected-length");
+					dwRequest, unsigned(dwTotalSended), iRet, iRet < 0 ? core::rockchip::UsbError(iRet).c_str() : "unexpected-length");
 			}
 			delete []pData;
 			return ERR_REQUEST_FAIL;
@@ -1208,17 +1133,17 @@ int CRKUsbComm::RKU_ResetPipe(BYTE ucPipe)
 	int iRet;
 	// pipe 1 = bulk-out, pipe 2 = bulk-in (both), other = bulk-in.
 	if (ucPipe == 2) {
-		iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x02, 0x01, 0, m_pipeBulkIn, NULL, 0, 5000);
+		iRet = m_usb->Control(0x02, 0x01, 0, m_pipeBulkIn, NULL, 0, 5000);
 		if (iRet < 0)
 			return ERR_REQUEST_FAIL;
 	}
 	if (ucPipe == 1 || ucPipe == 2) {
-		iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x02, 0x01, 0, m_pipeBulkOut, NULL, 0, 5000);
+		iRet = m_usb->Control(0x02, 0x01, 0, m_pipeBulkOut, NULL, 0, 5000);
 		if (iRet < 0)
 			return ERR_REQUEST_FAIL;
 		return ERR_SUCCESS;
 	}
-	iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x02, 0x01, 0, m_pipeBulkIn, NULL, 0, 5000);
+	iRet = m_usb->Control(0x02, 0x01, 0, m_pipeBulkIn, NULL, 0, 5000);
 	if (iRet < 0)
 		return ERR_REQUEST_FAIL;
 	return ERR_SUCCESS;
@@ -1252,10 +1177,10 @@ int CRKUsbComm::RKU_MscToRockusb()
 
 int CRKUsbComm::RKU_UvcToRockusb()
 {
-	if (!m_pUsbHandle)
+	if (!m_usb)
 		return ERR_DEVICE_NOT_SUPPORT;
 	DWORD dwBuf = 0xFFFFFFFF;
-	int iRet = libusb_control_transfer((libusb_device_handle *)m_pUsbHandle, 0x21, 0x01,
+	int iRet = m_usb->Control(0x21, 0x01,
 	                                   0x100, 0x600, (BYTE *)&dwBuf, 4, 5000);
 	if (iRet < 0)
 		return ERR_REQUEST_FAIL;

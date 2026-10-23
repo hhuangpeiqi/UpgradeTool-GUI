@@ -53,6 +53,7 @@ DriverInstallResult restartDevice(const DriverDevice &target) {
 DriverInstallResult InstallWindowsUsbDriverElevated(const DriverDevice &target, const QVector<DriverDevice> &affected,
                                                    const DriverProgress &progress) {
     DriverInstallResult result;
+    if (target.vendor != 1) { result.error = QStringLiteral("WinUSB installation is only available for Allwinner flashing interfaces."); return result; }
     if (!IsUserAnAdmin()) { result.error = QStringLiteral("Administrator permission is required."); return result; }
     const auto current = ScanWindowsUsbDrivers();
     QStringList expected, actual;

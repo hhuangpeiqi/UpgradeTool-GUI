@@ -241,6 +241,7 @@ try {
     Copy-Item (Join-Path $Build "libwdi.dll") $Stage
     Copy-Item (Join-Path $Root "config.ini") $Stage
     Run-Checked { & $cmake "-DQUALCOMM_DRIVER_CACHE_DIR=$Build/qualcomm-driver-cache" "-DQUALCOMM_DRIVER_DESTINATION=$Stage/tools/qualcomm" -P (Join-Path $Root "scripts/prepare_qualcomm_driver.cmake") }
+    Run-Checked { & $cmake "-DROCKUSB_DRIVER_CACHE_DIR=$Build/rockusb-driver-cache" "-DROCKUSB_DRIVER_DESTINATION=$Stage/tools/rockusb" -P (Join-Path $Root "scripts/prepare_rockusb_driver.cmake") }
     $AdbDir = Join-Path $Stage "tools/adb"
     Run-Checked { & $cmake -DADB_PLATFORM=win "-DADB_CACHE_DIR=$Build/adb-cache" "-DADB_DESTINATION=$AdbDir" -P (Join-Path $Root "scripts/prepare_adb.cmake") }
     Run-Checked { & "$AdbDir/adb.exe" version }

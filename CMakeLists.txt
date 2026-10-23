@@ -118,6 +118,15 @@ target_link_libraries(upgrade_application PUBLIC upgrade_domain PRIVATE upgrade_
 
 set(UPGRADE_BACKENDS)
 if(UPGRADE_TOOL_ROCKCHIP)
+  if(WIN32)
+    add_library(upgrade_rockchip_usb STATIC backends/rockchip/WindowsRockusb.cpp)
+    target_link_libraries(upgrade_rockchip_usb PRIVATE setupapi cfgmgr32)
+  else()
+    add_library(upgrade_rockchip_usb STATIC backends/rockchip/LibusbTransport.cpp)
+    target_link_libraries(upgrade_rockchip_usb PRIVATE usb1)
+  endif()
+  target_include_directories(upgrade_rockchip_usb PRIVATE ${CMAKE_SOURCE_DIR})
+  target_link_libraries(upgrade_rockchip_usb PRIVATE upgrade_platform)
   add_library(upgrade_rockchip STATIC
     backends/rockchip/legacy/crc.cpp backends/rockchip/legacy/RKScan.cpp backends/rockchip/legacy/RKComm.cpp backends/rockchip/legacy/RKDevice.cpp
     backends/rockchip/legacy/RKBoot.cpp backends/rockchip/legacy/RKImage.cpp backends/rockchip/legacy/Config.cpp backends/rockchip/legacy/Parameter.cpp backends/rockchip/legacy/Idb.cpp
@@ -127,7 +136,10 @@ if(UPGRADE_TOOL_ROCKCHIP)
     backends/rockchip/DeviceOperations.cpp backends/rockchip/StorageOperations.cpp
     backends/rockchip/PartitionOperations.cpp backends/rockchip/UpgradeOperations.cpp)
   target_include_directories(upgrade_rockchip PRIVATE backends/rockchip/legacy ${CMAKE_SOURCE_DIR})
-  target_link_libraries(upgrade_rockchip PUBLIC upgrade_domain PRIVATE upgrade_platform upgrade_usb usb1)
+  target_link_libraries(upgrade_rockchip PUBLIC upgrade_domain upgrade_rockchip_usb PRIVATE upgrade_platform)
+  if(NOT WIN32)
+    target_link_libraries(upgrade_rockchip PRIVATE upgrade_usb)
+  endif()
   list(APPEND UPGRADE_BACKENDS upgrade_rockchip)
 endif()
 if(UPGRADE_TOOL_ALLWINNER)

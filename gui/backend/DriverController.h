@@ -17,7 +17,7 @@ struct DriverHooks {
     std::function<DriverInstallResult(const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress &)> installWithProgress;
     std::function<bool()> qualcommInstalled = QualcommDriverInstalled;
     std::function<DriverInstallResult(DriverOperation, const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress &)>
-        qualcommOperation = RunWindowsDriverOperationWithProgress;
+        driverOperation = RunWindowsDriverOperationWithProgress;
 };
 class DriverController : public QObject, public Retranslatable, public QAbstractNativeEventFilter {
     Q_OBJECT

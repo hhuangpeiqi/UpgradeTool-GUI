@@ -49,6 +49,7 @@ public:
         int accessError = 0;
 		std::string strMode;
 		std::string strSerial;
+        std::string devicePath, deviceInstance;
 	};
 
 	UpgradeEngine();

@@ -16,8 +16,9 @@ struct DriverDevice {
     DriverState state = DriverState::DeviceError;
     QString diagnostic;
     bool canInstall() const {
-        return verifiedInterface && ((vendor >= 0 && vendor < 2 &&
+        return verifiedInterface && ((vendor == 1 &&
             (state == DriverState::Missing || state == DriverState::Incompatible)) ||
+            (vendor == 0 && state == DriverState::Missing) ||
             (vendor == 2 && vid == 0x05c6 && state == DriverState::Missing));
     }
     bool needsAttention() const { return state != DriverState::Ready && state != DriverState::Bound; }
@@ -40,11 +41,13 @@ struct DriverInstallResult {
     bool rebootRequired = false, retryable = false;
 };
 enum class DriverPhase { Installing, Recovering, Verifying, Preparing, Bound };
-enum class DriverOperation { WinUsb, QualcommInstall, QualcommUninstall };
+enum class DriverOperation { WinUsb, RockusbAssistant, QualcommInstall, QualcommUninstall };
 using DriverProgress = std::function<void(DriverPhase)>;
 bool QualcommDriverInstalled();
 QString QualcommDriverPackageError(const QString &path);
 QStringList QualcommDriverArguments(DriverOperation);
+QString RockusbDriverPackageError(const QString &directory);
+DriverInstallResult RunRockusbDriverElevated(const DriverDevice &, const DriverProgress &);
 DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation, const DriverDevice &,
     const QVector<DriverDevice> &, const DriverProgress &);
 DriverInstallResult RunQualcommDriverElevated(DriverOperation, const DriverDevice &, const DriverProgress &);

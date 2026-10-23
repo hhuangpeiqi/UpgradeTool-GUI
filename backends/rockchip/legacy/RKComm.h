@@ -192,10 +192,9 @@ public:
     virtual int RKU_MscToRockusb();
     virtual int RKU_UvcToRockusb();
 private:
-	void *m_pUsbHandle;
+	std::unique_ptr<core::rockchip::UsbTransport> m_usb;
 	unsigned char m_pipeBulkIn;
 	unsigned char m_pipeBulkOut;
-	int m_interfaceNum;
 	virtual bool RKU_Write(BYTE *lpBuffer, DWORD dwSize);
 	virtual bool RKU_Read(BYTE *lpBuffer, DWORD dwSize);
 	bool InitializeUsb(STRUCT_RKDEVICE_DESC devDesc);

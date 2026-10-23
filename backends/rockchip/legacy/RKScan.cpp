@@ -9,7 +9,6 @@
 #include <thread>
 
 #include "RKScan.h"
-#define BUSID(id)  ((id & 0x0000FF00) >> 8)
 int CRKScan::GetDEVICE_COUNTS()
 {
 	return m_list.size();
@@ -231,70 +230,18 @@ int CRKScan::FindConfigSetPos(RKDEVICE_CONFIG_SET &devConfigSet, USHORT vid, USH
 }
 void CRKScan::EnumerateUsbDevice(RKDEVICE_DESC_SET &list, UINT &uiTotalMatchDevices)
 {
-	STRUCT_RKDEVICE_DESC desc;
-	struct libusb_device_descriptor descriptor;
-	int ret,i,cnt;
-
-	uiTotalMatchDevices = 0;
-	libusb_device **pDevs = NULL;
-	libusb_device *dev;
-	ret = libusb_get_device_list(m_context, &pDevs);
-	if (ret < 0) {
-		if (m_log)
-			m_log->Record("Error:EnumerateUsbDevice-->get_device_list failed,err=%d!", ret);
-		return;
-	}
-	cnt = ret;
-	for (i = 0; i < cnt; i++) {
-		dev = pDevs[i];
-		if (dev) {
-			ret = libusb_get_device_descriptor (dev, &descriptor);
-			if (ret < 0) {
-				libusb_free_device_list(pDevs, 1);
-				if (m_log)
-					m_log->Record("Error:EnumerateUsbDevice-->get_device_descriptor failed,err=%d!", ret);
-				return;
-			}
-			desc.emDeviceType = RKNONE_DEVICE;
-			desc.emUsbType = RKUSB_NONE;
-			desc.pUsbHandle = (void *)dev;
-			desc.usbcdUsb = descriptor.bcdUSB;
-			desc.usVid = descriptor.idVendor;
-			desc.usPid = descriptor.idProduct;
-			{
-				UINT uiLocation = libusb_get_bus_number(dev) & 0x0F;
-				unsigned char ucPorts[7];
-				int nPorts = libusb_get_port_numbers(dev, ucPorts, 7);
-				if (nPorts > 0) {
-					uiLocation <<= 4;
-					for (int k = 0; k < nPorts; k++) {
-						uiLocation += (ucPorts[k] & 0x0F);
-						if (k != nPorts - 1)
-							uiLocation <<= 4;
-					}
-				}
-				desc.uiLocationID = uiLocation;
-			}
-			libusb_ref_device(dev);
-			uiTotalMatchDevices++;
-			list.push_back(desc);
-		}
-
-	}
-	libusb_free_device_list(pDevs, 1);
-
+    for (auto &usb : core::rockchip::EnumerateUsb(m_context, m_log)) {
+        STRUCT_RKDEVICE_DESC desc{};
+        desc.emDeviceType = RKNONE_DEVICE; desc.emUsbType = RKUSB_NONE;
+        desc.usVid = usb->vid; desc.usPid = usb->pid; desc.usbcdUsb = usb->bcdUsb;
+        desc.uiLocationID = usb->location; desc.usbDevice = std::move(usb);
+        list.push_back(std::move(desc));
+    }
+    uiTotalMatchDevices = UINT(list.size());
 }
-
 void CRKScan::FreeDeviceList(RKDEVICE_DESC_SET &list)
 {
-	device_list_iter iter;
-	 for (iter = list.begin(); iter != list.end(); iter++) {
-		if ((*iter).pUsbHandle) {
-			libusb_unref_device((libusb_device *)((*iter).pUsbHandle));
-			(*iter).pUsbHandle = NULL;
-		}
-	}
-   	list.clear();
+    list.clear();
 }
 bool CRKScan::IsRockusbDevice(ENUM_RKDEVICE_TYPE &type, USHORT vid, USHORT pid)
 {
@@ -332,10 +279,6 @@ int CRKScan::Search(UINT type)
 			iter++;
 			continue;
 		} else {
-			if ((*iter).pUsbHandle) {
-				libusb_unref_device((libusb_device *)((*iter).pUsbHandle));
-				(*iter).pUsbHandle = NULL;
-			}
 			iter = m_list.erase(iter);
 			uiTotalDevice--;
 		}
@@ -348,10 +291,6 @@ int CRKScan::Search(UINT type)
 	if ( (type & RKUSB_MASKROM) == 0 ) {
 		for ( iter = m_list.begin(); iter != m_list.end(); ) {
 			if( (IsRockusbDevice(devType, (*iter).usVid, (*iter).usPid)) && (((*iter).usbcdUsb & 0x1) == 0) ) {
-	            if ((*iter).pUsbHandle) {
-					libusb_unref_device((libusb_device *)((*iter).pUsbHandle));
-					(*iter).pUsbHandle = NULL;
-				}
 				iter = m_list.erase(iter);
 	            uiTotalDevice--;
 			} else {
@@ -367,10 +306,6 @@ int CRKScan::Search(UINT type)
 	if ( (type & RKUSB_LOADER) == 0 ) {
 		for ( iter = m_list.begin(); iter != m_list.end(); ) {
 			if( (IsRockusbDevice(devType, (*iter).usVid, (*iter).usPid)) && (((*iter).usbcdUsb & 0x1) == 1) ) {
-	            if ((*iter).pUsbHandle) {
-					libusb_unref_device((libusb_device *)((*iter).pUsbHandle));
-					(*iter).pUsbHandle = NULL;
-				}
 				iter = m_list.erase(iter);
 	            uiTotalDevice--;
 			} else {
@@ -386,10 +321,6 @@ int CRKScan::Search(UINT type)
 	if ( (type & RKUSB_MSC) == 0 ) {
 		for ( iter = m_list.begin(); iter != m_list.end(); ) {
 			if(FindConfigSetPos(m_deviceMscConfigSet, (*iter).usVid, (*iter).usPid) != -1) {
-                if ((*iter).pUsbHandle) {
-					libusb_unref_device((libusb_device *)((*iter).pUsbHandle));
-					(*iter).pUsbHandle = NULL;
-				}
 				iter = m_list.erase(iter);
                 uiTotalDevice--;
 			} else {
@@ -528,8 +459,13 @@ bool CRKScan::Wait(STRUCT_RKDEVICE_DESC &device, ENUM_RKUSB_TYPE usbType, USHORT
 		FreeDeviceList(deviceList);
 		EnumerateUsbDevice(deviceList, totalDevice);
 		for ( iter = deviceList.begin(); iter != deviceList.end(); iter++ ) {
-			if ((BUSID((*iter).uiLocationID) != BUSID(device.uiLocationID)) ||
-				((BUSID((*iter).uiLocationID) == BUSID(device.uiLocationID)) && ((*iter).uiLocationID >= device.uiLocationID))) {
+#ifdef _WIN32
+            // Native IDs represent exact physical ports, not packed libusb bus/port numbers.
+            if ((*iter).uiLocationID == device.uiLocationID) {
+#else
+            const auto busId = [](UINT id) { return (id & 0x0000ff00) >> 8; };
+            if (busId((*iter).uiLocationID) != busId(device.uiLocationID) || (*iter).uiLocationID >= device.uiLocationID) {
+#endif
 				if ((usVid != 0) || (usPid != 0)) {
 					if ( ((*iter).usVid != usVid) || ((*iter).usPid != usPid) )
 						continue;
@@ -557,10 +493,9 @@ bool CRKScan::Wait(STRUCT_RKDEVICE_DESC &device, ENUM_RKUSB_TYPE usbType, USHORT
 			device.usVid = (*iter).usVid;
 			device.usPid = (*iter).usPid;
 			device.uiLocationID = (*iter).uiLocationID;
-			device.pUsbHandle= (*iter).pUsbHandle;
+			device.usbDevice = (*iter).usbDevice;
 			device.emUsbType = usbType;
 			device.usbcdUsb = (*iter).usbcdUsb;
-			libusb_ref_device((libusb_device *)device.pUsbHandle);
 
 			if (usbType == RKUSB_MSC) {
 				device.emDeviceType = RKNONE_DEVICE;
@@ -608,7 +543,7 @@ bool CRKScan::GetDevice(STRUCT_RKDEVICE_DESC &device, int pos)
 	device.emDeviceType = (*iter).emDeviceType;
 	device.emUsbType = (*iter).emUsbType;
 	device.uiLocationID = (*iter).uiLocationID;
-	device.pUsbHandle= (*iter).pUsbHandle;
+	device.usbDevice = (*iter).usbDevice;
 	device.usbcdUsb = (*iter).usbcdUsb;
 	return true;
 }

@@ -313,24 +313,16 @@ std::vector<UpgradeEngine::DeviceInfo> UpgradeEngine::ScanDevices()
 			info.strMode = "Loader";
 		else
 			info.strMode = "Unknown";
-		libusb_device *pUsbDev = (libusb_device *)desc.pUsbHandle;
-		libusb_device_handle *pUsbHandle = NULL;
-		if (pUsbDev) {
-            const int access = libusb_open(pUsbDev, &pUsbHandle);
+        if (desc.usbDevice) {
+            info.devicePath = desc.usbDevice->path;
+            info.deviceInstance = desc.usbDevice->instance;
+            int error = 0;
+            auto usb = core::rockchip::OpenUsb(*desc.usbDevice, false, error, m_pLog);
 #ifdef _WIN32
-            info.accessError = access;
+            info.accessError = error;
 #endif
-			if (access == 0) {
-				struct libusb_device_descriptor usbDesc;
-				if (libusb_get_device_descriptor(pUsbDev, &usbDesc) == 0 && usbDesc.iSerialNumber) {
-					unsigned char szSerial[128] = {0};
-					if (libusb_get_string_descriptor_ascii(pUsbHandle, usbDesc.iSerialNumber,
-					                                       szSerial, sizeof(szSerial) - 1) > 0)
-						info.strSerial = (char *)szSerial;
-				}
-				libusb_close(pUsbHandle);
-			}
-		}
+            if (usb) info.strSerial = usb->Serial();
+        }
 		vecDevices.push_back(info);
 	}
 	return vecDevices;
