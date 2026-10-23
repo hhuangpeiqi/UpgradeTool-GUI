@@ -891,9 +891,17 @@
 <context>
     <name>AppFilePicker</name>
     <message>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
         <location filename="../qml/components/AppFilePicker.qml" line="+62"/>
-        <source>Storage is no longer available. Returned to Home.</source>
-        <translation>存储已不可用，已返回主目录。</translation>
+        <source>The original path is no longer available. Returned to Home.</source>
+        <translation>原路径已不可用，已返回主目录。</translation>
     </message>
     <message>
         <location line="-4"/>

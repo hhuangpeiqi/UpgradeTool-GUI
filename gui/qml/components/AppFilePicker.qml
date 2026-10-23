@@ -52,21 +52,19 @@ AppDialog {
     // NOTIFY signal. C++ location names come through app.standardPlaces.
     enum Hint { None, Created, EnterName, SlashInName, ModelError, StorageRemoved }
     property int hint: AppFilePicker.Hint.None
-    hintText: {
+    readonly property string errorMessage: {
         if (selectionError !== "") return selectionError;
         switch (hint) {
-        case AppFilePicker.Hint.Created:     return qsTr("Directory created");
         case AppFilePicker.Hint.EnterName:   return qsTr("Enter a file name");
         case AppFilePicker.Hint.SlashInName: return qsTr("File name cannot contain \"/\"");
         case AppFilePicker.Hint.ModelError:  return dirModel.errorText;
-        case AppFilePicker.Hint.StorageRemoved: return qsTr("Storage is no longer available. Returned to Home.");
+        case AppFilePicker.Hint.StorageRemoved: return qsTr("The original path is no longer available. Returned to Home.");
         default:                             return "";
         }
     }
-    hintError: selectionError !== "" || hint === AppFilePicker.Hint.EnterName
-               || hint === AppFilePicker.Hint.SlashInName
-               || hint === AppFilePicker.Hint.ModelError
-               || hint === AppFilePicker.Hint.StorageRemoved
+    hintText: hint === AppFilePicker.Hint.Created ? qsTr("Directory created") : ""
+    property bool errorPending: false
+    property var errorFocusItem: null
 
     readonly property int listHeight: 400
     readonly property int rowHeight: 34
@@ -75,6 +73,65 @@ AppDialog {
     width: 720
 
     onAboutToShow: reset()
+    onOpened: openPendingError()
+    onAboutToHide: {
+        errorPending = false;
+        errorDialog.close();
+    }
+
+    function showError(kind) {
+        hint = kind;
+        if (!errorDialog.visible)
+            errorFocusItem = root.contentItem.Window.window ? root.contentItem.Window.window.activeFocusItem : null;
+        errorPending = true;
+        Qt.callLater(openPendingError);
+    }
+
+    function openPendingError() {
+        if (!root.opened || !errorPending)
+            return;
+        errorPending = false;
+        if (errorMessage !== "")
+            errorDialog.open();
+    }
+
+    AppDialog {
+        id: errorDialog
+        objectName: "filePickerErrorDialog"
+        parent: Overlay.overlay
+        z: root.z + 1
+        titleText: qsTr("Error")
+        onOpened: errorOk.forceActiveFocus()
+
+        onClosed: Qt.callLater(function () {
+            if (root.visible && !errorDialog.visible) {
+                if (root.errorFocusItem && root.errorFocusItem.visible && root.errorFocusItem.enabled)
+                    root.errorFocusItem.forceActiveFocus();
+                else
+                    root.focusList();
+            }
+            root.errorFocusItem = null;
+        })
+
+        Text {
+            objectName: "filePickerErrorMessage"
+            width: parent.width
+            text: root.errorMessage
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            color: Theme.textPrimary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+        }
+
+        footerContent: PrimaryButton {
+            id: errorOk
+            objectName: "filePickerErrorOk"
+            focusPolicy: Qt.StrongFocus
+            text: qsTr("OK")
+            onClicked: errorDialog.close()
+        }
+    }
 
     function filterLabels() {
         var labels = [];
@@ -130,7 +187,7 @@ AppDialog {
         fileField.text = "";
         creatingFolder = false;
         newFolderField.text = "";
-        hint = AppFilePicker.Hint.StorageRemoved;
+        showError(AppFilePicker.Hint.StorageRemoved);
         return true;
     }
 
@@ -187,7 +244,10 @@ AppDialog {
     }
 
     function focusList() {
-        Qt.callLater(function () { entryList.forceActiveFocus(); });
+        Qt.callLater(function () {
+            if (root.visible && !errorDialog.visible)
+                entryList.forceActiveFocus();
+        });
     }
 
     function clearSearch() {
@@ -211,6 +271,8 @@ AppDialog {
     }
 
     function reset() {
+        errorPending = false;
+        errorDialog.close();
         selectedFiles = [];
         hint = AppFilePicker.Hint.None;
         selectedFile = "";
@@ -243,7 +305,7 @@ AppDialog {
         var unavailable = !app.directoryAvailable(start);
         navigateTo(unavailable ? app.homeDir() : start);
         if (unavailable)
-            hint = AppFilePicker.Hint.StorageRemoved;
+            showError(AppFilePicker.Hint.StorageRemoved);
         if (!folderMode)
             fileField.text = "";
         // setRootPath() early-returns when the target directory is unchanged,
@@ -319,7 +381,7 @@ AppDialog {
             creatingFolder = false;
             hint = AppFilePicker.Hint.Created;
         } else {
-            hint = AppFilePicker.Hint.ModelError;
+            showError(AppFilePicker.Hint.ModelError);
         }
     }
 
@@ -330,7 +392,10 @@ AppDialog {
         selectionError = "";
         if (multiple && !folderMode && !saveMode && selectedPaths.length > 0 && fileField.text.trim() === "") {
             if (validateSelection) selectionError = validateSelection(selectedPaths);
-            if (selectionError !== "") return;
+            if (selectionError !== "") {
+                showError(AppFilePicker.Hint.None);
+                return;
+            }
             selectedFiles = selectedPaths.map(function(path) { return app.pathUrl(path); });
             selectedFile = selectedFiles[0];
             accepted();
@@ -349,12 +414,12 @@ AppDialog {
                 if (!selectedIsDir && selectedPath !== "") {
                     selectedFile = app.pathUrl(selectedPath);
                 } else {
-                    hint = AppFilePicker.Hint.EnterName;
                     fileField.forceActiveFocus();
+                    showError(AppFilePicker.Hint.EnterName);
                     return;
                 }
             } else if (name.indexOf("/") >= 0 || (Qt.platform.os === "windows" && name.indexOf("\\") >= 0)) {
-                hint = AppFilePicker.Hint.SlashInName;
+                showError(AppFilePicker.Hint.SlashInName);
                 return;
             } else {
                 var full = dirModel.filePath(name);
@@ -368,7 +433,10 @@ AppDialog {
         if (!folderMode) {
             var paths = [app.toLocalPath(selectedFile)];
             if (validateSelection) selectionError = validateSelection(paths);
-            if (selectionError !== "") return;
+            if (selectionError !== "") {
+                showError(AppFilePicker.Hint.None);
+                return;
+            }
             selectedFiles = [selectedFile];
         }
         accepted();
@@ -641,6 +709,7 @@ AppDialog {
 
                     AppTextField {
                         id: newFolderField
+                        objectName: "filePickerNewFolderName"
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.rowHeight
                         placeholderText: qsTr("New folder name")

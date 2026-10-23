@@ -67,9 +67,11 @@ import UpgradeTool
 Window {
     width: 1000; height: 800; visible: true
     property int acceptedCount: 0
+    property string selectionFailure: ""
     AppFilePicker {
         objectName: "picker"
         persistKey: "test"
+        validateSelection: function(paths) { return selectionFailure; }
         onAccepted: ++acceptedCount
     }
 }
@@ -86,8 +88,12 @@ Window {
     auto *model = window->findChild<gui::DirModel *>("filePickerDirModel");
     auto *field = window->findChild<QObject *>("filePickerFileName");
     auto *refresh = window->findChild<QObject *>("filePickerRefresh");
-    CHECK(picker && timer && model && field && refresh);
-    if (!picker || !timer || !model || !field || !refresh) return;
+    auto *error = window->findChild<QObject *>("filePickerErrorDialog");
+    auto *message = window->findChild<QObject *>("filePickerErrorMessage");
+    auto *ok = window->findChild<QObject *>("filePickerErrorOk");
+    auto *newFolder = window->findChild<QObject *>("filePickerNewFolderName");
+    CHECK(picker && timer && model && field && refresh && error && message && ok && newFolder);
+    if (!picker || !timer || !model || !field || !refresh || !error || !message || !ok || !newFolder) return;
     auto invoke = [&](const char *method) { CHECK(QMetaObject::invokeMethod(picker, method)); };
     auto navigate = [&](const QString &path) {
         CHECK(QMetaObject::invokeMethod(picker, "navigateTo", Q_ARG(QVariant, path)));
@@ -103,9 +109,78 @@ Window {
         invoke("close");
         CHECK(AwaitUi([&] { return !picker->property("visible").toBool(); }));
         CHECK(!timer->property("running").toBool());
+        CHECK(!error->property("visible").toBool());
+    };
+    auto expectError = [&](const QString &text) {
+        CHECK(AwaitUi([&] { return error->property("opened").toBool(); }));
+        CHECK(message->property("text").toString() == text);
+        CHECK(error->property("modal").toBool());
+        CHECK(picker->property("visible").toBool());
+        CHECK(picker->property("hintText").toString().isEmpty());
+        CHECK(!picker->property("hintError").toBool());
+        CHECK(window->property("acceptedCount").toInt() == 0);
+        CHECK(ok->property("activeFocus").toBool());
+    };
+    auto dismissError = [&] {
+        auto *button = qobject_cast<QQuickItem *>(ok);
+        CHECK(button);
+        if (button) {
+            const auto point = button->mapToScene(QPointF(button->width() / 2, button->height() / 2));
+            QTest::mouseClick(qobject_cast<QQuickWindow *>(window.get()), Qt::LeftButton, Qt::NoModifier, point.toPoint());
+        }
+        CHECK(AwaitUi([&] { return !error->property("visible").toBool(); }));
+        CHECK(picker->property("visible").toBool());
     };
 
     open();
+    for (int mode : {0, 1}) {
+        picker->setProperty("mode", mode);
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            invoke("confirmAccept");
+            expectError("Enter a file name");
+            dismissError();
+            CHECK(AwaitUi([&] { return field->property("activeFocus").toBool(); }));
+        }
+        field->setProperty("text", "bad/name.img");
+        invoke("confirmAccept");
+        expectError("File name cannot contain \"/\"");
+        // Escape dismisses only the topmost popup.
+        QTest::keyClick(qobject_cast<QQuickWindow *>(window.get()), Qt::Key_Escape);
+        CHECK(AwaitUi([&] { return !error->property("visible").toBool(); }));
+        CHECK(picker->property("visible").toBool());
+        field->setProperty("text", "");
+    }
+    picker->setProperty("creatingFolder", true);
+    CHECK(QMetaObject::invokeMethod(newFolder, "forceActiveFocus"));
+    invoke("createFolder");
+    expectError("Directory name cannot be empty");
+    dismissError();
+    CHECK(AwaitUi([&] { return newFolder->property("activeFocus").toBool(); }));
+    newFolder->setProperty("text", "created");
+    invoke("createFolder");
+    CHECK(QDir(app.homeDir() + "/created").exists());
+    CHECK(picker->property("hintText").toString() == "Directory created");
+    CHECK(!error->property("visible").toBool());
+
+    // Both single and multiple selection validators use the same popup.
+    navigate(app.homeDir());
+    window->setProperty("selectionFailure", "Selection rejected");
+    for (bool multiple : {false, true}) {
+        picker->setProperty("multiple", multiple);
+        picker->setProperty("mode", 0);
+        field->setProperty("text", multiple ? "" : "pending.img");
+        picker->setProperty("selectedPaths", QStringList{disk + "/pending.img"});
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            invoke("confirmAccept");
+            expectError("Selection rejected");
+            dismissError();
+        }
+    }
+    picker->setProperty("multiple", false);
+    window->setProperty("selectionFailure", "");
+    close();
+    open();
+    CHECK(!error->property("visible").toBool());
     const int firstScan = app.scans;
     app.volumes = {{disk, "USB"}};
     CHECK(AwaitUi([&] { return app.scans > firstScan && app.standardPlaces().size() == 2; }));
@@ -145,8 +220,11 @@ Window {
         CHECK(field->property("text").toString().isEmpty());
         CHECK(model->searchText().isEmpty());
         CHECK(!picker->property("creatingFolder").toBool());
-        CHECK(!picker->property("hintText").toString().isEmpty());
-        CHECK(picker->property("hintError").toBool());
+        expectError("The original path is no longer available. Returned to Home.");
+        dismissError();
+        const int beforeRefresh = app.scans;
+        CHECK(AwaitUi([&] { return app.scans > beforeRefresh; }));
+        CHECK(!error->property("visible").toBool());
         CHECK(QDir(disk).exists());
         app.volumes.append({disk, "USB"});
         invoke("refreshLocations");
@@ -162,7 +240,7 @@ Window {
     CHECK(app.scans == closedScan);
     open();
     CHECK(model->rootPath() == app.homeDir());
-    CHECK(!picker->property("hintText").toString().isEmpty());
+    expectError("The original path is no longer available. Returned to Home.");
     close();
 
     // Reinsert and verify normal acceptance in open/save/folder modes.
@@ -182,6 +260,7 @@ Window {
     picker->setProperty("initialFolder", QUrl::fromLocalFile(disk + "/missing"));
     open();
     CHECK(model->rootPath() == app.homeDir());
+    CHECK(AwaitUi([&] { return error->property("visible").toBool(); }));
     close();
 }
 
