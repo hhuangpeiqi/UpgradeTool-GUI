@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 #include <fcntl.h>
+#include <sys/stat.h>
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
 #include <windows.h>
 #else
-#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -105,6 +105,37 @@ extern "C" FILE *qtq_path_fopen(const char *path, const char *mode) {
         return _wfopen(native.c_str(), wideMode.c_str());
 #else
         return fopen(native.c_str(), mode);
+#endif
+    });
+}
+extern "C" int qtq_path_mkstemp(char *path) {
+    return Guard(-1, [&] {
+        const auto native = Path(path);
+#ifdef _WIN32
+        const auto pattern = native.native();
+        if (pattern.size() < 6 || pattern.substr(pattern.size() - 6) != L"XXXXXX") {
+            errno = EINVAL;
+            return -1;
+        }
+        for (int attempt = 0; attempt < 128; ++attempt) {
+            auto temporary = pattern;
+            const int error = _wmktemp_s(temporary.data(), temporary.size() + 1);
+            if (error) { errno = error; return -1; }
+            // Exclusive creation protects against another process taking the name.
+            const int fd = _wopen(temporary.c_str(), O_RDWR | O_CREAT | O_EXCL | O_BINARY,
+                                  _S_IREAD | _S_IWRITE);
+            if (fd >= 0) {
+                const auto length = std::strlen(path);
+                for (size_t i = 0; i < 6; ++i)
+                    path[length - 6 + i] = static_cast<char>(temporary[temporary.size() - 6 + i]);
+                return fd;
+            }
+            if (errno != EEXIST) return -1;
+        }
+        errno = EEXIST;
+        return -1;
+#else
+        return mkstemp(path);
 #endif
     });
 }

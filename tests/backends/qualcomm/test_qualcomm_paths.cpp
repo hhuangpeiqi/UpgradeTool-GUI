@@ -59,12 +59,15 @@ int main(int argc, char **argv) {
     CHECK(resolved && platform::SameFile(platform::Path(resolved), platform::Path(image)));
     std::free(resolved); resolved = nullptr;
 
-    // An exact match adjacent to the XML wins over an include-dir case fallback.
+    // Native matches precede case fallback. On case-insensitive filesystems,
+    // the include-dir BOOT.bin is already a native match for boot.bin.
     Directory include(path("额外目录")); std::filesystem::create_directory(include.path);
     Write(include.filePath("BOOT.bin"), "include"); Write(path("boot.bin"), "exact");
     const auto includeDir = platform::Utf8(include.path);
     CHECK(qtq_resolve_image("boot.bin", xml.c_str(), nullptr, includeDir.c_str(), &resolved) == 1);
-    CHECK(resolved && platform::SameFile(platform::Path(resolved), platform::Path(path("boot.bin"))));
+    const bool nativeIncludeMatch = std::filesystem::exists(platform::Path(include.filePath("boot.bin")));
+    const auto expected = nativeIncludeMatch ? include.filePath("BOOT.bin") : path("boot.bin");
+    CHECK(resolved && platform::SameFile(platform::Path(resolved), platform::Path(expected)));
     std::free(resolved); resolved = nullptr;
     // A relative CWD filename is also part of exact lookup, after the XML dir.
     const auto absoluteImage = platform::Path(image);
@@ -115,7 +118,10 @@ int main(int argc, char **argv) {
                     "</partition_file><partition_patch_file storage_type=\"ufs\"><file_name>补丁.xml</file_name>"
                     "<file_path>./</file_path></partition_patch_file></build></builds_flat></contents>");
     request.command = QTQ_CREATE_ZIP; request.package = contents.c_str(); request.output = zipped.c_str();
-    CHECK(qtq_execute(&request, &hooks) == 0);
+    capture.logs.clear();
+    const int zipResult = qtq_execute(&request, &hooks);
+    if (zipResult) std::fprintf(stderr, "%s", capture.logs.c_str());
+    CHECK(zipResult == 0);
     request.command = QTQ_PACKAGE; request.package = zipped.c_str();
     CHECK(qtq_execute(&request, &hooks) == 0);
     request.command = QTQ_FLASH; request.package = nullptr;

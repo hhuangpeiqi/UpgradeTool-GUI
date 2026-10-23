@@ -1620,6 +1620,15 @@
  }
  
  int zipper_write(const char *filename, struct list_head *ops, struct sahara_image *images)
+@@ -897,7 +905,7 @@
+-	tmp_fd = mkstemp(tmp_filename);
++	tmp_fd = qtq_path_mkstemp(tmp_filename);
+ 	if (tmp_fd < 0) {
+ 		ux_err("failed to create temporary output zip \"%s\": %s\n",
+ 		       tmp_filename, strerror(errno));
+ 		goto out_cleanup;
+ 	}
+ 	close(tmp_fd);
 @@ -1037,6 +1045,7 @@
  						      NULL, (void *)filename) < 0)
  		ux_debug("unable to register zip close progress callback\n");

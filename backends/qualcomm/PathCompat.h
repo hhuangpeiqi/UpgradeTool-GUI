@@ -8,6 +8,8 @@ extern "C" {
 
 /* Filesystem paths are UTF-8, including on Windows. */
 int qtq_path_open(const char *path, int flags, int mode);
+/* Exclusively creates a file, replacing the mutable template's final XXXXXX. */
+int qtq_path_mkstemp(char *path);
 FILE *qtq_path_fopen(const char *path, const char *mode);
 int qtq_path_access(const char *path, int mode);
 int qtq_path_is_directory(const char *path);
