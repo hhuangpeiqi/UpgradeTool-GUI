@@ -10,6 +10,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <cfgmgr32.h>
+#include <dbt.h>
 #endif
 
 int main(int argc, char **argv) {
@@ -349,6 +350,7 @@ int main(int argc, char **argv) {
         {
             gui::DriverController controller(pendingHooks, true);
             CHECK(controller.hasPending());
+            CHECK(!controller.waitingForReconnect()); // Legacy records have no stage.
             controller.refresh(false); CHECK(Await([&] { return !controller.checking(); }));
             CHECK(controller.canResume());
             int confirmations = 0;
@@ -389,11 +391,12 @@ int main(int argc, char **argv) {
         rk.hardwareId = "USB\\VID_2207&PID_350B";
         rk.service.clear(); rk.state = gui::DriverState::Missing;
         gui::DriverScan outcome{{rk}, {}};
-        enum Scenario { NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, Installed } scenario = NoAction;
+        enum Scenario { NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, ScanFailed, Installed } scenario = NoAction;
         int calls = 0;
+        bool lastProbe = false;
         gui::DriverHooks rkHooks;
         rkHooks.verificationTimeoutMs = 0;
-        rkHooks.scan = [&](bool) { return outcome; };
+        rkHooks.scan = [&](bool probe) { lastProbe = probe; return outcome; };
         rkHooks.installWithProgress = [&](const auto &, const auto &, const auto &) {
             CHECK(false); return gui::DriverInstallResult{}; // RK must never use libwdi.
         };
@@ -403,6 +406,7 @@ int main(int argc, char **argv) {
             if (scenario == Cancelled) return gui::DriverInstallResult{false, true, {}};
             if (scenario == Failed) return gui::DriverInstallResult{false, false, "assistant failed"};
             if (scenario == Disconnected) outcome = {};
+            if (scenario == ScanFailed) outcome.error = "scan failed";
             if (scenario == Inaccessible || scenario == Reboot || scenario == Installed) {
                 auto bound = rk; bound.service = "Rockusb";
                 bound.state = scenario == Inaccessible ? gui::DriverState::AccessFailed :
@@ -412,10 +416,16 @@ int main(int argc, char **argv) {
             return gui::DriverInstallResult{true, false, {}};
         };
         gui::DriverController controller(rkHooks, true);
+        using Outcome = gui::DriverController::Outcome;
+        Outcome completion = Outcome::Succeeded;
+        int completions = 0;
+        QObject::connect(&controller, &gui::DriverController::finished, [&](auto result, const QString &) {
+            completion = result; ++completions;
+        });
         auto refresh = [&] { controller.refresh(); CHECK(Await([&] { return !controller.checking(); })); };
         refresh();
         CHECK(controller.devices().size() == 1 && controller.devices().first().toMap()["canInstall"].toBool());
-        for (auto next : {NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, Installed}) {
+        for (auto next : {NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, ScanFailed, Installed}) {
             scenario = next; outcome = {{rk}, {}};
             controller.forgetPending(); refresh();
             controller.prepareInstall(rk.instance);
@@ -424,9 +434,55 @@ int main(int argc, char **argv) {
             controller.confirmInstall(); controller.beginInstall();
             CHECK(Await([&] { return !controller.busy(); }));
             CHECK(controller.hasPending() == (next != Cancelled && next != Installed));
-            CHECK((controller.message() == "Driver installed") == (next == Installed));
+            const bool waiting = next == NoAction || next == Disconnected || next == Inaccessible;
+            CHECK(controller.waitingForReconnect() == waiting);
+            CHECK(!controller.locked());
+            CHECK(completion == (next == Installed ? Outcome::Succeeded : waiting ? Outcome::PendingReconnect : Outcome::Failed));
+            CHECK((controller.message() == "Driver ready") == (next == Installed));
+            if (waiting) CHECK(controller.message().contains("checked automatically"));
         }
-        CHECK(calls == 7);
+        CHECK(calls == 8 && completions == 8);
+        // A reconnect can complete setup in a later session without relaunching
+        // the assistant. Other devices, failed scans and cached binding cannot.
+        scenario = NoAction; outcome = {{rk}, {}}; refresh();
+        controller.prepareInstall(rk.instance); controller.confirmInstall(); controller.beginInstall();
+        CHECK(Await([&] { return !controller.busy(); }));
+        CHECK(controller.waitingForReconnect());
+        {
+            gui::DriverController restored(rkHooks, true);
+            CHECK(restored.hasPending() && restored.waitingForReconnect());
+            auto rescan = [&] { restored.refresh(false); CHECK(Await([&] { return !restored.checking(); })); };
+            auto ready = rk; ready.service = "Rockusb"; ready.state = gui::DriverState::Ready;
+            auto other = ready; other.instance += "-other"; other.location += "-other";
+            outcome = {{other}, {}}; rescan();
+            CHECK(restored.waitingForReconnect() && restored.hasPending());
+            auto ambiguous = ready; ambiguous.instance += "-duplicate";
+            outcome = {{ready, ambiguous}, {}}; rescan();
+            CHECK(restored.hasPending());
+            outcome = {{ready}, "scan failed"}; rescan();
+            CHECK(restored.hasPending() && restored.message().contains("detection failed"));
+            auto bound = ready; bound.state = gui::DriverState::Bound;
+            outcome = {{bound}, {}}; rescan();
+            CHECK(lastProbe); // Pending setup forces an actual probe on refresh(false).
+            CHECK(restored.hasPending() && restored.message().contains("checked automatically"));
+            int readySignals = 0;
+            QObject::connect(&restored, &gui::DriverController::finished, [&](auto result, const QString &) {
+                CHECK(result == Outcome::Succeeded); ++readySignals;
+            });
+            outcome = {{ready}, {}};
+#ifdef Q_OS_WIN
+            MSG message = {}; message.message = WM_DEVICECHANGE; message.wParam = DBT_DEVICEARRIVAL;
+            restored.nativeEventFilter({}, &message, nullptr);
+            CHECK(Await([&] { return !restored.hasPending(); }));
+#else
+            rescan();
+#endif
+            CHECK(!restored.waitingForReconnect() && !restored.locked());
+            CHECK(restored.message() == "Driver ready" && readySignals == 1);
+            rescan(); CHECK(readySignals == 1);
+        }
+        controller.forgetPending();
+        CHECK(!controller.waitingForReconnect() && controller.message().isEmpty());
         for (const auto state : {gui::DriverState::Incompatible, gui::DriverState::Bound, gui::DriverState::Ready,
                                 gui::DriverState::AccessFailed, gui::DriverState::DeviceError}) {
             auto changed = rk; changed.state = state;
@@ -434,7 +490,7 @@ int main(int argc, char **argv) {
             CHECK(!controller.devices().first().toMap()["canInstall"].toBool());
         }
         outcome = {}; refresh(); controller.prepareInstall(rk.instance);
-        CHECK(!controller.canConfirm() && calls == 7);
+        CHECK(!controller.canConfirm() && calls == 9);
 #ifdef Q_OS_WIN
         rk.service = "Rockusb";
         gui::ClassifyWindowsUsbDriver(rk, DN_STARTED, 0); CHECK(rk.state == gui::DriverState::Bound);

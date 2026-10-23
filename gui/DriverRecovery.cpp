@@ -14,6 +14,49 @@ const DriverDevice *FindDriverDevice(const QVector<DriverDevice> &devices, const
     return found;
 }
 
+DriverInstallResult RecoverRockusbDriver(const DriverDevice &target, const DriverRecoveryHooks &hooks) {
+    DriverInstallResult result{true, false, {}};
+    QElapsedTimer elapsed; elapsed.start();
+    auto record = [&](const QString &text) {
+        result.log += QStringLiteral("Rockusb recovery [%1 ms]: %2\n").arg(elapsed.elapsed()).arg(text);
+    };
+    if (hooks.progress) hooks.progress(DriverPhase::Verifying);
+    DriverScan snapshot;
+    for (int waited = 0; waited <= 3000; waited += 500) {
+        snapshot = hooks.scan();
+        const auto *device = snapshot.error.isEmpty() ? FindDriverDevice(snapshot.devices, target) : nullptr;
+        if (!snapshot.error.isEmpty()) record("scan: " + snapshot.error);
+        if (device && device->state == DriverState::RebootRequired) {
+            result.rebootRequired = true;
+            record("Windows restart required");
+            return result;
+        }
+        if (device && device->state == DriverState::Ready) {
+            record("device ready without restart");
+            return result;
+        }
+        if (waited < 3000) hooks.wait(500);
+    }
+    const auto *device = snapshot.error.isEmpty() ? FindDriverDevice(snapshot.devices, target) : nullptr;
+    if (!device || device->vendor != 0 || !device->verifiedInterface ||
+        (!device->service.isEmpty() && device->service.compare("Rockusb", Qt::CaseInsensitive))) {
+        record("restart skipped: target absent, ambiguous, or driver changed");
+        return result;
+    }
+    // Pass the post-install snapshot: service/problem changes are expected.
+    // The restart implementation checks this snapshot again before acting.
+    if (hooks.progress) hooks.progress(DriverPhase::Recovering);
+    record("restarting " + device->instance);
+    const auto restart = hooks.restart(*device);
+    result.log += restart.log;
+    record(QStringLiteral("restart ok=%1 reboot=%2 error=%3")
+        .arg(restart.ok).arg(restart.rebootRequired).arg(restart.error));
+    result.rebootRequired = restart.rebootRequired;
+    // A failed restart is recoverable by physically reconnecting the device.
+    // The controller always probes again before reporting the final outcome.
+    return result;
+}
+
 DriverInstallResult RecoverWindowsUsbDriver(const DriverDevice &target, const QVector<DriverDevice> &affected,
                                            const DriverRecoveryHooks &hooks) {
     QElapsedTimer elapsed; elapsed.start();

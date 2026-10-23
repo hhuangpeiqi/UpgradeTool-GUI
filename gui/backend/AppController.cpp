@@ -247,9 +247,9 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
     connect(m_drivers, &DriverController::diagnostic, this, [this](const QString &message) {
         if (m_diskLog) m_diskLog->Record("[Driver installer]\n%s", message.toUtf8().constData());
     });
-    connect(m_drivers, &DriverController::finished, this, [this](bool ok, const QString &message) {
+    connect(m_drivers, &DriverController::finished, this, [this](gui::DriverController::Outcome outcome, const QString &message) {
         if (m_shuttingDown) return;
-        AppendLog(message, !ok);
+        AppendLog(message, outcome == gui::DriverController::Outcome::Failed);
         if (m_diskLog) m_diskLog->Record("Driver installation: %s", message.toUtf8().constData());
         m_pAdb->Resume(); refresh();
     });

@@ -34,6 +34,7 @@ class DriverController : public QObject, public Retranslatable, public QAbstract
     Q_PROPERTY(QString summaryLevel READ summaryLevel NOTIFY changed)
     Q_PROPERTY(QVariantList confirmation READ confirmation NOTIFY confirmationChanged)
     Q_PROPERTY(bool hasPending READ hasPending NOTIFY changed)
+    Q_PROPERTY(bool waitingForReconnect READ waitingForReconnect NOTIFY changed)
     Q_PROPERTY(bool canResume READ canResume NOTIFY changed)
     Q_PROPERTY(QString pendingText READ pendingText NOTIFY changed)
     Q_PROPERTY(bool canUninstallQualcomm READ canUninstallQualcomm NOTIFY changed)
@@ -41,6 +42,8 @@ class DriverController : public QObject, public Retranslatable, public QAbstract
     Q_PROPERTY(QString confirmationText READ confirmationText NOTIFY confirmationChanged)
     Q_PROPERTY(bool canConfirm READ canConfirm NOTIFY confirmationChanged)
 public:
+    enum class Outcome { Succeeded, PendingReconnect, Failed };
+    Q_ENUM(Outcome)
     static constexpr bool hostAvailable() {
 #ifdef Q_OS_WIN
         return true;
@@ -64,6 +67,7 @@ public:
     QString summaryLevel() const;
     QVariantList confirmation() const;
     bool hasPending() const { return !m_pending.instance.isEmpty(); }
+    bool waitingForReconnect() const { return m_waitingForReconnect; }
     bool canResume() const;
     QString pendingText() const;
     bool canUninstallQualcomm() const;
@@ -91,16 +95,18 @@ signals:
     void confirmationChanged();
     void confirmationRequested();
     void maintenanceRequested();
-    void finished(bool ok, const QString &message);
+    void finished(Outcome outcome, const QString &message);
     void diagnostic(const QString &message);
 private:
     QVariantMap describe(const DriverDevice &) const;
     void scan(bool probe);
-    void finish(bool ok, const QString &message);
+    void finish(Outcome outcome, const QString &message);
     void setMessage(const QString &);
     void setPhase(DriverPhase);
     QString phaseText() const;
     void rememberPending();
+    void savePending();
+    QString reconnectText() const;
     DriverHooks m_hooks;
     bool m_available = false, m_suspended = false, m_stopping = false, m_busy = false;
     bool m_scanAgain = false, m_probeAgain = false, m_installPending = false, m_verifying = false;
@@ -118,6 +124,7 @@ private:
     QVector<DriverDevice> m_devices, m_affected;
     DriverDevice m_target, m_pending;
     bool m_rebootRequired = false;
+    bool m_waitingForReconnect = false;
     QString m_message;
 };
 }

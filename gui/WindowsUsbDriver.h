@@ -40,6 +40,9 @@ struct DriverInstallResult {
     QString log = {};
     bool rebootRequired = false, retryable = false;
 };
+#ifdef Q_OS_WIN
+DriverInstallResult RestartWindowsUsbDevice(const DriverDevice &);
+#endif
 enum class DriverPhase { Installing, Recovering, Verifying, Preparing, Bound };
 enum class DriverOperation { WinUsb, RockusbAssistant, QualcommInstall, QualcommUninstall };
 using DriverProgress = std::function<void(DriverPhase)>;

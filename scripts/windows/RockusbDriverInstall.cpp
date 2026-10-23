@@ -1,4 +1,5 @@
 #include "gui/WindowsUsbDriver.h"
+#include "gui/DriverRecovery.h"
 #include "application/RockusbDriverPackage.h"
 #include <QCoreApplication>
 #include <QDir>
@@ -6,6 +7,7 @@
 #include <QFile>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <QThread>
 #include <windows.h>
 #include <shlobj.h>
 
@@ -60,6 +62,16 @@ DriverInstallResult RunRockusbDriverElevated(const DriverDevice &target, const D
     // driver. The controller must verify the target after every normal close.
     result.ok = process.exitStatus() == QProcess::NormalExit;
     if (!result.ok) result.error = QStringLiteral("The Rockusb driver assistant terminated unexpectedly.");
+    else {
+        DriverRecoveryHooks hooks;
+        hooks.scan = [] { return ScanWindowsUsbDrivers(true); };
+        hooks.restart = RestartWindowsUsbDevice;
+        hooks.wait = [](int ms) { QThread::msleep(ms); };
+        hooks.progress = progress;
+        const auto recovery = RecoverRockusbDriver(target, hooks);
+        result.log += recovery.log;
+        result.rebootRequired = recovery.rebootRequired;
+    }
     return result;
 }
 }

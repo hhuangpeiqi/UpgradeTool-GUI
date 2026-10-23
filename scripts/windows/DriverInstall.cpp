@@ -16,8 +16,7 @@
 #include <libwdi.h>
 
 namespace gui {
-namespace {
-DriverInstallResult restartDevice(const DriverDevice &target) {
+DriverInstallResult RestartWindowsUsbDevice(const DriverDevice &target) {
     DriverInstallResult result;
     const auto current = ScanWindowsUsbDrivers();
     const auto *device = FindDriverDevice(current.devices, target);
@@ -48,7 +47,6 @@ DriverInstallResult restartDevice(const DriverDevice &target) {
     if (!result.ok) result.error = QStringLiteral("Device restart failed (%1). Close other device tools and reconnect the device.").arg(error);
     return result;
 }
-}
 
 DriverInstallResult InstallWindowsUsbDriverElevated(const DriverDevice &target, const QVector<DriverDevice> &affected,
                                                    const DriverProgress &progress) {
@@ -75,7 +73,7 @@ DriverInstallResult InstallWindowsUsbDriverElevated(const DriverDevice &target, 
     hooks.scan = [] { return ScanWindowsUsbDrivers(true); };
     hooks.wait = [](int ms) { QThread::msleep(ms); };
     hooks.progress = progress;
-    hooks.restart = restartDevice;
+    hooks.restart = RestartWindowsUsbDevice;
     bool packagePrepared = false;
     hooks.install = [&](const DriverDevice &deviceTarget) {
         DriverInstallResult outcome;

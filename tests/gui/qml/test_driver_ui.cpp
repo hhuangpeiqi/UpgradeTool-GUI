@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     qmlRegisterUncreatableMetaObject(gui::Operations::staticMetaObject, "UpgradeTool", 1, 0, "Operations", "Operation IDs");
     qmlRegisterType<gui::DirModel>("UpgradeTool", 1, 0, "DirModel");
     int failures = 0, installs = 0;
-    std::atomic<bool> holdInstall{false}, installerEntered{false};
+    std::atomic<bool> holdInstall{false}, installerEntered{false}, completeInstall{false};
     std::atomic<int> scanMode{0};
     gui::DriverDevice board;
     board.vendor = 0; board.vid = 0x2207; board.pid = 0x350b;
@@ -46,6 +46,7 @@ int main(int argc, char **argv) {
     auto qc = board; qc.vendor = 2; qc.label = "Qualcomm HS-USB QDLoader 9008"; qc.instance += "-QC";
     qc.vid = 0x05c6; qc.pid = 0x9008; qc.hardwareId = "USB\\VID_05C6&PID_9008";
     gui::DriverHooks hooks;
+    hooks.verificationTimeoutMs = 0;
     hooks.qualcommInstalled = [] { return true; };
     hooks.driverOperation = [&](auto operation, const auto &target, const auto &affected, const auto &progress) {
         if (operation == gui::DriverOperation::RockusbAssistant) return hooks.installWithProgress(target, affected, progress);
@@ -81,6 +82,7 @@ int main(int argc, char **argv) {
         progress(gui::DriverPhase::Preparing);
         progress(gui::DriverPhase::Installing);
         while (holdInstall) QThread::msleep(1);
+        if (completeInstall) return gui::DriverInstallResult{true, false, {}};
         return gui::DriverInstallResult{false, true, {}};
     };
     gui::AppController controller(nullptr, gui::DefaultEdlHooks(), 100, nullptr, hooks, true);
@@ -304,6 +306,51 @@ int main(int argc, char **argv) {
     CHECK(installs == 0);
     CHECK(QMetaObject::invokeMethod(dialog, "close"));
     controller.setVendor(0);
+    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    // A normal assistant close without a ready device offers reconnect guidance
+    // in both languages and releases the app for use while waiting.
+    completeInstall = true;
+    controller.drivers()->prepareInstall(board.instance);
+    CHECK(QMetaObject::invokeMethod(confirmation, "close"));
+    controller.drivers()->confirmInstall();
+    CHECK(AwaitUi([&] { return controller.drivers()->waitingForReconnect() && !controller.interactionLocked(); }));
+    CHECK(installs == 1 && controller.drivers()->hasPending());
+    bool reconnectLogged = false;
+    for (int i = 0; i < controller.log()->count(); ++i) {
+        const auto index = controller.log()->index(i);
+        if (controller.log()->data(index, gui::LogModel::TextRole).toString().contains(controller.drivers()->message())) {
+            reconnectLogged = true;
+            CHECK(!controller.log()->data(index, gui::LogModel::ErrorRole).toBool());
+        }
+    }
+    CHECK(reconnectLogged);
+    CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
+    for (const auto &language : {"en", "zh"}) {
+        controller.language()->setMode(language);
+        CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+        auto *reopen = FindVisualItem(window->contentItem(), "driverResumeButton");
+        auto *refreshButton = FindVisualItem(window->contentItem(), "driverRefreshButton");
+        auto *closeButton = FindVisualItem(window->contentItem(), "driverCloseButton");
+        CHECK(reopen && reopen->isEnabled() && refreshButton && refreshButton->isEnabled());
+        CHECK(closeButton && closeButton->isEnabled());
+        if (reopen) CHECK(reopen->property("text").toString() == QString::fromUtf8(
+            QByteArray(language) == "zh" ? "重新打开驱动助手…" : "Reopen driver assistant…"));
+        CHECK(controller.drivers()->message() == QString::fromUtf8(QByteArray(language) == "zh"
+            ? "设备尚未就绪，请重新插拔 USB，连接后将自动检测驱动。"
+            : "Device is not ready. Reconnect the USB cable; the driver will be checked automatically."));
+        CHECK(!FindVisualItem(window->contentItem(), "statusProgress")->isVisible());
+        if (argc > 1) {
+            QTest::qWait(80);
+            CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1])
+                + QString("/driver-reconnect-%1.png").arg(language)));
+        }
+    }
+    scanMode = 1; controller.drivers()->refresh(false);
+    CHECK(AwaitUi([&] { return !controller.drivers()->hasPending() && !controller.drivers()->checking(); }));
+    CHECK(!controller.drivers()->waitingForReconnect() && !controller.interactionLocked() && installs == 1);
+    CHECK(QMetaObject::invokeMethod(dialog, "close"));
+    completeInstall = false; installs = 0; installerEntered = false;
+    scanMode = 0; controller.drivers()->refresh();
     CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
     core::Cancellation inspection;
     QObject::connect(controller.rockchip(), &gui::RockchipController::inspectRequested,

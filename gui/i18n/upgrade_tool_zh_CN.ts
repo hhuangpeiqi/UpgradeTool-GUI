@@ -1210,6 +1210,10 @@
         <translation>继续安装…</translation>
     </message>
     <message>
+        <source>Reopen driver assistant…</source>
+        <translation>重新打开驱动助手…</translation>
+    </message>
+    <message>
         <location line="+6"/>
         <source>Dismiss</source>
         <translation>放弃任务</translation>
@@ -4040,8 +4044,20 @@
         <translation>安装瑞芯微驱动？</translation>
     </message>
     <message>
-        <source>Install the driver in the Rockchip driver assistant, then close its window. This tool will check the connected device afterward.</source>
-        <translation>请在瑞芯微驱动助手中完成安装，然后关闭助手窗口。本工具将重新检查已连接的设备。</translation>
+        <source>Install the driver in the Rockchip driver assistant.</source>
+        <translation>请在瑞芯微驱动助手中完成安装。</translation>
+    </message>
+    <message>
+        <source>Waiting for USB reconnection</source>
+        <translation>等待重新连接 USB</translation>
+    </message>
+    <message>
+        <source>Device is not ready. Reconnect the USB cable; the driver will be checked automatically.</source>
+        <translation>设备尚未就绪，请重新插拔 USB，连接后将自动检测驱动。</translation>
+    </message>
+    <message>
+        <source>Driver ready</source>
+        <translation>驱动已就绪</translation>
     </message>
     <message>
         <source>Complete installation in the Rockchip driver assistant, then close it…</source>

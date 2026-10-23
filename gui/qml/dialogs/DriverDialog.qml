@@ -30,7 +30,7 @@ AppDialog {
         RowLayout {
             SecondaryButton {
                 objectName: "driverResumeButton"
-                text: qsTr("Continue setup…")
+                text: app.drivers.waitingForReconnect ? qsTr("Reopen driver assistant…") : qsTr("Continue setup…")
                 enabled: app.drivers.canResume
                 onClicked: app.drivers.resumePending()
             }
