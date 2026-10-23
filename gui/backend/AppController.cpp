@@ -16,7 +16,6 @@
 #include <QVariantMap>
 
 #include <cstring>
-#include <libusb.h>
 #include <utility>
 
 #ifdef Q_OS_LINUX
@@ -310,6 +309,10 @@ void AppController::UpdateInteractionLock()
     m_qualcomm->setLocked(locked);
     m_drivers->setSuspended(locked);
     emit interactionLockedChanged();
+    if (!locked && m_vendor == 2) {
+        const auto snapshot = m_deviceModel->allRows();
+        onDevicesReady(snapshot);
+    }
 }
 
 void AppController::BeginDriverMaintenance()
@@ -520,15 +523,11 @@ QStringList AppController::deviceLabels() const
 				.arg(map["vid"].toUInt(), 4, 16, QChar('0'))
 				.arg(map["pid"].toUInt(), 4, 16, QChar('0'));
 			const QString strSerial = map["serial"].toString();
-            QString mode = map["mode"].toString();
-            if (map.value("transport", -1).toInt() == int(core::QualcommTransport::Usb) &&
-                map.value("accessError").toInt() == LIBUSB_ERROR_NOT_SUPPORTED)
-                mode += " / " + QCoreApplication::translate("QualcommBackend", "Driver does not support this transport");
 			strLabel = QString("#%1 %2%3 [%4] %5")
 				.arg(map["index"].toInt())
 				.arg(strIdentity)
 				.arg(strSerial.isEmpty() ? QString() : QStringLiteral(" SN:") + strSerial)
-				.arg(mode)
+				.arg(map["mode"].toString())
 				.arg(map["key"].toString());
 		}
 		list << strLabel;
@@ -693,11 +692,23 @@ void AppController::onThreadStarted()
 void AppController::onDevicesReady(const QVariantList &incoming)
 {
     m_deviceModel->setSnapshot(incoming);
+    // Keep the active target stable while an operation or driver task runs.
+    // UpdateInteractionLock replays the latest snapshot when it finishes.
+    if (m_vendor == 2 && interactionLocked()) return;
+    QVariantList devices;
+    for (const auto &entry : incoming) {
+        const auto row = entry.toMap();
+        if (row.value("vendor", 0).toInt() != m_vendor) continue;
+#ifdef Q_OS_WIN
+        if (row.value("accessError").toInt()) { m_drivers->poll(true); continue; }
+#endif
+        devices.append(entry);
+    }
     QString edlKey;
     if (m_vendor == 2 && m_pendingEdl.mode() == QTQ_EDL) {
         QStringList matches;
         const auto &expected=m_pendingEdl;
-        for (const auto &entry : incoming) {
+        for (const auto &entry : devices) {
             const auto d=entry.toMap();
             if(d.value("vendor").toInt()!=2 || d.value("qualcommMode").toInt()!=QTQ_EDL ||
                 d.value("vid").toUInt()!=expected.vid || d.value("pid").toUInt()!=expected.pid) continue;
@@ -717,21 +728,9 @@ void AppController::onDevicesReady(const QVariantList &incoming)
             matches.append(d.value("key").toString());
         }
         if(matches.size()==1) edlKey=matches.first();
-        if(!matches.isEmpty()) m_pendingEdl={};
-    }
-    QVariantList devices;
-    for(const auto &d:incoming) {
-        const auto row = d.toMap();
-        if (row.value("vendor", 0).toInt() != m_vendor) continue;
-#ifdef Q_OS_WIN
-        if (m_vendor != 2 && row.value("accessError").toInt()) { m_drivers->poll(true); continue; }
-#endif
-        devices.append(d);
-    }
-    // Compare complete snapshots, including mode, access and interface incarnation.
-    if (devices == m_deviceModel->rows()) {
-        if (!edlKey.isEmpty()) setDeviceIndex(m_deviceModel->keys().indexOf(edlKey));
-        return;
+        // Keep an ambiguous or not-yet-accessible target pending; ordinary
+        // automatic selection must not substitute a different device.
+        if (!edlKey.isEmpty()) m_pendingEdl={};
     }
 
 	QString strPrevious = m_vendorSelection[m_vendor];
@@ -741,20 +740,45 @@ void AppController::onDevicesReady(const QVariantList &incoming)
     // to another Qualcomm device after the original target disappears.
     m_vendorSelection[m_vendor] = strPrevious;
 
+    const bool rowsChanged = devices != m_deviceModel->rows();
     m_deviceModel->setRows(devices);
 
 	int iSelected = m_deviceModel->keys().indexOf(edlKey.isEmpty() ? strPrevious : edlKey);
-	if (iSelected < 0 && !devices.isEmpty() && (m_vendor != 2 || strPrevious.isEmpty())) {
-		iSelected = 0;
+	if (!devices.isEmpty() && edlKey.isEmpty() && (m_vendor != 2 || m_pendingEdl.mode() != QTQ_EDL)) {
+#ifdef Q_OS_WIN
         if (m_vendor == 2) {
-            for (int i = 0; i < devices.size(); ++i) {
-                const auto row = devices[i].toMap();
-                if (row.value("qualcommMode").toInt() == QTQ_EDL && !row.value("accessError").toInt()) {
-                    iSelected = i; break;
+            const bool canChoose = !m_bBatchMode && !m_qualcommManualSelection &&
+                (strPrevious.isEmpty() || (iSelected >= 0 &&
+                    devices[iSelected].toMap().value("qualcommMode").toInt() != QTQ_EDL));
+            if (canChoose) {
+                int edlIndex = -1, edlCount = 0;
+                for (int i = 0; i < devices.size(); ++i) {
+                    if (devices[i].toMap().value("qualcommMode").toInt() == QTQ_EDL) {
+                        edlIndex = i;
+                        ++edlCount;
+                    }
+                }
+                if (edlCount == 1) iSelected = edlIndex;
+                else if (edlCount == 0 && strPrevious.isEmpty()) iSelected = 0;
+            }
+        } else if (iSelected < 0) iSelected = 0;
+#else
+        if (iSelected < 0 && (m_vendor != 2 || strPrevious.isEmpty())) {
+            iSelected = 0;
+            if (m_vendor == 2) {
+                for (int i = 0; i < devices.size(); ++i) {
+                    const auto row = devices[i].toMap();
+                    if (row.value("qualcommMode").toInt() == QTQ_EDL && !row.value("accessError").toInt()) {
+                        iSelected = i; break;
+                    }
                 }
             }
         }
+#endif
     }
+
+    if (iSelected >= 0) m_vendorSelection[m_vendor] = m_deviceModel->keys().value(iSelected);
+    if (!rowsChanged && iSelected == m_iDeviceIndex) return;
 
 	if (iSelected != m_iDeviceIndex) {
 		m_iDeviceIndex = iSelected;
@@ -793,6 +817,10 @@ void AppController::setDeviceIndex(int iIndex)
 	if (interactionLocked()) return;
 	if (iIndex < -1 || iIndex >= m_deviceModel->rows().size())
 		return;
+    if (m_vendor == 2) {
+        m_qualcommManualSelection = true;
+        m_pendingEdl = {};
+    }
 	if (iIndex == m_iDeviceIndex && !m_bBatchMode)
 		return;
 
@@ -1227,7 +1255,10 @@ QVariantList AppController::availableVendors() const {
 void AppController::setVendor(int vendor)
 {
     if(interactionLocked() || !availableVendors().contains(vendor) || vendor==m_vendor) return;
-    m_vendorSelection[m_vendor] = m_iDeviceIndex >= 0 ? m_deviceModel->keys().value(m_iDeviceIndex) : QString();
+    if (m_iDeviceIndex >= 0)
+        m_vendorSelection[m_vendor] = m_deviceModel->keys().value(m_iDeviceIndex);
+    else if (m_vendor != 2)
+        m_vendorSelection[m_vendor].clear();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
     m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0); m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
     m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();

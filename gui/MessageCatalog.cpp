@@ -44,7 +44,6 @@ namespace {
     QT_TRANSLATE_NOOP("QualcommBackend", "DIAG"),
     QT_TRANSLATE_NOOP("QualcommBackend", "Device node cannot be combined with a transport selection"),
     QT_TRANSLATE_NOOP("QualcommBackend", "EDL"),
-    QT_TRANSLATE_NOOP("QualcommBackend", "Driver does not support this transport"),
     QT_TRANSLATE_NOOP("QualcommBackend", "The driver does not support this transport. Select a compatible USB or QDLoader (COM) entry."),
     QT_TRANSLATE_NOOP("QualcommBackend", "QDLoader (COM) %1: port configuration failed (Windows error %2: %3). Reconnect the device and enter EDL (9008) again."),
     QT_TRANSLATE_NOOP("QualcommBackend", "QDLoader (COM) %1: opening failed (Windows error %2: %3). Access denied. The port may be in use or access permissions may be restricted. Check port usage and access permissions."),

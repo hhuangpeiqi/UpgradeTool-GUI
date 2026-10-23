@@ -18,8 +18,20 @@ bool QualcommUiTests::TestDevices() {
         auto edl=diag; edl["key"]="edl"; edl["index"]=2; edl["pid"]=0x9008; edl["qualcommMode"]=QTQ_EDL;
         auto usb = edl; usb["key"] = "usb"; usb["transport"] = 0; usb["accessError"] = LIBUSB_ERROR_NOT_SUPPORTED;
         auto com = edl; com["key"] = "com"; com["transport"] = 2; com["devicePath"] = "\\\\.\\COM52";
-        update({usb, com}); CHECK(controller.deviceIndex() == 1); CHECK(download->isEnabled());
+        update({usb, com});
+#ifdef Q_OS_WIN
+        CHECK(controller.deviceIndex() == 0); CHECK(download->isEnabled());
+        CHECK(controller.deviceLabels().size() == 1);
+        auto *deviceCombo = window->findChild<QObject *>("deviceCombo"); CHECK(deviceCombo);
+        CHECK(deviceCombo->property("count").toInt() == 1);
+        CHECK(deviceCombo->property("currentIndex").toInt() == 0);
+        update({usb});
+        CHECK(controller.deviceIndex() == -1 && !download->isEnabled());
+        CHECK(deviceCombo->property("count").toInt() == 0);
+#else
+        CHECK(controller.deviceIndex() == 1); CHECK(download->isEnabled());
         controller.setDeviceIndex(0); CHECK(!download->isEnabled());
+#endif
         update({diag,edl}); controller.setDeviceIndex(0);
         CHECK(!download->isEnabled());
         controller.setDeviceIndex(1); CHECK(download->isEnabled());

@@ -2280,10 +2280,6 @@
         <translation>未知模式</translation>
     </message>
     <message>
-        <source>Driver does not support this transport</source>
-        <translation>驱动不支持此传输</translation>
-    </message>
-    <message>
         <source>The driver does not support this transport. Select a compatible USB or QDLoader (COM) entry.</source>
         <translation>驱动不支持此传输方式，请选择兼容的 USB 或 QDLoader（COM）。</translation>
     </message>

@@ -247,8 +247,19 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
         usb["transport"] = 0; usb["accessError"] = LIBUSB_ERROR_NOT_SUPPORTED;
         auto com = usb; com["key"] = "com"; com["transport"] = 2; com["accessError"] = 0;
         com["devicePath"] = "\\\\.\\COM52"; com["deviceInstance"] = "test-QDLoader";
-        update({diag, usb, com}); CHECK(controller.deviceIndex() == 2);
-        CHECK(controller.deviceLabels()[1].contains("Driver does not support this transport"));
+        update({diag, usb, com});
+#ifdef Q_OS_WIN
+        CHECK(controller.deviceIndex() == 1);
+        CHECK(controller.deviceModel()->keys() == QStringList({"diag", "com"}));
+        CHECK(controller.deviceModel()->allRows().size() == 3);
+        update({com, usb, diag}); CHECK(controller.deviceIndex() == 0);
+        controller.setDeviceIndex(0); // Keep this target if it disappears.
+        update({diag}); CHECK(controller.deviceIndex() == -1);
+        auto other = com; other["key"] = "other";
+        update({diag, other}); CHECK(controller.deviceIndex() == -1);
+        update({diag, com}); CHECK(controller.deviceIndex() == 1);
+#else
+        CHECK(controller.deviceIndex() == 2);
         update({com, usb, diag}); CHECK(controller.deviceIndex() == 0);
         // An explicit selection is retained even when its transport cannot open.
         controller.setDeviceIndex(1); update({diag, com, usb}); CHECK(controller.deviceIndex() == 2);
@@ -256,6 +267,7 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
         CHECK(!eligibility["allowed"].toBool()); CHECK(eligibility["reason"].toString().contains("QDLoader"));
         update({diag}); CHECK(controller.deviceIndex() == -1);
         update({diag, com}); CHECK(controller.deviceIndex() == -1);
+#endif
         // No serial-port probe: an intentionally nonexistent COM path is left
         // to the real transport's identity validation/open, without touching hardware.
         const auto reference = SnapshotDevices({com}).first().toMap()["reference"].value<core::DeviceRef>();
@@ -279,7 +291,12 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
         auto other = usb; other["key"] = "other";
         CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
             Q_ARG(QVariantList, SnapshotDevices({usb, other}))));
+#ifdef Q_OS_WIN
+        CHECK(controller.deviceIndex() == -1);
+        controller.setDeviceIndex(0);
+#else
         CHECK(controller.deviceIndex() == 0);
+#endif
         CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
             Q_ARG(QVariantList, SnapshotDevices({other}))));
         CHECK(controller.deviceIndex() == -1);
@@ -345,6 +362,9 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
         controller.edl()->finished(true,"detected",expected);
         auto duplicate=edl; duplicate["key"]="duplicate";
         update({diag,edl,duplicate}); CHECK(controller.deviceIndex()==0);
+        update({diag,edl,duplicate}); CHECK(controller.deviceIndex()==0);
+        update({diag,edl}); CHECK(controller.deviceIndex()==1);
+        controller.setDeviceIndex(0);
         expected.path="COM8"; expected.instance="USB-instance";
         expected.ports.clear(); expected.address=0; expected.interfaceNumber=-1;
         edl["transport"]=2; edl["devicePath"]="\\\\.\\COM8"; edl["deviceInstance"]="USB-instance";
@@ -353,6 +373,94 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
         update({diag,recycled}); CHECK(controller.deviceIndex()==0);
         update({diag,edl}); CHECK(controller.deviceIndex()==1);
     }
+
+#ifdef Q_OS_WIN
+    // Exercise polling sequences, not just complete initial snapshots.
+    {
+        const QVariantMap diag{{"vendor",2},{"key","diag"},{"vid",0x05c6},{"pid",0x9091},
+            {"qualcommMode",QTQ_DIAG},{"transport",0},{"accessError",0}};
+        auto usb = diag; usb["key"]="usb"; usb["pid"]=0x9008; usb["qualcommMode"]=QTQ_EDL;
+        usb["accessError"]=LIBUSB_ERROR_NOT_SUPPORTED;
+        auto com = usb; com["key"]="com"; com["transport"]=2; com["accessError"]=0;
+        com["devicePath"]="COM8"; com["deviceInstance"]="instance-COM8";
+        auto other = com; other["key"]="other"; other["devicePath"]="COM9";
+        other["deviceInstance"]="instance-COM9";
+
+        for (int scenario = 0; scenario < 10; ++scenario) {
+            gui::AppController controller(nullptr); controller.setVendor(2);
+            auto update = [&](const QVariantList &devices) {
+                CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,
+                    Q_ARG(QVariantList, SnapshotDevices(devices))));
+            };
+            auto selected = [&] {
+                return controller.deviceModel()->keys().value(controller.deviceIndex());
+            };
+            if (scenario == 0) {
+                // A rejected first row must never become a remembered target.
+                for (int error : {LIBUSB_ERROR_NOT_SUPPORTED, LIBUSB_ERROR_ACCESS, LIBUSB_ERROR_NO_DEVICE}) {
+                    auto denied = usb; denied["accessError"]=error;
+                    update({denied});
+                    CHECK(controller.devices().isEmpty() && controller.deviceIndex() == -1);
+                    CHECK(!controller.hasDevice() && controller.deviceLabels().isEmpty());
+                    CHECK(controller.deviceModel()->allRows().size() == 1);
+                }
+                update({usb, com}); CHECK(selected() == "com");
+            } else if (scenario == 1) {
+                auto adb = diag; adb["key"]="adb"; adb["qualcommMode"]=QTQ_ADB;
+                auto unknown = diag; unknown["key"]="unknown"; unknown["qualcommMode"]=QTQ_UNKNOWN;
+                update({usb, diag, adb, unknown});
+                CHECK(controller.deviceModel()->keys() == QStringList({"diag","adb","unknown"}));
+                CHECK(selected() == "diag");
+                update({usb, diag, adb, unknown, com}); CHECK(selected() == "com");
+                update({com, unknown, diag, adb, usb}); CHECK(selected() == "com");
+            } else if (scenario == 2) {
+                update({diag}); CHECK(selected() == "diag");
+                controller.setDeviceIndex(0); // Activating the same row is manual.
+                update({diag, com}); CHECK(selected() == "diag");
+                update({com, diag}); CHECK(selected() == "diag");
+                controller.setVendor(0); controller.setVendor(2); CHECK(selected() == "diag");
+            } else if (scenario == 3) {
+                update({diag}); controller.setVendor(0); controller.setVendor(2);
+                update({diag, com}); CHECK(selected() == "com");
+            } else if (scenario == 4) {
+                update({com}); CHECK(selected() == "com");
+                update({other}); CHECK(controller.deviceIndex() == -1);
+                controller.setVendor(0); controller.setVendor(2);
+                update({diag, other}); CHECK(controller.deviceIndex() == -1);
+                update({other, com}); CHECK(selected() == "com");
+            } else if (scenario == 5) {
+                update({diag});
+                controller.tasks()->setBusy(true);
+                update({com, diag}); CHECK(selected() == "diag");
+                CHECK(controller.deviceModel()->allRows().size() == 2);
+                controller.tasks()->setBusy(false); CHECK(selected() == "com");
+            } else if (scenario == 6) {
+                update({com, other}); CHECK(controller.deviceIndex() == -1);
+                update({other, com}); CHECK(controller.deviceIndex() == -1);
+                update({com}); CHECK(selected() == "com");
+            } else if (scenario == 7) {
+                update({diag});
+                update({diag, com, other}); CHECK(selected() == "diag");
+                update({diag, other}); CHECK(selected() == "other");
+            } else if (scenario == 8) {
+                update({com}); controller.setDeviceIndex(0);
+                auto denied = com; denied["accessError"]=LIBUSB_ERROR_ACCESS;
+                update({denied, other}); CHECK(controller.deviceIndex() == -1);
+                controller.setVendor(0); controller.setVendor(2);
+                CHECK(controller.deviceIndex() == -1);
+                update({other, com}); CHECK(selected() == "com");
+            } else {
+                gui::EdlEndpoint expected; expected.vid=0x05c6; expected.pid=0x9008;
+                expected.downloadInterface=true; expected.path="COM8"; expected.instance="instance-COM8";
+                controller.edl()->finished(true,"detected",expected);
+                auto denied = com; denied["accessError"]=LIBUSB_ERROR_NOT_SUPPORTED;
+                update({denied, other}); CHECK(controller.deviceIndex() == -1);
+                update({other}); CHECK(controller.deviceIndex() == -1);
+                update({com, other}); CHECK(selected() == "com");
+            }
+        }
+    }
+#endif
 
     return failures;
 }

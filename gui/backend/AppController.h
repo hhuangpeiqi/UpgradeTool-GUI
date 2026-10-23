@@ -207,6 +207,7 @@ private:
     TaskController *m_tasks;
     DeviceModel *m_deviceModel;
     std::map<int,QString> m_vendorSelection;
+    bool m_qualcommManualSelection = false;
     std::map<int,QStringList> m_vendorBatch;
     std::map<int,bool> m_vendorContinue;
 private slots:
