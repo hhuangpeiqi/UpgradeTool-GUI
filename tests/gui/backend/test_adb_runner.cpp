@@ -1,9 +1,12 @@
 #include "gui/AdbRunner.h"
+#include "platform/FileLog.h"
 #include <QProcess>
 #include <QCoreApplication>
 #include <QFile>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QThread>
 #include <cstdio>
@@ -62,8 +65,17 @@ static int FakeAdb(QStringList args)
 		return 0;
 	}
 	if (args.value(0) == "devices") {
-		if (mode == "poll-fail") { std::printf("test server error\n"); return 7; }
-		if (mode == "poll-hang") QThread::msleep(30000);
+		if (mode == "poll-fail") {
+			std::printf("test server error\n%s\nfailure-detail-tail\n%s\nomitted-tail\n",
+			            QByteArray(2048, 'x').constData(), QByteArray(70 * 1024, 'y').constData());
+			return 7;
+		}
+		if (mode == "poll-hang") {
+			std::printf("daemon startup still waiting\n");
+			std::fflush(stdout);
+			Write(dir + "/hanging", "1");
+			QThread::msleep(30000);
+		}
 		if (args.contains("-l") && mode == "missing")
 			return 0;
 		std::printf("List of devices attached\nboard device usb:1-5.4 model:AUT\n");
@@ -112,6 +124,20 @@ int main(int argc, char **argv)
 		int availability = 0, diagnostics = 0;
 		bool available = false;
 		QString error;
+		QStringList traces;
+		const auto diskDir = dir.filePath("diagnostics");
+		CHECK(QDir().mkpath(diskDir));
+		platform::FileLog disk(diskDir.toStdString(), "adb-", true);
+		QObject::connect(&runner, &gui::AdbRunner::traceMessage, [&](const QString &message) {
+			const auto record = QJsonDocument::fromJson(message.toUtf8()).object();
+			CHECK(!record.isEmpty());
+			CHECK(record.value("gui_pid").toInteger() == QCoreApplication::applicationPid());
+			CHECK(QDir::isAbsolutePath(record.value("path").toString()));
+			CHECK(record.value("elapsed_ms").toInteger() >= 0);
+			CHECK(record.value("timeout_ms").toInt() == 5000);
+			traces.append(message);
+			disk.Record("[ADB] %s", message.toUtf8().constData());
+		});
 		QObject::connect(&runner, &gui::AdbRunner::availabilityChanged, [&](bool ok, const QString &message) {
 			++availability; available = ok; error = message;
 		});
@@ -123,13 +149,27 @@ int main(int argc, char **argv)
 		runner.Start();
 		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
 		CHECK(diagnostics == 1);
+		CHECK(traces.join('\n').contains("Installed as C:"));
+		const auto initialTraceCount = traces.size();
+		const auto initialPollCount = Read(dir.filePath("log")).count("devices");
+		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return Read(dir.filePath("log")).count("devices") > initialPollCount; }));
+		for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
+		CHECK(traces.size() == initialTraceCount); // Healthy, unchanged polls do not fill the disk.
 		qputenv("AW_TEST_MODE", "poll-fail");
 		QMetaObject::invokeMethod(&runner, "onPollTick");
 		CHECK(Await([&] { return !available && runner.Devices().isEmpty(); }));
 		CHECK(error.contains("test server error"));
+		CHECK(!error.contains("failure-detail-tail"));
+		const auto failedTrace = QJsonDocument::fromJson(traces.last().toUtf8()).object();
+		CHECK(failedTrace.value("event") == "failed");
+		CHECK(failedTrace.value("output").toString().contains("failure-detail-tail"));
+		CHECK(!failedTrace.value("output").toString().contains("omitted-tail"));
+		CHECK(failedTrace.value("output_truncated").toBool());
+		CHECK(failedTrace.value("detail").toString().contains("exit_code=7"));
 		const int failedCount = availability;
 		QMetaObject::invokeMethod(&runner, "onPollTick");
-		CHECK(Await([&] { return Read(dir.filePath("log")).count("devices") >= 3; }));
+		CHECK(Await([&] { return traces.count() > initialTraceCount + 1 && traces.last().contains("\"event\":\"failed\"") && Read(dir.filePath("log")).count("devices") >= 4; }));
 		// Wait for that process to finish before checking duplicate-error suppression.
 		for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
 		CHECK(availability == failedCount);
@@ -138,8 +178,15 @@ int main(int argc, char **argv)
 		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
 		qputenv("AW_TEST_MODE", "poll-hang");
 		QMetaObject::invokeMethod(&runner, "onPollTick");
+		CHECK(Await([&] { return QFile::exists(dir.filePath("hanging")); }));
 		QMetaObject::invokeMethod(&runner, "onPollKillTimeout");
 		CHECK(!available && runner.Devices().isEmpty() && error.contains("timed out"));
+		CHECK(traces.join('\n').contains("\"event\":\"timeout_kill_requested\""));
+		CHECK(traces.last().contains("\"event\":\"timeout\""));
+		CHECK(traces.last().contains("daemon startup still waiting"));
+		const auto diskFiles = QDir(diskDir).entryList(QDir::Files);
+		CHECK(diskFiles.size() == 1);
+		CHECK(Read(QDir(diskDir).filePath(diskFiles.value(0))).contains("daemon startup still waiting"));
 		qputenv("AW_TEST_MODE", "poll-ok");
 		QMetaObject::invokeMethod(&runner, "onPollTick");
 		CHECK(Await([&] { return available; }));
@@ -147,6 +194,7 @@ int main(int argc, char **argv)
 		qputenv("ADB", dir.filePath("missing-adb").toUtf8());
 		QMetaObject::invokeMethod(&runner, "onPollTick");
 		CHECK(Await([&] { return !available && error.contains("Cannot start ADB process"); }));
+		CHECK(traces.last().contains("\"event\":\"start_failed\""));
 		CHECK(runner.Devices().isEmpty());
 		qputenv("ADB", QCoreApplication::applicationFilePath().toUtf8());
 		QMetaObject::invokeMethod(&runner, "onPollTick");

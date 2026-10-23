@@ -3,6 +3,9 @@
 #include "gui/WindowsUsbDriver.h"
 
 #include <QRegularExpression>
+#include <QCoreApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTimer>
 #include <libusb.h>
 #include <utility>
@@ -221,6 +224,20 @@ void AdbRunner::PollFailed(const QString &message)
 	UpdateAvailability(false, message);
 }
 
+void AdbRunner::TracePoll(const QString &event, const QByteArray &output, const QString &detail)
+{
+	constexpr int outputLimit = 64 * 1024;
+	const QJsonObject record{
+	    {"event", event}, {"gui_pid", QCoreApplication::applicationPid()},
+	    {"attempt", qint64(m_pollSequence)}, {"path", m_pollPath}, {"source", m_pollSource},
+	    {"command", m_versionPoll ? "version" : "devices"},
+	    {"elapsed_ms", m_pollElapsed.isValid() ? m_pollElapsed.elapsed() : 0},
+	    {"timeout_ms", kListTimeoutMs}, {"detail", detail},
+	    {"output_bytes", qint64(output.size())}, {"output_truncated", output.size() > outputLimit},
+	    {"output", QString::fromLocal8Bit(output.left(outputLimit))}};
+	emit traceMessage(QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact)));
+}
+
 void AdbRunner::RunPoll()
 {
 	if (m_stopped) return;
@@ -232,6 +249,9 @@ void AdbRunner::RunPoll()
 	const auto executable = FindAdbExecutable();
 	if (executable.path.isEmpty()) {
 		m_pollPath.clear();
+		m_pollSource.clear();
+		if (!m_bAvailabilityKnown || m_availabilityMessage != tr("ADB executable not found; reinstall the application or install ADB and check PATH / ADB."))
+			TracePoll(QStringLiteral("executable_missing"));
 		PollFailed(tr("ADB executable not found; reinstall the application or install ADB and check PATH / ADB."));
 		return;
 	}
@@ -243,8 +263,13 @@ void AdbRunner::RunPoll()
 		}
 		m_pollPath = executable.path;
 	}
+	m_pollSource = executable.source;
 	m_versionPoll = !m_versionChecked.contains(m_pollPath);
 	m_pollTimedOut = false;
+	++m_pollSequence;
+	m_pollElapsed.start();
+	m_tracePoll = m_versionPoll || !m_bAvailabilityKnown || !m_bAvailable;
+	if (m_tracePoll) TracePoll(QStringLiteral("start"));
 	m_pPollProc->start(m_pollPath, {m_versionPoll ? QStringLiteral("version") : QStringLiteral("devices")});
 	m_pPollKill->start(kListTimeoutMs);
 }
@@ -258,15 +283,19 @@ void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 	const auto output = m_pPollProc->readAll();
 
 	if (eStatus != true || iExitCode != 0) {
+		TracePoll(QStringLiteral("failed"), output,
+		          QStringLiteral("exit_code=%1 normal_exit=%2").arg(iExitCode).arg(eStatus));
 		PollFailed(tr("ADB command failed (%1): %2").arg(iExitCode).arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
 		return;
 	}
 	if (m_versionPoll) {
 		if (!output.contains("Android Debug Bridge version")) {
+			TracePoll(QStringLiteral("invalid_version"), output);
 			PollFailed(tr("Invalid ADB version output: %1").arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
 			return;
 		}
 		m_versionChecked.insert(m_pollPath);
+		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
 		QStringList versionLines;
 		for (const auto &line : QString::fromLocal8Bit(output).split('\n')) {
 			const auto text = line.trimmed();
@@ -280,6 +309,8 @@ void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 	}
 
 	QStringList strDevices = ParseDevices(output);
+	if (m_tracePoll || strDevices != m_strDevices || m_pollElapsed.elapsed() >= kPollIntervalMs)
+		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
 	if (strDevices != m_strDevices) {
 		m_strDevices = strDevices;
 		emit devicesChanged(m_strDevices);
@@ -290,6 +321,7 @@ void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 void AdbRunner::onPollError(const QString &error)
 {
 	m_pPollKill->stop();
+	if (!m_stopped) TracePoll(QStringLiteral("start_failed"), m_pPollProc->readAll(), error);
 	if (!m_stopped) PollFailed(tr("Cannot start ADB process: %1").arg(error));
 }
 
@@ -298,8 +330,11 @@ void AdbRunner::onPollKillTimeout()
 	if (m_pPollProc->state() == ProcessAdapter::NotRunning)
 		return;
 	m_pollTimedOut = true;
+	TracePoll(QStringLiteral("timeout_kill_requested"));
 	m_pPollProc->kill();
-	m_pPollProc->waitForFinished(1000);
+	const bool exited = m_pPollProc->waitForFinished(1000);
+	TracePoll(QStringLiteral("timeout"), m_pPollProc->readAll(),
+	          QStringLiteral("client_exited=%1").arg(exited));
 	if (!m_stopped) PollFailed(tr("ADB command timed out."));
 }
 

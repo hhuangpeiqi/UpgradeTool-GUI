@@ -4,6 +4,8 @@
 #include "gui/backend/LanguageManager.h"
 #include "gui/QtObserver.h"
 #include "gui/OperationSpec.h"
+#include "gui/AdbRunner.h"
+#include "platform/FileLog.h"
 #include <QGuiApplication>
 #include <QTemporaryDir>
 #include <QFile>
@@ -37,7 +39,12 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 
 	{
 		// Status uses the same ADB discovery for both vendors; flash modes take priority.
-		gui::AppController controller(nullptr);
+		QTemporaryDir logDirectory;
+		platform::FileLog disk(logDirectory.path().toStdString(), "adb-", true);
+		gui::AppController controller(&disk);
+		auto *adb = controller.findChild<gui::AdbRunner *>();
+		CHECK(adb != nullptr);
+		if (adb) adb->traceMessage(QStringLiteral("test-disk-trace"));
 		controller.language()->setMode("en");
 		for (int vendor : {0, 1}) {
 			controller.setVendor(vendor);
@@ -77,6 +84,16 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		CHECK(controller.deviceStatusText() == QString::fromUtf8("Found 2 ADB device(s)"));
 		controller.setVendor(0);
 		CHECK(controller.deviceStatusText() == QString::fromUtf8("Found 2 ADB device(s)"));
+		QByteArray diskContent;
+		for (const auto &name : QDir(logDirectory.path()).entryList(QDir::Files)) {
+			QFile file(logDirectory.filePath(name));
+			CHECK(file.open(QIODevice::ReadOnly));
+			diskContent += file.readAll();
+		}
+		CHECK(diskContent.contains("ADB monitoring: app_version="));
+		CHECK(diskContent.contains("[ADB] test-disk-trace"));
+		CHECK(diskContent.contains("ADB availability: available=0"));
+		CHECK(diskContent.contains("ADB availability: available=1"));
 	}
 	// Vendor changes must refresh empty lists even when ADB never emits again.
 	{

@@ -226,6 +226,16 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pAdb, &AdbRunner::diagnosticMessage, this, [this](const QString &message) {
 		AppendLog(message, false);
 	});
+	connect(m_pAdb, &AdbRunner::traceMessage, this, [this](const QString &message) {
+		if (m_diskLog) m_diskLog->Record("[ADB] %s", message.toUtf8().constData());
+	});
+	if (m_diskLog) {
+		m_diskLog->Record("ADB monitoring: app_version=%s gui_pid=%lld", TOOL_VERSION,
+		                  static_cast<long long>(QCoreApplication::applicationPid()));
+#ifdef Q_OS_WIN
+		m_diskLog->Record("ADB server log: %s", QDir::temp().filePath("adb.log").toUtf8().constData());
+#endif
+	}
 
 	connect(m_pConfig, &gui::ConfigStore::udevInstallFinished,
 	        this, [this](bool, const QString &) { retryPermission(); });
@@ -1143,6 +1153,7 @@ void AppController::onAdbDevicesChanged(const QStringList &strDevices)
 void AppController::onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage)
 {
 	m_bAdbAvailable = bAvailable;
+	if (m_diskLog) m_diskLog->Record("ADB availability: available=%d message=%s", bAvailable, strMessage.toUtf8().constData());
 	if (!bAvailable) {
 		AppendLog(strMessage, true);
 		emit toastRequested(strMessage, true);

@@ -57,6 +57,7 @@ class AdbRunner : public QObject
 	void availabilityChanged(bool bAvailable, const QString &strMessage);
 	void switchProgress(const QString &message);
 	void diagnosticMessage(const QString &message);
+	void traceMessage(const QString &message);
 
   private slots:
 	void onRebootFinished(int iExitCode, bool eStatus);
@@ -76,6 +77,7 @@ class AdbRunner : public QObject
 	void RunPoll();
 	void UpdateAvailability(bool bAvailable, const QString &strMessage);
 	void PollFailed(const QString &message);
+	void TracePoll(const QString &event, const QByteArray &output = {}, const QString &detail = {});
 
 	ProcessAdapter *m_pProc;
 	QTimer *m_pTimeout;
@@ -87,6 +89,10 @@ class AdbRunner : public QObject
 	QStringList m_strDevices;
 	QString m_availabilityMessage;
 	QString m_pollPath;
+	QString m_pollSource;
+	QElapsedTimer m_pollElapsed;
+	quint64 m_pollSequence = 0;
+	bool m_tracePoll = false;
 	QSet<QString> m_versionChecked;
 	bool m_versionPoll = false;
 	bool m_pollTimedOut = false;
