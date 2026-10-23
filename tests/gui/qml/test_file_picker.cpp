@@ -83,6 +83,13 @@ Window {
         std::fprintf(stderr, "%s\n", component.errorString().toUtf8().constData());
         return;
     }
+    auto *quickWindow = qobject_cast<QQuickWindow *>(window.get());
+    CHECK(quickWindow);
+    if (!quickWindow) return;
+    CHECK(QTest::qWaitForWindowExposed(quickWindow));
+    // Xvfb has no window manager to activate the window for keyboard shortcuts.
+    quickWindow->requestActivate();
+    CHECK(QTest::qWaitForWindowActive(quickWindow));
     auto *picker = window->findChild<QObject *>("picker");
     auto *timer = window->findChild<QObject *>("storageRefreshTimer");
     auto *model = window->findChild<gui::DirModel *>("filePickerDirModel");
