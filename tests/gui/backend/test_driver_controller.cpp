@@ -430,7 +430,7 @@ int main(int argc, char **argv) {
             controller.forgetPending(); refresh();
             controller.prepareInstall(rk.instance);
             CHECK(controller.confirmationTitle() == "Install Rockchip drivers?");
-            CHECK(controller.confirmationText().contains("close its window"));
+            CHECK(controller.confirmationText() == "Install the driver in the Rockchip driver assistant.");
             controller.confirmInstall(); controller.beginInstall();
             CHECK(Await([&] { return !controller.busy(); }));
             CHECK(controller.hasPending() == (next != Cancelled && next != Installed));
