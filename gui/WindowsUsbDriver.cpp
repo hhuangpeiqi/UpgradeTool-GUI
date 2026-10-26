@@ -23,6 +23,10 @@
 #include <shlobj.h>
 #include "application/QualcommDriverPackage.h"
 #include "application/RockusbDriverPackage.h"
+#include "application/AllwinnerDriverPackage.h"
+#if UPGRADE_TOOL_ALLWINNER
+#include "backends/allwinner/WindowsAllwinner.h"
+#endif
 #if UPGRADE_TOOL_ROCKCHIP
 #include "backends/rockchip/UsbTransport.h"
 #endif
@@ -42,6 +46,21 @@ QString RockusbDriverPackageError(const QString &directory) {
 #else
     Q_UNUSED(directory);
     return QStringLiteral("Rockusb driver installation is unavailable on this platform.");
+#endif
+}
+QString AllwinnerDriverPackageError(const QString &directory) {
+#ifdef Q_OS_WIN
+    for (const auto &[relative, expected] : allwinnerPackageFiles) {
+        QFile file(QDir(directory).filePath(QString::fromUtf8(relative)));
+        if (!file.open(QIODevice::ReadOnly)) return QStringLiteral("Bundled Allwinner driver file is missing or unreadable: %1").arg(QString::fromUtf8(relative));
+        QCryptographicHash hash(QCryptographicHash::Sha256);
+        if (!hash.addData(&file) || hash.result().toHex() != expected)
+            return QStringLiteral("Bundled Allwinner driver file failed SHA256 verification: %1").arg(QString::fromUtf8(relative));
+    }
+    return {};
+#else
+    Q_UNUSED(directory);
+    return QStringLiteral("Allwinner driver installation is unavailable on this platform.");
 #endif
 }
 bool QualcommDriverInstalled() {
@@ -234,7 +253,8 @@ void ClassifyWindowsUsbDriver(DriverDevice &d, unsigned long status, unsigned lo
     else if (d.vendor == 2 && !d.verifiedInterface) d.state = DriverState::Bound;
     else if (!(status & DN_STARTED)) d.state = DriverState::DeviceError;
     else if ((d.vendor == 2 && !d.port.isEmpty() && !d.service.isEmpty()) ||
-        (d.vendor == 0 ? !d.service.compare("Rockusb", Qt::CaseInsensitive) : WindowsUsbServiceCompatible(d.service))) d.state = DriverState::Bound;
+        (d.vendor == 0 ? !d.service.compare("Rockusb", Qt::CaseInsensitive) :
+         d.vendor == 1 ? !d.service.compare("usbUDisc", Qt::CaseInsensitive) : WindowsUsbServiceCompatible(d.service))) d.state = DriverState::Bound;
     else d.state = DriverState::Incompatible;
 }
 #endif
@@ -288,6 +308,13 @@ DriverScan ScanWindowsUsbDrivers(bool probe) {
             if (error) d.diagnostic = QString::fromStdString(core::rockchip::UsbError(error));
         }
 #endif
+#if UPGRADE_TOOL_ALLWINNER
+        if (probe && d.vendor == 1 && d.state == DriverState::Bound) {
+            const int error = core::allwinner::ProbeAllwinner(d.instance.toStdString());
+            d.state = error ? DriverState::AccessFailed : DriverState::Ready;
+            if (error) d.diagnostic = QStringLiteral("Allwinner driver access failed (%1).").arg(error);
+        }
+#endif
         result.devices.append(d);
     }
     SetupDiDestroyDeviceInfoList(set);
@@ -332,14 +359,6 @@ QVector<QPair<QString, QString>> WindowsAdbLocations() {
 }
 
 
-DriverInstallResult InstallWindowsUsbDriver(const DriverDevice &target, const QVector<DriverDevice> &affected) {
-    return InstallWindowsUsbDriverWithProgress(target, affected, {});
-}
-DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &target, const QVector<DriverDevice> &affected,
-                                                       const DriverProgress &progress) {
-    if (target.vendor != 1) return {false, false, QStringLiteral("WinUSB installation is only available for Allwinner flashing interfaces.")};
-    return RunWindowsDriverOperationWithProgress(DriverOperation::WinUsb, target, affected, progress);
-}
 DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation operation, const DriverDevice &target,
     const QVector<DriverDevice> &affected, const DriverProgress &progress) {
 #ifdef Q_OS_WIN
@@ -351,7 +370,7 @@ DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation operat
     QFile request(directory.filePath("request.json"));
     const QString action = operation == DriverOperation::QualcommInstall ? "qualcomm-install" :
         operation == DriverOperation::QualcommUninstall ? "qualcomm-uninstall" :
-        operation == DriverOperation::RockusbAssistant ? "rockusb-assistant" : "winusb";
+        operation == DriverOperation::RockusbAssistant ? "rockusb-assistant" : "allwinner-install";
     const auto bytes = QJsonDocument(QJsonObject{{"operation", action}, {"target", target.toJson()}, {"affected", targets}}).toJson();
     if (!request.open(QIODevice::WriteOnly) || request.write(bytes) != bytes.size()) {
         result.error = QStringLiteral("Cannot write the driver installation request."); return result;

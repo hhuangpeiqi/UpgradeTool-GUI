@@ -49,6 +49,17 @@ static OperationRequest Request(const std::string &path,Operation op=Operation::
 int main() {
     TemporaryDirectory dir; std::string path=dir.filePath("固件.img"); Write(path,Package(Entries()));
     try {
+        {
+            DeviceIdentity original; original.vendor=Vendor::Allwinner;
+            original.physicalLocation="PCIROOT(0)#PCI(1)#USBROOT(0)#USB(3)#USB(2)";
+            original.devicePath="fel-path"; original.deviceInstance="fel-instance";
+            auto fes=original; fes.devicePath="fes-path"; fes.deviceInstance="fes-instance";
+            CHECK(MatchDevice({fes},original)==0);
+            CHECK(DeviceAccess::Reference(fes).key()==DeviceAccess::Reference(original).key());
+            auto other=fes; other.physicalLocation="PCIROOT(0)#PCI(2)#USBROOT(0)#USB(3)#USB(2)";
+            CHECK(MatchDevice({other},original)==-1);
+            CHECK(MatchDevice({fes,fes},original)==-2);
+        }
         for(uint32_t v:{0x100,0x200,0x300}) {
             Write(path,Package(Entries(),v)); Firmware fw(path); CHECK(fw.entries.size()==11); CHECK(fw.headerVersion==v);
             CHECK(fw.Partitions()[0].name=="rootfs"); CHECK(fw.Partitions()[0].address==128); CHECK(fw.ConfigPartitions()[0].sectors==4);
@@ -64,7 +75,7 @@ int main() {
         uint64_t expanded=0;
         { Write(path,Package(Entries(true))); Firmware sparse(path); auto layout=SparseLayout(sparse,sparse.entries[0],expanded); CHECK(expanded==1536&&layout.size()==3); }
         auto malformed=Entries(true); Put32(malformed[0].data.data()+28+8,12); Write(path,Package(malformed));
-        { Firmware fw(path); CHECK(Throws([&]{SparseLayout(fw,fw.entries[0],expanded);})); }
+            { Firmware fw(path); CHECK(Throws([&]{SparseLayout(fw,fw.entries[0],expanded);})); }
         Write(path,Package(Entries()));
         DeviceIdentity a,b; a.vendor=b.vendor=Vendor::Allwinner; a.bus=b.bus=1; a.ports={5,4}; b.ports={2,4};
         CHECK(MatchDevice({a,b},a)==0); a.ports={7,4}; CHECK(MatchDevice({b},a)==-1); a.ports={5,4}; CHECK(MatchDevice({a,a},a)==-2);

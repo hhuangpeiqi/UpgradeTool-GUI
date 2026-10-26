@@ -6,7 +6,6 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QElapsedTimer>
-#include <libwdi.h>
 #include <cstdio>
 #include <exception>
 #include <io.h>
@@ -21,17 +20,16 @@ int main(int argc, char **argv) {
     const auto document = QJsonDocument::fromJson(request.readAll(), &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) return 2;
     const auto object = document.object();
-    const auto action = object.value("operation").toString("winusb");
-    if (action != "winusb" && action != "rockusb-assistant" && action != "qualcomm-install" && action != "qualcomm-uninstall") return 2;
+    const auto action = object.value("operation").toString();
+    if (action != "allwinner-install" && action != "rockusb-assistant" && action != "qualcomm-install" && action != "qualcomm-uninstall") return 2;
     const auto target = gui::DriverDevice::fromJson(object["target"].toObject());
     QVector<gui::DriverDevice> affected;
     for (const auto &value : object["affected"].toArray()) affected.append(gui::DriverDevice::fromJson(value.toObject()));
-    const auto logPath = QDir::toNativeSeparators(directory.filePath("libwdi.log"));
+    const auto logPath = QDir::toNativeSeparators(directory.filePath("driver-install.log"));
     _wfreopen(reinterpret_cast<const wchar_t *>(logPath.utf16()), L"w", stdout);
     _dup2(_fileno(stdout), _fileno(stderr));
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::setvbuf(stderr, nullptr, _IONBF, 0);
-    wdi_set_log_level(WDI_LOG_LEVEL_DEBUG);
     QElapsedTimer elapsed; elapsed.start();
     gui::DriverInstallResult result;
     try {
@@ -43,7 +41,7 @@ int main(int argc, char **argv) {
                 progress.commit();
             }
         };
-        if (action == "winusb") result = gui::InstallWindowsUsbDriverElevated(target, affected, progressCallback);
+        if (action == "allwinner-install") result = gui::RunAllwinnerDriverElevated(target, progressCallback);
         else if (action == "rockusb-assistant") result = gui::RunRockusbDriverElevated(target, progressCallback);
         else result = gui::RunQualcommDriverElevated(action == "qualcomm-install" ?
             gui::DriverOperation::QualcommInstall : gui::DriverOperation::QualcommUninstall, target, progressCallback);
@@ -52,7 +50,7 @@ int main(int argc, char **argv) {
     std::fprintf(stdout, "[%lld ms] installation finished ok=%d reboot=%d\n",
         static_cast<long long>(elapsed.elapsed()), result.ok, result.rebootRequired);
     std::fflush(stdout); std::fflush(stderr);
-    QFile log(directory.filePath("libwdi.log"));
+    QFile log(directory.filePath("driver-install.log"));
     if (log.open(QIODevice::ReadOnly)) result.log += QString::fromUtf8(log.read(1024 * 1024));
     QSaveFile output(directory.filePath("result.json"));
     if (!output.open(QIODevice::WriteOnly)) return 3;

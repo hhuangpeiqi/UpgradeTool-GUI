@@ -191,7 +191,7 @@ try {
         }
     }
     if (-not $iconvLibrary) { $problems.Add('Missing MinGW x64 Iconv headers/static library. Install Iconv and pass -IconvRoot <directory containing include/iconv.h and lib/libiconv.a>.') }
-    foreach ($file in @('libusb/libusb/core.c', 'libwdi/libwdi/libwdi.c', 'libefex/src/efex-common.c', 'libzip/lib/zip.h', 'libxml2/CMakeLists.txt', 'qdl/src/qdl.c')) {
+    foreach ($file in @('libusb/libusb/core.c', 'libefex/src/efex-common.c', 'libzip/lib/zip.h', 'libxml2/CMakeLists.txt', 'qdl/src/qdl.c')) {
         if (-not (Test-Path -LiteralPath "$Root/third_party/$file")) { $problems.Add("Missing submodule file $file. Run: git submodule update --init --recursive") }
     }
     if ($problems.Count) { throw ("Environment check failed:`n - " + ($problems -join "`n - ")) }
@@ -238,10 +238,10 @@ try {
     New-Item -ItemType Directory -Force $Stage | Out-Null
     Copy-Item (Join-Path $Build "upgrade_tool_gui.exe") $Stage
     Copy-Item (Join-Path $Build "upgrade_driver_installer.exe") $Stage
-    Copy-Item (Join-Path $Build "libwdi.dll") $Stage
     Copy-Item (Join-Path $Root "config.ini") $Stage
     Run-Checked { & $cmake "-DQUALCOMM_DRIVER_CACHE_DIR=$Build/qualcomm-driver-cache" "-DQUALCOMM_DRIVER_DESTINATION=$Stage/tools/qualcomm" -P (Join-Path $Root "scripts/prepare_qualcomm_driver.cmake") }
     Run-Checked { & $cmake "-DROCKUSB_DRIVER_CACHE_DIR=$Build/rockusb-driver-cache" "-DROCKUSB_DRIVER_DESTINATION=$Stage/tools/rockusb" -P (Join-Path $Root "scripts/prepare_rockusb_driver.cmake") }
+    Run-Checked { & $cmake "-DALLWINNER_DRIVER_CACHE_DIR=$Build/allwinner-driver-cache" "-DALLWINNER_DRIVER_DESTINATION=$Stage/tools/allwinner" -P (Join-Path $Root "scripts/prepare_allwinner_driver.cmake") }
     $AdbDir = Join-Path $Stage "tools/adb"
     Run-Checked { & $cmake -DADB_PLATFORM=win "-DADB_CACHE_DIR=$Build/adb-cache" "-DADB_DESTINATION=$AdbDir" -P (Join-Path $Root "scripts/prepare_adb.cmake") }
     Run-Checked { & "$AdbDir/adb.exe" version }
@@ -254,8 +254,6 @@ try {
     New-Item -ItemType Directory -Force $Licenses | Out-Null
     Copy-Item (Join-Path $Root "backends/rockchip/legacy/license.txt") (Join-Path $Licenses "upgrade-tool-GPL-2.0.txt")
     Copy-Item (Join-Path $Root "third_party/libusb/COPYING") (Join-Path $Licenses "libusb-LGPL-2.1.txt")
-    Copy-Item (Join-Path $Root "third_party/libwdi/COPYING") (Join-Path $Licenses "libwdi-GPL-3.0.txt")
-    Copy-Item (Join-Path $Root "third_party/libwdi/COPYING-LGPL") (Join-Path $Licenses "libwdi-LGPL-3.0.txt")
     Copy-Item (Join-Path $Root "third_party/libefex/LICENSE") (Join-Path $Licenses "libefex-MIT.txt")
     Copy-Item (Join-Path $Root "backends/allwinner/LICENSE.OpenixCLI") (Join-Path $Licenses "OpenixCLI-MIT.txt")
     Copy-Item (Join-Path $Root "third_party/qdl/LICENSE") (Join-Path $Licenses "qdl-BSD-3-Clause.txt")

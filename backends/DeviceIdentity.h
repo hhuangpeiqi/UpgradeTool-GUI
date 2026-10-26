@@ -12,7 +12,7 @@ struct DeviceIdentity {
 	std::string serial;
 	uint32_t location = 0;
 	Vendor vendor = Vendor::Rockchip;
-	std::string devicePath, deviceInstance;
+	std::string devicePath, deviceInstance, physicalLocation;
 	QualcommTransport transport = QualcommTransport::Auto;
 	uint8_t bus = 0;
 	std::vector<uint8_t> ports;
@@ -32,7 +32,8 @@ inline int MatchDevice(const std::vector<DeviceIdentity> &devices, const DeviceI
                 devices[i].outEndpoint != target.outEndpoint)) continue;
         }
         // RK mode transitions replace the native interface path; location remains authoritative.
-        if (target.vendor != Vendor::Rockchip && !target.devicePath.empty() && devices[i].devicePath != target.devicePath) continue;
+        if (target.vendor == Vendor::Allwinner && !target.physicalLocation.empty() && devices[i].physicalLocation != target.physicalLocation) continue;
+        if (target.vendor != Vendor::Rockchip && !(target.vendor == Vendor::Allwinner && !target.physicalLocation.empty()) && !target.devicePath.empty() && devices[i].devicePath != target.devicePath) continue;
         if (target.transport != QualcommTransport::Auto && devices[i].transport != target.transport) continue;
         if (!target.ports.empty() && (devices[i].bus != target.bus || devices[i].ports != target.ports)) continue;
 		if (target.location && devices[i].location != target.location) continue;
@@ -59,6 +60,7 @@ public:
         if(identity.vendor==Vendor::Rockchip) key<<std::hex<<identity.location<<":"<<identity.serial;
         else {
             if(identity.vendor==Vendor::Qualcomm) key<<"qualcomm:"<<static_cast<int>(identity.transport)<<":"<<identity.devicePath<<":";
+            else if (!identity.physicalLocation.empty()) key<<"allwinner:windows:"<<identity.physicalLocation<<":";
             else key<<"allwinner:";
             key<<int(identity.bus)<<"-";
             for(size_t i=0;i<identity.ports.size();++i) { if(i) key<<"."; key<<int(identity.ports[i]); }

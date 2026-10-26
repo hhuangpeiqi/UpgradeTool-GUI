@@ -113,7 +113,7 @@ private:
     bool m_probeOnPoll = false;
     bool m_detectionFailed = false;
     bool m_qualcommInstalled = false;
-    DriverOperation m_operation = DriverOperation::WinUsb;
+    DriverOperation m_operation = DriverOperation::AllwinnerInstall;
     int m_vendor = 0;
     unsigned m_generation = 0;
     QThread *m_scanThread = nullptr, *m_installThread = nullptr;

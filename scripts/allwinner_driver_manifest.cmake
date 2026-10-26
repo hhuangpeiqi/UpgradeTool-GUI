@@ -1,0 +1,16 @@
+# Original signed AW_Driver from PhoenixSuit, mirrored by Radxa. Never modify signed files.
+set(ALLWINNER_DRIVER_URL "https://dl.radxa.com/tools/windows/PhoenixSuit_V2.0.4.zip")
+set(ALLWINNER_DRIVER_SHA256 "be2e9b12b6fe324e01120e3ebc7c433548eb2e1c23d1594869e3fe690582346b")
+set(ALLWINNER_DRIVER_FILES
+  "drvinstaller_IA64.exe|262a39e3d27bd09272651ebcea61538f00fef4eea3fddb0814fc2f6f7ce8886f"
+  "drvinstaller_X64.exe|af79841a6e03cc8de1ed1fefc6fa6b9c84decf6b9bf83eb0a6601a641878d689"
+  "drvinstaller_X86.exe|437e4c3ca2780d3d11e14019fdfdd738f0202dcf83514cb0d09e7cc6faaacf10"
+  "InstallUSBDrv.exe|8d8126126da2cfde3c6e065b3908875ef90e18135db4c99adba320997d76980e"
+  "usbdrv.inf|4aaf14cc0e8edd10ae24eea79ffa41964c98b9df06225d683ead1a3a1be9a527"
+  "usbdrv.sys|00299bb30ce3c6f2e0bc59e0f25afa7146caf8ed1317e2881e74d88ceb3675ce"
+  "usbdrvi64.cat|97fe4cd30d4b40205392bcdfcc4e2c15813ed57fc4a852053acf845f8f51645f"
+  "usbdrvx64.cat|220f34f18ae4c3d417d6b5d2b779ddf11f79b1ab54d4fc0bff62df5d77c1fb5d"
+  "usbdrvx86.cat|b5236c1d6af33b4224250a8e5be3ddf43b1a576385f1c9d51c0575e649afef97"
+  "usbdrv_AMD64.sys|ddd9ab09de598c3aafdda51c4544f4851d86768a09f32dd42aa5d6e85307a7b9"
+  "usbdrv_IA64.sys|003538f3e42caaa70c353b073112bebb0617906c4b858dfd69e08959e74ba984"
+)

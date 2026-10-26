@@ -40,7 +40,8 @@ int main(int argc, char **argv) {
     allwinner.state = gui::DriverState::AccessFailed;
     CHECK(!allwinner.canInstall());
     allwinner.state = gui::DriverState::Incompatible; allwinner.service = "VendorUSB";
-    CHECK(allwinner.canInstall());
+    CHECK(!allwinner.canInstall());
+    allwinner.state = gui::DriverState::Missing; allwinner.service.clear();
     gui::DriverDevice qualcomm;
     qualcomm.vid = 0x05c6; qualcomm.pid = 0x9008;
     CHECK(gui::RecognizeWindowsFlashingInterface(qualcomm, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
         ++scans; entered = true;
         while (hold) QThread::msleep(1);
         auto a = allwinner, b = second;
-        if (ready) { a.service = b.service = "WinUSB"; a.state = b.state = probe ? gui::DriverState::Ready : gui::DriverState::Bound; }
+        if (ready) { a.service = b.service = "usbUDisc"; a.state = b.state = probe ? gui::DriverState::Ready : gui::DriverState::Bound; }
         return gui::DriverScan{{a, b}, {}};
     };
     hooks.install = [&](const auto &target, const auto &affected) {
@@ -246,7 +247,7 @@ int main(int argc, char **argv) {
         progressHooks.scan = [&](bool probe) {
             auto d = allwinner;
             if (reachedBinding) {
-                d.service = "WinUSB";
+                d.service = "usbUDisc";
                 d.state = gui::DriverState::Bound;
                 if (probe) {
                     verificationEntered = true;
@@ -346,7 +347,7 @@ int main(int argc, char **argv) {
             controller.refresh(); CHECK(Await([&] { return !controller.checking(); }));
             CHECK(controller.hasPending());
         }
-        device.state = gui::DriverState::Incompatible;
+        device.state = gui::DriverState::Missing;
         {
             gui::DriverController controller(pendingHooks, true);
             CHECK(controller.hasPending());
@@ -365,7 +366,7 @@ int main(int argc, char **argv) {
             CHECK(!controller.hasPending());
         }
         // Verification failures cannot use a cached Ready snapshot to report success.
-        device.state = gui::DriverState::Incompatible;
+        device.state = gui::DriverState::Missing;
         pendingHooks.install = [&](const auto &, const auto &) {
             scanFailed = true; return gui::DriverInstallResult{true, false, {}};
         };
@@ -398,7 +399,7 @@ int main(int argc, char **argv) {
         rkHooks.verificationTimeoutMs = 0;
         rkHooks.scan = [&](bool probe) { lastProbe = probe; return outcome; };
         rkHooks.installWithProgress = [&](const auto &, const auto &, const auto &) {
-            CHECK(false); return gui::DriverInstallResult{}; // RK must never use libwdi.
+            CHECK(false); return gui::DriverInstallResult{}; // RK must use the official assistant operation.
         };
         rkHooks.driverOperation = [&](auto operation, const auto &target, const auto &, const auto &progress) {
             CHECK(operation == gui::DriverOperation::RockusbAssistant && target.instance == rk.instance);
@@ -578,6 +579,41 @@ int main(int argc, char **argv) {
         run(); CHECK(calls == 5 && controller.message() == "Qualcomm drivers uninstalled");
         CHECK(!controller.canUninstallQualcomm() && !controller.hasPending());
         controller.prepareInstall(qc.instance); CHECK(!controller.canConfirm());
+    }
+    {
+        gui::DriverHooks native;
+        native.verificationTimeoutMs = 0;
+        auto aw = allwinner; aw.service.clear(); aw.state = gui::DriverState::Missing;
+        gui::DriverScan snapshot{{aw}, {}};
+        native.scan = [&](bool) { return snapshot; };
+        int calls = 0;
+        native.driverOperation = [&](auto op, const auto &target, const auto &, const auto &progress) {
+            CHECK(op == gui::DriverOperation::AllwinnerInstall && target.instance == aw.instance);
+            ++calls; progress(gui::DriverPhase::Installing);
+            return gui::DriverInstallResult{true, false, {}};
+        };
+        gui::DriverController controller(native, true);
+        controller.setVendor(1); CHECK(Await([&] { return !controller.checking(); }));
+        controller.prepareInstall(aw.instance);
+        CHECK(controller.confirmationTitle() == "Install Allwinner drivers?");
+        controller.confirmInstall(); controller.beginInstall();
+        CHECK(Await([&] { return !controller.busy(); }));
+        CHECK(calls == 1 && controller.waitingForReconnect() && controller.hasPending());
+        // Original installer closing successfully cannot establish readiness.
+        auto ready = aw; ready.service = "usbUDisc"; ready.state = gui::DriverState::Ready;
+        auto other = ready; other.instance += "-other"; other.location += "-other";
+        snapshot = {{other}, {}}; controller.refresh(true);
+        CHECK(Await([&] { return !controller.checking(); })); CHECK(controller.hasPending());
+        snapshot = {{ready}, {}}; controller.refresh(true);
+        CHECK(Await([&] { return !controller.checking(); })); CHECK(!controller.hasPending());
+        // Revalidate before launching an elevated operation.
+        snapshot = {{aw}, {}}; controller.refresh(true);
+        CHECK(Await([&] { return !controller.checking(); }));
+        controller.prepareInstall(aw.instance); controller.confirmInstall();
+        snapshot.devices[0].service = "WinUSB";
+        controller.beginInstall(); CHECK(Await([&] { return !controller.busy(); }));
+        CHECK(calls == 1 && controller.message().contains("changed"));
+        controller.forgetPending();
     }
     return failures ? 1 : 0;
 }

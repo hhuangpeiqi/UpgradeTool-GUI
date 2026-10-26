@@ -3881,6 +3881,18 @@
 <context>
     <name>gui::DriverController</name>
     <message>
+        <source>Install Allwinner drivers?</source>
+        <translation>安装全志驱动？</translation>
+    </message>
+    <message>
+        <source>Install the driver in the Allwinner driver installer.</source>
+        <translation>请在全志驱动安装程序中完成安装。</translation>
+    </message>
+    <message>
+        <source>Complete installation in the Allwinner driver installer, then close it…</source>
+        <translation>请在全志驱动安装程序中完成安装并关闭窗口…</translation>
+    </message>
+    <message>
         <source>Windows is installing the driver…</source>
         <translation>Windows 正在安装驱动…</translation>
     </message>

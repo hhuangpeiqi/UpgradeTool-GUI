@@ -75,16 +75,30 @@ if(WIN32)
   include(${CMAKE_SOURCE_DIR}/scripts/qualcomm_driver_manifest.cmake)
   configure_file(${CMAKE_SOURCE_DIR}/application/QualcommDriverPackage.h.in
     ${CMAKE_BINARY_DIR}/generated/application/QualcommDriverPackage.h @ONLY)
-  include(${CMAKE_SOURCE_DIR}/cmake/Libwdi.cmake)
+  include(${CMAKE_SOURCE_DIR}/scripts/allwinner_driver_manifest.cmake)
+  list(LENGTH ALLWINNER_DRIVER_FILES ALLWINNER_DRIVER_FILE_COUNT)
+  set(ALLWINNER_DRIVER_CPP_FILES "")
+  foreach(entry IN LISTS ALLWINNER_DRIVER_FILES)
+    string(REPLACE "|" ";" fields "${entry}")
+    list(GET fields 0 relative)
+    list(GET fields 1 checksum)
+    string(APPEND ALLWINNER_DRIVER_CPP_FILES "    {\"${relative}\", \"${checksum}\"},\n")
+  endforeach()
+  configure_file(${CMAKE_SOURCE_DIR}/application/AllwinnerDriverPackage.h.in
+    ${CMAKE_BINARY_DIR}/generated/application/AllwinnerDriverPackage.h @ONLY)
   target_link_libraries(upgrade_gui_backend PUBLIC cfgmgr32 winusb shell32 ole32)
   qt_add_executable(upgrade_driver_installer ${CMAKE_SOURCE_DIR}/scripts/windows/driver_installer.cpp
     ${CMAKE_SOURCE_DIR}/scripts/windows/DriverInstall.cpp
+    ${CMAKE_SOURCE_DIR}/scripts/windows/AllwinnerDriverInstall.cpp
     ${CMAKE_SOURCE_DIR}/scripts/windows/QualcommDriverInstall.cpp
     ${CMAKE_SOURCE_DIR}/scripts/windows/RockusbDriverInstall.cpp WindowsUsbDriver.cpp DriverRecovery.cpp)
   target_include_directories(upgrade_driver_installer PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
-  target_link_libraries(upgrade_driver_installer PRIVATE Qt6::Core wdi setupapi cfgmgr32 winusb shell32 ole32)
+  target_link_libraries(upgrade_driver_installer PRIVATE Qt6::Core setupapi cfgmgr32 winusb shell32 ole32)
   if(UPGRADE_TOOL_ROCKCHIP)
     target_link_libraries(upgrade_driver_installer PRIVATE upgrade_rockchip_usb)
+  endif()
+  if(UPGRADE_TOOL_ALLWINNER)
+    target_link_libraries(upgrade_driver_installer PRIVATE upgrade_allwinner)
   endif()
   set_target_properties(upgrade_driver_installer PROPERTIES WIN32_EXECUTABLE TRUE)
   install(TARGETS upgrade_driver_installer RUNTIME DESTINATION bin)

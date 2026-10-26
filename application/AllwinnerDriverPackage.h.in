@@ -1,0 +1,8 @@
+#pragma once
+#include <array>
+#include <utility>
+namespace gui {
+inline constexpr char allwinnerPackageRelativePath[] = "tools/allwinner";
+inline constexpr std::array<std::pair<const char *, const char *>, @ALLWINNER_DRIVER_FILE_COUNT@> allwinnerPackageFiles{{
+@ALLWINNER_DRIVER_CPP_FILES@}};
+}

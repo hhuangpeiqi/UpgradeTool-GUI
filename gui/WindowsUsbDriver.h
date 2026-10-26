@@ -16,9 +16,7 @@ struct DriverDevice {
     DriverState state = DriverState::DeviceError;
     QString diagnostic;
     bool canInstall() const {
-        return verifiedInterface && ((vendor == 1 &&
-            (state == DriverState::Missing || state == DriverState::Incompatible)) ||
-            (vendor == 0 && state == DriverState::Missing) ||
+        return verifiedInterface && (((vendor == 0 || vendor == 1) && state == DriverState::Missing) ||
             (vendor == 2 && vid == 0x05c6 && state == DriverState::Missing));
     }
     bool needsAttention() const { return state != DriverState::Ready && state != DriverState::Bound; }
@@ -44,11 +42,13 @@ struct DriverInstallResult {
 DriverInstallResult RestartWindowsUsbDevice(const DriverDevice &);
 #endif
 enum class DriverPhase { Installing, Recovering, Verifying, Preparing, Bound };
-enum class DriverOperation { WinUsb, RockusbAssistant, QualcommInstall, QualcommUninstall };
+enum class DriverOperation { AllwinnerInstall, RockusbAssistant, QualcommInstall, QualcommUninstall };
 using DriverProgress = std::function<void(DriverPhase)>;
 bool QualcommDriverInstalled();
 QString QualcommDriverPackageError(const QString &path);
 QStringList QualcommDriverArguments(DriverOperation);
+QString AllwinnerDriverPackageError(const QString &directory);
+DriverInstallResult RunAllwinnerDriverElevated(const DriverDevice &, const DriverProgress &);
 QString RockusbDriverPackageError(const QString &directory);
 DriverInstallResult RunRockusbDriverElevated(const DriverDevice &, const DriverProgress &);
 DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation, const DriverDevice &,
@@ -57,7 +57,4 @@ DriverInstallResult RunQualcommDriverElevated(DriverOperation, const DriverDevic
 const DriverDevice *FindDriverDevice(const QVector<DriverDevice> &, const DriverDevice &);
 DriverScan ScanWindowsUsbDrivers(bool probe = false);
 QVector<QPair<QString, QString>> WindowsAdbLocations();
-DriverInstallResult InstallWindowsUsbDriver(const DriverDevice &, const QVector<DriverDevice> &affected);
-DriverInstallResult InstallWindowsUsbDriverWithProgress(const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress &);
-DriverInstallResult InstallWindowsUsbDriverElevated(const DriverDevice &, const QVector<DriverDevice> &, const DriverProgress & = {});
 }

@@ -99,7 +99,7 @@ AppDialog {
                     PrimaryButton {
                         objectName: "driverInstallButton"
                         visible: deviceCard.modelData.canInstall
-                        text: deviceCard.modelData.replace ? qsTr("Replace…") : qsTr("Install…")
+                        text: qsTr("Install…")
                         enabled: !app.interactionLocked && !app.drivers.checking
                         onClicked: app.drivers.prepareInstall(deviceCard.modelData.instance)
                     }

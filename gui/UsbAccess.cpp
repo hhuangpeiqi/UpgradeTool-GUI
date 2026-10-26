@@ -2,6 +2,9 @@
 #include "gui/WindowsUsbDriver.h"
 #include "backends/DeviceIdentity.h"
 #include "application/BuildFeatures.h"
+#if UPGRADE_TOOL_ALLWINNER && defined(Q_OS_WIN)
+#include "backends/allwinner/WindowsAllwinner.h"
+#endif
 #if UPGRADE_TOOL_ROCKCHIP
 #include "backends/rockchip/UsbTransport.h"
 #endif
@@ -15,6 +18,13 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
 #ifdef Q_OS_WIN
     std::lock_guard<std::recursive_mutex> lock(UsbProbeMutex());
     const auto &target = core::DeviceAccess::Identity(reference);
+#if UPGRADE_TOOL_ALLWINNER
+    if (target.vendor == core::Vendor::Allwinner) {
+        const int error = core::allwinner::ProbeAllwinner(target.deviceInstance);
+        return error ? QCoreApplication::translate("gui::AppController", "Cannot access the selected USB interface: %1")
+                           .arg(error) : QString{};
+    }
+#endif
 #if UPGRADE_TOOL_ROCKCHIP
     if (target.vendor == core::Vendor::Rockchip) {
         const int error = core::rockchip::ProbeRockusb(target.deviceInstance, target.devicePath);
@@ -58,7 +68,6 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
         for (int j = 0; j < usbInterface.num_altsetting; ++j) {
             const auto &alt = usbInterface.altsetting[j];
             if (target.interfaceNumber >= 0 && alt.bInterfaceNumber != target.interfaceNumber) continue;
-            if (target.vendor == core::Vendor::Allwinner && alt.bInterfaceClass != 0xff) continue;
             if (target.vendor == core::Vendor::Qualcomm && !qtq_download_interface(alt.bInterfaceClass, alt.bInterfaceSubClass, alt.bInterfaceProtocol, 0x81, 1, 1, 1)) continue;
             bool in = false, out = false;
             for (int p = 0; p < alt.bNumEndpoints; ++p) {

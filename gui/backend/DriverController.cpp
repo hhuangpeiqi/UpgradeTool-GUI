@@ -14,7 +14,7 @@ namespace gui {
 namespace {
 DriverOperation operationForDevice(const DriverDevice &device) {
     return device.vendor == 0 ? DriverOperation::RockusbAssistant :
-           device.vendor == 2 ? DriverOperation::QualcommInstall : DriverOperation::WinUsb;
+           device.vendor == 2 ? DriverOperation::QualcommInstall : DriverOperation::AllwinnerInstall;
 }
 }
 
@@ -73,7 +73,7 @@ QVariantMap DriverController::describe(const DriverDevice &d) const {
         diagnostic = tr("Install the device manufacturer's driver for this interface.");
     return {{"instance", d.instance}, {"hardwareId", d.hardwareId}, {"label", d.label}, {"service", installing ? QString{} : d.service},
         {"location", d.location}, {"stateText", state}, {"diagnostic", diagnostic}, {"attention", !installing && !waiting && d.needsAttention()},
-        {"canInstall", !installing && !m_detectionFailed && d.canInstall()}, {"replace", d.vendor == 1 && !d.service.isEmpty()}, {"vendor", d.vendor},
+        {"canInstall", !installing && !m_detectionFailed && d.canInstall()}, {"vendor", d.vendor},
         {"identity", QString("%1:%2").arg(d.vid, 4, 16, QChar('0')).arg(d.pid, 4, 16, QChar('0'))}};
 }
 QVariantList DriverController::devices() const {
@@ -98,9 +98,11 @@ QString DriverController::confirmationTitle() const {
     if (m_operation == DriverOperation::QualcommUninstall) return tr("Uninstall Qualcomm drivers?");
     if (m_operation == DriverOperation::QualcommInstall) return tr("Install Qualcomm drivers?");
     if (m_operation == DriverOperation::RockusbAssistant) return tr("Install Rockchip drivers?");
-    return tr("Install WinUSB?");
+    return tr("Install Allwinner drivers?");
 }
 QString DriverController::confirmationText() const {
+    if (m_operation == DriverOperation::AllwinnerInstall)
+        return tr("Install the driver in the Allwinner driver installer.");
     if (m_operation == DriverOperation::RockusbAssistant)
         return tr("Install the driver in the Rockchip driver assistant.");
     if (m_operation == DriverOperation::QualcommUninstall)
@@ -121,7 +123,7 @@ QString DriverController::summaryText() const {
     if (!m_available) return {};
     if (m_busy) return phaseText();
     if (m_detectionFailed) return tr("Driver detection failed");
-    if (m_waitingForReconnect && m_vendor == 0) return tr("Waiting for USB reconnection");
+    if (m_waitingForReconnect && (m_vendor == 0 || m_vendor == 1)) return tr("Waiting for USB reconnection");
     const int count = attentionCount();
     if (count > 1) return tr("Drivers need attention (%1)").arg(count);
     for (const auto &device : m_devices)
@@ -131,6 +133,8 @@ QString DriverController::summaryText() const {
     return {};
 }
 QString DriverController::phaseText() const {
+    if (m_operation == DriverOperation::AllwinnerInstall && m_phase == DriverPhase::Installing)
+        return tr("Complete installation in the Allwinner driver installer, then close it?");
     if (m_operation == DriverOperation::RockusbAssistant && m_phase == DriverPhase::Installing)
         return tr("Complete installation in the Rockchip driver assistant, then close it…");
     if (m_operation == DriverOperation::QualcommUninstall) {
@@ -164,7 +168,7 @@ void DriverController::retranslate() {
 }
 void DriverController::setVendor(int vendor) {
     if (m_vendor == vendor) return;
-    m_vendor = vendor; m_affected.clear(); m_operation = DriverOperation::WinUsb;
+    m_vendor = vendor; m_affected.clear(); m_operation = DriverOperation::AllwinnerInstall;
     emit devicesChanged(); emit changed(); emit confirmationChanged();
     refresh(false);
 }
@@ -236,7 +240,7 @@ void DriverController::scan(bool probe) {
                 finish(Outcome::Succeeded, device->vendor == 0 ? tr("Driver ready") : tr("Driver installed")); return;
             }
             if (m_verifyElapsed.elapsed() >= m_hooks.verificationTimeoutMs) {
-                if (!m_detectionFailed && m_operation == DriverOperation::RockusbAssistant) {
+                if (!m_detectionFailed && (m_operation == DriverOperation::RockusbAssistant || m_operation == DriverOperation::AllwinnerInstall)) {
                     m_waitingForReconnect = true; savePending();
                     finish(Outcome::PendingReconnect, reconnectText()); return;
                 }
@@ -319,18 +323,18 @@ void DriverController::beginInstall() {
                     setPhase(phase);
                 }, Qt::QueuedConnection);
             };
-            if (operation == DriverOperation::QualcommInstall || operation == DriverOperation::RockusbAssistant) {
+            if (operation == DriverOperation::QualcommInstall || operation == DriverOperation::RockusbAssistant || operation == DriverOperation::AllwinnerInstall) {
                 const auto current = scanner(false);
                 const auto *device = FindDriverDevice(current.devices, target);
-                if (!current.error.isEmpty() || !device || device->vendor != (operation == DriverOperation::RockusbAssistant ? 0 : 2) || !device->canInstall() ||
+                if (!current.error.isEmpty() || !device || device->vendor != (operation == DriverOperation::RockusbAssistant ? 0 : operation == DriverOperation::AllwinnerInstall ? 1 : 2) || !device->canInstall() ||
                     device->fingerprint() != target.fingerprint()) {
                     result->error = tr("Device or driver changed; refresh and select it again."); return;
                 }
             }
-            if (operation != DriverOperation::WinUsb) *result = driverOperation(operation, target, affected, progress);
+            if (operation != DriverOperation::AllwinnerInstall) *result = driverOperation(operation, target, affected, progress);
             else if (installerWithProgress) *result = installerWithProgress(target, affected, progress);
             else if (installer) { progress(DriverPhase::Installing); *result = installer(target, affected); }
-            else *result = InstallWindowsUsbDriverWithProgress(target, affected, progress);
+            else *result = driverOperation(operation, target, affected, progress);
         }
         catch (const std::exception &e) { result->error = QString::fromUtf8(e.what()); }
     });

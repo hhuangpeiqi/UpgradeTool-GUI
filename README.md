@@ -110,7 +110,7 @@ The `.deb` installs all vendor rule sets automatically. If you see a permission 
 
 **macOS**: No extra USB driver is needed.
 
-**Windows 10/11 x64**: Open **Device → USB Drivers** to install drivers for connected RK / Qualcomm devices that are missing drivers (administrator permission required), and install WinUSB for Allwinner.
+**Windows 10/11 x64**: Open **Device → USB Drivers** to install drivers for connected RockChip / Allwinner / Qualcomm devices that are missing drivers (administrator permission required).
 
 Windows/macOS release packages include ADB; the `.deb` installs the distribution's `adb` dependency. Set `ADB` to an executable path or name to override it.
 
@@ -222,7 +222,6 @@ The config format is `key=value`, with lines starting with `#` as comments. The 
 |---|---|---|
 | rkdeveloptool | GPL-2.0 | [backends/rockchip/legacy/license.txt](backends/rockchip/legacy/license.txt) |
 | libusb | LGPL-2.1 | `third_party/libusb/COPYING` |
-| libwdi | LGPL-3.0-or-later | `third_party/libwdi/COPYING-LGPL` |
 | OpenixCLI | MIT | [backends/allwinner/LICENSE.OpenixCLI](backends/allwinner/LICENSE.OpenixCLI) |
 | libefex | MIT | [third_party/libefex/README.md](third_party/libefex/LICENSE) |
 | qdl | BSD-3-Clause | [third_party/qdl/LICENSE](third_party/qdl/LICENSE) |

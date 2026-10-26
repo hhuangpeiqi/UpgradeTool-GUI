@@ -1,45 +1,40 @@
 #include "tests/support/Checks.h"
+#include "gui/WindowsUsbDriver.h"
+#include "application/AllwinnerDriverPackage.h"
 #include <QCoreApplication>
 #include <QTemporaryDir>
 #include <QFile>
-#include <libwdi.h>
+#include <QDir>
+#include <windows.h>
+#include <cfgmgr32.h>
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     int failures = 0;
-    VS_FIXEDFILEINFO version = {};
-    CHECK(wdi_is_driver_supported(WDI_WINUSB, &version));
-    CHECK(version.dwSignature == 0xfeef04bd);
-    CHECK(!wdi_is_driver_supported(WDI_LIBUSB0, nullptr));
-    CHECK(!wdi_is_driver_supported(WDI_LIBUSBK, nullptr));
     QTemporaryDir directory;
-    wdi_device_info device = {};
-    char description[] = "Firmware download interface";
-    device.vid = 0x1f3a; device.pid = 0xefe8; device.desc = description;
-    wdi_options_prepare_driver prepare = {};
-    prepare.driver_type = WDI_WINUSB;
-    // Prepare files only; never sign, trust certificates, bind, or install a driver.
-    prepare.disable_cat = TRUE; prepare.disable_signing = TRUE;
-    const auto path = directory.path().toUtf8();
-    CHECK(wdi_prepare_driver(&device, path.constData(), "test_winusb.inf", &prepare) == WDI_SUCCESS);
-    QFile inf(directory.filePath("test_winusb.inf"));
-    CHECK(inf.open(QIODevice::ReadOnly));
-    const auto bytes = inf.readAll();
-    const auto text = QString::fromUtf16(reinterpret_cast<const char16_t *>(bytes.constData() + 2), (bytes.size() - 2) / 2);
-    CHECK(text.contains("USB\\VID_1F3A&PID_EFE8"));
-    CHECK(text.contains("Needs = WINUSB.NT.Services"));
-    CHECK(text.contains("Needs = WINUSB.NT.HW"));
-    CHECK(text.contains("DeviceInterfaceGUIDs"));
-    CHECK(text.contains("DeviceName = \"USB Download Device\""));
-    CHECK(!text.contains("CoInstaller"));
-    CHECK(!text.contains("#DEVICE_"));
-    CHECK(QFile::exists(directory.filePath("installer_x64.exe")));
-    QFile installer(directory.filePath("installer_x64.exe"));
-    CHECK(installer.open(QIODevice::ReadOnly));
-    const auto installerBytes = installer.readAll();
-    CHECK(installerBytes.contains("upgrade-install-status.json"));
-    CHECK(installerBytes.contains("{\"rebootRequired\":%s,"));
-    CHECK(installerBytes.contains("\"windowsInstallMs\":%llu"));
-    CHECK(installerBytes.contains("\"reenumerationMs\":%llu"));
+    CHECK(gui::AllwinnerDriverPackageError(directory.path()).contains("missing"));
+    // Runtime verification must reject modified signed payloads before launch.
+    for (const auto &[relative, hash] : gui::allwinnerPackageFiles) {
+        CHECK(QByteArray(hash).size() == 64);
+        QFile file(QDir(directory.path()).filePath(QString::fromUtf8(relative)));
+        CHECK(file.open(QIODevice::WriteOnly)); file.write("modified driver");
+    }
+    CHECK(gui::AllwinnerDriverPackageError(directory.path()).contains("SHA256"));
+    gui::DriverDevice device;
+    device.vid = 0x1f3a; device.pid = 0xefe8;
+    CHECK(gui::RecognizeWindowsFlashingInterface(device, {"USB\\Class_ff&SubClass_ff&Prot_ff"}));
+    device.service = "usbUDisc";
+    gui::ClassifyWindowsUsbDriver(device, DN_STARTED, 0);
+    CHECK(device.state == gui::DriverState::Bound);
+    for (const auto &service : {"WinUSB", "libusbK", "libusb0", "OtherUSB"}) {
+        device.service = service;
+        gui::ClassifyWindowsUsbDriver(device, DN_STARTED, 0);
+        CHECK(device.state == gui::DriverState::Incompatible);
+    }
+    device.service = "usbUDisc";
+    gui::ClassifyWindowsUsbDriver(device, DN_HAS_PROBLEM, CM_PROB_NEED_RESTART);
+    CHECK(device.state == gui::DriverState::RebootRequired);
+    gui::ClassifyWindowsUsbDriver(device, DN_HAS_PROBLEM, CM_PROB_UNSIGNED_DRIVER);
+    CHECK(device.state == gui::DriverState::DeviceError && device.problem == CM_PROB_UNSIGNED_DRIVER);
     return failures ? 1 : 0;
 }
