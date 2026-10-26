@@ -102,7 +102,7 @@ QString DriverController::confirmationTitle() const {
 }
 QString DriverController::confirmationText() const {
     if (m_operation == DriverOperation::AllwinnerInstall)
-        return tr("Install the driver in the Allwinner driver installer.");
+        return tr("The driver will install automatically. Please wait for completion.");
     if (m_operation == DriverOperation::RockusbAssistant)
         return tr("Install the driver in the Rockchip driver assistant.");
     if (m_operation == DriverOperation::QualcommUninstall)
@@ -133,8 +133,6 @@ QString DriverController::summaryText() const {
     return {};
 }
 QString DriverController::phaseText() const {
-    if (m_operation == DriverOperation::AllwinnerInstall && m_phase == DriverPhase::Installing)
-        return tr("Complete installation in the Allwinner driver installer, then close it?");
     if (m_operation == DriverOperation::RockusbAssistant && m_phase == DriverPhase::Installing)
         return tr("Complete installation in the Rockchip driver assistant, then close it…");
     if (m_operation == DriverOperation::QualcommUninstall) {

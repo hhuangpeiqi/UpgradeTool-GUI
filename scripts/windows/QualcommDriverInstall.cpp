@@ -30,26 +30,21 @@ DriverInstallResult RunQualcommDriverElevated(DriverOperation operation, const D
     if (!result.error.isEmpty()) return result;
     if (progress) progress(DriverPhase::Installing);
     QProcess process;
-    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.setProcessChannelMode(QProcess::ForwardedChannels);
+    process.setInputChannelMode(QProcess::ForwardedInputChannel);
     process.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
-        // Let the official tool's children inherit a hidden console as well.
+        // Use the new console's handles instead of the helper's redirected log.
         args->flags &= ~CREATE_NO_WINDOW;
         args->flags |= CREATE_NEW_CONSOLE;
+        args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES;
         args->startupInfo->dwFlags |= STARTF_USESHOWWINDOW;
-        args->startupInfo->wShowWindow = SW_HIDE;
+        args->startupInfo->wShowWindow = SW_SHOWNORMAL;
     });
     process.start(executable, QualcommDriverArguments(operation));
     if (!process.waitForStarted()) { result.error = process.errorString(); return result; }
-    // Drain continuously; bound diagnostics without filling the child's output pipe.
-    const auto drain = [&] {
-        const auto bytes = process.readAll();
-        if (result.log.size() < 1024 * 1024)
-            result.log += QString::fromLocal8Bit(bytes).left(1024 * 1024 - result.log.size());
-    };
     while (process.state() != QProcess::NotRunning) {
-        process.waitForReadyRead(200); drain();
+        process.waitForFinished(200);
     }
-    drain();
     result.log += QStringLiteral("\nQualcomm driver tool exit code: %1\nOfficial logs: %2/Qualcomm/QUD\n")
         .arg(process.exitCode()).arg(qEnvironmentVariable("ProgramData"));
     result.ok = process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0;

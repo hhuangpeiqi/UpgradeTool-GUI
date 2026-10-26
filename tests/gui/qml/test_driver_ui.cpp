@@ -270,6 +270,28 @@ int main(int argc, char **argv) {
         CHECK(QMetaObject::invokeMethod(dialog, "close"));
         scanMode = 0;
     }
+    controller.setVendor(1);
+    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
+    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    for (const auto &language : {"en", "zh"}) {
+        controller.language()->setMode(language);
+        auto *awInstall = FindVisualItem(window->contentItem(), "driverInstallButton");
+        CHECK(awInstall && awInstall->isVisible() && awInstall->isEnabled());
+        if (!awInstall) return 1;
+        CHECK(QMetaObject::invokeMethod(awInstall, "clicked"));
+        CHECK(AwaitUi([&] { return confirmation->property("visible").toBool(); }));
+        CHECK(controller.drivers()->confirmationText() == QString::fromUtf8(QByteArray(language) == "zh"
+            ? "驱动将自动安装，请等待完成。"
+            : "The driver will install automatically. Please wait for completion."));
+        if (argc > 1) {
+            QTest::qWait(80);
+            CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1])
+                + QString("/allwinner-driver-confirmation-%1.png").arg(language)));
+        }
+        CHECK(QMetaObject::invokeMethod(confirmation, "close"));
+    }
+    CHECK(QMetaObject::invokeMethod(dialog, "close"));
     controller.setVendor(2);
     CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
     CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));

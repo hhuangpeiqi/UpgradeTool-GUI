@@ -3960,12 +3960,8 @@
     </message>
     <message>
         <location line="+4"/>
-        <source>Install the driver in the Allwinner driver installer.</source>
-        <translation>请在全志驱动安装程序中完成安装。</translation>
-    </message>
-    <message>
-        <source>Complete installation in the Allwinner driver installer, then close it…</source>
-        <translation type="vanished">请在全志驱动安装程序中完成安装并关闭窗口…</translation>
+        <source>The driver will install automatically. Please wait for completion.</source>
+        <translation>驱动将自动安装，请等待完成。</translation>
     </message>
     <message>
         <location line="+41"/>
@@ -4117,11 +4113,6 @@
         <location line="+10"/>
         <source>This removes the system Qualcomm driver package and may affect other Qualcomm devices.</source>
         <translation>此操作将移除系统中的高通驱动包，可能影响其他高通设备。</translation>
-    </message>
-    <message>
-        <location line="+28"/>
-        <source>Complete installation in the Allwinner driver installer, then close it?</source>
-        <translation>请在全志驱动安装程序中完成安装，然后关闭该程序。</translation>
     </message>
     <message>
         <location line="+4"/>

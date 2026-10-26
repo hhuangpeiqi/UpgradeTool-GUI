@@ -593,11 +593,21 @@ int main(int argc, char **argv) {
             return gui::DriverInstallResult{true, false, {}};
         };
         gui::DriverController controller(native, true);
+        bool installingReported = false;
+        QObject::connect(&controller, &gui::DriverController::changed, [&] {
+            if (controller.message() == QString::fromUtf8("Windows is installing the driver…")) {
+                installingReported = true;
+                CHECK(controller.busy() && controller.locked());
+                CHECK(controller.summaryText() == controller.message());
+            }
+        });
         controller.setVendor(1); CHECK(Await([&] { return !controller.checking(); }));
         controller.prepareInstall(aw.instance);
         CHECK(controller.confirmationTitle() == "Install Allwinner drivers?");
+        CHECK(controller.confirmationText() == "The driver will install automatically. Please wait for completion.");
         controller.confirmInstall(); controller.beginInstall();
         CHECK(Await([&] { return !controller.busy(); }));
+        CHECK(installingReported);
         CHECK(calls == 1 && controller.waitingForReconnect() && controller.hasPending());
         // Original installer closing successfully cannot establish readiness.
         auto ready = aw; ready.service = "usbUDisc"; ready.state = gui::DriverState::Ready;

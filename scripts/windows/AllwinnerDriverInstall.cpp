@@ -39,8 +39,13 @@ DriverInstallResult RunAllwinnerDriverElevated(const DriverDevice &target, const
     if (progress) progress(DriverPhase::Installing);
     QProcess process;
     process.setWorkingDirectory(directory.path());
+    process.setProcessChannelMode(QProcess::ForwardedChannels);
+    process.setInputChannelMode(QProcess::ForwardedInputChannel);
     process.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
-        args->flags &= ~(CREATE_NO_WINDOW | CREATE_NEW_CONSOLE);
+        // Use the new console's handles instead of the helper's redirected log.
+        args->flags &= ~CREATE_NO_WINDOW;
+        args->flags |= CREATE_NEW_CONSOLE;
+        args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES;
         args->startupInfo->dwFlags |= STARTF_USESHOWWINDOW;
         args->startupInfo->wShowWindow = SW_SHOWNORMAL;
     });
@@ -48,9 +53,8 @@ DriverInstallResult RunAllwinnerDriverElevated(const DriverDevice &target, const
     if (!process.waitForStarted()) { result.error = process.errorString(); return result; }
     while (process.state() != QProcess::NotRunning) {
         process.waitForFinished(200);
-        process.readAll();
     }
-    result.log = QStringLiteral("Allwinner driver assistant closed: exit=%1 status=%2\n")
+    result.log = QStringLiteral("Allwinner driver installer finished: exit=%1 status=%2\n")
         .arg(process.exitCode()).arg(int(process.exitStatus()));
     QDirIterator logs(destination.filePath("Log"), QDir::Files, QDirIterator::Subdirectories);
     while (logs.hasNext() && result.log.size() < 1024 * 1024) {
@@ -58,10 +62,10 @@ DriverInstallResult RunAllwinnerDriverElevated(const DriverDevice &target, const
         if (file.open(QIODevice::ReadOnly))
             result.log += file.fileName() + '\n' + QString::fromLocal8Bit(file.read(1024 * 1024 - result.log.size()));
     }
-    // The GUI's exit code does not say whether the user actually installed a
-    // driver. The controller must verify the target after every normal close.
+    // Normal installer termination alone does not establish device readiness.
+    // The controller must verify the target after installation.
     result.ok = process.exitStatus() == QProcess::NormalExit;
-    if (!result.ok) result.error = QStringLiteral("The Allwinner driver assistant terminated unexpectedly.");
+    if (!result.ok) result.error = QStringLiteral("The Allwinner driver installer terminated unexpectedly.");
     else {
         DriverRecoveryHooks hooks;
         hooks.scan = [] { return ScanWindowsUsbDrivers(true); };
