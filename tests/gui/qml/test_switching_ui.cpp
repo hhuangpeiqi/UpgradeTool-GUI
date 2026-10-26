@@ -17,6 +17,7 @@ static int failures = 0;
 int main(int argc, char **argv) {
     // This executable is also the fake ADB. Device selection never sends a reboot.
     if (argc > 1) {
+        if (QString::fromLocal8Bit(argv[1]) == "start-server") return 0;
         if (QString::fromLocal8Bit(argv[1]) == "version") {
             std::printf("Android Debug Bridge version 1.0.41\nVersion fake-test\n");
             return 0;

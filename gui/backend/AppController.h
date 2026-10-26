@@ -272,6 +272,7 @@ private:
 
 	QStringList m_strAdbDevices;
 	bool m_bAdbAvailable;
+	bool m_adbOutageNotified = false;
 };
 
 }

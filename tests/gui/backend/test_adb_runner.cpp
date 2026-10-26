@@ -64,6 +64,7 @@ static int FakeAdb(QStringList args)
 		}
 		return 0;
 	}
+	if (args == QStringList{"start-server"}) return 0;
 	if (args.value(0) == "devices") {
 		if (mode == "poll-fail") {
 			std::printf("test server error\n%s\nfailure-detail-tail\n%s\nomitted-tail\n",
@@ -120,7 +121,11 @@ int main(int argc, char **argv)
 		QTemporaryDir dir;
 		qputenv("AW_TEST_DIR", dir.path().toUtf8());
 		qputenv("AW_TEST_MODE", "poll-ok");
-		gui::AdbRunner runner(nullptr, [](bool) { return QVector<gui::AdbUsbDevice>{}; }, 200, 650);
+		gui::AdbPollTiming timing;
+		timing.initialRetryMs = 20;
+		timing.maximumRetryMs = 100;
+		gui::AdbRunner runner(nullptr, [](bool) { return QVector<gui::AdbUsbDevice>{}; }, 200, 650,
+		                      platform::MakeAdbProcess, timing);
 		int availability = 0, diagnostics = 0;
 		bool available = false;
 		QString error;
@@ -134,7 +139,8 @@ int main(int argc, char **argv)
 			CHECK(record.value("gui_pid").toInteger() == QCoreApplication::applicationPid());
 			CHECK(QDir::isAbsolutePath(record.value("path").toString()));
 			CHECK(record.value("elapsed_ms").toInteger() >= 0);
-			CHECK(record.value("timeout_ms").toInt() == 5000);
+			CHECK(record.value("timeout_ms").toInt() == gui::kAdbReadTimeoutMs);
+			CHECK(record.value("spawn_elapsed_ms").toInteger() >= 0);
 			traces.append(message);
 			disk.Record("[ADB] %s", message.toUtf8().constData());
 		});
@@ -180,7 +186,10 @@ int main(int argc, char **argv)
 		QMetaObject::invokeMethod(&runner, "onPollTick");
 		CHECK(Await([&] { return QFile::exists(dir.filePath("hanging")); }));
 		QMetaObject::invokeMethod(&runner, "onPollKillTimeout");
-		CHECK(!available && runner.Devices().isEmpty() && error.contains("timed out"));
+		CHECK(!available && runner.Devices().isEmpty() && error.isEmpty());
+		CHECK(traces.last().contains("\"event\":\"slow_query\""));
+		QMetaObject::invokeMethod(&runner, "onPollKillTimeout");
+		CHECK(Await([&] { return error.contains("timed out"); }));
 		CHECK(traces.join('\n').contains("\"event\":\"timeout_kill_requested\""));
 		CHECK(traces.last().contains("\"event\":\"timeout\""));
 		CHECK(traces.last().contains("daemon startup still waiting"));

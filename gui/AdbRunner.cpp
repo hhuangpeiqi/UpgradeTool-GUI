@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <libusb.h>
 #include <utility>
+#include <algorithm>
 
 namespace gui
 {
@@ -17,8 +18,6 @@ namespace
 {
 
 const char *kRebootTarget = "loader";
-const int kPollIntervalMs = 1000;
-const int kListTimeoutMs = 5000;
 const int kRebootTimeoutMs = 10000;
 
 // BusyBox `reboot` ignores the `efex` argument, so T3 Buildroot writes the FEL flag via devmem instead.
@@ -138,10 +137,12 @@ bool IsT3FelCapable(bool android, bool buildroot, bool t3, const QString &output
 
 AdbRunner::AdbRunner(QObject *parent) : AdbRunner(parent, ScanUsb, kRebootTimeoutMs, 45000) {}
 
-AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,platform::ProcessFactory factory)
+AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,
+                     platform::ProcessFactory factory, AdbPollTiming timing)
     : QObject(parent), m_bRunning(false), m_bAwaitingChoice(false), m_bAvailable(false), m_bAvailabilityKnown(false),
       m_usbScanner(std::move(scanner)), m_commandTimeoutMs(commandTimeoutMs), m_felTimeoutMs(felTimeoutMs)
 {
+	m_pollTiming = timing;
 	m_felTimer = new QTimer(this);
 	m_felTimer->setInterval(250);
 	connect(m_felTimer, &QTimer::timeout, this, &AdbRunner::CheckFel);
@@ -160,6 +161,7 @@ AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, 
     connect(m_pPollProc,&ProcessAdapter::failed,this,&AdbRunner::onPollError);
 
 	m_pPollTimer = new QTimer(this);
+	m_pPollTimer->setSingleShot(true);
 	connect(m_pPollTimer, SIGNAL(timeout()), this, SLOT(onPollTick()));
 
 	m_pPollKill = new QTimer(this);
@@ -181,6 +183,10 @@ AdbRunner::~AdbRunner()
 void AdbRunner::Stop()
 {
 	m_stopped = true;
+	m_pollCancelled = true;
+	m_serverReady = false;
+	m_recovering = false;
+	m_recoveryStarting = false;
 	m_bRunning = false;
 	m_bAwaitingChoice = false;
 	for (auto *timer : {m_felTimer, m_pTimeout, m_pPollTimer, m_pPollKill}) timer->stop();
@@ -196,12 +202,15 @@ void AdbRunner::Start()
 {
 	if (m_stopped) return;
 	RunPoll();
-	m_pPollTimer->start(kPollIntervalMs);
 }
 
 void AdbRunner::Resume()
 {
 	m_stopped = false;
+	m_retryDelayMs = 0;
+	m_failureCount = 0;
+	ClearPollDevices();
+	UpdateAvailability(false, {});
 	Start();
 }
 
@@ -215,13 +224,45 @@ void AdbRunner::UpdateAvailability(bool bAvailable, const QString &strMessage)
 	emit availabilityChanged(m_bAvailable, strMessage);
 }
 
-void AdbRunner::PollFailed(const QString &message)
+void AdbRunner::ClearPollDevices()
 {
 	if (!m_strDevices.isEmpty()) {
 		m_strDevices.clear();
 		emit devicesChanged(m_strDevices);
 	}
-	UpdateAvailability(false, message);
+}
+
+void AdbRunner::SetRecovery(bool recovering, bool starting)
+{
+	if (m_recovering == recovering && m_recoveryStarting == starting) return;
+	m_recovering = recovering;
+	m_recoveryStarting = starting;
+	emit recoveryStateChanged(recovering, RecoveryMessage());
+}
+
+QString AdbRunner::RecoveryMessage() const
+{
+	return !m_recovering ? QString() : m_recoveryStarting
+	    ? tr("Starting ADB…") : tr("ADB connection interrupted; retrying automatically…");
+}
+
+void AdbRunner::SchedulePoll(int delayMs)
+{
+	if (!m_stopped) m_pPollTimer->start(delayMs);
+}
+
+void AdbRunner::PollFailed(const QString &message)
+{
+	m_serverReady = false;
+	ClearPollDevices();
+	SetRecovery(true);
+	m_retryDelayMs = m_failureCount == 0 ? m_pollTiming.initialRetryMs
+	    : std::min(m_retryDelayMs * 2, m_pollTiming.maximumRetryMs);
+	// Only the first error in an outage is surfaced; every attempt is traced on disk.
+	if (m_failureCount == 0) UpdateAvailability(false, message);
+	if (m_failureCount < 32) ++m_failureCount;
+	m_retryElapsed.start();
+	SchedulePoll(m_retryDelayMs);
 }
 
 void AdbRunner::TracePoll(const QString &event, const QByteArray &output, const QString &detail)
@@ -230,9 +271,14 @@ void AdbRunner::TracePoll(const QString &event, const QByteArray &output, const 
 	const QJsonObject record{
 	    {"event", event}, {"gui_pid", QCoreApplication::applicationPid()},
 	    {"attempt", qint64(m_pollSequence)}, {"path", m_pollPath}, {"source", m_pollSource},
-	    {"command", m_versionPoll ? "version" : "devices"},
+	    {"command", m_pollCommand == PollCommand::Version ? "version"
+	        : m_pollCommand == PollCommand::StartServer ? "start-server" : "devices"},
+	    {"phase", m_pollCommand == PollCommand::Devices ? "query" : "startup"},
 	    {"elapsed_ms", m_pollElapsed.isValid() ? m_pollElapsed.elapsed() : 0},
-	    {"timeout_ms", kListTimeoutMs}, {"detail", detail},
+	    {"runtime_ms", m_pollRuntime.isValid() ? m_pollRuntime.elapsed() : 0},
+	    {"spawn_elapsed_ms", m_spawnElapsedMs},
+	    {"timeout_ms", m_pollTiming.hardTimeoutMs}, {"slow_query_ms", m_pollTiming.slowQueryMs},
+	    {"retry_ms", m_retryDelayMs}, {"failure_count", m_failureCount}, {"detail", detail},
 	    {"output_bytes", qint64(output.size())}, {"output_truncated", output.size() > outputLimit},
 	    {"output", QString::fromLocal8Bit(output.left(outputLimit))}};
 	emit traceMessage(QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact)));
@@ -241,12 +287,25 @@ void AdbRunner::TracePoll(const QString &event, const QByteArray &output, const 
 void AdbRunner::RunPoll()
 {
 	if (m_stopped) return;
-	if (m_pPollProc->state() != ProcessAdapter::NotRunning)
+	if (m_pollActive || m_pPollProc->state() != ProcessAdapter::NotRunning)
 		return;
-	if (m_bRunning || m_bAwaitingChoice)
+	if (m_bRunning || m_bAwaitingChoice) {
+		SchedulePoll(m_pollTiming.pollIntervalMs);
 		return;
+	}
 
 	const auto executable = FindAdbExecutable();
+	if (m_pollPath != executable.path) {
+		ClearPollDevices();
+		m_serverReady = false;
+		m_failureCount = 0;
+		m_retryDelayMs = 0;
+		UpdateAvailability(false, {});
+	}
+	if (m_retryDelayMs && m_retryElapsed.isValid() && m_retryElapsed.elapsed() < m_retryDelayMs) {
+		SchedulePoll(m_retryDelayMs - int(m_retryElapsed.elapsed()));
+		return;
+	}
 	if (executable.path.isEmpty()) {
 		m_pollPath.clear();
 		m_pollSource.clear();
@@ -256,22 +315,28 @@ void AdbRunner::RunPoll()
 		return;
 	}
 
-	if (m_pollPath != executable.path) {
-		if (!m_strDevices.isEmpty()) {
-			m_strDevices.clear();
-			emit devicesChanged(m_strDevices);
-		}
-		m_pollPath = executable.path;
-	}
+	m_pollPath = executable.path;
 	m_pollSource = executable.source;
-	m_versionPoll = !m_versionChecked.contains(m_pollPath);
+	m_pollCommand = !m_versionChecked.contains(m_pollPath) ? PollCommand::Version
+	    : !m_serverReady ? PollCommand::StartServer : PollCommand::Devices;
 	m_pollTimedOut = false;
+	m_pollCancelled = false;
+	m_pollSlow = false;
+	m_pollActive = true;
 	++m_pollSequence;
 	m_pollElapsed.start();
-	m_tracePoll = m_versionPoll || !m_bAvailabilityKnown || !m_bAvailable;
+	m_pollRuntime.invalidate();
+	m_spawnElapsedMs = 0;
+	m_tracePoll = m_pollCommand != PollCommand::Devices || !m_bAvailabilityKnown || !m_bAvailable;
+	if (!m_serverReady) SetRecovery(true, m_failureCount == 0);
 	if (m_tracePoll) TracePoll(QStringLiteral("start"));
-	m_pPollProc->start(m_pollPath, {m_versionPoll ? QStringLiteral("version") : QStringLiteral("devices")});
-	m_pPollKill->start(kListTimeoutMs);
+	const QString command = m_pollCommand == PollCommand::Version ? QStringLiteral("version")
+	    : m_pollCommand == PollCommand::StartServer ? QStringLiteral("start-server") : QStringLiteral("devices");
+	m_pPollProc->start(m_pollPath, {command});
+	m_spawnElapsedMs = m_pollElapsed.elapsed();
+	m_pollRuntime.start();
+	m_pPollKill->start(m_pollCommand == PollCommand::Devices
+	    ? m_pollTiming.slowQueryMs : m_pollTiming.hardTimeoutMs);
 }
 
 void AdbRunner::onPollTick() { RunPoll(); }
@@ -279,19 +344,30 @@ void AdbRunner::onPollTick() { RunPoll(); }
 void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 {
 	m_pPollKill->stop();
-	if (m_stopped || m_pollTimedOut) return;
-	const auto output = m_pPollProc->readAll();
-
-	if (eStatus != true || iExitCode != 0) {
-		TracePoll(QStringLiteral("failed"), output,
-		          QStringLiteral("exit_code=%1 normal_exit=%2").arg(iExitCode).arg(eStatus));
-		PollFailed(tr("ADB command failed (%1): %2").arg(iExitCode).arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
+	m_pollActive = false;
+	if (m_stopped) return;
+	if (m_pollCancelled || FindAdbExecutable().path != m_pollPath) {
+		m_serverReady = false;
+		SchedulePoll(0);
 		return;
 	}
-	if (m_versionPoll) {
+	const auto output = m_pPollProc->readAll();
+	if (m_pollTimedOut) {
+		PollFailed(tr("ADB command timed out."));
+		TracePoll(QStringLiteral("timeout"), output, QStringLiteral("client_exited=1"));
+		return;
+	}
+
+	if (eStatus != true || iExitCode != 0) {
+		PollFailed(tr("ADB command failed (%1): %2").arg(iExitCode).arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
+		TracePoll(QStringLiteral("failed"), output,
+		          QStringLiteral("exit_code=%1 normal_exit=%2").arg(iExitCode).arg(eStatus));
+		return;
+	}
+	if (m_pollCommand == PollCommand::Version) {
 		if (!output.contains("Android Debug Bridge version")) {
-			TracePoll(QStringLiteral("invalid_version"), output);
 			PollFailed(tr("Invalid ADB version output: %1").arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
+			TracePoll(QStringLiteral("invalid_version"), output);
 			return;
 		}
 		m_versionChecked.insert(m_pollPath);
@@ -304,38 +380,57 @@ void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
 				versionLines.append(text);
 		}
 		emit diagnosticMessage(versionLines.join('\n'));
-		RunPoll();
+		SchedulePoll(0);
+		return;
+	}
+	if (m_pollCommand == PollCommand::StartServer) {
+		m_serverReady = true;
+		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
+		SchedulePoll(0);
 		return;
 	}
 
 	QStringList strDevices = ParseDevices(output);
-	if (m_tracePoll || strDevices != m_strDevices || m_pollElapsed.elapsed() >= kPollIntervalMs)
+	if (m_tracePoll || strDevices != m_strDevices || m_pollElapsed.elapsed() >= m_pollTiming.pollIntervalMs)
 		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
 	if (strDevices != m_strDevices) {
 		m_strDevices = strDevices;
 		emit devicesChanged(m_strDevices);
 	}
+	m_failureCount = 0;
+	m_retryDelayMs = 0;
+	if (m_recovering) TracePoll(QStringLiteral("recovered"));
+	SetRecovery(false);
 	UpdateAvailability(true, QString());
+	SchedulePoll(m_pollTiming.pollIntervalMs);
 }
 
 void AdbRunner::onPollError(const QString &error)
 {
 	m_pPollKill->stop();
-	if (!m_stopped) TracePoll(QStringLiteral("start_failed"), m_pPollProc->readAll(), error);
-	if (!m_stopped) PollFailed(tr("Cannot start ADB process: %1").arg(error));
+	m_pollActive = false;
+	if (m_stopped) return;
+	if (m_pollCancelled || FindAdbExecutable().path != m_pollPath) { SchedulePoll(0); return; }
+	PollFailed(tr("Cannot start ADB process: %1").arg(error));
+	TracePoll(QStringLiteral("start_failed"), m_pPollProc->readAll(), error);
 }
 
 void AdbRunner::onPollKillTimeout()
 {
-	if (m_pPollProc->state() == ProcessAdapter::NotRunning)
+	if (m_stopped || !m_pollActive || m_pPollProc->state() == ProcessAdapter::NotRunning)
 		return;
+	if (m_pollCommand == PollCommand::Devices && !m_pollSlow) {
+		m_pollSlow = true;
+		ClearPollDevices();
+		SetRecovery(true);
+		UpdateAvailability(false, {});
+		TracePoll(QStringLiteral("slow_query"));
+		m_pPollKill->start(std::max(1, m_pollTiming.hardTimeoutMs - int(m_pollRuntime.elapsed())));
+		return;
+	}
 	m_pollTimedOut = true;
 	TracePoll(QStringLiteral("timeout_kill_requested"));
 	m_pPollProc->kill();
-	const bool exited = m_pPollProc->waitForFinished(1000);
-	TracePoll(QStringLiteral("timeout"), m_pPollProc->readAll(),
-	          QStringLiteral("client_exited=%1").arg(exited));
-	if (!m_stopped) PollFailed(tr("ADB command timed out."));
 }
 
 void AdbRunner::SwitchToLoader()

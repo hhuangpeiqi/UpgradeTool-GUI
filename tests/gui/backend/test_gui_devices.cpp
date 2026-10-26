@@ -47,6 +47,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		gui::AppController controller(&disk);
 		auto *adb = controller.findChild<gui::AdbRunner *>();
 		CHECK(adb != nullptr);
+		if (adb) adb->Stop();
 		if (adb) adb->traceMessage(QStringLiteral("test-disk-trace"));
 		controller.language()->setMode("en");
 		for (int vendor : {0, 1}) {
@@ -101,6 +102,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 	// Vendor changes must refresh empty lists even when ADB never emits again.
 	{
 		gui::AppController controller(nullptr);
+		controller.findChild<gui::AdbRunner *>()->Stop();
 		controller.language()->setMode("en");
 		const QVariantMap diag{{"vendor", 2}, {"index", 1}, {"qualcommMode", QTQ_DIAG},
 			{"mode", "DIAG / USB IF 0"}, {"key", "qualcomm:0::1-3:if0:alt0"}};
@@ -149,6 +151,34 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		cycle(QStringLiteral("Found 2 ADB device(s)"), true);
 		controller.language()->setMode("auto");
 	}
+	{
+		// Startup/recovery is a status, not an error toast. Translate it on demand.
+		gui::AppController controller(nullptr);
+		controller.language()->setMode("en");
+		controller.setVendor(0);
+		CHECK(controller.deviceStatusText() == QStringLiteral("Starting ADB…"));
+		controller.language()->setMode("zh_CN");
+		CHECK(controller.deviceStatusText() == QStringLiteral("正在启动 ADB…"));
+		controller.language()->setMode("en");
+		int errors = 0;
+		QObject::connect(&controller, &gui::AppController::toastRequested,
+		                 [&](const QString &, bool error) { if (error) ++errors; });
+		CHECK(Await([&] { return errors == 1; }));
+		CHECK(controller.deviceStatusText() == QStringLiteral("ADB connection interrupted; retrying automatically…"));
+		controller.language()->setMode("zh_CN");
+		CHECK(controller.deviceStatusText() == QStringLiteral("ADB 连接异常，正在自动重试…"));
+		auto availability = [&](bool available, const QString &message) {
+			CHECK(QMetaObject::invokeMethod(&controller, "onAdbAvailabilityChanged", Qt::DirectConnection,
+				Q_ARG(bool, available), Q_ARG(QString, message)));
+		};
+		availability(false, {});
+		availability(false, QStringLiteral("connection reset"));
+		CHECK(errors == 1);
+		availability(true, {});
+		availability(false, QStringLiteral("another outage"));
+		CHECK(errors == 2);
+		controller.language()->setMode("auto");
+	}
 
     return failures;
 }
@@ -163,6 +193,7 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
 	// Status counts interfaces by semantic mode, independently of their details.
 	{
 		gui::AppController controller(nullptr);
+		controller.findChild<gui::AdbRunner *>()->Stop();
 		controller.language()->setMode("en");
 		controller.setVendor(2);
 		auto update = [&](const QVariantList &devices) {

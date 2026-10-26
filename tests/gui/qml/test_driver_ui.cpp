@@ -18,6 +18,7 @@
 int main(int argc, char **argv) {
     if (argc > 1) {
         const auto argument = QByteArray(argv[1]);
+        if (argument == "start-server") return 0;
         if (argument == "version") { std::printf("Android Debug Bridge version 1.0.41\n"); return 0; }
         if (argument == "devices") { std::printf("List of devices attached\n"); return 0; }
     }

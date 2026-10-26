@@ -1,6 +1,13 @@
 #include "QualcommUiTests.h"
 
 int main(int argc,char **argv) {
+    // Keep background ADB monitoring simulated across task stop/resume cycles too.
+    if (argc > 1) {
+        const auto command = QByteArray(argv[1]);
+        if (command == "version") { std::printf("Android Debug Bridge version 1.0.41\n"); return 0; }
+        if (command == "start-server") return 0;
+        if (command == "devices") { std::printf("List of devices attached\n"); return 0; }
+    }
     int failures = 0;
     auto Write = [&](const QString &path, const QByteArray &data) {
         QFile file(path); CHECK(file.open(QIODevice::WriteOnly)); CHECK(file.write(data) == data.size());
@@ -10,6 +17,7 @@ int main(int argc,char **argv) {
     qputenv("XDG_STATE_HOME",temporary.path().toUtf8());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temporary.path());
     QGuiApplication application(argc,argv);
+    qputenv("ADB", application.applicationFilePath().toUtf8());
     QCoreApplication::setApplicationName("UpgradeTool-GUI");
     QQuickStyle::setStyle("Basic");
     qmlRegisterUncreatableMetaObject(gui::Operations::staticMetaObject,"UpgradeTool",1,0,"Operations","Operation IDs");

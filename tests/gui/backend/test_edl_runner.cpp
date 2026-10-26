@@ -18,6 +18,7 @@ int main(int argc,char **argv) {
     if (argc > 1) {
         const auto args = app.arguments();
         if (args[1] == "devices") {
+            if (qEnvironmentVariableIsSet("EDL_TEST_SLOW_QUERY")) QThread::msleep(6000);
             const auto status = qgetenv("EDL_TEST_UNAUTHORIZED");
             std::printf("List of devices attached\nboard\t%s\n", status.isEmpty() ? "device" : status == "offline" ? "offline" : "unauthorized");
             return 0;
@@ -45,6 +46,14 @@ int main(int argc,char **argv) {
     for (const auto &endpoint : hooks.discover(app.applicationFilePath(), cancellation, commandError))
         authorized |= endpoint.kind == EdlEndpoint::Adb && endpoint.serial == "board";
     CHECK(authorized);
+    // Both read-only entrypoints may implicitly start ADB and need more than five seconds.
+    qputenv("EDL_TEST_SLOW_QUERY", "1");
+    authorized = false;
+    for (const auto &endpoint : hooks.discover(app.applicationFilePath(), cancellation, commandError))
+        authorized |= endpoint.kind == EdlEndpoint::Adb && endpoint.serial == "board";
+    CHECK(authorized);
+    CHECK(hooks.reboot(app.applicationFilePath(), "board", cancellation, commandError));
+    qunsetenv("EDL_TEST_SLOW_QUERY");
     CHECK(!hooks.reboot("/nonexistent/adb", "board", cancellation, commandError));
     cancellation->request_stop();
     CHECK(!hooks.reboot(app.applicationFilePath(), "board", cancellation, commandError));

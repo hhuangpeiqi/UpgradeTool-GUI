@@ -3164,6 +3164,14 @@
 <context>
     <name>gui::AdbRunner</name>
     <message>
+        <source>Starting ADB…</source>
+        <translation>正在启动 ADB…</translation>
+    </message>
+    <message>
+        <source>ADB connection interrupted; retrying automatically…</source>
+        <translation>ADB 连接异常，正在自动重试…</translation>
+    </message>
+    <message>
         <location filename="../AdbRunner.cpp" line="+261"/>
         <source>ADB command failed (%1): %2</source>
         <translation>ADB 命令失败（%1）：%2</translation>

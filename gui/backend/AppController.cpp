@@ -224,6 +224,9 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	        this, SLOT(onAdbDevicesChanged(QStringList)));
 	connect(m_pAdb, SIGNAL(availabilityChanged(bool, QString)),
 	        this, SLOT(onAdbAvailabilityChanged(bool, QString)));
+	connect(m_pAdb, &AdbRunner::recoveryStateChanged, this, [this](bool, const QString &) {
+		SetDeviceStatus();
+	});
 	connect(m_pAdb, &AdbRunner::diagnosticMessage, this, [this](const QString &message) {
 		AppendLog(message, false);
 	});
@@ -609,7 +612,8 @@ void AppController::SetDeviceStatus()
 				core::qualcomm::ModeLabel(static_cast<qtq_mode>(mode)));
 			parts << tr("%1 *%2").arg(label).arg(counts[mode]);
 		}
-		m_strDeviceStatus = parts.isEmpty() ? tr("No device found")
+		m_strDeviceStatus = parts.isEmpty() ? (m_pAdb->RecoveryMessage().isEmpty()
+			? tr("No device found") : m_pAdb->RecoveryMessage())
 			: tr("Interfaces found: %1").arg(parts.join(tr(", ")));
 		emit devicesChanged();
 		return;
@@ -641,6 +645,8 @@ void AppController::SetDeviceStatus()
 		             ? tr("ADB device found")
 		             : tr("Found %1 ADB device(s)").arg(m_strAdbDevices.size()));
 	}
+	if (strParts.isEmpty() && !m_pAdb->RecoveryMessage().isEmpty())
+		strParts << m_pAdb->RecoveryMessage();
 
 	m_strDeviceStatus = strParts.isEmpty() ? tr("No device found")
 	                                       : strParts.join(tr(", "));
@@ -1200,7 +1206,9 @@ void AppController::onAdbAvailabilityChanged(bool bAvailable, const QString &str
 {
 	m_bAdbAvailable = bAvailable;
 	if (m_diskLog) m_diskLog->Record("ADB availability: available=%d message=%s", bAvailable, strMessage.toUtf8().constData());
-	if (!bAvailable) {
+	if (bAvailable) m_adbOutageNotified = false;
+	if (!bAvailable && !strMessage.isEmpty() && !m_adbOutageNotified) {
+		m_adbOutageNotified = true;
 		AppendLog(strMessage, true);
 		emit toastRequested(strMessage, true);
 	}

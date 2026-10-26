@@ -1,4 +1,5 @@
 #include "application/BuildFeatures.h"
+#include "gui/AdbTiming.h"
 #if UPGRADE_TOOL_QUALCOMM
 #include "gui/EdlRunner.h"
 #include "gui/WindowsUsbDriver.h"
@@ -300,7 +301,7 @@ QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString
     for(const auto &e:endpoints) if(e.kind!=EdlEndpoint::Adb) result.append(e);
     if(adb.isEmpty() || cancel->stop_requested()) return result;
     QByteArray output;
-    if(!process(adb,{"devices","-l"},cancel,5000,output,error)) return result;
+    if(!process(adb,{"devices","-l"},cancel,kAdbReadTimeoutMs,output,error)) return result;
     for(const auto &line:QString::fromUtf8(output).split('\n')) {
         const auto fields=line.simplified().split(' ');
         if(fields.size()<2 || fields[1]!="device") continue;
@@ -450,7 +451,7 @@ EdlHooks DefaultEdlHooks() {
     };
     hooks.reboot=[](const QString &adb,const QString &serial,const EdlCancel &cancel,QString &error) {
         error.clear(); QByteArray output;
-        if(!process(adb,{"devices"},cancel,5000,output,error)) return false;
+        if(!process(adb,{"devices"},cancel,kAdbReadTimeoutMs,output,error)) return false;
         bool present=false;
         for(const auto &line:QString::fromUtf8(output).split('\n')) { const auto fields=line.simplified().split(' '); if(fields.size()>=2 && fields[0]==serial && fields[1]=="device") present=true; }
         if(!present) { error=EdlRunner::tr("The selected ADB device is disconnected or unauthorized."); return false; }
