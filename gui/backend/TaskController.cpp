@@ -94,10 +94,16 @@ void TaskController::finish() { setBusy(false); m_cancelRequested=false; }
 void TaskController::onStageProgress(const QString &stage,long long total,long long current,int overall) {
     const bool simulation = !m_job.steps.empty() && core::IsSimulation(m_job.steps.front());
     const QString label = simulation ? AppTr("Simulation: %1").arg(stage) : stage;
-    // Stage counters can be sectors, commands or files; they are not byte rates.
-    m_progressSpeed.clear();
-    m_progressTimer.invalidate();
-    setProgress(total > 0 ? qBound(0, static_cast<int>(100.0 * current / total), 100) : -1, label, label);
+    const bool allwinner = !m_job.steps.empty() && m_job.steps.front().vendor() == core::Vendor::Allwinner;
+    if (allwinner && total > 0) {
+        const auto call = current == 0 || !m_progressTimer.isValid() ? core::CallStep::CALL_FIRST : core::CallStep::CALL_MIDDLE;
+        onProgress(label, total, current, static_cast<int>(call));
+    } else {
+        // Other stage counters can be sectors, commands or files, not bytes.
+        m_progressSpeed.clear();
+        m_progressTimer.invalidate();
+        setProgress(total > 0 ? qBound(0, static_cast<int>(100.0 * current / total), 100) : -1, label, label);
+    }
     if (overall >= 0) setProgress(qBound(0, overall, 100), m_progressText, m_progressStage);
 }
 }

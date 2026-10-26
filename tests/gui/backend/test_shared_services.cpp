@@ -153,9 +153,46 @@ static void TestLocationsAndProgress() {
     tasks.onStageProgress("Write", 10, 1, 42);
     CHECK(tasks.progressStage() == "Simulation: Write" && tasks.progressValue() == 42 && tasks.progressSpeed().isEmpty());
 }
+static void TestAllwinnerProgress() {
+    gui::TaskController tasks;
+    constexpr long long total = 8 * 1024 * 1024;
+    for (const auto operation : {core::Operation::AllwinnerFlash, core::Operation::AllwinnerRaw,
+                                 core::Operation::AllwinnerExtract, core::Operation::AllwinnerConvert}) {
+        core::TaskJob job; job.steps.emplace_back(operation);
+        tasks.start(job);
+        CHECK(tasks.progressSpeed().isEmpty());
+        // Allwinner can report its first chunk without an initial zero event.
+        tasks.onStageProgress("Writing rootfs", total, total / 4, 40);
+        CHECK(tasks.progressSpeed().isEmpty() && tasks.progressValue() == 40);
+        QThread::msleep(2);
+        tasks.onStageProgress("Writing rootfs", total, total / 2, 58);
+        CHECK(tasks.progressStage() == "Writing rootfs" && tasks.progressValue() == 58);
+        CHECK(tasks.progressSpeed().contains("/s") && tasks.progressSpeed().contains("remaining"));
+        tasks.onStageProgress("Writing boot", total, total / 4, 70);
+        CHECK(tasks.progressSpeed().isEmpty());
+        QThread::msleep(2);
+        tasks.onStageProgress("Writing boot", total, total, 95);
+        CHECK(tasks.progressSpeed().contains("/s") && !tasks.progressSpeed().contains("remaining"));
+        tasks.resetProgress(); // Also used between targets in batch operations.
+        CHECK(tasks.progressSpeed().isEmpty());
+        tasks.onStageProgress("Writing boot", total, total / 4, -1);
+        CHECK(tasks.progressSpeed().isEmpty() && tasks.progressValue() == 25);
+        QThread::msleep(2);
+        tasks.onStageProgress("Writing boot", total, total / 2, -1);
+        CHECK(tasks.progressSpeed().contains("/s") && tasks.progressValue() == 50);
+        tasks.onStageProgress("Waiting", 0, 0, -1);
+        CHECK(tasks.progressSpeed().isEmpty() && tasks.progressValue() == -1);
+        tasks.onStageProgress("Writing boot", total, total / 2, 80);
+        CHECK(tasks.progressSpeed().isEmpty());
+        QThread::msleep(2);
+        tasks.onStageProgress("Writing boot", total, total, 100);
+        CHECK(tasks.progressSpeed().contains("/s") && tasks.progressValue() == 100);
+        tasks.finish();
+    }
+}
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
-    TestCommands(); TestInspections(); TestLocationsAndProgress();
+    TestCommands(); TestInspections(); TestLocationsAndProgress(); TestAllwinnerProgress();
     std::printf("Shared services: %d failures\n", failures);
     return failures ? 1 : 0;
 }
