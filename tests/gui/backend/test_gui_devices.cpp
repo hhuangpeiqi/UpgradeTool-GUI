@@ -50,6 +50,10 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		if (adb) adb->Stop();
 		if (adb) adb->traceMessage(QStringLiteral("test-disk-trace"));
 		controller.language()->setMode("en");
+		// Stop clears recovery state without publishing a new availability event.
+		// Supply the initial state explicitly, as with subsequent updates below.
+		CHECK(QMetaObject::invokeMethod(&controller, "onAdbAvailabilityChanged", Qt::DirectConnection,
+			Q_ARG(bool, false), Q_ARG(QString, QString())));
 		for (int vendor : {0, 1}) {
 			controller.setVendor(vendor);
 			CHECK(controller.deviceStatusText() == QString::fromUtf8("No device found"));

@@ -4,6 +4,7 @@
 #include "gui/backend/LanguageManager.h"
 #include "gui/QtObserver.h"
 #include "gui/OperationSpec.h"
+#include "gui/AdbRunner.h"
 #include <QGuiApplication>
 #include <QTemporaryDir>
 #include <QFile>
@@ -58,13 +59,20 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 			CHECK(controller.switching() && controller.tasks()->progressValue() == -1);
 			CHECK(controller.tasks()->progressSpeed().isEmpty());
 			controller.switchToLoader(); // An overlapping request must not restart the switch.
-			CHECK(Await([&] { return !controller.tasks()->busy(); }));
-			CHECK(!controller.switching() && controller.tasks()->progressValue() == 100);
-			controller.switchToLoader();
+			CHECK(controller.tasks()->busy() && controller.switching());
 			CHECK(controller.tasks()->progressValue() == -1);
 			controller.cancel();
 			CHECK(!controller.switching() && !controller.tasks()->busy());
 			CHECK(controller.tasks()->progressValue() == 0);
+			// Exercise controller completion without real USB hardware. Port matching
+			// and Loader re-enumeration are covered by test_adb_runner.
+			controller.switchToLoader();
+			CHECK(controller.switching() && controller.tasks()->busy());
+			auto *adb = controller.findChild<gui::AdbRunner *>();
+			CHECK(adb != nullptr);
+			if (adb) adb->finished(true, QStringLiteral("Loader device detected on the target USB port."));
+			CHECK(!controller.switching() && !controller.tasks()->busy());
+			CHECK(controller.tasks()->progressValue() == 100);
 		}
 		if (originalAdb.isNull()) qunsetenv("ADB"); else qputenv("ADB", originalAdb);
 	}
