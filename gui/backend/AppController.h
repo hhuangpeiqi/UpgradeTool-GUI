@@ -33,6 +33,7 @@ namespace platform { class FileLog; }
 namespace gui {
 
 class AdbRunner;
+class InspectionQueue;
 class EngineWorker;
 class QtObserver;
 
@@ -54,6 +55,8 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(QStringList deviceLabels READ deviceLabels NOTIFY devicesChanged)
 	Q_PROPERTY(QString deviceStatusText READ deviceStatusText NOTIFY devicesChanged)
 	Q_PROPERTY(bool hasDevice READ hasDevice NOTIFY devicesChanged)
+    Q_PROPERTY(bool hasFlashTarget READ hasFlashTarget NOTIFY devicesChanged)
+    Q_PROPERTY(QString connectionState READ connectionState NOTIFY devicesChanged)
     Q_PROPERTY(QVariantMap rockchipMaskromEligibility READ rockchipMaskromEligibility NOTIFY devicesChanged)
 	Q_PROPERTY(QVariantMap qualcommEligibility READ qualcommEligibility NOTIFY devicesChanged)
 	Q_PROPERTY(int deviceIndex READ deviceIndex WRITE setDeviceIndex NOTIFY deviceIndexChanged)
@@ -109,7 +112,9 @@ public:
 	QStringList deviceLabels() const;
 	QString deviceStatusText() const { return m_strDeviceStatus; }
 	bool hasDevice() const { return !m_deviceModel->rows().isEmpty(); }
-	QVariantMap qualcommEligibility() const;
+	bool hasFlashTarget() const;
+    QString connectionState() const;
+    QVariantMap qualcommEligibility() const;
     QVariantMap rockchipMaskromEligibility() const;
 
 	int deviceIndex() const { return m_iDeviceIndex; }
@@ -246,6 +251,7 @@ private:
 	QtObserver *m_pObserver;
 	QThread *m_pThread;
 	AdbRunner *m_pAdb;
+    InspectionQueue *m_inspections;
 	ConfigStore *m_pConfig;
 	ThemeManager *m_pTheme;
 	LanguageManager *m_pLanguage;

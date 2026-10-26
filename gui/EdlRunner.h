@@ -11,6 +11,7 @@
 #include <memory>
 class QThread;
 namespace gui {
+class AdbService;
 // An enumeration snapshot. Candidate modes never confirm a protocol session.
 struct EdlEndpoint {
     QString id, label, path, serial, location, instance, driverService, accessReason;
@@ -39,6 +40,7 @@ struct EdlHooks {
     // Returns whether the reboot process was started (disconnect can make its exit code unreliable).
     std::function<bool(const QString &, const QString &, const EdlCancel &, QString &)> reboot;
     std::function<QVector<EdlEndpoint>()> scan;
+    std::function<QVector<EdlEndpoint>(const QString &, const EdlCancel &, QString &)> discoverFresh;
 };
 class EdlRunner : public QObject {
     Q_OBJECT
@@ -113,7 +115,7 @@ private:
     State m_state = Idle;
     QString m_message, m_discoveryError;
 };
-EdlHooks DefaultEdlHooks();
+EdlHooks DefaultEdlHooks(AdbService *service = nullptr);
 // Match a USB interface to one native binding, never to a sibling interface.
 bool BindEdlNativeInterface(EdlEndpoint &, const QVector<EdlEndpoint> &);
 }

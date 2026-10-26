@@ -127,7 +127,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 				CHECK(controller.vendor() == vendor);
 				CHECK(notifications > before);
 				const QString expected = vendor == 2
-					? (qualcomm ? QStringLiteral("Interfaces found: DIAG *1") : QStringLiteral("No device found"))
+					? (qualcomm ? QStringLiteral("Interfaces found: DIAG *1") : adbStatus)
 					: flashDevices ? (vendor == 0 ? QStringLiteral("Found Loader device")
 						: QStringLiteral("Found FEL/FES device")) : adbStatus;
 				CHECK(controller.deviceStatusText() == expected);

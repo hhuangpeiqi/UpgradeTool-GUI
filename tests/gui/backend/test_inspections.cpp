@@ -1,3 +1,5 @@
+#include "gui/InspectionQueue.h"
+#include "tests/support/qt/Await.h"
 #include "gui/backend/RockchipController.h"
 #include "gui/backend/AllwinnerController.h"
 #include "gui/EngineWorker.h"
@@ -84,6 +86,16 @@ int main(int argc, char **argv) {
         CHECK(file.open(QIODevice::WriteOnly));
         CHECK(file.write(reinterpret_cast<const char *>(boot.data()), boot.size()) == qint64(boot.size()));
         file.close();
+        {
+            gui::InspectionQueue queue;
+            gui::RockchipController queued(nullptr);
+            QObject::connect(&queued, &gui::RockchipController::inspectRequested, &queue,
+                [&](const core::InspectionRequest &request) { queue.inspect(&queued, request); });
+            QObject::connect(&queue, &gui::InspectionQueue::inspectionFinished, &queued, &gui::RockchipController::applyInspection);
+            queued.setFirmware(path);
+            CHECK(Await([&] { return queued.firmwareValid(); }));
+            queued.cancelInspections();
+        }
         gui::EngineWorker worker(nullptr);
         gui::RockchipController controller(nullptr);
         QObject::connect(&controller, &gui::RockchipController::inspectRequested, &worker, &gui::EngineWorker::inspect);

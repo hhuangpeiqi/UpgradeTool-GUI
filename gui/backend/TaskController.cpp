@@ -92,13 +92,12 @@ void TaskController::start(core::TaskJob job) {
 void TaskController::cancel() { m_cancelRequested=true; if(m_job.cancelled) m_job.cancelled->request_stop(); }
 void TaskController::finish() { setBusy(false); m_cancelRequested=false; }
 void TaskController::onStageProgress(const QString &stage,long long total,long long current,int overall) {
-    const bool qualcomm=!m_job.steps.empty() && m_job.steps.front().vendor()==core::Vendor::Qualcomm;
-    if(qualcomm) {
-        m_progressSpeed=stage;
-        const bool simulation=m_job.steps.front().qualcomm().dryRun || m_job.steps.front().operation()==core::Operation::QualcommCreateDigests;
-        const QString label = simulation ? AppTr("Simulation: %1").arg(stage) : stage;
-        setProgress(total>0?qBound(0,static_cast<int>(100.0*current/total),100):-1,label,label);
-    } else onProgress(stage,total,current,current==0?static_cast<int>(core::CallStep::CALL_FIRST):static_cast<int>(core::CallStep::CALL_MIDDLE));
-    if(overall>=0) setProgress(overall,m_progressText,m_progressStage);
+    const bool simulation = !m_job.steps.empty() && core::IsSimulation(m_job.steps.front());
+    const QString label = simulation ? AppTr("Simulation: %1").arg(stage) : stage;
+    // Stage counters can be sectors, commands or files; they are not byte rates.
+    m_progressSpeed.clear();
+    m_progressTimer.invalidate();
+    setProgress(total > 0 ? qBound(0, static_cast<int>(100.0 * current / total), 100) : -1, label, label);
+    if (overall >= 0) setProgress(qBound(0, overall, 100), m_progressText, m_progressStage);
 }
 }

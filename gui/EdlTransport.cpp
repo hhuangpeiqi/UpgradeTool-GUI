@@ -1,5 +1,7 @@
+#include "platform/WindowsUsb.h"
+#include "platform/UsbLocation.h"
 #include "application/BuildFeatures.h"
-#include "gui/AdbTiming.h"
+#include "gui/AdbService.h"
 #if UPGRADE_TOOL_QUALCOMM
 #include "gui/EdlRunner.h"
 #include "gui/WindowsUsbDriver.h"
@@ -33,9 +35,7 @@ namespace {
 // Use EdlRunner::tr directly at each call site so lupdate resolves the class
 // context ("gui::EdlRunner") rather than the enclosing namespace.
 QString usbLocation(int bus, const QVector<int> &ports) {
-    if (ports.isEmpty()) return {};
-    QStringList parts; for (int p : ports) parts << QString::number(p);
-    return QStringLiteral("usb:%1-%2").arg(bus).arg(parts.join('.'));
+    return QString::fromStdString(platform::UsbTopologyLocation(bus, {ports.begin(), ports.end()}));
 }
 bool diagName(const QString &text) { return qtq_diag_name(text.toUtf8().constData()); }
 QString hexId(const EdlEndpoint &e) { return QString("%1:%2").arg(e.vid,4,16,QLatin1Char('0')).arg(e.pid,4,16,QLatin1Char('0')); }
@@ -62,17 +62,10 @@ void linuxIdentity(EdlEndpoint &e) {
 #endif
 #ifdef Q_OS_WIN
 QString winProperty(HDEVINFO set, SP_DEVINFO_DATA &info, DWORD property, bool multi = false) {
-    DWORD type = 0, size = 0;
-    SetupDiGetDeviceRegistryPropertyW(set, &info, property, &type, nullptr, 0, &size);
-    if (!size || size > 65536) return {};
-    std::vector<wchar_t> value(size / sizeof(wchar_t) + 2, 0);
-    if (!SetupDiGetDeviceRegistryPropertyW(set, &info, property, &type, reinterpret_cast<PBYTE>(value.data()), size, nullptr)) return {};
-    if (multi && type == REG_MULTI_SZ) {
-        QStringList values;
-        for (const wchar_t *p=value.data(); *p; p+=wcslen(p)+1) values.append(QString::fromWCharArray(p));
-        return values.join('|');
-    }
-    return QString::fromWCharArray(value.data());
+    const auto values = platform::WindowsUsbProperty(set, info, property);
+    QStringList result;
+    for (const auto &value : values) result.append(QString::fromStdWString(value));
+    return multi ? result.join('|') : result.value(0);
 }
 QVector<EdlEndpoint> nativeDevices() {
     QVector<EdlEndpoint> result;
@@ -99,21 +92,10 @@ QVector<EdlEndpoint> nativeDevices() {
         e.driverService = service;
         // Physical location paths survive a PID/driver/COM-number change.
         e.location = winProperty(set,info,SPDRP_LOCATION_PATHS).toUpper();
-        e.location.remove(QRegularExpression("#USBMI\\([^)]*\\).*$"));
+        e.location = QString::fromStdString(platform::NormalizeUsbLocation(e.location.toStdString()));
         auto portMatches = QRegularExpression("#USB\\(([0-9]+)\\)").globalMatch(e.location);
         while (portMatches.hasNext()) e.ports.append(portMatches.next().captured(1).toInt());
-        DEVINST dev = info.DevInst;
-        for (int depth = 0; depth < 8; ++depth) {
-            wchar_t instance[MAX_DEVICE_ID_LEN] = {};
-            if (CM_Get_Device_IDW(dev,instance,MAX_DEVICE_ID_LEN,0) != CR_SUCCESS) break;
-            const QString id = QString::fromWCharArray(instance);
-            if (id.startsWith("USB\\",Qt::CaseInsensitive) && !id.contains("&MI_",Qt::CaseInsensitive)) {
-                e.serial = id.section('\\',-1);
-                if (e.serial.contains('&')) e.serial.clear();
-                break;
-            }
-            DEVINST parent; if (CM_Get_Parent(&parent,dev,0) != CR_SUCCESS) break; dev = parent;
-        }
+        e.serial = QString::fromStdWString(platform::WindowsUsbSerial(info.DevInst));
         HKEY key = SetupDiOpenDevRegKey(set,&info,DICS_FLAG_GLOBAL,0,DIREG_DEV,KEY_READ);
         if (key != INVALID_HANDLE_VALUE) {
             wchar_t port[256] = {}; DWORD bytes = sizeof(port), type = 0;
@@ -227,15 +209,7 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
         e.bus=d.bus; e.address=d.address; e.accessError=d.access_error;
         for(unsigned int j=0;j<d.port_count;++j) e.ports.append(d.ports[j]);
         e.location=usbLocation(e.bus,e.ports);
-#ifdef Q_OS_MACOS
-        quint32 location = quint32(e.bus) << 24;
-        bool representable = e.ports.size() <= 6;
-        for (int port=0; port<e.ports.size() && port<6; ++port) {
-            if (e.ports[port] > 15) representable = false;
-            location |= quint32(e.ports[port]) << (20 - 4*port);
-        }
-        if (representable) e.location=QString("iokit:%1").arg(location,8,16,QLatin1Char('0'));
-#endif
+
         e.serial=QString::fromUtf8(d.serial);
         QSet<QString> nativeLocations;
         for(const auto &n:native)
@@ -280,32 +254,28 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
     return result;
 }
 
-bool process(const QString &exe,const QStringList &args,const EdlCancel &cancel,int timeout,QByteArray &output,QString &error,bool *started=nullptr) {
-    if (cancel->stop_requested()) { error=EdlRunner::tr("ADB command cancelled or timed out."); return false; }
-    auto child=platform::MakeAdbProcess();
-    if(started) *started=false;
-    std::vector<std::string> arguments; for(const auto &arg:args) arguments.push_back(arg.toStdString());
-    try { child->Start(exe.toStdString(),arguments); if(started) *started=true; }
-    catch(const std::exception &e) { error=EdlRunner::tr("ADB failed: %1").arg(QString::fromUtf8(e.what())); return false; }
-    const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(timeout);
-    while(child->Running() && std::chrono::steady_clock::now()<deadline && !cancel->stop_requested()) {
-        child->Poll(); if(child->Running()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-    if(child->Running()) { child->Kill(); error=EdlRunner::tr("ADB command cancelled or timed out."); return false; }
-    output=QByteArray::fromStdString(child->TakeOutput());
-    if(!child->NormalExit() || child->ExitCode()!=0) { error=EdlRunner::tr("ADB failed: %1").arg(QString::fromLocal8Bit(output)); return false; }
-    return true;
+bool process(AdbService *service, const QString &exe, const QStringList &args, const EdlCancel &cancel,
+             int timeout, QByteArray &output, QString &error, bool *started = nullptr) {
+    const auto result = service ? service->executeBlocking(exe, args, cancel, timeout)
+                                : AdbService::RunCommand(exe, args, cancel, timeout);
+    if (started) *started = result.started;
+    output = result.output; error = result.error;
+    return result.succeeded();
 }
-QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString &error) {
+QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString &error, AdbService *service, bool fresh) {
     auto endpoints=enumerate(cancel,error); QVector<EdlEndpoint> result;
     for(const auto &e:endpoints) if(e.kind!=EdlEndpoint::Adb) result.append(e);
     if(adb.isEmpty() || cancel->stop_requested()) return result;
     QByteArray output;
-    if(!process(adb,{"devices","-l"},cancel,kAdbReadTimeoutMs,output,error)) return result;
-    for(const auto &line:QString::fromUtf8(output).split('\n')) {
-        const auto fields=line.simplified().split(' ');
-        if(fields.size()<2 || fields[1]!="device") continue;
-        EdlEndpoint e; e.kind=EdlEndpoint::Adb; e.serial=fields[0]; e.id="adb:"+e.serial; e.label="ADB — "+e.serial;
+    QVector<AdbDevice> devices;
+    if (service && !fresh) devices = service->snapshot();
+    else {
+        if (!process(service, adb, {"devices", "-l"}, cancel, kAdbReadTimeoutMs, output, error)) return result;
+        devices = AdbService::ParseDevices(output);
+    }
+    for(const auto &device : devices) {
+        if (!device.authorized()) continue;
+        EdlEndpoint e; e.kind=EdlEndpoint::Adb; e.serial=device.serial; e.id="adb:"+e.serial; e.label="ADB — "+e.serial;
         QVector<EdlEndpoint> matches;
         for(const auto &candidate:endpoints) if(candidate.kind==EdlEndpoint::Adb && candidate.serial==e.serial) matches.append(candidate);
         if(matches.size()==1) { e.location=matches[0].location; e.bus=matches[0].bus; e.ports=matches[0].ports; }
@@ -316,7 +286,7 @@ QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString
             if(locations.size()==1) e.location=*locations.begin();
         }
 #ifdef Q_OS_LINUX
-        if(e.location.isEmpty()) for(const auto &field:fields) if(field.startsWith("usb:")) e.location=field;
+        if(e.location.isEmpty()) e.location=device.usb;
 #endif
         result.append(e);
     }
@@ -435,9 +405,14 @@ public:
 };
 
 }
-EdlHooks DefaultEdlHooks() {
+EdlHooks DefaultEdlHooks(AdbService *service) {
     EdlHooks hooks;
-    hooks.discover=discover;
+    hooks.discover=[service](const QString &adb, const EdlCancel &cancel, QString &error) {
+        return discover(adb, cancel, error, service, false);
+    };
+    hooks.discoverFresh=[service](const QString &adb, const EdlCancel &cancel, QString &error) {
+        return discover(adb, cancel, error, service, true);
+    };
     hooks.openDiag=[](const EdlEndpoint &e,const EdlCancel &cancel,QString &error) -> std::unique_ptr<DiagSession> {
         error.clear(); if(cancel->stop_requested()) return {};
         if(e.kind==EdlEndpoint::Serial) {
@@ -449,14 +424,19 @@ EdlHooks DefaultEdlHooks() {
         if(!session->valid()) return {};
         return std::unique_ptr<DiagSession>(session.release());
     };
-    hooks.reboot=[](const QString &adb,const QString &serial,const EdlCancel &cancel,QString &error) {
+    hooks.reboot=[service](const QString &adb,const QString &serial,const EdlCancel &cancel,QString &error) {
         error.clear(); QByteArray output;
-        if(!process(adb,{"devices"},cancel,kAdbReadTimeoutMs,output,error)) return false;
+        QVector<AdbDevice> devices;
+        if (service) devices = service->snapshot();
+        else {
+            if (!process(service, adb, {"devices"}, cancel, kAdbReadTimeoutMs, output, error)) return false;
+            devices = AdbService::ParseDevices(output);
+        }
         bool present=false;
-        for(const auto &line:QString::fromUtf8(output).split('\n')) { const auto fields=line.simplified().split(' '); if(fields.size()>=2 && fields[0]==serial && fields[1]=="device") present=true; }
+        for (const auto &device : devices) if (device.serial == serial && device.authorized()) present = true;
         if(!present) { error=EdlRunner::tr("The selected ADB device is disconnected or unauthorized."); return false; }
         bool started=false;
-        process(adb,{"-s",serial,"reboot","edl"},cancel,10000,output,error,&started);
+        process(service, adb,{"-s",serial,"reboot","edl"},cancel,10000,output,error,&started);
         return started;
     };
     hooks.scan=[] {
@@ -483,7 +463,7 @@ EdlHooks DefaultEdlHooks() {
 #else
 #include "gui/EdlRunner.h"
 namespace gui {
-EdlHooks DefaultEdlHooks() {
+EdlHooks DefaultEdlHooks(AdbService *) {
     EdlHooks hooks;
     hooks.discover=[](const QString &,const EdlCancel &,QString &error) { error=EdlRunner::tr("Qualcomm backend is not available"); return QVector<EdlEndpoint>{}; };
     hooks.openDiag=[](const EdlEndpoint &,const EdlCancel &,QString &error)->std::unique_ptr<DiagSession> { error=EdlRunner::tr("Qualcomm backend is not available"); return {}; };

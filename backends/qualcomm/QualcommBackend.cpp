@@ -110,7 +110,7 @@ OperationResult QualcommBackend::Execute(const OperationRequest &request, const 
     }
     if (request.operation()== Operation::QualcommProvision && (o.storage != QualcommStorage::Ufs))
         return fail(ErrorCode::InvalidInput, "UFS provisioning requires UFS storage");
-    r.dry_run = o.dryRun || request.operation()== Operation::QualcommCreateDigests;
+    r.dry_run = IsSimulation(request);
     if (request.operation()== Operation::QualcommCreateDigests && o.digestDir.empty())
         return fail(ErrorCode::InvalidInput, "Select a digest output directory");
     std::string package = o.package + (o.selector.empty() ? "" : "::" + o.selector);

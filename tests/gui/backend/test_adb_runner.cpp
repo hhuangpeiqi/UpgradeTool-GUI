@@ -66,6 +66,10 @@ static int FakeAdb(QStringList args)
 	}
 	if (args == QStringList{"start-server"}) return 0;
 	if (args.value(0) == "devices") {
+		if (mode == "loader-unauthorized") {
+			std::printf("List of devices attached\nboard unauthorized\n");
+			return 0;
+		}
 		if (mode == "poll-fail") {
 			std::printf("test server error\n%s\nfailure-detail-tail\n%s\nomitted-tail\n",
 			            QByteArray(2048, 'x').constData(), QByteArray(70 * 1024, 'y').constData());
@@ -106,6 +110,8 @@ static int FakeAdb(QStringList args)
 		return 1;
 	}
 	Write(dir + "/requested", "1");
+	if (mode == "loader-disconnect") return 1;
+	if (mode == "loader-hang") QThread::msleep(1500);
 	if (mode == "hang")
 		QThread::msleep(1500);
 	return 0;
@@ -158,12 +164,12 @@ int main(int argc, char **argv)
 		CHECK(traces.join('\n').contains("Installed as C:"));
 		const auto initialTraceCount = traces.size();
 		const auto initialPollCount = Read(dir.filePath("log")).count("devices");
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return Read(dir.filePath("log")).count("devices") > initialPollCount; }));
 		for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
 		CHECK(traces.size() == initialTraceCount); // Healthy, unchanged polls do not fill the disk.
 		qputenv("AW_TEST_MODE", "poll-fail");
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return !available && runner.Devices().isEmpty(); }));
 		CHECK(error.contains("test server error"));
 		CHECK(!error.contains("failure-detail-tail"));
@@ -174,21 +180,21 @@ int main(int argc, char **argv)
 		CHECK(failedTrace.value("output_truncated").toBool());
 		CHECK(failedTrace.value("detail").toString().contains("exit_code=7"));
 		const int failedCount = availability;
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return traces.count() > initialTraceCount + 1 && traces.last().contains("\"event\":\"failed\"") && Read(dir.filePath("log")).count("devices") >= 4; }));
 		// Wait for that process to finish before checking duplicate-error suppression.
 		for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
 		CHECK(availability == failedCount);
 		qputenv("AW_TEST_MODE", "poll-ok");
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
 		qputenv("AW_TEST_MODE", "poll-hang");
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return QFile::exists(dir.filePath("hanging")); }));
-		QMetaObject::invokeMethod(&runner, "onPollKillTimeout");
+		QMetaObject::invokeMethod(runner.service(), "onPollKillTimeout");
 		CHECK(!available && runner.Devices().isEmpty() && error.isEmpty());
 		CHECK(traces.last().contains("\"event\":\"slow_query\""));
-		QMetaObject::invokeMethod(&runner, "onPollKillTimeout");
+		QMetaObject::invokeMethod(runner.service(), "onPollKillTimeout");
 		CHECK(Await([&] { return error.contains("timed out"); }));
 		CHECK(traces.join('\n').contains("\"event\":\"timeout_kill_requested\""));
 		CHECK(traces.last().contains("\"event\":\"timeout\""));
@@ -197,22 +203,22 @@ int main(int argc, char **argv)
 		CHECK(diskFiles.size() == 1);
 		CHECK(Read(QDir(diskDir).filePath(diskFiles.value(0))).contains("daemon startup still waiting"));
 		qputenv("AW_TEST_MODE", "poll-ok");
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return available; }));
 		CHECK(diagnostics == 1 && Read(dir.filePath("log")).count("version") == 1);
 		qputenv("ADB", dir.filePath("missing-adb").toUtf8());
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return !available && error.contains("Cannot start ADB process"); }));
 		CHECK(traces.last().contains("\"event\":\"start_failed\""));
 		CHECK(runner.Devices().isEmpty());
 		qputenv("ADB", QCoreApplication::applicationFilePath().toUtf8());
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return available && !runner.Devices().isEmpty(); }));
 		CHECK(diagnostics == 1);
 		runner.Stop();
 		const int pollsBeforeResume = Read(dir.filePath("log")).count("devices");
 		runner.Resume();
-		QMetaObject::invokeMethod(&runner, "onPollTick");
+		QMetaObject::invokeMethod(runner.service(), "onPollTick");
 		CHECK(Await([&] { return Read(dir.filePath("log")).count("devices") > pollsBeforeResume; }));
 		runner.Stop();
 	}
@@ -234,7 +240,7 @@ int main(int argc, char **argv)
 	                    const QString &expectedCommand) {
 		QTemporaryDir dir;
 		qputenv("AW_TEST_DIR", dir.path().toUtf8());
-		qputenv("AW_TEST_MODE", mode.toUtf8());
+		qputenv("AW_TEST_MODE", mode == "missing" ? QByteArray("android") : mode.toUtf8());
 		int completed = 0;
 		bool ok = false;
 		QString message;
@@ -243,6 +249,9 @@ int main(int argc, char **argv)
 			gui::AdbRunner runner(
 			    nullptr,
 			    [&](bool readSerial) {
+                    if (qEnvironmentVariable("AW_TEST_MODE") == "loader") {
+                        gui::AdbUsbDevice d{1, {5, 4}, "board", false}; d.loader = !readSerial; return QVector<gui::AdbUsbDevice>{d};
+                    }
 				    if (mode == "unmapped")
 					    return QVector<gui::AdbUsbDevice>{};
 				    const bool requested = QFile::exists(dir.path() + "/requested");
@@ -273,6 +282,7 @@ int main(int argc, char **argv)
 			});
 			runner.Start();
 			CHECK(Await([&] { return !runner.Devices().isEmpty(); }));
+            if (mode == "missing") qputenv("AW_TEST_MODE", mode.toUtf8());
 			runner.SwitchToFel(method);
 			if (mode != "cancel")
 				runner.SwitchToLoader(); // An overlapping switch must not change the selected operation.
@@ -336,6 +346,39 @@ int main(int argc, char **argv)
 	scenario("normal-reboot", Method::Auto, false, "adb");
 	scenario("unmapped", Method::Auto, false, "adb");
 	scenario("duplicate", Method::Auto, false, "adb");
+    for (const QString mode : {"loader-good", "loader-disconnect", "loader-hang", "loader-maskrom",
+                               "loader-wrong-port", "loader-duplicate", "loader-unmapped", "loader-location-conflict",
+                               "loader-unauthorized", "loader-no-device"}) {
+        QTemporaryDir dir;
+        qputenv("AW_TEST_DIR", dir.path().toUtf8());
+        qputenv("AW_TEST_MODE", "loader-good");
+        gui::AdbRunner runner(nullptr, [&](bool readSerial) {
+            if (readSerial && mode == "loader-unmapped") return QVector<gui::AdbUsbDevice>{};
+            gui::AdbUsbDevice device{1, {5, 4}, "board", false};
+            if (mode == "loader-location-conflict") device.location = readSerial
+                ? "PCIROOT(0)#USBROOT(0)#USB(5)#USB(4)" : "PCIROOT(1)#USBROOT(0)#USB(5)#USB(4)";
+            device.loader = !readSerial && QFile::exists(dir.filePath("requested")) &&
+                mode != "loader-maskrom" && mode != "loader-no-device";
+            if (!readSerial && mode == "loader-wrong-port") device.ports = {5, 2};
+            if (device.loader && mode == "loader-duplicate") return QVector<gui::AdbUsbDevice>{device, device};
+            return QVector<gui::AdbUsbDevice>{device};
+        }, 200, 650);
+        int completed = 0; bool ok = false;
+        QObject::connect(&runner, &gui::AdbRunner::finished, [&](bool result, const QString &) { ++completed; ok = result; });
+        runner.Start(); CHECK(Await([&] { return runner.Devices() == QStringList{"board"}; }));
+        qputenv("AW_TEST_MODE", mode.toUtf8());
+        runner.SwitchToLoader();
+        CHECK(Await([&] { return completed == 1; }));
+        const bool expected = mode == "loader-good" || mode == "loader-disconnect" || mode == "loader-hang";
+        CHECK(ok == expected);
+        runner.Stop();
+        int reboots = 0;
+        for (const auto &line : Read(dir.filePath("log")).split('\n')) {
+            const auto args = QJsonDocument::fromJson(line).array();
+            if (args.size() == 4 && args[2] == "reboot" && args[3] == "loader") ++reboots;
+        }
+        CHECK(reboots == (mode == "loader-unauthorized" ? 0 : 1));
+    }
 #ifdef Q_OS_UNIX
 	// Execute the actual generated T3 shell command against harmless local substitutes.
 	QTemporaryDir shellDir;

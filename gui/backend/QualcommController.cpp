@@ -45,11 +45,21 @@ QString contextFor(core::Operation op) {
     default: return {};
     }
 }
+core::OperationRequest policyRequest(core::Operation op, const QVariantMap &values) {
+    core::OperationRequest request(op);
+    auto &options = request.qualcomm();
+    const bool firehose = op == core::Operation::QualcommFlash || op == core::Operation::QualcommRaw ||
+        op == core::Operation::QualcommProvision || op == core::Operation::QualcommCreateDigests;
+    options.dryRun = op == core::Operation::QualcommCreateDigests || (firehose && values.value("dryRun").toBool());
+    if (op == core::Operation::QualcommKickstart) options.node = values.value("node").toString().trimmed().toStdString();
+    return request;
+}
 bool readable(const std::string &path) {
     QFileInfo f(QString::fromStdString(path)); return f.isFile() && f.isReadable();
 }
 }
-QualcommController::QualcommController(QObject *parent) : QObject(parent), m_results(this) {
+QualcommController::QualcommController(QObject *parent, InspectionQueue *inspections)
+    : QObject(parent), m_results(this), m_inspections(inspections ? inspections : new InspectionQueue(this)), m_ownsInspections(!inspections) {
     m_common = {{"storage", 3}, {"transport", -1}, {"debug", false}};
     for (const auto &context : contexts) {
         m_contextResults[context] = new KeyValueModel(this);
@@ -167,16 +177,24 @@ void QualcommController::moveXml(int index, int offset, const QString &context) 
     if (m_locked || index < 0 || index >= files.size() || to < 0 || to >= files.size()) return;
     files.move(index, to); setContextValue(context, "xmlFiles", files);
 }
-QualcommController::~QualcommController() { m_inspector.request_stop(); if(m_inspector.joinable()) m_inspector.join(); }
+void QualcommController::cancelInspections() {
+    ++m_inspectionGeneration;
+    if (m_inspection) m_inspection->request_stop();
+}
+QualcommController::~QualcommController() {
+    cancelInspections();
+    if (m_ownsInspections) delete m_inspections;
+}
 void QualcommController::inspect() {
     const auto generation=++m_inspectionGeneration;
-    m_inspector.request_stop();
+    if (m_inspection) m_inspection->request_stop();
+    m_inspection = std::make_shared<std::stop_source>();
     QMap<QString,QStringList> filesByContext;
     bool hasFiles=false;
     for(const auto &context:contexts) { filesByContext[context]=xmlFilesFor(context); hasFiles|=!filesByContext[context].isEmpty(); }
     if(!hasFiles) { m_previews.clear(); m_errors.clear(); m_xmlEntries.clear(); m_errorMessages.clear(); m_inspecting=false; return; }
     m_inspecting=true;
-    m_inspector=std::jthread([this,generation,filesByContext](std::stop_token stop) {
+    m_inspections->submit(this, "xml", m_inspection, [this,generation,filesByContext](std::stop_token stop) -> InspectionQueue::Completion {
     QMap<QString,QVariantList> previews,entriesByContext;
     QMap<QString,core::Message> errors;
     for (const auto &context : contexts) {
@@ -185,14 +203,14 @@ void QualcommController::inspect() {
         QList<bool> patches(files.size(), false);
         if (context == "provision" && files.size() > 1) error = {"gui::QualcommController","Select exactly one UFS provisioning XML",{}};
         for (int index = 0; index < files.size(); ++index) {
-            if(stop.stop_requested()) return;
+            if(stop.stop_requested()) return {};
             if (!error.key.empty()) break;
             const auto &path = files.at(index);
             QFile file(path);
             if (!file.open(QIODevice::ReadOnly)) { error = {"gui::QualcommController","Cannot open %1",{path.toStdString()}}; break; }
             QXmlStreamReader xml(&file); bool hasUfs = false, hasOrdinary = false, hasPatch = false;
             while (!xml.atEnd()) {
-                if(stop.stop_requested()) return;
+                if(stop.stop_requested()) return {};
                 xml.readNext(); if (!xml.isStartElement()) continue;
                 QString type = xml.name().toString();
                 if (type == "ufs") hasUfs = true;
@@ -212,7 +230,7 @@ void QualcommController::inspect() {
         // flashed without re-parsing the XML itself.
         QVariantList entries;
         for (int index = 0; index < files.size(); ++index) {
-            if(stop.stop_requested()) return;
+            if(stop.stop_requested()) return {};
             const auto &path = files.at(index);
             entries.append(QVariantMap{{"path", path}, {"name", QFileInfo(path).fileName()},
                 {"kind", patches.at(index) ? QStringLiteral("patch") : QStringLiteral("program")}});
@@ -220,8 +238,8 @@ void QualcommController::inspect() {
         entriesByContext[context] = entries;
     }
 
-        if(stop.stop_requested()) return;
-        QMetaObject::invokeMethod(this,[this,generation,previews=std::move(previews),errors=std::move(errors),entries=std::move(entriesByContext)]() mutable {
+        if(stop.stop_requested()) return {};
+        return [this,generation,previews=std::move(previews),errors=std::move(errors),entries=std::move(entriesByContext)]() mutable {
             if(generation!=m_inspectionGeneration) return;
             m_previews=std::move(previews); m_errorMessages=std::move(errors); m_errors.clear();
             for (auto it = m_errorMessages.begin(); it != m_errorMessages.end(); ++it) {
@@ -230,7 +248,7 @@ void QualcommController::inspect() {
             m_xmlEntries = std::move(entries);
             m_inspecting = false;
             emit changed();
-        },Qt::QueuedConnection);
+        };
     });
 }
 
@@ -253,7 +271,7 @@ QString QualcommController::buildRequest(int operation, const QVariantMap &overr
     if (context.isEmpty()) return tr("Invalid Qualcomm operation");
     auto values = settingsFor(context);
     for (auto i = overrides.begin(); i != overrides.end(); ++i) values[i.key()] = i.value();
-     request=core::OperationRequest(op); auto &o = request.qualcomm();
+     request=policyRequest(op, values); auto &o = request.qualcomm();
     auto text = [&](const char *key) { return values.value(key).toString().trimmed().toStdString(); };
     const bool flash = context == "flash" || context == "digests";
     const bool provision = context == "provision", raw = context == "raw";
@@ -284,7 +302,6 @@ QString QualcommController::buildRequest(int operation, const QVariantMap &overr
         o.storage = provision ? core::QualcommStorage::Ufs : static_cast<core::QualcommStorage>(integer("storage", 3, 1, 5));
         o.slot = int(integer("slot", -1, -1, INT_MAX));
         o.skipReset = values.value("skipReset").toBool();
-        o.dryRun = context == "digests" || values.value("dryRun").toBool();
         if (!provision) {
             o.skipblock = values.value("skipblock").toBool(); o.allowMissing = values.value("allowMissing").toBool();
             o.allowFusing = values.value("allowFusing").toBool();
@@ -348,17 +365,11 @@ bool QualcommController::canRun(int operation, const QVariantMap &overrides) con
     return validationError(operation, overrides).isEmpty();
 }
 bool QualcommController::needsDevice(int operation) const {
-    // Mirror core::RequiresEnumeratedDevice() so the UI disables the primary
-    // action exactly when the backend would refuse to start without a device.
     const auto op = static_cast<core::Operation>(operation);
     const auto context = contextFor(op);
     if (context.isEmpty()) return false;
-    if (op == core::Operation::QualcommCreateZip || op == core::Operation::QualcommCreateArchive ||
-        op == core::Operation::QualcommCreateDigests) return false;
     const auto values = settingsFor(context);
-    if (values.value("dryRun").toBool()) return false;
-    if (op == core::Operation::QualcommKickstart && !values.value("node").toString().trimmed().isEmpty()) return false;
-    return true;
+    return core::RequiresEnumeratedDevice(policyRequest(op, values));
 }
 QString QualcommController::validationError(int operation, const QVariantMap &overrides) const {
     core::OperationRequest request; return buildRequest(operation, overrides, request);

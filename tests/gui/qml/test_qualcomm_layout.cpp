@@ -155,7 +155,7 @@ bool QualcommUiTests::TestLayout() {
             controller.language()->setMode("en");
             CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
                 Q_ARG(QVariantList, SnapshotDevices(QVariantList{}))));
-            CHECK(AwaitUi([&]{return summary->property("text").toString() == QStringLiteral("No device found")
+            CHECK(AwaitUi([&]{return summary->property("text").toString() == QStringLiteral("ADB device found")
                 && !summary->property("truncated").toBool();}));
             MovePointer(window, summary->mapToScene(QPointF(summary->width()/2, summary->height()/2)));
             CHECK(AwaitUi([&]{return !tooltip->property("visible").toBool();}));
@@ -171,6 +171,8 @@ bool QualcommUiTests::TestLayout() {
                         Q_ARG(QVariantList, SnapshotDevices(interfaces))));
                     CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
                         Q_ARG(QStringList, QStringList{QStringLiteral("board")})));
+                    controller.setDeviceIndex(3); // Only the selected EDL interface is flash-ready.
+                    CHECK(controller.hasFlashTarget());
                     const QColor deviceColor = summary->property("color").value<QColor>();
                     const QColor deviceBackground = badge->property("color").value<QColor>();
                     CHECK(deviceColor.green() > deviceColor.red() && deviceColor.green() > deviceColor.blue());
@@ -203,6 +205,8 @@ bool QualcommUiTests::TestLayout() {
                     CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
                         Q_ARG(QVariantList, SnapshotDevices(QVariantList{}))));
                     CHECK(controller.batchSelected() == 2 && !controller.hasDevice());
+                    CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
+                        Q_ARG(QStringList, QStringList{})));
                     const QColor noDeviceBackground = badge->property("color").value<QColor>();
                     CHECK(noDeviceBackground != deviceBackground);
                     inspectStatus("batch-disconnected");
@@ -210,6 +214,8 @@ bool QualcommUiTests::TestLayout() {
                     inspectStatus("none");
 
                     controller.setVendor(0);
+                    CHECK(QMetaObject::invokeMethod(&controller, "onAdbDevicesChanged", Qt::DirectConnection,
+                        Q_ARG(QStringList, QStringList{QStringLiteral("board")})));
                     CHECK(controller.adbReady() && !controller.hasDevice());
                     const QColor adbColor = summary->property("color").value<QColor>();
                     const QColor adbBackground = badge->property("color").value<QColor>();

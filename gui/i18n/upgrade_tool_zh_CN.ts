@@ -100,12 +100,12 @@
         <translation>读取序列号</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+93"/>
         <source>Enter Maskrom</source>
         <translation>进入 Maskrom</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-89"/>
         <source>Clear Serial</source>
         <translation>清空序列号</translation>
     </message>
@@ -137,7 +137,7 @@
     <message>
         <location line="+1"/>
         <location line="+4"/>
-        <location line="+161"/>
+        <location line="+171"/>
         <location line="+16"/>
         <location line="+38"/>
         <location line="+2"/>
@@ -146,7 +146,7 @@
         <translation>选择…</translation>
     </message>
     <message>
-        <location line="-221"/>
+        <location line="-231"/>
         <source>Firmware:</source>
         <translation>固件:</translation>
     </message>
@@ -171,7 +171,7 @@
         <translation>擦除所有</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+39"/>
         <source>The current engine does not support this feature</source>
         <translation>当前引擎不支持该功能</translation>
     </message>
@@ -891,25 +891,27 @@
 <context>
     <name>AppFilePicker</name>
     <message>
+        <location filename="../qml/components/AppFilePicker.qml" line="+103"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
+        <location line="+28"/>
         <source>OK</source>
         <translation>确定</translation>
     </message>
     <message>
-        <location filename="../qml/components/AppFilePicker.qml" line="+62"/>
+        <location line="-70"/>
         <source>The original path is no longer available. Returned to Home.</source>
         <translation>原路径已不可用，已返回主目录。</translation>
     </message>
     <message>
-        <location line="-4"/>
+        <location line="+4"/>
         <source>Directory created</source>
         <translation>已创建目录</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-7"/>
         <source>Enter a file name</source>
         <translation>请输入文件名</translation>
     </message>
@@ -919,7 +921,7 @@
         <translation>文件名不能包含 “/”</translation>
     </message>
     <message>
-        <location line="+332"/>
+        <location line="+401"/>
         <source>Location</source>
         <translation>位置</translation>
     </message>
@@ -949,18 +951,18 @@
         <translation>新建目录</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+34"/>
         <source>New folder name</source>
         <translation>新目录名称</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+211"/>
+        <location line="+213"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="-205"/>
+        <location line="-207"/>
         <source>Create</source>
         <translation>创建</translation>
     </message>
@@ -970,7 +972,7 @@
         <translation>搜索当前目录…</translation>
     </message>
     <message>
-        <location line="+124"/>
+        <location line="+126"/>
         <source>No matches found</source>
         <translation>未找到匹配项</translation>
     </message>
@@ -1149,61 +1151,58 @@
 <context>
     <name>DriverDialog</name>
     <message>
+        <location filename="../qml/dialogs/DriverDialog.qml" line="+170"/>
         <source>Run in background</source>
         <translation>转到后台</translation>
     </message>
     <message>
-        <location filename="../qml/dialogs/DriverDialog.qml" line="+9"/>
+        <location line="-161"/>
         <source>USB Drivers</source>
         <translation>USB 驱动</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+40"/>
         <source>Checking…</source>
         <translation>正在检测…</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+2"/>
         <source>No flashing device found</source>
         <translation>未发现烧录设备</translation>
     </message>
     <message>
-        <location line="+51"/>
         <source>Replace…</source>
-        <translation>重新安装…</translation>
+        <translation type="vanished">重新安装…</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+51"/>
         <source>Install…</source>
         <translation>安装…</translation>
     </message>
     <message>
-        <location line="+51"/>
+        <location line="+52"/>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
     <message>
-        <location line="+8"/>
         <source>Official Download</source>
-        <translation>官方下载</translation>
+        <translation type="vanished">官方下载</translation>
     </message>
     <message>
-        <location line="+3"/>
         <source>Qualcomm USB Driver · Login required</source>
-        <translation>高通 USB 驱动 · 需要登录</translation>
+        <translation type="vanished">高通 USB 驱动 · 需要登录</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+16"/>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
     <message>
-        <location line="+11"/>
         <source>Install WinUSB?</source>
-        <translation>安装 WinUSB？</translation>
+        <translation type="vanished">安装 WinUSB？</translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+43"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
@@ -1213,11 +1212,12 @@
         <translation>安装</translation>
     </message>
     <message>
-        <location line="-172"/>
+        <location line="-183"/>
         <source>Continue setup…</source>
         <translation>继续安装…</translation>
     </message>
     <message>
+        <location line="+0"/>
         <source>Reopen driver assistant…</source>
         <translation>重新打开驱动助手…</translation>
     </message>
@@ -1227,18 +1227,22 @@
         <translation>放弃任务</translation>
     </message>
     <message>
-        <source>Installation is available when the connected Qualcomm device's driver is missing.</source>
+        <location line="+11"/>
+        <source>Installation is available when the connected Qualcomm device&apos;s driver is missing.</source>
         <translation>连接的高通设备驱动缺失后可安装。</translation>
     </message>
     <message>
+        <location line="+112"/>
         <source>Uninstall drivers</source>
         <translation>卸载驱动</translation>
     </message>
     <message>
+        <location line="+4"/>
         <source>Remove the installed Qualcomm driver package</source>
         <translation>移除已安装的高通驱动包</translation>
     </message>
     <message>
+        <location line="+50"/>
         <source>Uninstall</source>
         <translation>卸载</translation>
     </message>
@@ -1262,6 +1266,7 @@
     </message>
     <message>
         <location line="-30"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_tools.cpp" line="+145"/>
         <source>Diagnostic interface</source>
         <translation>诊断接口</translation>
     </message>
@@ -1543,7 +1548,7 @@
         <translation>已检测到设备</translation>
     </message>
     <message>
-        <location line="+120"/>
+        <location line="+121"/>
         <source>Quit UpgradeTool-GUI?</source>
         <translation>退出 UpgradeTool-GUI？</translation>
     </message>
@@ -1598,12 +1603,11 @@
         <translation>关于</translation>
     </message>
     <message>
-        <location line="+53"/>
         <source>Driver installation is running. Wait for it to finish and quit?</source>
-        <translation>驱动正在安装，等待安装结束后退出？</translation>
+        <translation type="vanished">驱动正在安装，等待安装结束后退出？</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+68"/>
         <source>Wait and quit</source>
         <translation>等待后退出</translation>
     </message>
@@ -1613,6 +1617,7 @@
         <translation>USB 驱动…</translation>
     </message>
     <message>
+        <location line="+81"/>
         <source>Driver setup is running. Wait for it to finish and quit?</source>
         <translation>驱动操作正在进行，是否等待完成后退出？</translation>
     </message>
@@ -1620,7 +1625,7 @@
 <context>
     <name>Operations</name>
     <message>
-        <location filename="../OperationSpec.cpp" line="+16"/>
+        <location filename="../OperationSpec.cpp" line="+17"/>
         <source>Download</source>
         <translation>下载</translation>
     </message>
@@ -1855,6 +1860,7 @@
         <translation>未知操作</translation>
     </message>
     <message>
+        <location line="-48"/>
         <source>Enter Maskrom</source>
         <translation>进入 Maskrom</translation>
     </message>
@@ -1922,7 +1928,7 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../backend/RockchipController.cpp" line="+14"/>
+        <location filename="../backend/RockchipController.cpp" line="+15"/>
         <source>Invalid or out-of-range parameter</source>
         <translation>参数无效或超出范围</translation>
     </message>
@@ -1957,7 +1963,7 @@
         <translation>操作失败，详见日志</translation>
     </message>
     <message>
-        <location filename="../backend/AppController.cpp" line="+69"/>
+        <location filename="../backend/AppController.cpp" line="+70"/>
         <source>Downloading Boot</source>
         <translation>开始下载 Boot</translation>
     </message>
@@ -2200,7 +2206,7 @@
 <context>
     <name>QualcommBackend</name>
     <message>
-        <location filename="../MessageCatalog.cpp" line="+17"/>
+        <location filename="../MessageCatalog.cpp" line="+22"/>
         <source>Invalid Qualcomm operation</source>
         <translation>无效的高通操作</translation>
     </message>
@@ -2210,12 +2216,12 @@
         <translation>高通参数无效或存在冲突</translation>
     </message>
     <message>
-        <location line="-3"/>
+        <location line="-8"/>
         <source>Device node cannot be combined with a transport selection</source>
         <translation>设备节点不能与传输方式选择同时使用</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+16"/>
         <source>UFS provisioning requires UFS storage</source>
         <translation>UFS 配置需要选择 UFS 存储</translation>
     </message>
@@ -2231,6 +2237,7 @@
     </message>
     <message>
         <location line="+1"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_ui.cpp" line="+78"/>
         <source>Selected device does not use the requested transport</source>
         <translation>所选设备与指定传输方式不匹配</translation>
     </message>
@@ -2245,12 +2252,12 @@
         <translation>高通操作失败</translation>
     </message>
     <message>
-        <location line="-7"/>
+        <location line="-12"/>
         <source>Crash-dump mode only supports RAM dump; switch to EDL (9008) for this operation</source>
         <translation>崩溃转储模式仅支持内存转储；执行此操作请先切换到 EDL（9008）</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+17"/>
         <source>The selected interface is not an EDL (9008) target</source>
         <translation>所选接口不是 EDL（9008）目标</translation>
     </message>
@@ -2260,7 +2267,7 @@
         <translation>无法打开所选接口，请检查访问权限及 USB 驱动</translation>
     </message>
     <message>
-        <location line="-8"/>
+        <location line="-13"/>
         <source>EDL</source>
         <translation>EDL</translation>
     </message>
@@ -2275,27 +2282,32 @@
         <translation>DIAG</translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+18"/>
         <source>Unknown mode</source>
         <translation>未知模式</translation>
     </message>
     <message>
+        <location line="-15"/>
         <source>The driver does not support this transport. Select a compatible USB or QDLoader (COM) entry.</source>
         <translation>驱动不支持此传输方式，请选择兼容的 USB 或 QDLoader（COM）。</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>QDLoader (COM) %1: port configuration failed (Windows error %2: %3). Reconnect the device and enter EDL (9008) again.</source>
         <translation>QDLoader（COM）%1：端口配置失败（Windows 错误 %2：%3）。请重新连接设备并再次进入 EDL（9008）。</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>QDLoader (COM) %1: opening failed (Windows error %2: %3). Access denied. The port may be in use or access permissions may be restricted. Check port usage and access permissions.</source>
         <translation>QDLoader（COM）%1：打开失败（Windows 错误 %2：%3）。访问被拒绝，可能存在端口占用或访问权限限制。请检查端口占用情况及访问权限。</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>QDLoader (COM) %1: opening failed (Windows error %2: %3). The device path is unavailable. Reconnect the device, enter EDL (9008) mode, and retry.</source>
         <translation>QDLoader（COM）%1：打开失败（Windows 错误 %2：%3）。设备路径不可用，请重新连接设备、进入 EDL（9008）并重试。</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>QDLoader (COM) %1: opening failed (Windows error %2: %3). Check the device connection and driver, reconnect the device, and re-enter EDL (9008) mode.</source>
         <translation>QDLoader（COM）%1：打开失败（Windows 错误 %2：%3）。请检查连接和驱动，重新连接设备并再次进入 EDL（9008）。</translation>
     </message>
@@ -2620,6 +2632,7 @@
     <name>QualcommProgrammer</name>
     <message>
         <location filename="../qml/components/QualcommProgrammer.qml" line="+19"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_tools.cpp" line="-3"/>
         <source>Programmer input</source>
         <translation>引导程序来源</translation>
     </message>
@@ -2676,6 +2689,7 @@
     <name>QualcommToolsPage</name>
     <message>
         <location filename="../qml/components/QualcommToolPanel.qml" line="+31"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_tools.cpp" line="-40"/>
         <source>Reset method</source>
         <translation>重启方式</translation>
     </message>
@@ -3016,26 +3030,27 @@
 <context>
     <name>StatusBar</name>
     <message>
+        <location filename="../qml/components/StatusBar.qml" line="+266"/>
         <source>%1 s elapsed</source>
         <translation>已等待 %1 秒</translation>
     </message>
     <message>
-        <location filename="../qml/components/StatusBar.qml" line="+283"/>
+        <location line="+37"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="-88"/>
+        <location line="-98"/>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
     <message>
-        <location line="-52"/>
+        <location line="-56"/>
         <source>USB Drivers</source>
         <translation>USB 驱动</translation>
     </message>
     <message>
-        <location line="-114"/>
+        <location line="-118"/>
         <source>Working…</source>
         <translation>正在操作…</translation>
     </message>
@@ -3043,6 +3058,11 @@
         <location line="+2"/>
         <source>Check USB driver details to continue</source>
         <translation>请查看 USB 驱动详情以继续操作</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Device interface detected; choose a supported operation</source>
+        <translation>已发现设备接口，请选择支持的操作</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3060,12 +3080,12 @@
         <translation>无可选择的设备</translation>
     </message>
     <message>
-        <location line="+60"/>
+        <location line="+67"/>
         <source>View USB driver details</source>
         <translation>查看 USB 驱动详情</translation>
     </message>
     <message>
-        <location line="-158"/>
+        <location line="-166"/>
         <source>Cancelling tasks and closing…</source>
         <translation>正在取消任务并关闭…</translation>
     </message>
@@ -3164,42 +3184,58 @@
 <context>
     <name>gui::AdbRunner</name>
     <message>
+        <location filename="../AdbService.cpp" line="+244"/>
         <source>Starting ADB…</source>
         <translation>正在启动 ADB…</translation>
     </message>
     <message>
+        <location line="+0"/>
         <source>ADB connection interrupted; retrying automatically…</source>
         <translation>ADB 连接异常，正在自动重试…</translation>
     </message>
     <message>
-        <location filename="../AdbRunner.cpp" line="+261"/>
+        <location line="+117"/>
         <source>ADB command failed (%1): %2</source>
         <translation>ADB 命令失败（%1）：%2</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+7"/>
         <source>Invalid ADB version output: %1</source>
         <translation>无效的 ADB 版本输出：%1</translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="-13"/>
         <source>ADB command timed out.</source>
         <translation>ADB 命令超时。</translation>
     </message>
     <message>
-        <location line="-155"/>
-        <location line="+145"/>
+        <location line="-320"/>
+        <location line="+58"/>
+        <location line="+73"/>
+        <source>ADB command cancelled or timed out.</source>
+        <translation>ADB 命令已取消或超时。</translation>
+    </message>
+    <message>
+        <location line="-130"/>
+        <location line="+130"/>
+        <source>ADB failed: %1</source>
+        <translation>ADB 失败：%1</translation>
+    </message>
+    <message>
+        <location line="+245"/>
+        <location filename="../AdbRunner.cpp" line="+179"/>
         <source>Cannot start ADB process: %1</source>
         <translation>无法启动 ADB 进程：%1</translation>
     </message>
     <message>
-        <location line="-58"/>
-        <location line="+95"/>
+        <location line="-101"/>
+        <location line="+2"/>
+        <location filename="../AdbRunner.cpp" line="+47"/>
         <source>ADB executable not found; reinstall the application or install ADB and check PATH / ADB.</source>
         <translation>未找到 ADB 可执行文件，请重新安装应用，或安装 ADB 并检查 PATH / ADB。</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location filename="../AdbRunner.cpp" line="+6"/>
         <source>No device in ADB mode found.</source>
         <translation>未找到处于 ADB 模式的设备。</translation>
     </message>
@@ -3219,22 +3255,19 @@
         <translation>正在检查 ADB 设备和 USB 端口…</translation>
     </message>
     <message>
-        <location line="+41"/>
         <source>Switched to Loader mode.</source>
-        <translation>已切换到 Loader 模式。</translation>
+        <translation type="vanished">已切换到 Loader 模式。</translation>
     </message>
     <message>
-        <location line="+1"/>
         <source>Switch to Loader failed: %1</source>
-        <translation>切换到 Loader 失败：%1</translation>
+        <translation type="vanished">切换到 Loader 失败：%1</translation>
     </message>
     <message>
-        <location line="+0"/>
         <source>ADB returned %1</source>
-        <translation>ADB 返回 %1</translation>
+        <translation type="vanished">ADB 返回 %1</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+37"/>
         <source>Failed to set T3 FEL flag or reboot: %1</source>
         <translation>T3 FEL 标志设置或重启失败：%1</translation>
     </message>
@@ -3250,6 +3283,11 @@
     </message>
     <message>
         <location line="+23"/>
+        <source>Loader switch request sent; waiting for the USB device…</source>
+        <translation>已发送 Loader 切换请求，正在等待 USB 设备…</translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Detecting device system and switch capability…</source>
         <translation>正在识别设备系统和切换方式…</translation>
     </message>
@@ -3279,12 +3317,28 @@
         <translation>已发送 FEL 切换请求，等待 USB 设备…</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+21"/>
+        <source>Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly.</source>
+        <translation>目标 USB 端口出现多个刷写接口，请刷新并明确选择一个。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
         <source>FEL flash device detected on the target USB port.</source>
         <translation>已在目标 USB 端口发现 FEL 设备。</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+1"/>
+        <source>Loader device detected on the target USB port.</source>
+        <translation>已在目标 USB 端口检测到 Loader 设备。</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>No Loader device detected on the target USB port. %1</source>
+        <translation>未在目标 USB 端口检测到 Loader 设备。%1</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+5"/>
         <source>Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.</source>
         <translation>已发送切换请求，但无法唯一定位目标 USB 端口以确认成功；请检查设备列表。</translation>
     </message>
@@ -3294,12 +3348,11 @@
         <translation>未在目标 USB 端口检测到 FEL 设备。请检查系统支持情况，或选择“备选”。%1</translation>
     </message>
     <message>
-        <location line="+10"/>
         <source>The ADB reboot command did not return in time.</source>
-        <translation>ADB 重启命令未及时返回。</translation>
+        <translation type="vanished">ADB 重启命令未及时返回。</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="-265"/>
         <source>ADB operation timed out; mode switch not completed.</source>
         <translation>ADB 操作超时，未完成模式切换。</translation>
     </message>
@@ -3307,7 +3360,7 @@
 <context>
     <name>gui::AppController</name>
     <message>
-        <location filename="../backend/AppController.cpp" line="+275"/>
+        <location filename="../backend/AppController.cpp" line="+307"/>
         <source>Cannot create or access log directory: %1</source>
         <translation>无法创建或访问日志目录：%1</translation>
     </message>
@@ -3317,7 +3370,7 @@
         <translation>无法打开日志目录：%1</translation>
     </message>
     <message>
-        <location filename="../MessageCatalog.cpp" line="+45"/>
+        <location filename="../MessageCatalog.cpp" line="+59"/>
         <source>Select the split package directory (with parameter.txt, per-partition .img and Loader .bin).</source>
         <translation>请选择分体包目录（内含 parameter.txt、各分区 .img 与 Loader .bin）。</translation>
     </message>
@@ -3332,12 +3385,12 @@
         <translation>就绪</translation>
     </message>
     <message>
-        <location filename="../backend/AppController.cpp" line="-134"/>
+        <location filename="../backend/AppController.cpp" line="-144"/>
         <source>Application started</source>
         <translation>应用已启动</translation>
     </message>
     <message>
-        <location line="+196"/>
+        <location line="+206"/>
         <source>Home</source>
         <translation>主目录</translation>
     </message>
@@ -3367,17 +3420,17 @@
         <translation>根目录</translation>
     </message>
     <message>
-        <location line="+92"/>
+        <location line="+127"/>
         <source>Batch: %1 selected / %2 current</source>
         <translation>批量：已选 %1 个 / 当前 %2 个</translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+44"/>
         <source>Found %1 device</source>
         <translation>发现 %1 设备</translation>
     </message>
     <message>
-        <location line="-21"/>
+        <location line="-22"/>
         <source>Interfaces found: %1</source>
         <translation>发现接口：%1</translation>
     </message>
@@ -3387,7 +3440,7 @@
         <translation>%1 *%2</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+26"/>
         <source>Found %1 %2 device(s)</source>
         <translation>发现 %1 个 %2 设备</translation>
     </message>
@@ -3402,25 +3455,29 @@
         <translation>发现 %1 个 ADB 设备</translation>
     </message>
     <message>
-        <location line="-30"/>
-        <location line="+33"/>
+        <location line="+3"/>
+        <source>ADB device offline or unauthorized; check USB debugging</source>
+        <translation>ADB 设备离线或未授权，请检查 USB 调试</translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>No device found</source>
         <translation>未发现设备</translation>
     </message>
     <message>
-        <location line="-32"/>
-        <location line="+33"/>
+        <location line="-38"/>
+        <location line="+39"/>
         <source>, </source>
         <translation>、</translation>
     </message>
     <message>
-        <location line="+189"/>
+        <location line="+230"/>
         <source>Cancelling…</source>
         <translation>正在取消…</translation>
     </message>
     <message>
-        <location line="-265"/>
-        <location line="+289"/>
+        <location line="-326"/>
+        <location line="+359"/>
         <source>Select a device first</source>
         <translation>请先选择设备</translation>
     </message>
@@ -3500,7 +3557,7 @@
         <translation>，已取消后续操作</translation>
     </message>
     <message>
-        <location filename="../backend/AppController.cpp" line="+24"/>
+        <location filename="../backend/AppController.cpp" line="+26"/>
         <source>Running %1/%2: %3</source>
         <translation>正在执行 %1/%2：%3</translation>
     </message>
@@ -3515,12 +3572,12 @@
         <translation>%1  %2%</translation>
     </message>
     <message>
-        <location line="-2"/>
+        <location line="-5"/>
         <source>  %1/s</source>
         <translation>  %1/s</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+10"/>
         <source>%1/s</source>
         <translation>%1/s</translation>
     </message>
@@ -3545,8 +3602,8 @@
         <translation>下载失败，详见日志。</translation>
     </message>
     <message>
-        <location filename="../backend/AppController.cpp" line="-766"/>
-        <location line="+891"/>
+        <location filename="../backend/AppController.cpp" line="-885"/>
+        <location line="+1013"/>
         <source>Switching…</source>
         <translation>正在切换…</translation>
     </message>
@@ -3727,7 +3784,7 @@
     </message>
     <message>
         <location line="+4"/>
-        <location filename="../backend/AppController.cpp" line="-170"/>
+        <location filename="../backend/AppController.cpp" line="-175"/>
         <source>Simulation: %1</source>
         <translation>模拟执行：%1</translation>
     </message>
@@ -3738,12 +3795,14 @@
     </message>
     <message>
         <location line="+1"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_tools.cpp" line="+41"/>
         <source>Simulation</source>
         <translation>模拟执行</translation>
     </message>
     <message>
-        <location line="-315"/>
-        <location line="+290"/>
+        <location line="-407"/>
+        <location line="+22"/>
+        <location line="+360"/>
         <location line="+13"/>
         <source>A selected device is no longer available; refresh and select the targets again</source>
         <translation>所选设备已不可用，请刷新后重新选择目标设备</translation>
@@ -3754,12 +3813,11 @@
         <translation>正在检查设备访问…</translation>
     </message>
     <message>
-        <location filename="../UsbAccess.cpp" line="+22"/>
         <source>Cannot access the selected device (%1)</source>
-        <translation>无法访问所选设备（%1）</translation>
+        <translation type="vanished">无法访问所选设备（%1）</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location filename="../UsbAccess.cpp" line="+54"/>
         <source>The selected device is ambiguous; refresh and select it again</source>
         <translation>无法唯一确认所选设备，请刷新后重新选择</translation>
     </message>
@@ -3769,8 +3827,10 @@
         <translation>所选设备已断开，请刷新后重新选择</translation>
     </message>
     <message>
-        <location line="+3"/>
-        <location line="+22"/>
+        <location line="-33"/>
+        <location line="+7"/>
+        <location line="+29"/>
+        <location line="+20"/>
         <source>Cannot access the selected USB interface: %1</source>
         <translation>无法访问所选 USB 接口：%1</translation>
     </message>
@@ -3780,22 +3840,27 @@
         <translation>未找到兼容的烧录接口</translation>
     </message>
     <message>
+        <location filename="../backend/AppController.cpp" line="-412"/>
         <source>Select a Loader device first</source>
         <translation>请先选择 Loader 模式的设备</translation>
     </message>
     <message>
+        <location line="+7"/>
         <source>All selected devices must be in Loader mode to enter Maskrom</source>
         <translation>进入 Maskrom 前，所选设备须处于 Loader 模式</translation>
     </message>
     <message>
+        <location filename="../MessageCatalog.cpp" line="-45"/>
         <source>Timed out waiting for the target device to enter Maskrom</source>
         <translation>等待目标设备进入 Maskrom 超时</translation>
     </message>
     <message>
+        <location line="-2"/>
         <source>Enter Maskrom failed: %1</source>
         <translation>进入 Maskrom 失败：%1</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>Entered Maskrom mode</source>
         <translation>已进入 Maskrom 模式</translation>
     </message>
@@ -3889,31 +3954,36 @@
 <context>
     <name>gui::DriverController</name>
     <message>
+        <location filename="../backend/DriverController.cpp" line="+101"/>
         <source>Install Allwinner drivers?</source>
         <translation>安装全志驱动？</translation>
     </message>
     <message>
+        <location line="+4"/>
         <source>Install the driver in the Allwinner driver installer.</source>
         <translation>请在全志驱动安装程序中完成安装。</translation>
     </message>
     <message>
         <source>Complete installation in the Allwinner driver installer, then close it…</source>
-        <translation>请在全志驱动安装程序中完成安装并关闭窗口…</translation>
+        <translation type="vanished">请在全志驱动安装程序中完成安装并关闭窗口…</translation>
     </message>
     <message>
+        <location line="+41"/>
         <source>Windows is installing the driver…</source>
         <translation>Windows 正在安装驱动…</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>Driver bound. Waiting for Windows to finish…</source>
         <translation>正在等待 Windows 完成…</translation>
     </message>
     <message>
+        <location line="+7"/>
         <source>%1 · %2 s elapsed</source>
         <translation>%1 · 已等待 %2 秒</translation>
     </message>
     <message>
-        <location filename="../backend/DriverController.cpp" line="+43"/>
+        <location line="-96"/>
         <source>Driver missing</source>
         <translation>未安装驱动</translation>
     </message>
@@ -3924,13 +3994,13 @@
     </message>
     <message>
         <location line="+1"/>
-        <location line="+108"/>
-        <location line="+10"/>
+        <location line="+180"/>
+        <location line="+23"/>
         <source>Driver installed</source>
         <translation>驱动已安装</translation>
     </message>
     <message>
-        <location line="-117"/>
+        <location line="-202"/>
         <source>Ready</source>
         <translation>可用</translation>
     </message>
@@ -3945,83 +4015,77 @@
         <translation>设备异常（%1）</translation>
     </message>
     <message>
-        <location line="+88"/>
-        <location line="+19"/>
+        <location line="+158"/>
+        <location line="+27"/>
         <source>Driver detection failed: %1</source>
         <translation>驱动检测失败：%1</translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="-103"/>
         <source>Preparing driver installation…</source>
         <translation>正在准备安装驱动…</translation>
     </message>
     <message>
-        <location line="+17"/>
-        <location line="+7"/>
         <source>Installing WinUSB…</source>
-        <translation>正在安装 WinUSB…</translation>
+        <translation type="vanished">正在安装 WinUSB…</translation>
     </message>
     <message>
-        <location line="+4"/>
-        <location line="+7"/>
-        <location line="+58"/>
+        <location line="+201"/>
+        <location line="+85"/>
         <source>Driver installation cancelled</source>
         <translation>已取消安装驱动</translation>
     </message>
     <message>
-        <location line="-58"/>
         <source>Driver installation failed: %1</source>
-        <translation>驱动安装失败：%1</translation>
+        <translation type="vanished">驱动安装失败：%1</translation>
     </message>
     <message>
-        <location line="-142"/>
-        <location line="+124"/>
-        <location line="+20"/>
-        <location line="+30"/>
+        <location line="-282"/>
+        <location line="+254"/>
         <source>Checking driver…</source>
         <translation>正在检查驱动…</translation>
     </message>
     <message>
-        <location line="-174"/>
         <source>Installing driver…</source>
-        <translation>正在安装驱动…</translation>
+        <translation type="vanished">正在安装驱动…</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <location line="+174"/>
+        <location line="-278"/>
+        <location line="+279"/>
         <source>Driver detection failed</source>
         <translation>驱动检测失败</translation>
     </message>
     <message>
-        <location line="-172"/>
+        <location line="-276"/>
         <source>Drivers need attention (%1)</source>
         <translation>驱动需处理（%1）</translation>
     </message>
     <message>
-        <location line="-32"/>
+        <location line="-64"/>
         <source>Restart Windows required</source>
         <translation>需要重启 Windows</translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+68"/>
         <source>Driver setup needs attention</source>
         <translation>驱动安装需处理</translation>
     </message>
     <message>
-        <location line="+116"/>
+        <location line="+16"/>
         <source>Recovering device…</source>
         <translation>正在恢复设备…</translation>
     </message>
     <message>
-        <location line="-50"/>
-        <location line="+65"/>
-        <location line="+39"/>
+        <location line="+88"/>
+        <location line="+33"/>
+        <location line="+80"/>
+        <location line="+57"/>
         <source>Restart Windows, then open this tool to check the driver.</source>
         <translation>请重启 Windows，再打开本工具检查驱动。</translation>
     </message>
     <message>
-        <location line="-99"/>
-        <location line="+102"/>
+        <location line="-159"/>
+        <location line="+163"/>
         <source>Device is not ready. Close other device tools, reconnect it, and refresh.</source>
         <translation>设备尚不可用。请关闭其他设备工具，重新连接设备后刷新。</translation>
     </message>
@@ -4037,77 +4101,102 @@
     </message>
     <message>
         <source>Install WinUSB?</source>
-        <translation>安装 WinUSB？</translation>
+        <translation type="vanished">安装 WinUSB？</translation>
     </message>
     <message>
+        <location line="-311"/>
         <source>Uninstall Qualcomm drivers?</source>
         <translation>卸载高通驱动？</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>Install Qualcomm drivers?</source>
         <translation>安装高通驱动？</translation>
     </message>
     <message>
+        <location line="+10"/>
         <source>This removes the system Qualcomm driver package and may affect other Qualcomm devices.</source>
         <translation>此操作将移除系统中的高通驱动包，可能影响其他高通设备。</translation>
     </message>
     <message>
+        <location line="+28"/>
+        <source>Complete installation in the Allwinner driver installer, then close it?</source>
+        <translation>请在全志驱动安装程序中完成安装，然后关闭该程序。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>Preparing driver removal…</source>
         <translation>正在准备卸载驱动…</translation>
     </message>
     <message>
+        <location line="+1"/>
         <source>Windows is removing the Qualcomm drivers…</source>
         <translation>Windows 正在卸载高通驱动…</translation>
     </message>
     <message>
+        <location line="+108"/>
         <source>Device disconnected. Reconnect it and refresh to check the driver.</source>
         <translation>设备已断开，请重新连接并刷新以检查驱动。</translation>
     </message>
     <message>
+        <location line="+2"/>
         <source>The device driver is still missing. See the driver log for details.</source>
         <translation>设备仍缺少驱动，请查看驱动日志了解详情。</translation>
     </message>
     <message>
+        <location line="+79"/>
         <source>Device or driver changed; refresh and select it again.</source>
         <translation>设备或驱动状态已变化，请刷新后重新选择。</translation>
     </message>
     <message>
+        <location line="+22"/>
         <source>Driver setup cancelled</source>
         <translation>已取消驱动操作</translation>
     </message>
     <message>
+        <location line="+0"/>
         <source>Driver setup failed: %1</source>
         <translation>驱动操作失败：%1</translation>
     </message>
     <message>
+        <location line="+5"/>
         <source>Qualcomm drivers uninstalled</source>
         <translation>高通驱动已卸载</translation>
     </message>
     <message>
-        <source>Install the device manufacturer's driver for this interface.</source>
+        <location line="-285"/>
+        <source>Install the device manufacturer&apos;s driver for this interface.</source>
         <translation>请为此接口安装设备制造商提供的驱动。</translation>
     </message>
     <message>
+        <location line="+27"/>
         <source>Install Rockchip drivers?</source>
         <translation>安装瑞芯微驱动？</translation>
     </message>
     <message>
+        <location line="+7"/>
         <source>Install the driver in the Rockchip driver assistant.</source>
         <translation>请在瑞芯微驱动助手中完成安装。</translation>
     </message>
     <message>
+        <location line="-37"/>
+        <location line="+56"/>
         <source>Waiting for USB reconnection</source>
         <translation>等待重新连接 USB</translation>
     </message>
     <message>
+        <location line="+288"/>
         <source>Device is not ready. Reconnect the USB cable; the driver will be checked automatically.</source>
         <translation>设备尚未就绪，请重新插拔 USB，连接后将自动检测驱动。</translation>
     </message>
     <message>
+        <location line="-174"/>
+        <location line="+23"/>
         <source>Driver ready</source>
         <translation>驱动已就绪</translation>
     </message>
     <message>
+        <location line="-124"/>
         <source>Complete installation in the Rockchip driver assistant, then close it…</source>
         <translation>请在瑞芯微驱动助手中完成安装并关闭窗口…</translation>
     </message>
@@ -4115,29 +4204,26 @@
 <context>
     <name>gui::EdlRunner</name>
     <message>
-        <location filename="../EdlTransport.cpp" line="+236"/>
-        <location line="+10"/>
         <source>ADB command cancelled or timed out.</source>
-        <translation>ADB 命令已取消或超时。</translation>
+        <translation type="vanished">ADB 命令已取消或超时。</translation>
     </message>
     <message>
-        <location line="-5"/>
-        <location line="+7"/>
         <source>ADB failed: %1</source>
-        <translation>ADB 执行失败：%1</translation>
+        <translation type="vanished">ADB 失败：%1</translation>
     </message>
     <message>
-        <location line="+82"/>
+        <location filename="../EdlTransport.cpp" line="+348"/>
         <source>Cannot initialize USB.</source>
         <translation>无法初始化 USB。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="+171"/>
+        <location filename="../EdlRunner.cpp" line="+215"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_tools.cpp" line="+1"/>
         <source>Checking the selected device…</source>
         <translation>正在检查所选设备…</translation>
     </message>
     <message>
-        <location line="+32"/>
+        <location line="+38"/>
         <location line="+4"/>
         <source>DIAG verification failed: %1</source>
         <translation>DIAG 验证失败：%1</translation>
@@ -4153,12 +4239,12 @@
         <translation>诊断口写入超时或已取消。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="-127"/>
+        <location filename="../EdlRunner.cpp" line="-141"/>
         <source>Discovering diagnostic ports and ADB devices…</source>
         <translation>正在查找诊断口和 ADB 设备…</translation>
     </message>
     <message>
-        <location line="+135"/>
+        <location line="+149"/>
         <location line="+6"/>
         <source>EDL request could not be sent: %1</source>
         <translation>无法发送 EDL 切换请求：%1</translation>
@@ -4169,7 +4255,7 @@
         <translation>版本响应无效或不受支持</translation>
     </message>
     <message>
-        <location line="-44"/>
+        <location line="-50"/>
         <source>No matching switch endpoint is available. Refresh the device list.</source>
         <translation>没有可用的匹配接口，请刷新设备列表。</translation>
     </message>
@@ -4180,7 +4266,7 @@
         <translation>未收到有效 DIAG 响应（超时、断连或 CRC 错误）。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="+79"/>
+        <location filename="../EdlRunner.cpp" line="+85"/>
         <source>Request sent, but the target USB location could not be identified; success cannot be confirmed.</source>
         <translation>请求已发送，但无法识别目标 USB 位置，不能确认切换成功。</translation>
     </message>
@@ -4215,12 +4301,12 @@
         <translation>设备拒绝了 DIAG EDL 切换请求。</translation>
     </message>
     <message>
-        <location filename="../EdlTransport.cpp" line="+24"/>
+        <location filename="../EdlTransport.cpp" line="+34"/>
         <source>The selected ADB device is disconnected or unauthorized.</source>
         <translation>所选 ADB 设备已断开或未授权。</translation>
     </message>
     <message>
-        <location line="-120"/>
+        <location line="-130"/>
         <location line="+70"/>
         <source>The selected diagnostic port is no longer available.</source>
         <translation>所选诊断口已不可用。</translation>
@@ -4236,12 +4322,12 @@
         <translation>正在验证所选 DIAG 接口…</translation>
     </message>
     <message>
-        <location line="-122"/>
+        <location line="-136"/>
         <source>Switching device to EDL mode…</source>
         <translation>正在切换设备到 EDL 模式…</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+8"/>
         <source>No diagnostic interface detected</source>
         <translation>未检测到诊断接口</translation>
     </message>
@@ -4251,53 +4337,63 @@
         <translation>未检测到已授权的 ADB 设备，请检查 ADB 和 USB 调试</translation>
     </message>
     <message>
-        <location line="+110"/>
+        <location line="+113"/>
         <location line="+4"/>
         <source>The selected switch endpoint is no longer available. Refresh and select it again.</source>
         <translation>所选切换接口已失效，请刷新后重新选择。</translation>
     </message>
     <message>
-        <location filename="../EdlTransport.cpp" line="-172"/>
+        <location filename="../EdlTransport.cpp" line="-174"/>
         <source>Cannot enumerate USB devices.</source>
         <translation>无法枚举 USB 设备。</translation>
     </message>
     <message>
-        <location filename="../EdlRunner.cpp" line="+35"/>
+        <location filename="../EdlRunner.cpp" line="+41"/>
         <source>Multiple EDL interfaces appeared at the target location; refresh and select one explicitly.</source>
         <translation>目标位置出现多个 EDL 接口，请刷新后选择其一。</translation>
     </message>
     <message>
-        <location filename="../EdlTransport.cpp" line="+253"/>
+        <location filename="../EdlTransport.cpp" line="+265"/>
         <location line="+1"/>
         <location line="+1"/>
         <source>Qualcomm backend is not available</source>
         <translation>高通后端不可用</translation>
     </message>
     <message>
+        <location filename="../EdlRunner.cpp" line="-161"/>
+        <location line="+123"/>
         <source>Cannot access the selected interface; check its USB driver and close other device tools.</source>
         <translation>无法访问所选接口，请检查其 USB 驱动并关闭其他设备工具。</translation>
     </message>
     <message>
+        <location line="-172"/>
+        <location filename="../EdlTransport.cpp" line="-284"/>
         <source>Cannot uniquely identify the interface driver. Reconnect the device and refresh.</source>
         <translation>无法唯一确定接口驱动，请重新连接设备并刷新。</translation>
     </message>
     <message>
+        <location line="+13"/>
         <source>Use the diagnostic COM port for this interface.</source>
         <translation>请使用此接口的诊断 COM 端口。</translation>
     </message>
     <message>
+        <location filename="../EdlTransport.cpp" line="-74"/>
         <source>Cannot check the interface driver. Refresh the device list.</source>
         <translation>无法检查接口驱动，请刷新设备列表。</translation>
     </message>
     <message>
+        <location line="+3"/>
+        <location filename="../../tests/gui/qml/test_qualcomm_ui.cpp" line="-26"/>
         <source>The interface driver is missing. Open USB Drivers to install it.</source>
         <translation>接口驱动缺失，请打开 USB 驱动页面进行安装。</translation>
     </message>
     <message>
+        <location line="+3"/>
         <source>The interface driver is not ready (Windows error %1). Open USB Drivers for details.</source>
         <translation>接口驱动尚未就绪（Windows 错误 %1），请打开 USB 驱动页面查看详情。</translation>
     </message>
     <message>
+        <location line="+3"/>
         <source>The interface driver does not support this transport. Open USB Drivers for details.</source>
         <translation>接口驱动不支持此传输方式，请打开 USB 驱动页面查看详情。</translation>
     </message>
@@ -4373,8 +4469,8 @@
 <context>
     <name>gui::QualcommController</name>
     <message>
-        <location filename="../MessageCatalog.cpp" line="+9"/>
-        <location filename="../backend/QualcommController.cpp" line="+116"/>
+        <location filename="../MessageCatalog.cpp" line="+55"/>
+        <location filename="../backend/QualcommController.cpp" line="+129"/>
         <source>Cannot open %1</source>
         <translation>无法打开 %1</translation>
     </message>
@@ -4385,7 +4481,7 @@
         <translation>%1:%2: %3</translation>
     </message>
     <message>
-        <location filename="../backend/QualcommController.cpp" line="+212"/>
+        <location filename="../backend/QualcommController.cpp" line="+219"/>
         <source>Invalid numeric parameter or image mapping</source>
         <translation>数值参数或镜像映射无效</translation>
     </message>
@@ -4400,12 +4496,12 @@
         <translation>UFS 配置与普通刷写 XML 必须分开执行</translation>
     </message>
     <message>
-        <location filename="../backend/QualcommController.cpp" line="-91"/>
+        <location filename="../backend/QualcommController.cpp" line="-90"/>
         <source>Invalid Qualcomm operation</source>
         <translation>无效的高通操作</translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+42"/>
         <source>Select a readable build package</source>
         <translation>请选择可读取的固件包</translation>
     </message>
@@ -4470,7 +4566,7 @@
         <translation>使用设备节点时，请将传输方式设为 Auto</translation>
     </message>
     <message>
-        <location line="-209"/>
+        <location line="-216"/>
         <source>%1 is not a valid %2 XML</source>
         <translation>%1 不是有效的 %2 XML</translation>
     </message>
@@ -4480,7 +4576,7 @@
         <translation>请至少选择一个 rawprogram XML</translation>
     </message>
     <message>
-        <location line="+199"/>
+        <location line="+206"/>
         <source>XML inspection is still running</source>
         <translation>正在检查 XML，请稍候</translation>
     </message>

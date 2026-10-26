@@ -1,3 +1,4 @@
+#include "gui/InspectionQueue.h"
 #include "gui/ApplicationLifecycle.h"
 #include "gui/backend/AppController.h"
 #include "gui/QtObserver.h"
@@ -118,6 +119,28 @@ static void TestDiscoveryCancellation()
     CHECK(cancelled.load());
 }
 
+static void TestInspectionCancellation()
+{
+    gui::AppController controller(nullptr, NoDevices(), 100);
+    auto *queue = controller.findChild<gui::InspectionQueue *>(); CHECK(queue);
+    if (!queue) return;
+    std::atomic_bool started = false, unwound = false;
+    auto cancel = std::make_shared<std::stop_source>();
+    queue->submit(&controller, "exit-test", cancel, [&](std::stop_token token) -> gui::InspectionQueue::Completion {
+        started = true;
+        while (!token.stop_requested()) QThread::msleep(1);
+        unwound = true;
+        return {};
+    });
+    CHECK(Await([&] { return started.load(); }));
+    bool ready = false, responsive = false;
+    QObject::connect(&controller, &gui::AppController::shutdownReady, [&] { CHECK(unwound.load()); ready = true; });
+    controller.requestQuit();
+    QTimer::singleShot(0, &controller, [&] { responsive = true; });
+    CHECK(Await([&] { return ready; }));
+    CHECK(responsive && cancel->stop_requested());
+}
+
 static void TestQuitDialog()
 {
     gui::AppController controller(nullptr, NoDevices(), 100);
@@ -170,6 +193,7 @@ int main(int argc, char **argv)
     TestExit(application, true);
     TestCancellation();
     TestDiscoveryCancellation();
+    TestInspectionCancellation();
     TestQuitDialog();
     QProcess child;
     child.start(application.applicationFilePath(), {"--quit-child"});

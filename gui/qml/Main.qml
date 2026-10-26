@@ -190,15 +190,15 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 cornerRadius: window.cornerRadius
                 statusText: !app.hasDevice && app.drivers.attentionCount > 0 ? qsTr("Device detected") : app.deviceStatusText
-                hasDevice: app.hasDevice
-                hasAdbDevice: app.vendor !== 2 && app.adbReady
+                hasDevice: app.hasFlashTarget
+                hasAdbDevice: app.adbReady
+                hasInterface: app.connectionState === "interface" || app.connectionState === "adb-unavailable"
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
                 progressValue: app.shuttingDown ? -1 : app.tasks.progressValue
                 progressText: app.tasks.progressText
                 progressStage: app.tasks.progressStage
-                // Qualcomm reports the stage through progressSpeed as well.
-                progressSpeed: app.vendor === 2 ? "" : app.tasks.progressSpeed
+                progressSpeed: app.tasks.progressSpeed
                 busy: app.tasks.busy || app.shuttingDown
                 closing: app.shuttingDown
                 controlsLocked: app.interactionLocked

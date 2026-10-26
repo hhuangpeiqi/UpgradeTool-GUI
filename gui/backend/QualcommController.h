@@ -1,7 +1,7 @@
 #ifndef GUI_QUALCOMM_CONTROLLER_H
 #define GUI_QUALCOMM_CONTROLLER_H
 #include <QObject>
-#include <thread>
+#include "gui/InspectionQueue.h"
 #include "domain/Message.h"
 #include <QVariantMap>
 #include <QStringList>
@@ -19,7 +19,8 @@ class QualcommController : public QObject, public Retranslatable {
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(gui::KeyValueModel *results READ results CONSTANT)
 public:
-    explicit QualcommController(QObject *parent = nullptr);
+    explicit QualcommController(QObject *parent = nullptr, InspectionQueue *inspections = nullptr);
+    void cancelInspections();
     ~QualcommController() override;
     bool inspecting() const { return m_inspecting; }
     QVariantMap settings() const { return settingsFor("flash"); }
@@ -69,7 +70,9 @@ private:
     bool m_locked = false;
     bool m_inspecting=false;
     uint64_t m_inspectionGeneration=0;
-    std::jthread m_inspector;
+    core::Cancellation m_inspection;
+    InspectionQueue *m_inspections;
+    bool m_ownsInspections;
 };
 }
 #endif

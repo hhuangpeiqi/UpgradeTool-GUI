@@ -24,6 +24,7 @@ private:
     QTimer timer;
     QString error;
     bool pending=false;
+    quint64 generation=0;
 };
 }
 #endif

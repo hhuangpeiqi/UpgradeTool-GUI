@@ -1,3 +1,4 @@
+#include "gui/InspectionQueue.h"
 #include "gui/backend/AppController.h"
 #include "gui/MessageDisplay.h"
 #include "application/BuildFeatures.h"
@@ -48,8 +49,7 @@ bool QualcommSimulation(const core::TaskJob &job)
 {
     if (job.steps.empty()) return false;
     const auto &r = job.steps.front();
-    return r.vendor() == core::Vendor::Qualcomm && (r.qualcomm().dryRun ||
-        r.operation()== core::Operation::QualcommCreateDigests);
+    return core::IsSimulation(r);
 }
 
 
@@ -122,7 +122,7 @@ QString PromptText(int prompt, bool &failed)
 }
 
 AppController::AppController(platform::FileLog *pLog, QObject *parent)
-    : AppController(pLog, DefaultEdlHooks(), 45000, parent) {}
+    : AppController(pLog, {}, 45000, parent) {}
 
 AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent)
     : AppController(pLog, std::move(edlHooks), edlWaitMs, parent, DriverHooks{}, DriverController::hostAvailable()) {}
@@ -146,6 +146,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	  m_bAdbAvailable(false)
 {
 	m_diskLog = pLog;
+    m_inspections = new InspectionQueue(this, pLog);
     m_deviceModel=new DeviceModel(this);
     m_tasks=new TaskController(this);
     m_drivers=new DriverController(std::move(driverHooks), driversAvailable, this);
@@ -155,14 +156,14 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
     m_rockchip=new RockchipController(m_pConfig,this);
     connect(m_rockchip,&RockchipController::executeRequested,this,[this](const core::TaskJob &job) { StartJob(job); });
     connect(m_rockchip,&RockchipController::toastRequested,this,&AppController::toastRequested);
-    connect(m_rockchip,&RockchipController::inspectRequested,m_pWorker,&EngineWorker::inspect);
-    connect(m_pWorker,&EngineWorker::inspectionFinished,m_rockchip,&RockchipController::applyInspection);
+    connect(m_rockchip,&RockchipController::inspectRequested,this,[this](const core::InspectionRequest &request) { m_inspections->inspect(m_rockchip, request); });
+    connect(m_inspections,&InspectionQueue::inspectionFinished,m_rockchip,&RockchipController::applyInspection);
     m_pLanguage->registerRetranslatable(m_rockchip);
     m_allwinner=new AllwinnerController(this);
     connect(m_allwinner,&AllwinnerController::executeRequested,this,[this](const core::TaskJob &job) { StartJob(job); });
     connect(m_allwinner,&AllwinnerController::toastRequested,this,&AppController::toastRequested);
-    connect(m_allwinner,&AllwinnerController::inspectRequested,m_pWorker,&EngineWorker::inspect);
-    connect(m_pWorker,&EngineWorker::inspectionFinished,m_allwinner,&AllwinnerController::applyInspection);
+    connect(m_allwinner,&AllwinnerController::inspectRequested,this,[this](const core::InspectionRequest &request) { m_inspections->inspect(m_allwinner, request); });
+    connect(m_inspections,&InspectionQueue::inspectionFinished,m_allwinner,&AllwinnerController::applyInspection);
     m_pLanguage->registerRetranslatable(m_allwinner);
 	m_pWorker->moveToThread(m_pThread);
 	m_pWorker->SetObserver(m_pObserver);
@@ -178,12 +179,17 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pWorker, &EngineWorker::devicesReady, this, &AppController::onDevicesReady);
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
 	connect(m_pWorker, &EngineWorker::stepStarted, this, &AppController::onStepStarted);
-    m_qualcomm = new QualcommController(this);
-    m_edl = new EdlRunner(std::move(edlHooks), edlWaitMs, this);
+    m_qualcomm = new QualcommController(this, m_inspections);
+    connect(m_pAdb->service(), &AdbService::snapshotChanged, this, [this] {
+        SetDeviceStatus();
+        refreshEdl();
+    });
+    m_edl = new EdlRunner(edlHooks.discover ? std::move(edlHooks) : DefaultEdlHooks(m_pAdb->service()), edlWaitMs, this);
     connect(m_edl, &EdlRunner::errorOccurred, this, [this](const QString &message) {
         AppendLog(message, true); emit toastRequested(message, true);
     });
     connect(m_edl, &EdlRunner::started, this, [this] {
+        m_pAdb->service()->setPaused(true);
         BeginModeSwitch(tr("Switching…"));
     });
     connect(m_edl, &EdlRunner::messageChanged, this, [this] {
@@ -193,6 +199,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
     });
     connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint) {
         if (m_shuttingDown) return;
+        m_pAdb->service()->setPaused(false);
         m_pendingEdl = ok ? endpoint : EdlEndpoint();
         FinishModeSwitch(ok, message);
         emit requestScan(); refreshEdl();
@@ -212,11 +219,13 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pAdb, SIGNAL(finished(bool, QString)),
 	        this, SLOT(onAdbFinished(bool, QString)));
 	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const QString &message) {
-		if (!m_switchingFel) return;
-		UpdateModeSwitch(message);
-		m_felSwitchHint.Set([message] { return message; });
-		m_felSwitchError = false;
-		emit felSwitchStateChanged();
+        if (!m_bSwitching) return;
+        UpdateModeSwitch(message);
+        if (m_switchingFel) {
+            m_felSwitchHint.Set([message] { return message; });
+            m_felSwitchError = false;
+            emit felSwitchStateChanged();
+        }
 	});
 	connect(m_pAdb, SIGNAL(deviceChoiceRequested(QStringList)),
 	        this, SLOT(onAdbDeviceChoice(QStringList)));
@@ -292,11 +301,15 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 
 AppController::~AppController()
 {
+    m_shuttingDown = true;
 	m_drivers->shutdown();
 	m_scanTimer->stop();
 	m_pAdb->Stop();
     m_rockchip->cancelInspections();
     m_allwinner->cancelInspections();
+    m_qualcomm->cancelInspections();
+    m_inspections->shutdown();
+    delete m_inspections; m_inspections = nullptr;
     delete m_edl; m_edl = nullptr;
 	m_tasks->job().cancelled->request_stop();
 	m_pObserver->CancelSelection();
@@ -368,6 +381,8 @@ void AppController::BeginShutdown()
 	m_qualcomm->setLocked(true);
 	m_rockchip->cancelInspections();
 	m_allwinner->cancelInspections();
+    m_qualcomm->cancelInspections();
+    m_inspections->shutdown();
 	m_tasks->cancel();
 	m_rockchip->setCancelled(true);
 	m_pObserver->CancelSelection();
@@ -382,7 +397,7 @@ void AppController::BeginShutdown()
 
 void AppController::CheckShutdown()
 {
-	if (m_shutdownReady || !m_pThread->isFinished() || !m_edl->stopped() || !m_drivers->stopped()) return;
+	if (m_shutdownReady || !m_inspections->stopped() || !m_pThread->isFinished() || !m_edl->stopped() || !m_drivers->stopped()) return;
 	m_shutdownReady = true;
 	m_shutdownTimer->stop();
 	if (m_diskLog) m_diskLog->Record("Worker threads stopped; application ready to exit");
@@ -587,6 +602,20 @@ QVariantMap AppController::qualcommEligibility() const
 }
 
 
+bool AppController::hasFlashTarget() const {
+    if (m_iDeviceIndex < 0 || m_iDeviceIndex >= m_deviceModel->rows().size()) return false;
+    const auto row = m_deviceModel->rows()[m_iDeviceIndex].toMap();
+    return !row.value("accessError").toInt() && (m_vendor != 2 || row.value("qualcommMode").toInt() == QTQ_EDL);
+}
+QString AppController::connectionState() const {
+    if (hasFlashTarget()) return QStringLiteral("ready");
+    if (hasDevice()) return QStringLiteral("interface");
+    if (adbReady()) return QStringLiteral("adb");
+    if (!m_pAdb->service()->snapshot().isEmpty()) return QStringLiteral("adb-unavailable");
+    if (!m_pAdb->RecoveryMessage().isEmpty()) return QStringLiteral("recovering");
+    return QStringLiteral("none");
+}
+
 void AppController::SetDeviceStatus()
 {
     m_allwinner->setHasDevice(hasDevice());
@@ -612,11 +641,11 @@ void AppController::SetDeviceStatus()
 				core::qualcomm::ModeLabel(static_cast<qtq_mode>(mode)));
 			parts << tr("%1 *%2").arg(label).arg(counts[mode]);
 		}
-		m_strDeviceStatus = parts.isEmpty() ? (m_pAdb->RecoveryMessage().isEmpty()
-			? tr("No device found") : m_pAdb->RecoveryMessage())
-			: tr("Interfaces found: %1").arg(parts.join(tr(", ")));
-		emit devicesChanged();
-		return;
+        if (!parts.isEmpty()) {
+            m_strDeviceStatus = tr("Interfaces found: %1").arg(parts.join(tr(", ")));
+            emit devicesChanged();
+            return;
+        }
 	}
 
 	// Aggregate by mode, preserving device discovery order.
@@ -645,6 +674,9 @@ void AppController::SetDeviceStatus()
 		             ? tr("ADB device found")
 		             : tr("Found %1 ADB device(s)").arg(m_strAdbDevices.size()));
 	}
+    if (strParts.isEmpty() && !m_pAdb->service()->snapshot().isEmpty()) {
+        strParts << tr("ADB device offline or unauthorized; check USB debugging");
+    }
 	if (strParts.isEmpty() && !m_pAdb->RecoveryMessage().isEmpty())
 		strParts << m_pAdb->RecoveryMessage();
 
@@ -1229,7 +1261,6 @@ void AppController::cancelAdbChoice()
 void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 {
 	if (!m_bSwitching) return;
-	const bool wasFel = m_switchingFel;
 	if (m_switchingFel) {
 		m_switchingFel = false;
 		m_felSwitchHint.Set([strMessage] { return strMessage; });
@@ -1237,7 +1268,7 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 		emit felSwitchStateChanged();
 	}
 	FinishModeSwitch(bOk, strMessage);
-	if (wasFel) emit requestScan();
+	emit requestScan();
 }
 
 

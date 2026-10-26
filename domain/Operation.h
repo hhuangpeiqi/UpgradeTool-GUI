@@ -336,6 +336,12 @@ inline bool IsLocalOperation(Operation op)
         op == Operation::QualcommCreateDigests;
 }
 
+inline bool IsSimulation(const OperationRequest &request)
+{
+    return request.vendor() == Vendor::Qualcomm &&
+        (request.qualcomm().dryRun || request.operation() == Operation::QualcommCreateDigests);
+}
+
 inline bool RequiresEnumeratedDevice(const OperationRequest &r)
 {
     return !IsLocalOperation(r.operation()) && !(r.vendor() == Vendor::Qualcomm &&

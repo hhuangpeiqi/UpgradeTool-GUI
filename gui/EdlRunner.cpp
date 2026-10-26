@@ -1,3 +1,4 @@
+#include "platform/UsbLocation.h"
 #include "gui/EdlRunner.h"
 #include <QElapsedTimer>
 #include <QThread>
@@ -48,8 +49,8 @@ bool EdlRunner::validVersion(const QByteArray &payload) {
     return payload.size() >= 55 && payload[0] == char(0);
 }
 bool EdlRunner::sameLocation(const EdlEndpoint &a, const EdlEndpoint &b) {
-    if (!a.location.isEmpty() && a.location == b.location) return true;
-    return !a.ports.isEmpty() && a.bus == b.bus && a.ports == b.ports;
+    return platform::UsbLocation{a.location.toStdString(), a.bus, {a.ports.begin(), a.ports.end()}}.matches(
+        {b.location.toStdString(), b.bus, {b.ports.begin(), b.ports.end()}});
 }
 bool BindEdlNativeInterface(EdlEndpoint &endpoint, const QVector<EdlEndpoint> &native) {
     const EdlEndpoint *binding = nullptr;
@@ -223,7 +224,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         QString error;
         EdlEndpoint target;
         bool found = false;
-        const auto fresh = m_hooks.discover(adbPath, cancel, error);
+        const auto fresh = (method == Adb && m_hooks.discoverFresh ? m_hooks.discoverFresh : m_hooks.discover)(adbPath, cancel, error);
         if (cancel->stop_requested()) return;
         for (const auto &e : fresh) {
             if (!qtq_download_identity(e.vid,e.pid) && e.id == selected.id && targetKey(e) == targetId &&

@@ -1,3 +1,5 @@
+#include "platform/UsbLocation.h"
+#include "platform/WindowsUsb.h"
 #include "gui/WindowsUsbDriver.h"
 #include "application/BuildFeatures.h"
 #include "backends/qualcomm/DevicePolicy.h"
@@ -143,23 +145,12 @@ DriverDevice DriverDevice::fromJson(const QJsonObject &o) {
 #ifdef Q_OS_WIN
 namespace {
 QStringList property(HDEVINFO set, SP_DEVINFO_DATA &info, DWORD key) {
-    DWORD bytes = 0, type = 0;
-    SetupDiGetDeviceRegistryPropertyW(set, &info, key, &type, nullptr, 0, &bytes);
-    if (!bytes || bytes > 65536) return {};
-    std::vector<wchar_t> data(bytes / sizeof(wchar_t) + 2, 0);
-    if (!SetupDiGetDeviceRegistryPropertyW(set, &info, key, &type,
-        reinterpret_cast<PBYTE>(data.data()), bytes, nullptr)) return {};
     QStringList result;
-    for (const wchar_t *p = data.data(); *p; p += wcslen(p) + 1) {
-        result.append(QString::fromWCharArray(p));
-        if (type != REG_MULTI_SZ) break;
-    }
+    for (const auto &value : platform::WindowsUsbProperty(set, info, key)) result.append(QString::fromStdWString(value));
     return result;
 }
 QString instanceId(HDEVINFO set, SP_DEVINFO_DATA &info) {
-    wchar_t id[MAX_DEVICE_ID_LEN] = {};
-    return SetupDiGetDeviceInstanceIdW(set, &info, id, MAX_DEVICE_ID_LEN, nullptr)
-        ? QString::fromWCharArray(id) : QString();
+    return QString::fromStdWString(platform::WindowsUsbInstance(set, info));
 }
 QStringList registryStrings(HDEVINFO set, SP_DEVINFO_DATA &info, const wchar_t *name) {
     HKEY key = SetupDiOpenDevRegKey(set, &info, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_READ);
@@ -328,32 +319,8 @@ DriverScan ScanWindowsUsbDrivers(bool probe) {
 QVector<QPair<QString, QString>> WindowsAdbLocations() {
     QVector<QPair<QString, QString>> result;
 #ifdef Q_OS_WIN
-    HDEVINFO set = SetupDiGetClassDevsW(nullptr, L"USB", nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT);
-    if (set == INVALID_HANDLE_VALUE) return result;
-    SP_DEVINFO_DATA info = {}; info.cbSize = sizeof(info);
-    for (DWORD i = 0; SetupDiEnumDeviceInfo(set, i, &info); ++i) {
-        const QString classes = property(set, info, SPDRP_COMPATIBLEIDS).join('|').toUpper();
-        if (!classes.contains("USB\\CLASS_FF&SUBCLASS_42&PROT_01")) continue;
-        const auto id = instanceId(set, info);
-        QString serial = id.section('\\', -1);
-        DEVINST parent = info.DevInst;
-        for (int depth = 0; depth < 8; ++depth) {
-            wchar_t name[MAX_DEVICE_ID_LEN] = {};
-            if (CM_Get_Device_IDW(parent, name, MAX_DEVICE_ID_LEN, 0) != CR_SUCCESS) break;
-            const auto instance = QString::fromWCharArray(name);
-            if (instance.startsWith("USB\\", Qt::CaseInsensitive) && !instance.contains("&MI_", Qt::CaseInsensitive)) {
-                serial = instance.section('\\', -1); break;
-            }
-            DEVINST next;
-            if (CM_Get_Parent(&next, parent, 0) != CR_SUCCESS) break;
-            parent = next;
-        }
-        QString location = property(set, info, SPDRP_LOCATION_PATHS).value(0).toUpper();
-        location.remove(QRegularExpression("#USBMI\\([^)]*\\).*$"));
-        if (!serial.isEmpty() && !serial.contains('&') && !location.isEmpty() && !result.contains({serial, location}))
-            result.append({serial, location});
-    }
-    SetupDiDestroyDeviceInfoList(set);
+    for (const auto &device : platform::NativeAdbLocations())
+        result.append({QString::fromStdString(device.serial), QString::fromStdString(device.location)});
 #endif
     return result;
 }

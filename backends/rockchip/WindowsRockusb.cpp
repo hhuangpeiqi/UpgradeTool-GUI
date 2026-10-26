@@ -1,3 +1,5 @@
+#include "platform/WindowsUsb.h"
+#include "platform/UsbLocation.h"
 #include "UsbTransport.h"
 #include "RockusbProtocol.h"
 #include "platform/FileLog.h"
@@ -39,11 +41,8 @@ std::wstring wide(const std::string &value) {
     return text;
 }
 std::wstring property(HDEVINFO set, SP_DEVINFO_DATA &info, DWORD key) {
-    std::array<wchar_t, 32768> data{};
-    DWORD type = 0;
-    if (!SetupDiGetDeviceRegistryPropertyW(set, &info, key, &type,
-            reinterpret_cast<BYTE *>(data.data()), DWORD(sizeof(data) - sizeof(wchar_t)), nullptr)) return {};
-    return data.data(); // first entry of REG_MULTI_SZ (location paths)
+    const auto values = platform::WindowsUsbProperty(set, info, key);
+    return values.empty() ? std::wstring{} : values.front();
 }
 // Session-stable, collision-free IDs retain legacy engine location semantics.
 uint32_t locationId(const std::string &path) {
@@ -172,8 +171,7 @@ std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, pla
             if (slash != std::string::npos) device->serial = device->instance.substr(slash + 1);
         }
         device->physicalLocation = utf8(property(set, info, SPDRP_LOCATION_PATHS));
-        const auto interfaceSuffix = device->physicalLocation.find("#USBMI(");
-        if (interfaceSuffix != std::string::npos) device->physicalLocation.resize(interfaceSuffix);
+        device->physicalLocation = platform::NormalizeUsbLocation(device->physicalLocation);
         if (device->physicalLocation.empty()) continue; // Never guess identity across mode transitions.
         device->location = locationId(device->physicalLocation);
         result.push_back(std::move(device));

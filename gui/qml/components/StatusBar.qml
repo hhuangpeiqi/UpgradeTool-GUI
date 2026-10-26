@@ -17,6 +17,7 @@ EdgeRoundedRect {
     property bool closing: false
     property bool hasDevice: false
     property bool hasAdbDevice: false
+    property bool hasInterface: false
     property bool driverAttention: false
     property bool driverBusy: false
     property string driverText: ""
@@ -30,6 +31,7 @@ EdgeRoundedRect {
         : root.busy ? (root.progressStage || qsTr("Working…"))
         : root.progressText !== "" ? root.progressText
         : root.driverAttention ? qsTr("Check USB driver details to continue")
+        : root.hasInterface ? qsTr("Device interface detected; choose a supported operation")
         : !root.hasDevice && !root.hasAdbDevice ? qsTr("Connect a device to begin")
         : qsTr("Waiting for an operation")
 

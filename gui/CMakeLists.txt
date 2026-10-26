@@ -18,11 +18,15 @@ add_library(upgrade_gui_backend STATIC
   OperationSpec.h
   QtObserver.cpp
   QtObserver.h
+  InspectionQueue.cpp
+  InspectionQueue.h
   EngineWorker.cpp
   EngineWorker.h
   EdlRunner.cpp
   EdlRunner.h
   EdlTransport.cpp
+  AdbService.cpp
+  AdbService.h
   AdbRunner.cpp
   AdbRunner.h
   AdbTiming.h
@@ -94,7 +98,7 @@ if(WIN32)
     ${CMAKE_SOURCE_DIR}/scripts/windows/QualcommDriverInstall.cpp
     ${CMAKE_SOURCE_DIR}/scripts/windows/RockusbDriverInstall.cpp WindowsUsbDriver.cpp DriverRecovery.cpp)
   target_include_directories(upgrade_driver_installer PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
-  target_link_libraries(upgrade_driver_installer PRIVATE Qt6::Core setupapi cfgmgr32 winusb shell32 ole32)
+  target_link_libraries(upgrade_driver_installer PRIVATE upgrade_platform Qt6::Core setupapi cfgmgr32 winusb shell32 ole32)
   if(UPGRADE_TOOL_ROCKCHIP)
     target_link_libraries(upgrade_driver_installer PRIVATE upgrade_rockchip_usb)
   endif()
@@ -270,6 +274,7 @@ set(_tr_sources
   ${CMAKE_CURRENT_SOURCE_DIR}/EdlTransport.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/UsbAccess.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbRunner.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/AdbService.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/QtObserver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/OperationSpec.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/QualcommController.cpp

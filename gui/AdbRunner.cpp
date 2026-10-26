@@ -1,11 +1,14 @@
+#include "application/BuildFeatures.h"
+#include "platform/UsbLocation.h"
+#if UPGRADE_TOOL_ROCKCHIP
+#include "backends/rockchip/legacy/RKScan.h"
+#include "backends/rockchip/UsbTransport.h"
+#endif
 #include "gui/AdbRunner.h"
-#include "gui/AdbExecutable.h"
 #include "gui/WindowsUsbDriver.h"
 
 #include <QRegularExpression>
 #include <QCoreApplication>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QTimer>
 #include <libusb.h>
 #include <utility>
@@ -26,21 +29,6 @@ const char *kT3FelCommand =
     "case \"$value\" in 0x5AA5A55A|0x5aa5a55a) sync && reboot;; *) echo 'FEL flag verification "
     "failed'; false;; esac; } "
     "|| { echo AW_SWITCH_ERROR; exit 1; }";
-
-QStringList ParseDevices(const QByteArray &data)
-{
-	QStringList list;
-	QString strOut = QString::fromLocal8Bit(data);
-	QStringList strLines = strOut.split('\n', Qt::SkipEmptyParts);
-	for (int i = 0; i < strLines.size(); i++) {
-		QStringList strFields = strLines[i].split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-
-		if (strFields.size() < 2 || strFields[1] != "device")
-			continue;
-		list << strFields[0];
-	}
-	return list;
-}
 
 // Enumeration uses its own context and never claims a device interface.
 QVector<AdbUsbDevice> ScanUsb(bool readSerial)
@@ -63,6 +51,9 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
 			continue;
 		for (int j = 0; j < n; ++j)
 			d.ports.append(ports[j]);
+#ifndef Q_OS_WIN
+        d.location = QString::fromStdString(platform::UsbTopologyLocation(d.bus, {d.ports.begin(), d.ports.end()}));
+#endif
 		d.fel = desc.idVendor == 0x1f3a && desc.idProduct == 0xefe8;
 		if (readSerial && !d.fel && desc.iSerialNumber) {
 			libusb_config_descriptor *config = nullptr;
@@ -88,21 +79,53 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
 		}
 		result.append(d);
 	}
+#if UPGRADE_TOOL_ROCKCHIP
+    if (!readSerial) {
+        CRKScan scan(30, 20, ctx);
+        scan.SetVidPid();
+        const int count = scan.Search(RKUSB_LOADER);
+        for (int i = 0; i < count; ++i) {
+            STRUCT_RKDEVICE_DESC row{};
+            if (!scan.GetDevice(row, i) || row.emUsbType != RKUSB_LOADER || !row.usbDevice) continue;
+            AdbUsbDevice device;
+            device.loader = true;
+            device.location = QString::fromStdString(platform::NormalizeUsbLocation(row.usbDevice->physicalLocation));
+#ifndef Q_OS_WIN
+            auto *native = static_cast<libusb_device *>(row.usbDevice->native.get());
+            device.bus = libusb_get_bus_number(native);
+            unsigned char ports[16]; const int depth = libusb_get_port_numbers(native, ports, sizeof(ports));
+            for (int j = 0; j < depth; ++j) device.ports.append(ports[j]);
+            device.location = QString::fromStdString(platform::UsbTopologyLocation(device.bus, {device.ports.begin(), device.ports.end()}));
+#endif
+            result.append(device);
+        }
+    }
+#endif
 	if (list)
 		libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
-#ifdef Q_OS_WIN
     if (readSerial) {
-        for (const auto &native : WindowsAdbLocations()) {
+        for (const auto &native : platform::NativeAdbLocations()) {
             bool mapped = false;
-            for (auto &d : result) if (!d.fel && d.serial == native.first) { d.location = native.second; mapped = true; }
-            if (!mapped) { AdbUsbDevice d; d.serial = native.first; d.location = native.second; result.append(d); }
+            for (auto &device : result) if (!device.fel && device.serial.toStdString() == native.serial) {
+                device.location = QString::fromStdString(native.location); mapped = true;
+            }
+            if (!mapped) {
+                AdbUsbDevice device; device.serial = QString::fromStdString(native.serial);
+                device.location = QString::fromStdString(native.location); result.append(device);
+            }
         }
-    } else {
-        for (const auto &native : ScanWindowsUsbDrivers().devices) {
+    }
+#ifdef Q_OS_WIN
+    if (!readSerial) {
+        const auto nativeDevices = ScanWindowsUsbDrivers().devices;
+        const bool hasNativeFel = std::any_of(nativeDevices.begin(), nativeDevices.end(), [](const auto &device) { return device.vendor == 1; });
+        if (hasNativeFel) result.removeIf( [](const auto &device) { return device.fel; });
+        for (const auto &native : nativeDevices) {
             if (native.vendor != 1) continue;
-            AdbUsbDevice d; d.fel = true; d.location = native.location.toUpper();
-            d.location.remove(QRegularExpression("#USBMI\\([^)]*\\).*$")); result.append(d);
+            AdbUsbDevice device; device.fel = true;
+            device.location = QString::fromStdString(platform::NormalizeUsbLocation(native.location.toStdString()));
+            result.append(device);
         }
     }
 #endif
@@ -139,299 +162,42 @@ AdbRunner::AdbRunner(QObject *parent) : AdbRunner(parent, ScanUsb, kRebootTimeou
 
 AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,
                      platform::ProcessFactory factory, AdbPollTiming timing)
-    : QObject(parent), m_bRunning(false), m_bAwaitingChoice(false), m_bAvailable(false), m_bAvailabilityKnown(false),
-      m_usbScanner(std::move(scanner)), m_commandTimeoutMs(commandTimeoutMs), m_felTimeoutMs(felTimeoutMs)
+    : QObject(parent), m_usbScanner(std::move(scanner)), m_commandTimeoutMs(commandTimeoutMs), m_modeTimeoutMs(felTimeoutMs)
 {
-	m_pollTiming = timing;
-	m_felTimer = new QTimer(this);
-	m_felTimer->setInterval(250);
-	connect(m_felTimer, &QTimer::timeout, this, &AdbRunner::CheckFel);
-    m_pProc=new ProcessAdapter(this,factory);
-    connect(m_pProc,&ProcessAdapter::finished,this,&AdbRunner::onRebootFinished);
-    connect(m_pProc,&ProcessAdapter::failed,this,[this](const QString &error) {
-        if(m_bRunning) Complete(false,tr("Cannot start ADB process: %1").arg(error));
+    m_service = new AdbService(this, std::move(factory), timing);
+    m_modeTimer = new QTimer(this);
+    m_modeTimer->setInterval(250);
+    connect(m_modeTimer, &QTimer::timeout, this, &AdbRunner::CheckTargetMode);
+    connect(m_service, &AdbService::devicesChanged, this, &AdbRunner::devicesChanged);
+    connect(m_service, &AdbService::availabilityChanged, this, &AdbRunner::availabilityChanged);
+    connect(m_service, &AdbService::recoveryStateChanged, this, &AdbRunner::recoveryStateChanged);
+    connect(m_service, &AdbService::diagnosticMessage, this, &AdbRunner::diagnosticMessage);
+    connect(m_service, &AdbService::traceMessage, this, &AdbRunner::traceMessage);
+    connect(m_service, &AdbService::commandFinished, this, [this](quint64 id, const AdbCommandResult &result) {
+        if (id != m_commandId || !m_bRunning) return;
+        m_commandId = 0;
+        if (!result.started) { Complete(false, tr("Cannot start ADB process: %1").arg(result.error)); return; }
+        if (result.timedOut && m_stage != Stage::Rebooting) {
+            Complete(false, tr("ADB operation timed out; mode switch not completed.")); return;
+        }
+        m_commandOutput = result.output;
+        onRebootFinished(result.exitCode, result.succeeded());
     });
-
-	m_pTimeout = new QTimer(this);
-	m_pTimeout->setSingleShot(true);
-	connect(m_pTimeout, SIGNAL(timeout()), this, SLOT(onTimeout()));
-
-    m_pPollProc=new ProcessAdapter(this,factory);
-    connect(m_pPollProc,&ProcessAdapter::finished,this,&AdbRunner::onPollFinished);
-    connect(m_pPollProc,&ProcessAdapter::failed,this,&AdbRunner::onPollError);
-
-	m_pPollTimer = new QTimer(this);
-	m_pPollTimer->setSingleShot(true);
-	connect(m_pPollTimer, SIGNAL(timeout()), this, SLOT(onPollTick()));
-
-	m_pPollKill = new QTimer(this);
-	m_pPollKill->setSingleShot(true);
-	connect(m_pPollKill, SIGNAL(timeout()), this, SLOT(onPollKillTimeout()));
 }
 
-QString AdbRunner::AdbPath() const
-{
-	if (m_stopped) return QString();
-	return FindAdbExecutable().path;
+QString AdbRunner::AdbPath() const { return m_service->AdbPath(); }
+QString AdbRunner::RecoveryMessage() const { return m_service->RecoveryMessage(); }
+QStringList AdbRunner::Devices() const { return m_service->Devices(); }
+void AdbRunner::Start() { m_service->Start(); }
+void AdbRunner::Resume() { m_stopped=false; m_service->Resume(); }
+void AdbRunner::Stop() {
+    m_stopped=true;
+    m_service->setPaused(false);
+    m_bRunning=false; m_bAwaitingChoice=false;
+    m_modeTimer->stop();
+    m_service->Stop();
 }
-
-AdbRunner::~AdbRunner()
-{
-	Stop();
-}
-
-void AdbRunner::Stop()
-{
-	m_stopped = true;
-	m_pollCancelled = true;
-	m_serverReady = false;
-	m_recovering = false;
-	m_recoveryStarting = false;
-	m_bRunning = false;
-	m_bAwaitingChoice = false;
-	for (auto *timer : {m_felTimer, m_pTimeout, m_pPollTimer, m_pPollKill}) timer->stop();
-	for (auto *process : {m_pProc, m_pPollProc}) {
-		if (process->state() != ProcessAdapter::NotRunning) {
-			process->kill();
-			process->waitForFinished(1000);
-		}
-	}
-}
-
-void AdbRunner::Start()
-{
-	if (m_stopped) return;
-	RunPoll();
-}
-
-void AdbRunner::Resume()
-{
-	m_stopped = false;
-	m_retryDelayMs = 0;
-	m_failureCount = 0;
-	ClearPollDevices();
-	UpdateAvailability(false, {});
-	Start();
-}
-
-void AdbRunner::UpdateAvailability(bool bAvailable, const QString &strMessage)
-{
-	if (m_bAvailabilityKnown && m_bAvailable == bAvailable && m_availabilityMessage == strMessage)
-		return;
-	m_bAvailabilityKnown = true;
-	m_bAvailable = bAvailable;
-	m_availabilityMessage = strMessage;
-	emit availabilityChanged(m_bAvailable, strMessage);
-}
-
-void AdbRunner::ClearPollDevices()
-{
-	if (!m_strDevices.isEmpty()) {
-		m_strDevices.clear();
-		emit devicesChanged(m_strDevices);
-	}
-}
-
-void AdbRunner::SetRecovery(bool recovering, bool starting)
-{
-	if (m_recovering == recovering && m_recoveryStarting == starting) return;
-	m_recovering = recovering;
-	m_recoveryStarting = starting;
-	emit recoveryStateChanged(recovering, RecoveryMessage());
-}
-
-QString AdbRunner::RecoveryMessage() const
-{
-	return !m_recovering ? QString() : m_recoveryStarting
-	    ? tr("Starting ADB…") : tr("ADB connection interrupted; retrying automatically…");
-}
-
-void AdbRunner::SchedulePoll(int delayMs)
-{
-	if (!m_stopped) m_pPollTimer->start(delayMs);
-}
-
-void AdbRunner::PollFailed(const QString &message)
-{
-	m_serverReady = false;
-	ClearPollDevices();
-	SetRecovery(true);
-	m_retryDelayMs = m_failureCount == 0 ? m_pollTiming.initialRetryMs
-	    : std::min(m_retryDelayMs * 2, m_pollTiming.maximumRetryMs);
-	// Only the first error in an outage is surfaced; every attempt is traced on disk.
-	if (m_failureCount == 0) UpdateAvailability(false, message);
-	if (m_failureCount < 32) ++m_failureCount;
-	m_retryElapsed.start();
-	SchedulePoll(m_retryDelayMs);
-}
-
-void AdbRunner::TracePoll(const QString &event, const QByteArray &output, const QString &detail)
-{
-	constexpr int outputLimit = 64 * 1024;
-	const QJsonObject record{
-	    {"event", event}, {"gui_pid", QCoreApplication::applicationPid()},
-	    {"attempt", qint64(m_pollSequence)}, {"path", m_pollPath}, {"source", m_pollSource},
-	    {"command", m_pollCommand == PollCommand::Version ? "version"
-	        : m_pollCommand == PollCommand::StartServer ? "start-server" : "devices"},
-	    {"phase", m_pollCommand == PollCommand::Devices ? "query" : "startup"},
-	    {"elapsed_ms", m_pollElapsed.isValid() ? m_pollElapsed.elapsed() : 0},
-	    {"runtime_ms", m_pollRuntime.isValid() ? m_pollRuntime.elapsed() : 0},
-	    {"spawn_elapsed_ms", m_spawnElapsedMs},
-	    {"timeout_ms", m_pollTiming.hardTimeoutMs}, {"slow_query_ms", m_pollTiming.slowQueryMs},
-	    {"retry_ms", m_retryDelayMs}, {"failure_count", m_failureCount}, {"detail", detail},
-	    {"output_bytes", qint64(output.size())}, {"output_truncated", output.size() > outputLimit},
-	    {"output", QString::fromLocal8Bit(output.left(outputLimit))}};
-	emit traceMessage(QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact)));
-}
-
-void AdbRunner::RunPoll()
-{
-	if (m_stopped) return;
-	if (m_pollActive || m_pPollProc->state() != ProcessAdapter::NotRunning)
-		return;
-	if (m_bRunning || m_bAwaitingChoice) {
-		SchedulePoll(m_pollTiming.pollIntervalMs);
-		return;
-	}
-
-	const auto executable = FindAdbExecutable();
-	if (m_pollPath != executable.path) {
-		ClearPollDevices();
-		m_serverReady = false;
-		m_failureCount = 0;
-		m_retryDelayMs = 0;
-		UpdateAvailability(false, {});
-	}
-	if (m_retryDelayMs && m_retryElapsed.isValid() && m_retryElapsed.elapsed() < m_retryDelayMs) {
-		SchedulePoll(m_retryDelayMs - int(m_retryElapsed.elapsed()));
-		return;
-	}
-	if (executable.path.isEmpty()) {
-		m_pollPath.clear();
-		m_pollSource.clear();
-		if (!m_bAvailabilityKnown || m_availabilityMessage != tr("ADB executable not found; reinstall the application or install ADB and check PATH / ADB."))
-			TracePoll(QStringLiteral("executable_missing"));
-		PollFailed(tr("ADB executable not found; reinstall the application or install ADB and check PATH / ADB."));
-		return;
-	}
-
-	m_pollPath = executable.path;
-	m_pollSource = executable.source;
-	m_pollCommand = !m_versionChecked.contains(m_pollPath) ? PollCommand::Version
-	    : !m_serverReady ? PollCommand::StartServer : PollCommand::Devices;
-	m_pollTimedOut = false;
-	m_pollCancelled = false;
-	m_pollSlow = false;
-	m_pollActive = true;
-	++m_pollSequence;
-	m_pollElapsed.start();
-	m_pollRuntime.invalidate();
-	m_spawnElapsedMs = 0;
-	m_tracePoll = m_pollCommand != PollCommand::Devices || !m_bAvailabilityKnown || !m_bAvailable;
-	if (!m_serverReady) SetRecovery(true, m_failureCount == 0);
-	if (m_tracePoll) TracePoll(QStringLiteral("start"));
-	const QString command = m_pollCommand == PollCommand::Version ? QStringLiteral("version")
-	    : m_pollCommand == PollCommand::StartServer ? QStringLiteral("start-server") : QStringLiteral("devices");
-	m_pPollProc->start(m_pollPath, {command});
-	m_spawnElapsedMs = m_pollElapsed.elapsed();
-	m_pollRuntime.start();
-	m_pPollKill->start(m_pollCommand == PollCommand::Devices
-	    ? m_pollTiming.slowQueryMs : m_pollTiming.hardTimeoutMs);
-}
-
-void AdbRunner::onPollTick() { RunPoll(); }
-
-void AdbRunner::onPollFinished(int iExitCode, bool eStatus)
-{
-	m_pPollKill->stop();
-	m_pollActive = false;
-	if (m_stopped) return;
-	if (m_pollCancelled || FindAdbExecutable().path != m_pollPath) {
-		m_serverReady = false;
-		SchedulePoll(0);
-		return;
-	}
-	const auto output = m_pPollProc->readAll();
-	if (m_pollTimedOut) {
-		PollFailed(tr("ADB command timed out."));
-		TracePoll(QStringLiteral("timeout"), output, QStringLiteral("client_exited=1"));
-		return;
-	}
-
-	if (eStatus != true || iExitCode != 0) {
-		PollFailed(tr("ADB command failed (%1): %2").arg(iExitCode).arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
-		TracePoll(QStringLiteral("failed"), output,
-		          QStringLiteral("exit_code=%1 normal_exit=%2").arg(iExitCode).arg(eStatus));
-		return;
-	}
-	if (m_pollCommand == PollCommand::Version) {
-		if (!output.contains("Android Debug Bridge version")) {
-			PollFailed(tr("Invalid ADB version output: %1").arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
-			TracePoll(QStringLiteral("invalid_version"), output);
-			return;
-		}
-		m_versionChecked.insert(m_pollPath);
-		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
-		QStringList versionLines;
-		for (const auto &line : QString::fromLocal8Bit(output).split('\n')) {
-			const auto text = line.trimmed();
-			if (text.startsWith(QStringLiteral("Android Debug Bridge version ")) ||
-			    text.startsWith(QStringLiteral("Version ")))
-				versionLines.append(text);
-		}
-		emit diagnosticMessage(versionLines.join('\n'));
-		SchedulePoll(0);
-		return;
-	}
-	if (m_pollCommand == PollCommand::StartServer) {
-		m_serverReady = true;
-		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
-		SchedulePoll(0);
-		return;
-	}
-
-	QStringList strDevices = ParseDevices(output);
-	if (m_tracePoll || strDevices != m_strDevices || m_pollElapsed.elapsed() >= m_pollTiming.pollIntervalMs)
-		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
-	if (strDevices != m_strDevices) {
-		m_strDevices = strDevices;
-		emit devicesChanged(m_strDevices);
-	}
-	m_failureCount = 0;
-	m_retryDelayMs = 0;
-	if (m_recovering) TracePoll(QStringLiteral("recovered"));
-	SetRecovery(false);
-	UpdateAvailability(true, QString());
-	SchedulePoll(m_pollTiming.pollIntervalMs);
-}
-
-void AdbRunner::onPollError(const QString &error)
-{
-	m_pPollKill->stop();
-	m_pollActive = false;
-	if (m_stopped) return;
-	if (m_pollCancelled || FindAdbExecutable().path != m_pollPath) { SchedulePoll(0); return; }
-	PollFailed(tr("Cannot start ADB process: %1").arg(error));
-	TracePoll(QStringLiteral("start_failed"), m_pPollProc->readAll(), error);
-}
-
-void AdbRunner::onPollKillTimeout()
-{
-	if (m_stopped || !m_pollActive || m_pPollProc->state() == ProcessAdapter::NotRunning)
-		return;
-	if (m_pollCommand == PollCommand::Devices && !m_pollSlow) {
-		m_pollSlow = true;
-		ClearPollDevices();
-		SetRecovery(true);
-		UpdateAvailability(false, {});
-		TracePoll(QStringLiteral("slow_query"));
-		m_pPollKill->start(std::max(1, m_pollTiming.hardTimeoutMs - int(m_pollRuntime.elapsed())));
-		return;
-	}
-	m_pollTimedOut = true;
-	TracePoll(QStringLiteral("timeout_kill_requested"));
-	m_pPollProc->kill();
-}
+AdbRunner::~AdbRunner() { Stop(); }
 
 void AdbRunner::SwitchToLoader()
 {
@@ -461,7 +227,7 @@ void AdbRunner::BeginSwitch()
 		return;
 	}
 
-	QStringList strDevices = m_strDevices;
+	QStringList strDevices = Devices();
 	if (strDevices.isEmpty()) {
 		emit finished(false, tr("No device in ADB mode found."));
 		return;
@@ -480,7 +246,7 @@ void AdbRunner::ChooseDevice(const QString &strSerial)
 {
 	if (!m_bAwaitingChoice)
 		return;
-	if (!m_strDevices.contains(strSerial.trimmed())) {
+	if (!Devices().contains(strSerial.trimmed())) {
 		Complete(false, tr("The selected ADB device is no longer available."));
 		return;
 	}
@@ -501,20 +267,17 @@ void AdbRunner::StartReboot(const QString &serial)
 	m_target = {};
 	m_commandError.clear();
 	m_bRunning = true;
-	if (m_felSwitch) {
-		m_stage = Stage::Listing;
-		emit switchProgress(tr("Checking ADB devices and USB ports…"));
-		StartCommand({"devices", "-l"});
-	} else {
-		m_stage = Stage::Loader;
-		StartCommand({"-s", serial, "reboot", kRebootTarget});
-	}
+    m_service->setPaused(true);
+    m_stage = Stage::Listing;
+    emit switchProgress(tr("Checking ADB devices and USB ports…"));
+    StartCommand({"devices", "-l"});
 }
 
 void AdbRunner::StartCommand(const QStringList &args)
 {
-	m_pProc->start(AdbPath(), args);
-	m_pTimeout->start(m_commandTimeoutMs);
+	m_commandCancel = std::make_shared<std::stop_source>();
+    m_commandId = m_service->execute(AdbPath(), args, m_commandCancel,
+        args.value(0) == "devices" ? kAdbReadTimeoutMs : m_commandTimeoutMs);
 }
 
 void AdbRunner::Complete(bool ok, const QString &message)
@@ -522,44 +285,35 @@ void AdbRunner::Complete(bool ok, const QString &message)
 	m_stage = Stage::Idle;
 	m_bRunning = false;
 	m_bAwaitingChoice = false;
-	m_pTimeout->stop();
-	m_felTimer->stop();
-	if (m_pProc->state() != ProcessAdapter::NotRunning) {
-		m_pProc->kill();
-		m_pProc->waitForFinished(1000);
-	}
+	m_modeTimer->stop();
+    if (m_commandCancel) m_commandCancel->request_stop();
+    m_commandId = 0;
+    m_service->setPaused(false);
+
 	emit finished(ok, message);
-	RunPoll();
+
 }
 
 void AdbRunner::onRebootFinished(int code, bool status)
 {
-	m_pTimeout->stop();
-	const auto output = QString::fromLocal8Bit(m_pProc->readAll()).trimmed();
+	const auto output = QString::fromLocal8Bit(m_commandOutput).trimmed();
 	if (!m_bRunning || m_stage == Stage::Waiting)
 		return;
-	if (m_felSwitch) {
-		HandleFelCommand(code, status, output);
-		return;
-	}
-	Complete(status == true && code == 0,
-	         status == true && code == 0
-	             ? tr("Switched to Loader mode.")
-	             : tr("Switch to Loader failed: %1").arg(output.isEmpty() ? tr("ADB returned %1").arg(code) : output));
+    HandleSwitchCommand(code, status, output);
 }
 
-void AdbRunner::HandleFelCommand(int code, bool status, const QString &output)
+void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output)
 {
 	if (m_stage == Stage::Rebooting) {
-		if (output.contains("AW_SWITCH_ERROR")) {
+		if (m_felSwitch && output.contains("AW_SWITCH_ERROR")) {
 			Complete(false, tr("Failed to set T3 FEL flag or reboot: %1").arg(output));
 			return;
 		}
-		// A disconnected ADB process may fail even though the device is entering FEL.
+		// A disconnect can make ADB fail even when the device enters the requested mode.
 		if (status != true || code != 0)
 			m_commandError = output;
 		m_stage = Stage::Waiting;
-		CheckFel();
+		CheckTargetMode();
 		return;
 	}
 	if (status != true || code != 0) {
@@ -592,10 +346,16 @@ void AdbRunner::HandleFelCommand(int code, bool status, const QString &output)
 #endif
 		if (matches.isEmpty())
 			for (const auto &d : devices)
-				if (!d.fel && d.serial == m_serial)
+				if (!d.fel && !d.loader && d.serial == m_serial)
 					matches.append(d);
-		if (matches.size() == 1)
-			m_target = matches[0];
+        if (matches.size() == 1) m_target = matches[0];
+        if (!m_felSwitch) {
+            m_stage = Stage::Rebooting;
+            emit switchProgress(tr("Loader switch request sent; waiting for the USB device…"));
+            m_modeElapsed.start(); m_modeTimer->start();
+            StartCommand({"-s", m_serial, "reboot", kRebootTarget});
+            return;
+        }
 		m_stage = Stage::Probing;
 		emit switchProgress(tr("Detecting device system and switch capability…"));
 		StartCommand({"-s", m_serial, "shell", QString::fromLatin1(kProbe)});
@@ -639,52 +399,53 @@ void AdbRunner::HandleFelCommand(int code, bool status, const QString &output)
 		}
 		m_stage = Stage::Rebooting;
 		emit switchProgress(tr("FEL switch request sent; waiting for the USB device…"));
-		m_felElapsed.start();
-		m_felTimer->start();
+		m_modeElapsed.start();
+		m_modeTimer->start();
 		StartCommand(command);
 	}
 }
 
-void AdbRunner::CheckFel()
+void AdbRunner::CheckTargetMode()
 {
 	if (!m_bRunning || (m_stage != Stage::Rebooting && m_stage != Stage::Waiting))
 		return;
-	if (!m_target.ports.isEmpty() || !m_target.location.isEmpty()) {
-		for (const auto &d : m_usbScanner(false)) {
-			if (d.fel && ((!m_target.location.isEmpty() && d.location == m_target.location) ||
-                (!m_target.ports.isEmpty() && d.bus == m_target.bus && d.ports == m_target.ports))) {
-				// Drain the old command before allowing another switch to use this process.
-				if (m_pProc->state() != ProcessAdapter::NotRunning) {
-					m_stage = Stage::Waiting;
-					m_pTimeout->stop();
-					m_pProc->kill();
-					return;
-				}
-				Complete(true, tr("FEL flash device detected on the target USB port."));
-				return;
-			}
-		}
-	}
-	if (m_felElapsed.elapsed() >= m_felTimeoutMs) {
+    const platform::UsbLocation target{m_target.location.toStdString(), m_target.bus,
+        {m_target.ports.begin(), m_target.ports.end()}};
+    if (target.known()) {
+        int matches = 0;
+        for (const auto &device : m_usbScanner(false)) {
+            const platform::UsbLocation candidate{device.location.toStdString(), device.bus,
+                {device.ports.begin(), device.ports.end()}};
+            if ((m_felSwitch ? device.fel : device.loader) && target.matches(candidate)) ++matches;
+        }
+        if (matches > 1) {
+            Complete(false, tr("Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly."));
+            return;
+        }
+        if (matches == 1) {
+            if (m_commandId != 0) {
+                m_stage = Stage::Waiting;
+                if (m_commandCancel) m_commandCancel->request_stop();
+                return;
+            }
+            Complete(true, m_felSwitch ? tr("FEL flash device detected on the target USB port.")
+                                      : tr("Loader device detected on the target USB port."));
+            return;
+        }
+    }
+	if (m_modeElapsed.elapsed() >= m_modeTimeoutMs) {
+        if (!m_felSwitch) {
+            Complete(false, target.known()
+                ? tr("No Loader device detected on the target USB port. %1").arg(m_commandError)
+                : tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list."));
+            return;
+        }
 		Complete(false,
 		         m_target.ports.isEmpty() && m_target.location.isEmpty()
 		             ? tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.")
 		             : tr("No FEL device detected on the target USB port. Check system support, or choose \"Alternate\". %1")
 		                   .arg(m_commandError.isEmpty() ? QString() : "\n" + m_commandError));
 	}
-}
-
-void AdbRunner::onTimeout()
-{
-	if (!m_bRunning)
-		return;
-	if (m_stage == Stage::Rebooting) {
-		m_commandError = tr("The ADB reboot command did not return in time.");
-		m_stage = Stage::Waiting;
-		m_pProc->kill();
-		return;
-	}
-	Complete(false, tr("ADB operation timed out; mode switch not completed."));
 }
 
 } // namespace gui

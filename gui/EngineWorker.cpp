@@ -60,8 +60,7 @@ void EngineWorker::execute(const core::TaskJob &job)
 {
 #ifdef Q_OS_WIN
     std::lock_guard<std::recursive_mutex> accessLock(UsbProbeMutex());
-    const bool simulation = !job.steps.empty() && job.steps.front().vendor() == core::Vendor::Qualcomm &&
-        (job.steps.front().qualcomm().dryRun || job.steps.front().operation() == core::Operation::QualcommCreateDigests);
+    const bool simulation = !job.steps.empty() && core::IsSimulation(job.steps.front());
     if (!simulation) {
         try {
             for (const auto &target : job.targets) {
@@ -85,9 +84,9 @@ void EngineWorker::execute(const core::TaskJob &job)
     });
     emit taskFinished(summary);
 }
-void EngineWorker::inspect(const core::InspectionRequest &inspection) {
-    if(inspection.cancelled->stop_requested()) return;
+core::OperationResult EngineWorker::inspectResult(const core::InspectionRequest &inspection) {
     core::OperationResult result; result.operation=inspection.request.operation();
+    if (inspection.cancelled->stop_requested()) return result;
     try {
         if(inspection.directory) {
             auto *backend=m_runtime->registry.Find(inspection.request.vendor());
@@ -96,7 +95,11 @@ void EngineWorker::inspect(const core::InspectionRequest &inspection) {
         } else result=m_runtime->registry.Execute(inspection.request,{},inspection.cancelled,nullptr);
     }
     catch(const std::exception &error) { result.error=core::ErrorCode::OperationFailed; result.diagnostic=error.what(); }
-    if(!inspection.cancelled->stop_requested()) emit inspectionFinished(inspection.context,inspection.generation,result);
+    return result;
+}
+void EngineWorker::inspect(const core::InspectionRequest &inspection) {
+    const auto result = inspectResult(inspection);
+    if (!inspection.cancelled->stop_requested()) emit inspectionFinished(inspection.context, inspection.generation, result);
 }
 
 }

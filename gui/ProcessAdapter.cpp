@@ -11,9 +11,16 @@ ProcessAdapter::ProcessAdapter(QObject *parent,platform::ProcessFactory factory)
 }
 void ProcessAdapter::start(const QString &executable,const QStringList &arguments) {
     std::vector<std::string> args; for(const auto &a:arguments) args.push_back(a.toStdString());
+    const auto currentGeneration = ++generation;
+    timer.stop();
     error.clear(); pending=false;
     try { process->Start(executable.toStdString(),args); pending=true; timer.start(); }
-    catch(const std::exception &e) { error=QString::fromUtf8(e.what()); QTimer::singleShot(0,this,[this] { emit failed(error); }); }
+    catch(const std::exception &e) {
+        error=QString::fromUtf8(e.what());
+        QTimer::singleShot(0,this,[this,currentGeneration,message=error] {
+            if (currentGeneration == generation) emit failed(message);
+        });
+    }
 }
 bool ProcessAdapter::waitForFinished(int timeout) {
     auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(timeout);

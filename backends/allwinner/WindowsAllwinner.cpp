@@ -1,3 +1,4 @@
+#include "platform/WindowsUsb.h"
 #include "backends/allwinner/UsbWire.h"
 #include "backends/allwinner/WindowsAllwinner.h"
 #include <windows.h>
@@ -42,17 +43,7 @@ std::wstring upper(std::wstring text) {
     return text;
 }
 std::vector<std::wstring> property(HDEVINFO set, SP_DEVINFO_DATA &info, DWORD key) {
-    DWORD bytes = 0, type = 0;
-    SetupDiGetDeviceRegistryPropertyW(set, &info, key, &type, nullptr, 0, &bytes);
-    if (!bytes || bytes > 65536) return {};
-    std::vector<wchar_t> data(bytes / sizeof(wchar_t) + 2, 0);
-    if (!SetupDiGetDeviceRegistryPropertyW(set, &info, key, &type, reinterpret_cast<BYTE *>(data.data()), bytes, nullptr)) return {};
-    std::vector<std::wstring> result;
-    for (auto *p = data.data(); *p; p += wcslen(p) + 1) {
-        result.emplace_back(p);
-        if (type != REG_MULTI_SZ) break;
-    }
-    return result;
+    return platform::WindowsUsbProperty(set, info, key);
 }
 struct NativeDevice { DeviceIdentity identity; DWORD error = ERROR_NOT_READY; };
 std::vector<NativeDevice> enumerate() {

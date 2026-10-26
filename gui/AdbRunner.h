@@ -3,7 +3,7 @@
 
 #include <QElapsedTimer>
 #include <QObject>
-#include "gui/ProcessAdapter.h"
+#include "gui/AdbService.h"
 #include "gui/AdbTiming.h"
 #include <QString>
 #include <QStringList>
@@ -22,6 +22,7 @@ struct AdbUsbDevice {
 	QString serial;
 	bool fel = false;
     QString location;
+    bool loader = false;
 };
 
 class AdbRunner : public QObject
@@ -42,7 +43,8 @@ class AdbRunner : public QObject
 
 	void Start();
 
-	QStringList Devices() const { return m_strDevices; }
+	QStringList Devices() const;
+    AdbService *service() const { return m_service; }
 
 	void SwitchToLoader();
 	void SwitchToFel(FelMethod method);
@@ -63,78 +65,29 @@ class AdbRunner : public QObject
 	void diagnosticMessage(const QString &message);
 	void traceMessage(const QString &message);
 
-  private slots:
-	void onRebootFinished(int iExitCode, bool eStatus);
-	void onTimeout();
-	void onPollTick();
-	void onPollFinished(int iExitCode, bool eStatus);
-	void onPollError(const QString &error);
-	void onPollKillTimeout();
-	void CheckFel();
-
   private:
-	void StartReboot(const QString &strSerial);
-	void BeginSwitch();
-	void StartCommand(const QStringList &args);
-	void Complete(bool ok, const QString &message);
-	void HandleFelCommand(int code, bool status, const QString &output);
-	void RunPoll();
-	void UpdateAvailability(bool bAvailable, const QString &strMessage);
-	void PollFailed(const QString &message);
-	void ClearPollDevices();
-	void SetRecovery(bool recovering, bool starting = false);
-	void SchedulePoll(int delayMs);
-	void TracePoll(const QString &event, const QByteArray &output = {}, const QString &detail = {});
-
-	ProcessAdapter *m_pProc;
-	QTimer *m_pTimeout;
-
-	ProcessAdapter *m_pPollProc;
-	QTimer *m_pPollTimer;
-	QTimer *m_pPollKill;
-
-	QStringList m_strDevices;
-	QString m_availabilityMessage;
-	QString m_pollPath;
-	QString m_pollSource;
-	QElapsedTimer m_pollElapsed;
-	quint64 m_pollSequence = 0;
-	bool m_tracePoll = false;
-	QSet<QString> m_versionChecked;
-	enum class PollCommand { Version, StartServer, Devices };
-	PollCommand m_pollCommand = PollCommand::Version;
-	AdbPollTiming m_pollTiming;
-	QElapsedTimer m_pollRuntime;
-	QElapsedTimer m_retryElapsed;
-	int m_retryDelayMs = 0;
-	int m_failureCount = 0;
-	qint64 m_spawnElapsedMs = 0;
-	bool m_serverReady = false;
-	bool m_pollActive = false;
-	bool m_pollCancelled = false;
-	bool m_pollSlow = false;
-	bool m_recovering = false;
-	bool m_recoveryStarting = false;
-	bool m_pollTimedOut = false;
-	bool m_bRunning;
-	bool m_bAwaitingChoice;
-	bool m_bAvailable;
-	bool m_bAvailabilityKnown;
-	bool m_stopped = false;
-	enum class Stage { Idle, Loader, Listing, Probing, Rebooting, Waiting };
-	Stage m_stage = Stage::Idle;
-	bool m_felSwitch = false;
-	FelMethod m_felMethod = FelMethod::Auto;
-	QString m_serial;
-	QString m_commandError;
-	AdbUsbDevice m_target;
-	UsbScanner m_usbScanner;
-	QTimer *m_felTimer;
-	QElapsedTimer m_felElapsed;
-	int m_commandTimeoutMs;
-	int m_felTimeoutMs;
+    void onRebootFinished(int, bool);
+    void CheckTargetMode();
+    void StartReboot(const QString &);
+    void BeginSwitch();
+    void StartCommand(const QStringList &);
+    void Complete(bool, const QString &);
+    void HandleSwitchCommand(int, bool, const QString &);
+    AdbService *m_service;
+    quint64 m_commandId = 0;
+    core::Cancellation m_commandCancel;
+    QByteArray m_commandOutput;
+    bool m_bRunning = false, m_bAwaitingChoice = false, m_stopped = false;
+    enum class Stage { Idle, Listing, Probing, Rebooting, Waiting };
+    Stage m_stage = Stage::Idle;
+    bool m_felSwitch = false;
+    FelMethod m_felMethod = FelMethod::Auto;
+    QString m_serial, m_commandError;
+    AdbUsbDevice m_target;
+    UsbScanner m_usbScanner;
+    QTimer *m_modeTimer;
+    QElapsedTimer m_modeElapsed;
+    int m_commandTimeoutMs, m_modeTimeoutMs;
 };
-
 } // namespace gui
-
 #endif

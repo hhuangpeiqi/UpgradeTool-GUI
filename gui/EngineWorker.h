@@ -21,6 +21,7 @@ public:
 	explicit EngineWorker(platform::FileLog *log, QObject *parent = nullptr);
 	~EngineWorker();
 	void SetObserver(core::IUpgradeObserver *observer);
+    core::OperationResult inspectResult(const core::InspectionRequest &);
 public slots:
 	void scanDevices();
 	void execute(const core::TaskJob &job);
