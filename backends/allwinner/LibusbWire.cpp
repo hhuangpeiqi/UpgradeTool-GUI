@@ -6,7 +6,7 @@ namespace core::allwinner {
 namespace {
 DeviceIdentity Identity(libusb_device *dev) {
     DeviceIdentity d; d.vendor = Vendor::Allwinner; d.bus = libusb_get_bus_number(dev);
-    d.vid = 0x1f3a; d.pid = 0xefe8;
+    d.vid = 0x1f3a; d.pid = 0xefe8; d.usbAddress = libusb_get_device_address(dev);
     uint8_t ports[16]; const int n = libusb_get_port_numbers(dev, ports, sizeof(ports));
     if (n > 0) d.ports.assign(ports, ports + n);
     return d;
@@ -74,7 +74,7 @@ public:
         auto *transfer = libusb_alloc_transfer(0);
         if (!transfer) { error = "Cannot allocate USB transfer"; return -1; }
         TransferResult result;
-        libusb_fill_bulk_transfer(transfer, handle, uint8_t(ep), reinterpret_cast<unsigned char *>(data), size, Completed, &result, 60000);
+        libusb_fill_bulk_transfer(transfer, handle, uint8_t(ep), reinterpret_cast<unsigned char *>(data), size, Completed, &result, TimeoutMs());
         const int rc = libusb_submit_transfer(transfer);
         if (rc) { error = libusb_error_name(rc); libusb_free_transfer(transfer); return -1; }
         bool cancelled = false;

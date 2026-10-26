@@ -33,7 +33,7 @@ std::vector<NativeUsbLocation> NativeAdbLocations() {
     for (DWORD i = 0; SetupDiEnumDeviceInfo(set, i, &info); ++i) {
         bool adb = false;
         for (const auto &id : WindowsUsbProperty(set, info, SPDRP_COMPATIBLEIDS))
-            adb |= id.find(L"SUBCLASS_42&PROT_01") != std::wstring::npos;
+            adb |= IsAdbInterfaceCompatibleId(Utf8(std::filesystem::path(id)));
         if (!adb) continue;
         const auto serial = WindowsUsbSerial(info.DevInst);
         const auto locations = WindowsUsbProperty(set, info, SPDRP_LOCATION_PATHS);

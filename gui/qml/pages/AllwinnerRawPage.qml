@@ -67,7 +67,7 @@ AllwinnerWorkspace {
             objectName: "awRawStart"
             text: app.batchMode ? qsTr("Batch flash") : qsTr("Start Flashing")
             reserveText: app.batchMode ? qsTr("Start Flashing") : qsTr("Batch flash")
-            enabled: !app.interactionLocked && page.valid && app.hasDevice && rawImage.text.trim() !== ""
+            enabled: !app.interactionLocked && page.valid && app.hasFlashTarget && rawImage.text.trim() !== ""
             onClicked: page.execute(Operations.AllwinnerRaw, {rawImage: rawImage.text, rawMode: mode.currentIndex,
                 rawStorage: storage.currentIndex, logicOffset: offset.text})
         }

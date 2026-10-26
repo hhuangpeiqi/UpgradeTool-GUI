@@ -1,4 +1,8 @@
 #include "gui/EngineWorker.h"
+#include "application/BuildFeatures.h"
+#if UPGRADE_TOOL_ALLWINNER
+#include "backends/allwinner/AllwinnerBackend.h"
+#endif
 #include "backends/BackendFactory.h"
 #include "application/TaskService.h"
 #include <QVariantMap>
@@ -17,6 +21,49 @@ struct EngineWorker::Runtime {
 EngineWorker::EngineWorker(platform::FileLog *log,QObject *parent) : QObject(parent),m_runtime(std::make_unique<Runtime>(log)) {}
 EngineWorker::~EngineWorker() = default;
 void EngineWorker::SetObserver(core::IUpgradeObserver *observer) { m_observer=observer; }
+void EngineWorker::prepareFelSwitch(const FelSwitchRequest &request) {
+#if UPGRADE_TOOL_ALLWINNER
+    auto *backend=dynamic_cast<core::allwinner::AllwinnerBackend *>(m_runtime->registry.Find(core::Vendor::Allwinner));
+    if(backend && !m_felMonitor) {
+        AllwinnerSwitchMonitor::Hooks hooks;
+        hooks.scan=[backend] {
+#ifdef Q_OS_WIN
+            std::lock_guard<std::recursive_mutex> lock(UsbProbeMutex());
+#endif
+            return backend->Scan();
+        };
+        hooks.connect=[backend](const core::DeviceRef &target,const core::Cancellation &cancel,auto deadline) {
+#ifdef Q_OS_WIN
+            std::lock_guard<std::recursive_mutex> lock(UsbProbeMutex());
+#endif
+            return backend->Connect(target,cancel,deadline);
+        };
+        hooks.release=[backend](const core::DeviceRef &target) { backend->ReleaseSession(target); };
+        m_felMonitor=new AllwinnerSwitchMonitor(std::move(hooks),this);
+        connect(m_felMonitor,&AllwinnerSwitchMonitor::ready,this,&EngineWorker::felMonitorReady);
+        connect(m_felMonitor,&AllwinnerSwitchMonitor::trace,this,&EngineWorker::traceMessage);
+        connect(m_felMonitor,&AllwinnerSwitchMonitor::completed,this,
+            [this,backend](quint64 id,bool ok,const QString &message,const core::DeviceRef &target) {
+                // The queued snapshot reaches the GUI before it unlocks the switch.
+                scanDevices();
+                if(ok && !backend->HasSession(target))
+                    emit felMonitorFinished(id,false,tr("The target device disconnected after the FEL/FES handshake."),{});
+                else emit felMonitorFinished(id,ok,message,target);
+            });
+    }
+    if(m_felMonitor) { m_felMonitor->prepare(request); return; }
+#endif
+    emit felMonitorFinished(request.id,false,tr("Allwinner support is unavailable."),{});
+}
+void EngineWorker::cancelFelSwitch(quint64 id) {
+    if(m_felMonitor) m_felMonitor->cancel(id);
+}
+void EngineWorker::releaseAllwinnerSessions() {
+#if UPGRADE_TOOL_ALLWINNER
+    auto *backend=dynamic_cast<core::allwinner::AllwinnerBackend *>(m_runtime->registry.Find(core::Vendor::Allwinner));
+    if(backend) backend->ReleaseSessions();
+#endif
+}
 void EngineWorker::scanDevices()
 {
 #ifdef Q_OS_WIN
@@ -43,8 +90,8 @@ void EngineWorker::scanDevices()
                 map["interfaceNumber"] = dev.interfaceNumber; map["alternate"] = dev.alternate;
                 map["inEndpoint"] = dev.inEndpoint; map["outEndpoint"] = dev.outEndpoint;
                 map["vendor"] = static_cast<int>(dev.reference.vendor()); map["bus"] = dev.bus;
-                QVariantList ports; QStringList labels;
-                for (auto p : dev.ports) { ports.append(p); labels.append(QString::number(p)); }
+                QVariantList ports;
+                for (auto p : dev.ports) ports.append(p);
                 map["ports"] = ports;
                 map["key"]=QString::fromStdString(dev.reference.key());
                 map["reference"]=QVariant::fromValue(dev.reference);
@@ -82,6 +129,8 @@ void EngineWorker::execute(const core::TaskJob &job)
         emit stepStarted(static_cast<int>(step),static_cast<int>(target),
                          static_cast<int>(job.targets.size()),QString::fromStdString(device.serial()));
     });
+    if(summary.status!=core::OperationStatus::Succeeded && !job.steps.empty() &&
+        job.steps.front().vendor()==core::Vendor::Allwinner) releaseAllwinnerSessions();
     emit taskFinished(summary);
 }
 core::OperationResult EngineWorker::inspectResult(const core::InspectionRequest &inspection) {

@@ -251,6 +251,7 @@ private:
 	QtObserver *m_pObserver;
 	QThread *m_pThread;
 	AdbRunner *m_pAdb;
+    QString m_pendingFelKey;
     InspectionQueue *m_inspections;
 	ConfigStore *m_pConfig;
 	ThemeManager *m_pTheme;

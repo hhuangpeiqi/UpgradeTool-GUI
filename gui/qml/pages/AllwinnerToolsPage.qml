@@ -55,7 +55,7 @@ AllwinnerWorkspace {
             objectName: "awReboot"
             text: qsTr("Reboot Device")
             iconSource: Icons.refreshBlue
-            enabled: !app.interactionLocked && app.vendor === 1 && app.hasDevice
+            enabled: !app.interactionLocked && app.vendor === 1 && app.hasFlashTarget
             onClicked: page.execute(Operations.AllwinnerReboot)
         }
     }

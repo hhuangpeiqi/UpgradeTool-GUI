@@ -5,11 +5,14 @@
 #include "backends/rockchip/UsbTransport.h"
 #endif
 #include "gui/AdbRunner.h"
-#include "gui/WindowsUsbDriver.h"
 
 #include <QRegularExpression>
 #include <QCoreApplication>
 #include <QTimer>
+#include <QScopeGuard>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <libusb.h>
 #include <utility>
 #include <algorithm>
@@ -30,57 +33,27 @@ const char *kT3FelCommand =
     "failed'; false;; esac; } "
     "|| { echo AW_SWITCH_ERROR; exit 1; }";
 
-// Enumeration uses its own context and never claims a device interface.
+// ADB source locations and Rockchip Loader targets are separate enumerations.
+// Allwinner targets are enumerated exclusively by the USB worker's backend.
 QVector<AdbUsbDevice> ScanUsb(bool readSerial)
 {
-	QVector<AdbUsbDevice> result;
-	libusb_context *ctx = nullptr;
-	if (libusb_init(&ctx) != 0)
-		return result;
-	libusb_device **list = nullptr;
-	const auto count = libusb_get_device_list(ctx, &list);
-	for (ssize_t i = 0; i < count; ++i) {
-		libusb_device_descriptor desc;
-		if (libusb_get_device_descriptor(list[i], &desc))
-			continue;
-		AdbUsbDevice d;
-		d.bus = libusb_get_bus_number(list[i]);
-		uint8_t ports[16];
-		const int n = libusb_get_port_numbers(list[i], ports, sizeof(ports));
-		if (n <= 0)
-			continue;
-		for (int j = 0; j < n; ++j)
-			d.ports.append(ports[j]);
-#ifndef Q_OS_WIN
-        d.location = QString::fromStdString(platform::UsbTopologyLocation(d.bus, {d.ports.begin(), d.ports.end()}));
+    QVector<AdbUsbDevice> result;
+#ifdef Q_OS_WIN
+    if (readSerial) {
+        for (const auto &native : platform::NativeAdbLocations()) {
+            AdbUsbDevice device;
+            device.serial = QString::fromStdString(native.serial);
+            device.location = QString::fromStdString(native.location);
+            result.append(device);
+        }
+        return result;
+    }
 #endif
-		d.fel = desc.idVendor == 0x1f3a && desc.idProduct == 0xefe8;
-		if (readSerial && !d.fel && desc.iSerialNumber) {
-			libusb_config_descriptor *config = nullptr;
-			bool adb = false;
-			if (!libusb_get_active_config_descriptor(list[i], &config)) {
-				for (int j = 0; j < config->bNumInterfaces; ++j)
-					for (int k = 0; k < config->interface[j].num_altsetting; ++k) {
-						const auto &alt = config->interface[j].altsetting[k];
-						adb |= alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass == 0x42 &&
-						       alt.bInterfaceProtocol == 1;
-					}
-				libusb_free_config_descriptor(config);
-			}
-			libusb_device_handle *handle = nullptr;
-			if (adb && !libusb_open(list[i], &handle)) {
-				unsigned char serial[256];
-				const int length =
-				    libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, serial, sizeof(serial));
-				if (length > 0)
-					d.serial = QString::fromUtf8(reinterpret_cast<char *>(serial), length);
-				libusb_close(handle);
-			}
-		}
-		result.append(d);
-	}
-#if UPGRADE_TOOL_ROCKCHIP
+    libusb_context *ctx = nullptr;
+    if (libusb_init(&ctx) != 0) return result;
+    const auto releaseContext = qScopeGuard([&] { libusb_exit(ctx); });
     if (!readSerial) {
+#if UPGRADE_TOOL_ROCKCHIP
         CRKScan scan(30, 20, ctx);
         scan.SetVidPid();
         const int count = scan.Search(RKUSB_LOADER);
@@ -93,43 +66,60 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
 #ifndef Q_OS_WIN
             auto *native = static_cast<libusb_device *>(row.usbDevice->native.get());
             device.bus = libusb_get_bus_number(native);
-            unsigned char ports[16]; const int depth = libusb_get_port_numbers(native, ports, sizeof(ports));
+            unsigned char ports[16];
+            const int depth = libusb_get_port_numbers(native, ports, sizeof(ports));
             for (int j = 0; j < depth; ++j) device.ports.append(ports[j]);
             device.location = QString::fromStdString(platform::UsbTopologyLocation(device.bus, {device.ports.begin(), device.ports.end()}));
 #endif
             result.append(device);
         }
-    }
 #endif
-	if (list)
-		libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
-    if (readSerial) {
-        for (const auto &native : platform::NativeAdbLocations()) {
-            bool mapped = false;
-            for (auto &device : result) if (!device.fel && device.serial.toStdString() == native.serial) {
-                device.location = QString::fromStdString(native.location); mapped = true;
-            }
-            if (!mapped) {
-                AdbUsbDevice device; device.serial = QString::fromStdString(native.serial);
-                device.location = QString::fromStdString(native.location); result.append(device);
-            }
-        }
+        return result;
     }
-#ifdef Q_OS_WIN
-    if (!readSerial) {
-        const auto nativeDevices = ScanWindowsUsbDrivers().devices;
-        const bool hasNativeFel = std::any_of(nativeDevices.begin(), nativeDevices.end(), [](const auto &device) { return device.vendor == 1; });
-        if (hasNativeFel) result.removeIf( [](const auto &device) { return device.fel; });
-        for (const auto &native : nativeDevices) {
-            if (native.vendor != 1) continue;
-            AdbUsbDevice device; device.fel = true;
-            device.location = QString::fromStdString(platform::NormalizeUsbLocation(native.location.toStdString()));
+    libusb_device **list = nullptr;
+    const auto count = libusb_get_device_list(ctx, &list);
+    const auto releaseList = qScopeGuard([&] { if (list) libusb_free_device_list(list, 1); });
+    for (ssize_t i = 0; i < count; ++i) {
+        libusb_device_descriptor desc;
+        libusb_config_descriptor *config = nullptr;
+        if (libusb_get_device_descriptor(list[i], &desc) || libusb_get_active_config_descriptor(list[i], &config)) continue;
+        bool adb = false;
+        for (int j = 0; j < config->bNumInterfaces; ++j)
+            for (int k = 0; k < config->interface[j].num_altsetting; ++k) {
+                const auto &alt = config->interface[j].altsetting[k];
+                adb |= alt.bInterfaceClass == 0xff && alt.bInterfaceSubClass == 0x42 && alt.bInterfaceProtocol == 1;
+            }
+        libusb_free_config_descriptor(config);
+        if (!adb) continue;
+        AdbUsbDevice device;
+        device.bus = libusb_get_bus_number(list[i]);
+        uint8_t ports[16];
+        const int depth = libusb_get_port_numbers(list[i], ports, sizeof(ports));
+        if (depth <= 0) continue;
+        for (int j = 0; j < depth; ++j) device.ports.append(ports[j]);
+        device.location = QString::fromStdString(platform::UsbTopologyLocation(device.bus, {device.ports.begin(), device.ports.end()}));
+        libusb_device_handle *handle = nullptr;
+        if (desc.iSerialNumber && !libusb_open(list[i], &handle)) {
+            unsigned char serial[256];
+            const int length = libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, serial, sizeof(serial));
+            if (length > 0) device.serial = QString::fromUtf8(reinterpret_cast<char *>(serial), length);
+            libusb_close(handle);
+        }
+        result.append(device);
+    }
+    for (const auto &native : platform::NativeAdbLocations()) {
+        bool mapped = false;
+        for (auto &device : result) if (device.serial.toStdString() == native.serial) {
+            device.location = QString::fromStdString(native.location); mapped = true;
+        }
+        if (!mapped) {
+            AdbUsbDevice device;
+            device.serial = QString::fromStdString(native.serial);
+            device.location = QString::fromStdString(native.location);
             result.append(device);
         }
     }
-#endif
-	return result;
+    return result;
 }
 
 const char *kProbe = R"SH(
@@ -160,14 +150,14 @@ bool IsT3FelCapable(bool android, bool buildroot, bool t3, const QString &output
 
 AdbRunner::AdbRunner(QObject *parent) : AdbRunner(parent, ScanUsb, kRebootTimeoutMs, 45000) {}
 
-AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int felTimeoutMs,
+AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, int modeTimeoutMs,
                      platform::ProcessFactory factory, AdbPollTiming timing)
-    : QObject(parent), m_usbScanner(std::move(scanner)), m_commandTimeoutMs(commandTimeoutMs), m_modeTimeoutMs(felTimeoutMs)
+    : QObject(parent), m_usbScanner(std::move(scanner)), m_commandTimeoutMs(commandTimeoutMs), m_modeTimeoutMs(modeTimeoutMs)
 {
     m_service = new AdbService(this, std::move(factory), timing);
-    m_modeTimer = new QTimer(this);
-    m_modeTimer->setInterval(250);
-    connect(m_modeTimer, &QTimer::timeout, this, &AdbRunner::CheckTargetMode);
+    m_loaderTimer = new QTimer(this);
+    m_loaderTimer->setInterval(250);
+    connect(m_loaderTimer, &QTimer::timeout, this, &AdbRunner::CheckLoaderMode);
     connect(m_service, &AdbService::devicesChanged, this, &AdbRunner::devicesChanged);
     connect(m_service, &AdbService::availabilityChanged, this, &AdbRunner::availabilityChanged);
     connect(m_service, &AdbService::recoveryStateChanged, this, &AdbRunner::recoveryStateChanged);
@@ -180,8 +170,8 @@ AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, 
         if (result.timedOut && m_stage != Stage::Rebooting) {
             Complete(false, tr("ADB operation timed out; mode switch not completed.")); return;
         }
-        m_commandOutput = result.output;
-        onRebootFinished(result.exitCode, result.succeeded());
+        if (m_stage != Stage::Waiting)
+            HandleSwitchCommand(result.exitCode, result.succeeded(), QString::fromLocal8Bit(result.output).trimmed());
     });
 }
 
@@ -192,9 +182,12 @@ void AdbRunner::Start() { m_service->Start(); }
 void AdbRunner::Resume() { m_stopped=false; m_service->Resume(); }
 void AdbRunner::Stop() {
     m_stopped=true;
+    if(m_felCancel) m_felCancel->request_stop();
+    if(m_felAttempt) emit felMonitorCancelled(m_felAttempt);
+    m_felAttempt=0;
     m_service->setPaused(false);
     m_bRunning=false; m_bAwaitingChoice=false;
-    m_modeTimer->stop();
+    m_loaderTimer->stop();
     m_service->Stop();
 }
 AdbRunner::~AdbRunner() { Stop(); }
@@ -265,7 +258,7 @@ void AdbRunner::StartReboot(const QString &serial)
 {
 	m_serial = serial;
 	m_target = {};
-	m_commandError.clear();
+	m_loaderCommandError.clear();
 	m_bRunning = true;
     m_service->setPaused(true);
     m_stage = Stage::Listing;
@@ -282,24 +275,21 @@ void AdbRunner::StartCommand(const QStringList &args)
 
 void AdbRunner::Complete(bool ok, const QString &message)
 {
+    if(m_felAttempt && !ok) {
+        if(m_felCancel) m_felCancel->request_stop();
+        emit felMonitorCancelled(m_felAttempt);
+    }
+    m_felAttempt=0; m_felCommand.clear();
 	m_stage = Stage::Idle;
 	m_bRunning = false;
 	m_bAwaitingChoice = false;
-	m_modeTimer->stop();
+	m_loaderTimer->stop();
     if (m_commandCancel) m_commandCancel->request_stop();
     m_commandId = 0;
     m_service->setPaused(false);
 
 	emit finished(ok, message);
 
-}
-
-void AdbRunner::onRebootFinished(int code, bool status)
-{
-	const auto output = QString::fromLocal8Bit(m_commandOutput).trimmed();
-	if (!m_bRunning || m_stage == Stage::Waiting)
-		return;
-    HandleSwitchCommand(code, status, output);
 }
 
 void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output)
@@ -310,10 +300,10 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 			return;
 		}
 		// A disconnect can make ADB fail even when the device enters the requested mode.
-		if (status != true || code != 0)
-			m_commandError = output;
+		if (!m_felSwitch && (status != true || code != 0))
+			m_loaderCommandError = output;
 		m_stage = Stage::Waiting;
-		CheckTargetMode();
+		if(!m_felSwitch) CheckLoaderMode();
 		return;
 	}
 	if (status != true || code != 0) {
@@ -340,19 +330,46 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 			for (const auto &port : path.captured(2).split('.'))
 				ports.append(port.toInt());
 			for (const auto &d : devices)
-				if (!d.fel && d.bus == path.captured(1).toInt() && d.ports == ports)
+				if (!d.loader && d.bus == path.captured(1).toInt() && d.ports == ports)
 					matches.append(d);
 		}
+        if(matches.isEmpty() && m_felSwitch && path.hasMatch()) {
+            AdbUsbDevice device; device.bus=path.captured(1).toInt(); device.serial=m_serial;
+            for(const auto &port:path.captured(2).split('.')) device.ports.append(port.toInt());
+            device.location=QString::fromStdString(platform::UsbTopologyLocation(device.bus,{device.ports.begin(),device.ports.end()}));
+            matches.append(device);
+        }
 #endif
 		if (matches.isEmpty())
 			for (const auto &d : devices)
-				if (!d.fel && !d.loader && d.serial == m_serial)
+				if (!d.loader && d.serial == m_serial)
 					matches.append(d);
-        if (matches.size() == 1) m_target = matches[0];
+
+        QVector<AdbUsbDevice> unique;
+        for(const auto &device:matches) {
+            const platform::UsbLocation location{device.location.toStdString(),device.bus,{device.ports.begin(),device.ports.end()}};
+            if(!location.known()) continue;
+            if(std::none_of(unique.begin(),unique.end(),[&](const auto &other) {
+                return location.matches({other.location.toStdString(),other.bus,{other.ports.begin(),other.ports.end()}});
+            })) unique.append(device);
+        }
+        if(unique.size()==1) {
+            const auto &device=unique.front();
+            m_target={device.location.toStdString(),device.bus,{device.ports.begin(),device.ports.end()}};
+        }
+        if(m_felSwitch && unique.size()!=1) {
+            Complete(false,tr("Cannot uniquely identify the target USB port; no switch command was sent.")); return;
+        }
+        QJsonArray ports;
+        for(const auto port:m_target.ports) ports.append(port);
+        emit traceMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
+            {"event","switch_target"},{"gui_pid",QCoreApplication::applicationPid()},
+            {"serial",m_serial},{"native",QString::fromStdString(m_target.native)},{"bus",m_target.bus},{"ports",ports},
+            {"mode",m_felSwitch?"fel":"loader"}}).toJson(QJsonDocument::Compact)));
         if (!m_felSwitch) {
             m_stage = Stage::Rebooting;
             emit switchProgress(tr("Loader switch request sent; waiting for the USB device…"));
-            m_modeElapsed.start(); m_modeTimer->start();
+            m_loaderElapsed.start(); m_loaderTimer->start();
             StartCommand({"-s", m_serial, "reboot", kRebootTarget});
             return;
         }
@@ -397,26 +414,37 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 		} else {
 			command << "reboot" << "efex";
 		}
-		m_stage = Stage::Rebooting;
-		emit switchProgress(tr("FEL switch request sent; waiting for the USB device…"));
-		m_modeElapsed.start();
-		m_modeTimer->start();
-		StartCommand(command);
+        m_stage=Stage::Arming;
+        m_felCommand=command;
+        m_felAttempt=++m_nextFelAttempt;
+        m_felCancel=std::make_shared<std::stop_source>();
+        emit switchProgress(tr("Preparing to detect and connect the target FEL/FES device…"));
+        emit felMonitorRequested(FelSwitchRequest{m_felAttempt,m_target,m_felCancel,m_modeTimeoutMs});
 	}
 }
 
-void AdbRunner::CheckTargetMode()
+void AdbRunner::FelMonitorReady(quint64 id) {
+    if(!m_bRunning || m_stage!=Stage::Arming || id!=m_felAttempt) return;
+    m_stage=Stage::Rebooting;
+    emit switchProgress(tr("FEL switch request sent; waiting for the USB device…"));
+    StartCommand(m_felCommand);
+}
+void AdbRunner::FelMonitorFinished(quint64 id,bool ok,const QString &message,const core::DeviceRef &target) {
+    if(!m_bRunning || id!=m_felAttempt) return;
+    if(ok) emit felTargetReady(target);
+    Complete(ok,message);
+}
+
+void AdbRunner::CheckLoaderMode()
 {
-	if (!m_bRunning || (m_stage != Stage::Rebooting && m_stage != Stage::Waiting))
+	if (m_felSwitch || !m_bRunning || (m_stage != Stage::Rebooting && m_stage != Stage::Waiting))
 		return;
-    const platform::UsbLocation target{m_target.location.toStdString(), m_target.bus,
-        {m_target.ports.begin(), m_target.ports.end()}};
-    if (target.known()) {
+    if (m_target.known()) {
         int matches = 0;
         for (const auto &device : m_usbScanner(false)) {
             const platform::UsbLocation candidate{device.location.toStdString(), device.bus,
                 {device.ports.begin(), device.ports.end()}};
-            if ((m_felSwitch ? device.fel : device.loader) && target.matches(candidate)) ++matches;
+            if (device.loader && m_target.matches(candidate)) ++matches;
         }
         if (matches > 1) {
             Complete(false, tr("Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly."));
@@ -428,23 +456,14 @@ void AdbRunner::CheckTargetMode()
                 if (m_commandCancel) m_commandCancel->request_stop();
                 return;
             }
-            Complete(true, m_felSwitch ? tr("FEL flash device detected on the target USB port.")
-                                      : tr("Loader device detected on the target USB port."));
+            Complete(true,tr("Loader device detected on the target USB port."));
             return;
         }
     }
-	if (m_modeElapsed.elapsed() >= m_modeTimeoutMs) {
-        if (!m_felSwitch) {
-            Complete(false, target.known()
-                ? tr("No Loader device detected on the target USB port. %1").arg(m_commandError)
+	if (m_loaderElapsed.elapsed() >= m_modeTimeoutMs) {
+        Complete(false, m_target.known()
+                ? tr("No Loader device detected on the target USB port. %1").arg(m_loaderCommandError)
                 : tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list."));
-            return;
-        }
-		Complete(false,
-		         m_target.ports.isEmpty() && m_target.location.isEmpty()
-		             ? tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.")
-		             : tr("No FEL device detected on the target USB port. Check system support, or choose \"Alternate\". %1")
-		                   .arg(m_commandError.isEmpty() ? QString() : "\n" + m_commandError));
 	}
 }
 

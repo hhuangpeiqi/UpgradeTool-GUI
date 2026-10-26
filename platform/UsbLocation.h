@@ -22,6 +22,11 @@ inline std::string NormalizeUsbLocation(std::string location) {
     }
     return location;
 }
+inline bool IsAdbInterfaceCompatibleId(std::string id) {
+    std::transform(id.begin(), id.end(), id.begin(),
+                   [](unsigned char c) { return char(std::toupper(c)); });
+    return id.find("SUBCLASS_42&PROT_01") != std::string::npos;
+}
 struct UsbLocation {
     std::string native;
     int bus = 0;

@@ -2,6 +2,7 @@
 #ifndef ALLWINNER_TRANSPORT_H
 #define ALLWINNER_TRANSPORT_H
 #include "domain/Backend.h"
+#include <chrono>
 #include "platform/UsbContext.h"
 #include "backends/allwinner/Firmware.h"
 namespace core { namespace allwinner {
@@ -11,6 +12,9 @@ class ITransport {
 public:
     virtual ~ITransport() {}
     virtual void Open(const DeviceIdentity &,const Cancellation &) = 0;
+    // Rebind a retained connection to the current operation without reopening it.
+    virtual void SetIoContext(const Cancellation &, std::chrono::steady_clock::time_point =
+        (std::chrono::steady_clock::time_point::max)()) = 0;
     virtual void Close() = 0;
     virtual DeviceDetails Details() const = 0;
     virtual void FelWrite(uint32_t,const Bytes &) = 0;

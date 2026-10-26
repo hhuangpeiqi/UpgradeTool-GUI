@@ -177,6 +177,17 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 
 	connect(m_pThread, &QThread::finished, m_pWorker, &QObject::deleteLater);
 	connect(m_pWorker, &EngineWorker::devicesReady, this, &AppController::onDevicesReady);
+    connect(m_pAdb,&AdbRunner::felMonitorRequested,m_pWorker,&EngineWorker::prepareFelSwitch);
+    connect(m_pAdb,&AdbRunner::felMonitorCancelled,m_pWorker,&EngineWorker::cancelFelSwitch);
+    connect(m_pWorker,&EngineWorker::felMonitorReady,m_pAdb,&AdbRunner::FelMonitorReady);
+    connect(m_pWorker,&EngineWorker::felMonitorFinished,m_pAdb,&AdbRunner::FelMonitorFinished);
+    connect(m_pAdb,&AdbRunner::felTargetReady,this,[this](const core::DeviceRef &target) {
+        m_pendingFelKey=QString::fromStdString(target.key());
+        onDevicesReady(m_deviceModel->allRows());
+    });
+    connect(m_pWorker,&EngineWorker::traceMessage,this,[this](const QString &message) {
+        if(m_diskLog) m_diskLog->Record("[Allwinner] %s",message.toUtf8().constData());
+    });
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
 	connect(m_pWorker, &EngineWorker::stepStarted, this, &AppController::onStepStarted);
     m_qualcomm = new QualcommController(this, m_inspections);
@@ -336,6 +347,7 @@ void AppController::BeginDriverMaintenance()
     m_pAdb->Stop();
     // A queued barrier drains earlier scans and inspections on the USB worker.
     QMetaObject::invokeMethod(m_pWorker, [this] {
+        m_pWorker->releaseAllwinnerSessions();
         QMetaObject::invokeMethod(this, &AppController::TryDriverInstall, Qt::QueuedConnection);
     }, Qt::QueuedConnection);
 }
@@ -548,6 +560,8 @@ QStringList AppController::deviceLabels() const
 				.arg(map["mode"].toString())
 				.arg(map["key"].toString());
 		}
+        if(map.value("vendor").toInt()==1 && map.value("accessError").toInt())
+            strLabel+=tr(" — unavailable (%1)").arg(map.value("accessError").toInt());
 		list << strLabel;
 	}
 	return list;
@@ -603,6 +617,13 @@ QVariantMap AppController::qualcommEligibility() const
 
 
 bool AppController::hasFlashTarget() const {
+    if(m_vendor==1 && m_bBatchMode) {
+        const auto targets=BatchTargets();
+        if(targets.isEmpty() || targets.size()!=m_batchKeys.size()) return false;
+        return std::all_of(targets.begin(),targets.end(),[](const auto &target) {
+            return !target.toMap().value("accessError").toInt();
+        });
+    }
     if (m_iDeviceIndex < 0 || m_iDeviceIndex >= m_deviceModel->rows().size()) return false;
     const auto row = m_deviceModel->rows()[m_iDeviceIndex].toMap();
     return !row.value("accessError").toInt() && (m_vendor != 2 || row.value("qualcommMode").toInt() == QTQ_EDL);
@@ -618,7 +639,7 @@ QString AppController::connectionState() const {
 
 void AppController::SetDeviceStatus()
 {
-    m_allwinner->setHasDevice(hasDevice());
+    m_allwinner->setHasDevice(m_vendor==1 ? hasFlashTarget() : hasDevice());
 	if (m_bBatchMode && !m_batchKeys.isEmpty()) {
 		m_strDeviceStatus = tr("Batch: %1 selected / %2 current")
 		                    .arg(m_batchKeys.size())
@@ -668,6 +689,13 @@ void AppController::SetDeviceStatus()
 		             : tr("Found %1 %2 device(s)").arg(iCount).arg(strModes[i]));
 	}
 
+    if(m_vendor==1) for(const auto &value:m_deviceModel->rows()) {
+        const auto row=value.toMap();
+        if(row.value("accessError").toInt()) {
+            strParts << tr("USB driver or permissions are not ready (%1).").arg(row.value("accessError").toInt());
+            break;
+        }
+    }
 	// No device in the current vendor's flashing mode; report the shared ADB status
 	if (strParts.isEmpty() && m_bAdbAvailable && !m_strAdbDevices.isEmpty()) {
 		strParts << (m_strAdbDevices.size() == 1
@@ -738,7 +766,10 @@ void AppController::onDevicesReady(const QVariantList &incoming)
         const auto row = entry.toMap();
         if (row.value("vendor", 0).toInt() != m_vendor) continue;
 #ifdef Q_OS_WIN
-        if (row.value("accessError").toInt()) { m_drivers->poll(true); continue; }
+        if (row.value("accessError").toInt()) {
+            m_drivers->poll(true);
+            if(m_vendor!=1) continue;
+        }
 #endif
         devices.append(entry);
     }
@@ -774,6 +805,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 	QString strPrevious = m_vendorSelection[m_vendor];
 	if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceModel->keys().size())
 		strPrevious = m_deviceModel->keys().value(m_iDeviceIndex);
+    if(m_vendor==1 && !m_pendingFelKey.isEmpty()) strPrevious=m_pendingFelKey;
     // Remember automatic selections too, so later scans cannot silently switch
     // to another Qualcomm device after the original target disappears.
     m_vendorSelection[m_vendor] = strPrevious;
@@ -799,9 +831,9 @@ void AppController::onDevicesReady(const QVariantList &incoming)
                 if (edlCount == 1) iSelected = edlIndex;
                 else if (edlCount == 0 && strPrevious.isEmpty()) iSelected = 0;
             }
-        } else if (iSelected < 0) iSelected = 0;
+        } else if (iSelected < 0 && (m_vendor!=1 || strPrevious.isEmpty())) iSelected = 0;
 #else
-        if (iSelected < 0 && (m_vendor != 2 || strPrevious.isEmpty())) {
+        if (iSelected < 0 && ((m_vendor != 2 && m_vendor != 1) || strPrevious.isEmpty())) {
             iSelected = 0;
             if (m_vendor == 2) {
                 for (int i = 0; i < devices.size(); ++i) {
@@ -815,7 +847,10 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 #endif
     }
 
-    if (iSelected >= 0) m_vendorSelection[m_vendor] = m_deviceModel->keys().value(iSelected);
+    if (iSelected >= 0) {
+        m_vendorSelection[m_vendor] = m_deviceModel->keys().value(iSelected);
+        if(m_vendor==1) m_pendingFelKey.clear();
+    }
     if (!rowsChanged && iSelected == m_iDeviceIndex) return;
 
 	if (iSelected != m_iDeviceIndex) {
@@ -868,6 +903,7 @@ void AppController::setDeviceIndex(int iIndex)
 		emit batchModeChanged();
 	}
 	m_pendingEdl = {};
+    m_pendingFelKey.clear();
 	m_iDeviceIndex = iIndex;
     m_vendorSelection[m_vendor] = iIndex >= 0 ? m_deviceModel->keys().value(iIndex) : QString();
 	emit deviceIndexChanged();
@@ -955,6 +991,15 @@ void AppController::StartJob(core::TaskJob job)
                     const auto reason=core::qualcomm::EligibilityReason(step.operation(),
                         static_cast<qtq_mode>(map.value("qualcommMode",QTQ_UNKNOWN).toInt()),map.value("accessError").toInt());
                     if(!reason.empty()) { emit toastRequested(QCoreApplication::translate("QualcommBackend",reason.c_str()),true); return; }
+                }
+            }
+        }
+        if(job.steps.front().vendor()==core::Vendor::Allwinner) {
+            for(const auto &value:targets) {
+                const auto row=value.toMap();
+                if(row.value("accessError").toInt()) {
+                    emit toastRequested(tr("The selected Allwinner device is not accessible; check its driver or USB permissions (%1).")
+                        .arg(row.value("accessError").toInt()),true); return;
                 }
             }
         }
@@ -1298,6 +1343,8 @@ void AppController::setVendor(int vendor)
         m_vendorSelection[m_vendor] = m_deviceModel->keys().value(m_iDeviceIndex);
     else if (m_vendor != 2)
         m_vendorSelection[m_vendor].clear();
+    if(m_vendor==1) QMetaObject::invokeMethod(m_pWorker,&EngineWorker::releaseAllwinnerSessions,Qt::QueuedConnection);
+    m_pendingFelKey.clear();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
     m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0); m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
     m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();

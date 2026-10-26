@@ -2,9 +2,6 @@
 #include "gui/WindowsUsbDriver.h"
 #include "backends/DeviceIdentity.h"
 #include "application/BuildFeatures.h"
-#if UPGRADE_TOOL_ALLWINNER && defined(Q_OS_WIN)
-#include "backends/allwinner/WindowsAllwinner.h"
-#endif
 #if UPGRADE_TOOL_ROCKCHIP
 #include "backends/rockchip/UsbTransport.h"
 #endif
@@ -18,13 +15,8 @@ QString CheckUsbAccess(const core::DeviceRef &reference) {
 #ifdef Q_OS_WIN
     std::lock_guard<std::recursive_mutex> lock(UsbProbeMutex());
     const auto &target = core::DeviceAccess::Identity(reference);
-#if UPGRADE_TOOL_ALLWINNER
-    if (target.vendor == core::Vendor::Allwinner) {
-        const int error = core::allwinner::ProbeAllwinner(target.deviceInstance);
-        return error ? QCoreApplication::translate("gui::AppController", "Cannot access the selected USB interface: %1")
-                           .arg(error) : QString{};
-    }
-#endif
+    // Allwinner validates access when acquiring its backend-owned session.
+    if (target.vendor == core::Vendor::Allwinner) return {};
 #if UPGRADE_TOOL_ROCKCHIP
     if (target.vendor == core::Vendor::Rockchip) {
         const int error = core::rockchip::ProbeRockusb(target.deviceInstance, target.devicePath);

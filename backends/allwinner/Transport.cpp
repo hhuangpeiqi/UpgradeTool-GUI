@@ -17,6 +17,9 @@ class Transport : public ITransport {
 public:
     explicit Transport(std::shared_ptr<platform::UsbContext> context) : wire(CreateUsbWire(std::move(context))) {}
     ~Transport() override { Close(); }
+    void SetIoContext(const Cancellation &cancel, std::chrono::steady_clock::time_point deadline) override {
+        wire->cancel = cancel; wire->deadline = deadline;
+    }
     void Close() override { wire->Close(); ctx = {}; }
     void Open(const DeviceIdentity &target,const Cancellation &cancel) override {
         Close(); wire->cancel = cancel; wire->error.clear(); wire->cleanup = false;
@@ -25,6 +28,8 @@ public:
             wire->Open(target, in, out);
             ctx.epin = in; ctx.epout = out; ctx.hdl = wire.get();
             Check(sunxi_efex_init(&ctx));
+            if (ctx.resp.mode != 1 && ctx.resp.mode != 2)
+                throw std::runtime_error("Unsupported Allwinner device mode: " + std::to_string(ctx.resp.mode));
         } catch (...) { Close(); throw; }
     }
     DeviceDetails Details() const override { DeviceDetails d; d.chip=ctx.resp.id; d.firmware=ctx.resp.firmware; d.mode=ctx.resp.mode; return d; }

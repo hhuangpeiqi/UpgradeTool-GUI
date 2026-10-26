@@ -58,7 +58,7 @@ AllwinnerWorkspace {
             objectName: "awFlashStart"
             text: app.batchMode ? qsTr("Batch flash") : qsTr("Start Flashing")
             reserveText: app.batchMode ? qsTr("Start Flashing") : qsTr("Batch flash")
-            enabled: !app.interactionLocked && page.valid && app.hasDevice && (mode.currentIndex !== 0 || page.selectedPartitions.length > 0)
+            enabled: !app.interactionLocked && page.valid && app.hasFlashTarget && (mode.currentIndex !== 0 || page.selectedPartitions.length > 0)
             onClicked: page.execute(Operations.AllwinnerFlash, {mode: mode.currentIndex, verify: verify.checked,
                 postAction: postAction.currentIndex, partitions: page.selectedPartitions})
         }

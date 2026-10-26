@@ -77,6 +77,15 @@ int main(int argc, char **argv) {
         QVariantMap device{{"vendor",1},{"index",1},{"key","allwinner:250-254"},{"bus",250},{"ports",QVariantList{254}}};
         CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList, SnapshotDevices(QVariantList{device}))));
         CHECK(flash->isEnabled() && raw->isEnabled() && reboot->isEnabled());
+        device["accessError"]=5;
+        CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList, SnapshotDevices(QVariantList{device}))));
+        CHECK(controller.hasDevice() && !controller.hasFlashTarget());
+        CHECK(!flash->isEnabled() && !raw->isEnabled() && !reboot->isEnabled());
+        CHECK(convert->isEnabled());
+        device["accessError"]=0;
+        CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList, SnapshotDevices(QVariantList{device}))));
+        CHECK(flash->isEnabled() && raw->isEnabled() && reboot->isEnabled());
+
         find("awFlashMode")->setProperty("currentIndex",0);
         CHECK(!flash->isEnabled());
         auto *partition=find("awPartition_rootfs");

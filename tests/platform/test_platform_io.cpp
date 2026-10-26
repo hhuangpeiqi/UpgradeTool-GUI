@@ -1,4 +1,5 @@
 #include "platform/Process.h"
+#include "platform/UsbLocation.h"
 #include "platform/SerialPort.h"
 #include "platform/Text.h"
 #include "platform/File.h"
@@ -73,6 +74,18 @@ static void TestProcess(const char *program) {
     process->Start(executable,{"--flood"}); CHECK(Wait(*process)); CHECK(process->TakeOutput().size()==1024*1024);
     process->Start(executable,{"--sleep"}); process->Kill(); CHECK(Wait(*process,1000));
     try { process->Start("/a/missing/upgrade-test-program",{}); CHECK(false); } catch(const std::exception &) {}
+}
+
+static void TestUsbLocation() {
+    for(const auto &id:{"USB\\Class_ff&SubClass_42&Prot_01","USB\\CLASS_FF&SUBCLASS_42&PROT_01","usb\\class_ff&subclass_42&prot_01"})
+        CHECK(platform::IsAdbInterfaceCompatibleId(id));
+    CHECK(!platform::IsAdbInterfaceCompatibleId("USB\\Class_FF&SubClass_FF&Prot_FF"));
+    CHECK(!platform::IsAdbInterfaceCompatibleId("USB\\Class_06&SubClass_01&Prot_01"));
+    const platform::UsbLocation adb{"PCIROOT(0)#PCI(0801)#PCI(0003)#USBROOT(0)#USB(2)#USBMI(1)"};
+    const platform::UsbLocation fes{"pciroot(0)#pci(0801)#pci(0003)#usbroot(0)#usb(2)"};
+    CHECK(adb.matches(fes) && fes.matches(adb));
+    CHECK(!adb.matches({"PCIROOT(1)#PCI(0801)#PCI(0003)#USBROOT(0)#USB(2)"}));
+    CHECK(!platform::UsbLocation{}.matches({}));
 }
 
 static void TestText() {
@@ -199,6 +212,7 @@ int main(int argc,char **argv) {
     TestProcess(argv[0]);
     TestAdbServerLifetime(argv[0]);
     TestText();
+    TestUsbLocation();
     TestFile();
     TestLongLog();
     TestOpenFile();

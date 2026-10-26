@@ -37,6 +37,17 @@ int main() {
     wire.cancel = std::make_shared<std::stop_source>(); wire.stopAfterTransfer = true;
     CHECK(wire.Bulk(0x01, data.data(), data.size()) == EFEX_ERR_USB_TRANSFER);
     CHECK(wire.sizes.size() == 1);
+    wire.cancel=std::make_shared<std::stop_source>();
+    wire.stopAfterTransfer=false;
+    wire.deadline=std::chrono::steady_clock::now()-std::chrono::milliseconds(1);
+    wire.sizes.clear();
+    CHECK(wire.Bulk(0x01,data.data(),1)==EFEX_ERR_USB_TRANSFER);
+    CHECK(wire.sizes.empty() && wire.error.find("timed out")!=std::string::npos);
+    wire.deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(1500);
+    CHECK(wire.TimeoutMs()>0 && wire.TimeoutMs()<=1500);
+    wire.deadline=std::chrono::steady_clock::time_point::max();
+    CHECK(wire.TimeoutMs()==60000);
+    wire.cancel->request_stop();
     wire.cleanup = true;
     CHECK(wire.Bulk(0x01, data.data(), 10) == 0);
     return failures ? 1 : 0;

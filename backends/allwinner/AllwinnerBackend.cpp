@@ -134,15 +134,19 @@ void PrepareFel(Firmware &fw,ITransport &t,const DeviceIdentity &target,const Ca
     Put32(uboot.data()+224,0x10); t.FelWrite(ubootRun,uboot); t.FelExec(ubootRun); t.Close();
     Progress(o,Stage::WaitFes,1,0); Log(o,{"Allwinner","Waiting for the FES device to reconnect on the original USB port",{}});
     auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(45);
-    Wait(2000,cancel);
     do {
-        try { t.Open(target,cancel); if(t.Details().mode==2) return; t.Close(); }
+        try {
+            t.SetIoContext(cancel, std::min(deadline, std::chrono::steady_clock::now()+std::chrono::milliseconds(1500)));
+            t.Open(target,cancel);
+            if(t.Details().mode==2) { t.SetIoContext(cancel); return; }
+            t.Close();
+        }
         catch(const std::exception &) { t.Close(); CheckCancel(cancel); }
-        Wait(1000,cancel);
+        Wait(100,cancel);
     } while(std::chrono::steady_clock::now()<deadline);
     throw std::runtime_error("FES reconnect timed out at original USB port");
 }
-void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &target,const Cancellation &cancel,IUpgradeObserver *o,ITransport &t) {
+void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &target,const Cancellation &cancel,IUpgradeObserver *o,const std::function<ITransport &()> &acquire) {
     const auto &opts=request.allwinner(); const bool raw=request.operation()==Operation::AllwinnerRaw;
     std::unique_ptr<platform::File> external; Bytes mbr; std::vector<Download> downloads;
     auto mode=raw?AllwinnerFlashMode::FullErase:opts.mode;
@@ -182,7 +186,7 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
     }
     // Load FEL prerequisites and validate partition streams before any storage erase.
     fw.Require("FES_1-0000000000");
-    t.Open(target,cancel); auto details=t.Details();
+    auto &t=acquire(); auto details=t.Details();
     if(details.mode==1) PrepareFel(fw,t,target,cancel,o);
     else if(details.mode!=2) throw std::runtime_error("Unsupported Allwinner device mode");
     Progress(o,Stage::QueryDevice,1,0);
@@ -256,8 +260,70 @@ void Flash(Firmware &fw,const OperationRequest &request,const DeviceIdentity &ta
 AllwinnerBackend::AllwinnerBackend() : usb(std::make_shared<platform::UsbContext>()),
     factory([context=usb] { return UsbTransport(context); }) {}
 std::vector<DeviceDescriptor> AllwinnerBackend::Scan() {
-    if(!usb) usb=std::make_shared<platform::UsbContext>();
-    return ScanUsb(usb->get());
+    if(!scanner && !usb) usb=std::make_shared<platform::UsbContext>();
+    auto devices=scanner ? scanner() : ScanUsb(usb->get());
+    ReconcileSessions(devices);
+    for(auto &device:devices) if(HasSession(device.reference)) {
+        device.accessError=0;
+        device.mode=ModeName(sessions.at(device.reference.key()).transport->Details().mode);
+    }
+    return devices;
+}
+namespace {
+bool SameIncarnation(const DeviceIdentity &a, const DeviceIdentity &b) {
+    return a.deviceInstance==b.deviceInstance && a.devicePath==b.devicePath && a.usbAddress==b.usbAddress;
+}
+}
+ITransport &AllwinnerBackend::Acquire(const DeviceRef &reference, const Cancellation &cancel,
+                                     std::chrono::steady_clock::time_point deadline) {
+    CheckCancel(cancel);
+    const auto &identity=DeviceAccess::Identity(reference);
+    if(identity.vendor!=Vendor::Allwinner) throw std::runtime_error("Invalid Allwinner device identity");
+    auto it=sessions.find(reference.key());
+    if(it!=sessions.end() && !SameIncarnation(it->second.identity,identity)) {
+        ReleaseSession(reference); it=sessions.end();
+    }
+    if(it==sessions.end()) {
+        auto transport=factory();
+        transport->SetIoContext(cancel,deadline);
+        transport->Open(identity,cancel);
+        if(transport->Details().mode!=1 && transport->Details().mode!=2) {
+            transport->Close(); throw std::runtime_error("Unsupported Allwinner device mode");
+        }
+        it=sessions.emplace(reference.key(),Session{identity,std::move(transport)}).first;
+    }
+    it->second.transport->SetIoContext(cancel,deadline);
+    return *it->second.transport;
+}
+DeviceDetails AllwinnerBackend::Connect(const DeviceRef &reference, const Cancellation &cancel,
+                                        std::chrono::steady_clock::time_point deadline) {
+    try {
+        auto &transport=Acquire(reference,cancel,deadline);
+        auto details=transport.Details();
+        transport.SetIoContext({});
+        return details;
+    } catch(...) { ReleaseSession(reference); throw; }
+}
+bool AllwinnerBackend::HasSession(const DeviceRef &reference) const {
+    auto it=sessions.find(reference.key());
+    return it!=sessions.end() && SameIncarnation(it->second.identity,DeviceAccess::Identity(reference));
+}
+void AllwinnerBackend::ReleaseSession(const DeviceRef &reference) {
+    auto it=sessions.find(reference.key());
+    if(it!=sessions.end()) { it->second.transport->Close(); sessions.erase(it); }
+}
+void AllwinnerBackend::ReleaseSessions() {
+    for(auto &[key,session]:sessions) session.transport->Close();
+    sessions.clear();
+}
+void AllwinnerBackend::ReconcileSessions(const std::vector<DeviceDescriptor> &devices) {
+    for(auto it=sessions.begin();it!=sessions.end();) {
+        const bool alive=std::any_of(devices.begin(),devices.end(),[&](const auto &device) {
+            return !device.accessError && device.reference.key()==it->first && SameIncarnation(it->second.identity,DeviceAccess::Identity(device.reference));
+        });
+        if(alive) ++it;
+        else { it->second.transport->Close(); it=sessions.erase(it); }
+    }
 }
 OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const DeviceRef &reference,const Cancellation &cancel,IUpgradeObserver *observer) {
     OperationResult result; result.operation=request.operation();
@@ -267,19 +333,19 @@ OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const 
         if(request.vendor()!=Vendor::Allwinner||!Supports(request.operation())) { result.error=ErrorCode::UnsupportedDevice; throw std::runtime_error("Unsupported Allwinner operation"); }
         CheckCancel(cancel);
         if(request.operation()==Operation::AllwinnerDeviceInfo) {
-            auto t=factory(); t->Open(target,cancel); auto d=t->Details();
+            auto &t=Acquire(reference,cancel,(std::chrono::steady_clock::time_point::max)()); auto d=t.Details();
             result.items.push_back({std::string("Device mode"),ModeName(d.mode)}); result.items.push_back({std::string("Chip ID"),std::to_string(d.chip)});
             result.items.push_back({std::string("Protocol firmware"),std::to_string(d.firmware)});
             if(d.mode==2) {
-                result.items.push_back({std::string("Storage type"),StorageName(t->QueryStorage())});
-                result.items.push_back({std::string("Capacity (bytes)"),std::to_string(uint64_t(t->QuerySize())*512)});
-                result.items.push_back({std::string("Boot mode"),std::to_string(t->QuerySecure())});
+                result.items.push_back({std::string("Storage type"),StorageName(t.QueryStorage())});
+                result.items.push_back({std::string("Capacity (bytes)"),std::to_string(uint64_t(t.QuerySize())*512)});
+                result.items.push_back({std::string("Boot mode"),std::to_string(t.QuerySecure())});
             }
         } else if(request.operation()==Operation::AllwinnerReboot) {
-            auto t=factory(); t->Open(target,cancel);
-            if(t->Details().mode!=2) throw std::runtime_error("Reboot requires the device to be in FES mode");
+            auto &t=Acquire(reference,cancel,(std::chrono::steady_clock::time_point::max)());
+            if(t.Details().mode!=2) throw std::runtime_error("Reboot requires the device to be in FES mode");
             Log(observer,{"Allwinner","Rebooting device",{}});
-            t->Finish(PostAction::Reboot);
+            t.Finish(PostAction::Reboot);
         } else if(request.operation()==Operation::AllwinnerInspect) {
             result=InspectFirmware(request.file().path);
         } else {
@@ -290,11 +356,20 @@ OperationResult AllwinnerBackend::Execute(const OperationRequest &request,const 
             } else if(request.operation()==Operation::AllwinnerConvert) {
                 Convert(fw,request,cancel,[&](const Message &stage,uint64_t total,uint64_t done) { if(total) { if(observer) observer->OnStageMessage(stage,total,done); } else Log(observer,stage); },result);
             } else {
-                auto transport=factory(); Flash(fw,request,target,cancel,observer,*transport);
+                Flash(fw,request,target,cancel,observer,[&]() -> ITransport & {
+                    return Acquire(reference,cancel,(std::chrono::steady_clock::time_point::max)());
+                });
             }
         }
         CheckCancel(cancel); result.status=OperationStatus::Succeeded;
+        if(RequiresEnumeratedDevice(request)) {
+            if(request.operation()==Operation::AllwinnerDeviceInfo) {
+                auto it=sessions.find(reference.key());
+                if(it!=sessions.end()) it->second.transport->SetIoContext({});
+            } else ReleaseSession(reference);
+        }
     } catch(const std::exception &e) {
+        if(reference) ReleaseSession(reference);
         result.diagnostic=e.what();
         result.status=cancel&&cancel->stop_requested()?OperationStatus::Cancelled:OperationStatus::Failed;
         if(result.error==ErrorCode::None) result.error=ErrorCode::OperationFailed;

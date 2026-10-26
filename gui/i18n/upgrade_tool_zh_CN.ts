@@ -3255,18 +3255,6 @@
         <translation>正在检查 ADB 设备和 USB 端口…</translation>
     </message>
     <message>
-        <source>Switched to Loader mode.</source>
-        <translation type="vanished">已切换到 Loader 模式。</translation>
-    </message>
-    <message>
-        <source>Switch to Loader failed: %1</source>
-        <translation type="vanished">切换到 Loader 失败：%1</translation>
-    </message>
-    <message>
-        <source>ADB returned %1</source>
-        <translation type="vanished">ADB 返回 %1</translation>
-    </message>
-    <message>
         <location line="+37"/>
         <source>Failed to set T3 FEL flag or reboot: %1</source>
         <translation>T3 FEL 标志设置或重启失败：%1</translation>
@@ -3322,11 +3310,6 @@
         <translation>目标 USB 端口出现多个刷写接口，请刷新并明确选择一个。</translation>
     </message>
     <message>
-        <location line="+9"/>
-        <source>FEL flash device detected on the target USB port.</source>
-        <translation>已在目标 USB 端口发现 FEL 设备。</translation>
-    </message>
-    <message>
         <location line="+1"/>
         <source>Loader device detected on the target USB port.</source>
         <translation>已在目标 USB 端口检测到 Loader 设备。</translation>
@@ -3343,18 +3326,17 @@
         <translation>已发送切换请求，但无法唯一定位目标 USB 端口以确认成功；请检查设备列表。</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>No FEL device detected on the target USB port. Check system support, or choose &quot;Alternate&quot;. %1</source>
-        <translation>未在目标 USB 端口检测到 FEL 设备。请检查系统支持情况，或选择“备选”。%1</translation>
-    </message>
-    <message>
-        <source>The ADB reboot command did not return in time.</source>
-        <translation type="vanished">ADB 重启命令未及时返回。</translation>
-    </message>
-    <message>
         <location line="-265"/>
         <source>ADB operation timed out; mode switch not completed.</source>
         <translation>ADB 操作超时，未完成模式切换。</translation>
+    </message>
+    <message>
+        <source>Cannot uniquely identify the target USB port; no switch command was sent.</source>
+        <translation>无法唯一确定目标 USB 端口，未发送切换命令。</translation>
+    </message>
+    <message>
+        <source>Preparing to detect and connect the target FEL/FES device…</source>
+        <translation>正在准备检测并连接目标 FEL/FES 设备…</translation>
     </message>
 </context>
 <context>
@@ -3863,6 +3845,18 @@
         <location line="+1"/>
         <source>Entered Maskrom mode</source>
         <translation>已进入 Maskrom 模式</translation>
+    </message>
+    <message>
+        <source>The selected Allwinner device is not accessible; check its driver or USB permissions (%1).</source>
+        <translation>无法访问所选全志设备，请检查驱动或 USB 访问权限（%1）。</translation>
+    </message>
+    <message>
+        <source> — unavailable (%1)</source>
+        <translation> — 不可访问（%1）</translation>
+    </message>
+    <message>
+        <source>USB driver or permissions are not ready (%1).</source>
+        <translation>USB 驱动或访问权限尚未就绪（%1）。</translation>
     </message>
 </context>
 <context>
@@ -4570,6 +4564,52 @@
         <location line="+206"/>
         <source>XML inspection is still running</source>
         <translation>正在检查 XML，请稍候</translation>
+    </message>
+</context>
+<context>
+    <name>gui::AllwinnerSwitchMonitor</name>
+    <message>
+        <source>Cannot uniquely identify the target USB port; no switch command was sent.</source>
+        <translation>无法唯一确定目标 USB 端口，未发送切换命令。</translation>
+    </message>
+    <message>
+        <source>No FEL/FES device appeared at the target USB port.</source>
+        <translation>目标 USB 端口未出现 FEL/FES 设备。</translation>
+    </message>
+    <message>
+        <source>The target FEL/FES device appeared, but a usable connection could not be established: %1</source>
+        <translation>目标 FEL/FES 设备已出现，但未能建立可用连接：%1</translation>
+    </message>
+    <message>
+        <source>Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly.</source>
+        <translation>目标 USB 端口出现多个刷机接口，请刷新并明确选择一个。</translation>
+    </message>
+    <message>
+        <source>USB driver or permissions are not ready (%1).</source>
+        <translation>USB 驱动或访问权限尚未就绪（%1）。</translation>
+    </message>
+    <message>
+        <source>Unsupported Allwinner device mode.</source>
+        <translation>不支持的全志设备模式。</translation>
+    </message>
+    <message>
+        <source>%1 device connected on the target USB port.</source>
+        <translation>已连接目标 USB 端口上的 %1 设备。</translation>
+    </message>
+    <message>
+        <source>The target device disconnected before the FEL/FES handshake completed.</source>
+        <translation>目标设备在 FEL/FES 握手完成前断开了连接。</translation>
+    </message>
+</context>
+<context>
+    <name>gui::EngineWorker</name>
+    <message>
+        <source>Allwinner support is unavailable.</source>
+        <translation>当前构建不支持全志设备。</translation>
+    </message>
+    <message>
+        <source>The target device disconnected after the FEL/FES handshake.</source>
+        <translation>目标设备在 FEL/FES 握手后断开了连接。</translation>
     </message>
 </context>
 </TS>

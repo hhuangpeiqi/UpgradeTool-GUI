@@ -21,6 +21,9 @@ struct MockState {
     std::vector<std::string> actions;
     bool mismatch=false, failWrite=false, failStatus=false, cancelWrite=false, startedFel=false;
     Cancellation cancel;
+    bool failQuery=false;
+    std::vector<Cancellation> contexts;
+    std::vector<std::chrono::steady_clock::time_point> deadlines;
     uint32_t lastSum=0;
 };
 class Mock : public ITransport {
@@ -28,12 +31,18 @@ class Mock : public ITransport {
 public:
     explicit Mock(std::shared_ptr<MockState> state) : s(state),mode(s->startedFel?1:2) {}
     void Open(const DeviceIdentity &d,const Cancellation &c) override { s->opened.push_back(d); s->cancel=c; s->actions.push_back("open"); }
+    void SetIoContext(const Cancellation &cancel,std::chrono::steady_clock::time_point deadline) override {
+        s->cancel=cancel; s->contexts.push_back(cancel); s->deadlines.push_back(deadline);
+    }
     void Close() override { s->actions.push_back("close"); mode=2; }
     DeviceDetails Details() const override { DeviceDetails d; d.mode=mode; return d; }
     void FelWrite(uint32_t,const Bytes &) override { s->actions.push_back("fel_write"); }
     Bytes FelRead(uint32_t,size_t n) override { Bytes b(n); Put32(b.data(),2); return b; }
     void FelExec(uint32_t) override { s->actions.push_back("fel_exec"); }
-    uint32_t QueryStorage() override { return 2; }
+    uint32_t QueryStorage() override {
+        if(s->failQuery || (s->cancel && s->cancel->stop_requested())) throw std::runtime_error("query failed");
+        return 2;
+    }
     uint32_t QuerySecure() override { return 4; }
     uint32_t QuerySize() override { return 0x1000000; }
     void FlashAccess(bool on) override { s->actions.push_back(on?"on":"off"); }
@@ -79,6 +88,41 @@ int main() {
         Write(path,Package(Entries()));
         DeviceIdentity a,b; a.vendor=b.vendor=Vendor::Allwinner; a.bus=b.bus=1; a.ports={5,4}; b.ports={2,4};
         CHECK(MatchDevice({a,b},a)==0); a.ports={7,4}; CHECK(MatchDevice({b},a)==-1); a.ports={5,4}; CHECK(MatchDevice({a,a},a)==-2);
+        {
+            auto state=std::make_shared<MockState>();
+            std::vector<DeviceDescriptor> devices{Describe(a),Describe(b)};
+            AllwinnerBackend backend([state] { return std::make_unique<Mock>(state); },[&] { return devices; });
+            auto switching=std::make_shared<std::stop_source>();
+            const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(1500);
+            CHECK(backend.Connect(a,switching,deadline).mode==2);
+            CHECK(backend.HasSession(a) && state->opened.size()==1);
+            CHECK(state->deadlines.front()==deadline);
+            switching->request_stop();
+            auto reading=std::make_shared<std::stop_source>();
+            CHECK(backend.Execute(Request(path,Operation::AllwinnerDeviceInfo),a,reading,nullptr).ok());
+            CHECK(state->opened.size()==1 && backend.HasSession(a));
+            CHECK(std::find(state->contexts.begin(),state->contexts.end(),reading)!=state->contexts.end());
+            backend.Scan(); CHECK(backend.HasSession(a));
+            auto flashing=std::make_shared<std::stop_source>();
+            CHECK(backend.Execute(Request(path),a,flashing,nullptr).ok());
+            CHECK(state->opened.size()==1 && !backend.HasSession(a));
+            CHECK(std::find(state->contexts.begin(),state->contexts.end(),flashing)!=state->contexts.end());
+            backend.Connect(a,{}); backend.Connect(b,{});
+            CHECK(backend.HasSession(a) && backend.HasSession(b));
+            devices={Describe(b)}; backend.Scan();
+            CHECK(!backend.HasSession(a) && backend.HasSession(b));
+            auto incarnation=b; incarnation.usbAddress=8; devices={Describe(incarnation)};
+            backend.Scan(); CHECK(!backend.HasSession(b));
+            backend.Connect(incarnation,{}); state->failQuery=true;
+            CHECK(!backend.Execute(Request(path,Operation::AllwinnerDeviceInfo),incarnation,{},nullptr).ok());
+            CHECK(!backend.HasSession(incarnation));
+            state->failQuery=false;
+            backend.Connect(a,{}); backend.Connect(b,{}); backend.ReleaseSessions();
+            CHECK(!backend.HasSession(a) && !backend.HasSession(b));
+            backend.Connect(a,{});
+            auto cancelled=std::make_shared<std::stop_source>(); cancelled->request_stop();
+            CHECK(Throws([&] { backend.Connect(a,cancelled); })); CHECK(!backend.HasSession(a));
+        }
         for(int variant=0;variant<7;++variant) {
             auto state=std::make_shared<MockState>(); state->mismatch=variant==1; state->failWrite=variant==2; state->cancelWrite=variant==3;
             auto cancel=std::make_shared<std::stop_source>(); AllwinnerBackend backend([state]{return std::unique_ptr<ITransport>(new Mock(state));});
@@ -86,7 +130,7 @@ int main() {
             if(variant==5) { r.allwinner().mode=AllwinnerFlashMode::Partition; r.allwinner().partitions={"missing"}; }
             if(variant==6) { state->failStatus=true; }
             auto result=backend.Execute(r,a,cancel,nullptr);
-            if(variant==0||variant==4) { CHECK(result.ok()); CHECK(state->actions.back()=="reboot"); }
+            if(variant==0||variant==4) { CHECK(result.ok()); CHECK(state->actions[state->actions.size()-2]=="reboot"); }
             else { CHECK(!result.ok()); CHECK(std::find(state->actions.begin(),state->actions.end(),"reboot")==state->actions.end()); }
             if(variant==1||variant==2||variant==3) CHECK(std::find(state->actions.begin(),state->actions.end(),"off")!=state->actions.end());
             if(variant==3) CHECK(result.status==OperationStatus::Cancelled);
@@ -105,7 +149,7 @@ int main() {
         // Reboot is only accepted in FES mode; a FEL-mode device is rejected.
         { auto state=std::make_shared<MockState>(); AllwinnerBackend backend([state]{return std::unique_ptr<ITransport>(new Mock(state));});
           CHECK(backend.Execute(Request(path,Operation::AllwinnerReboot),a,{},nullptr).ok());
-          CHECK(state->actions.size()==2 && state->actions.back()=="reboot"); }
+          CHECK(state->actions==std::vector<std::string>({"open","reboot","close"})); }
         { auto state=std::make_shared<MockState>(); state->startedFel=true; AllwinnerBackend backend([state]{return std::unique_ptr<ITransport>(new Mock(state));});
           CHECK(!backend.Execute(Request(path,Operation::AllwinnerReboot),a,{},nullptr).ok());
           CHECK(std::find(state->actions.begin(),state->actions.end(),"reboot")==state->actions.end()); }

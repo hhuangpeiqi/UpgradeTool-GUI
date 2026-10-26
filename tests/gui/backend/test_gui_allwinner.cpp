@@ -77,6 +77,43 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 		if (originalAdb.isNull()) qunsetenv("ADB"); else qputenv("ADB", originalAdb);
 	}
 #endif
+    {
+        gui::AppController controller(nullptr);
+        controller.language()->setMode("en");
+        controller.setVendor(1);
+        auto *adb=controller.findChild<gui::AdbRunner *>();
+        adb->Stop();
+        int submissions=0;
+        QObject::disconnect(&controller,&gui::AppController::requestExecute,nullptr,nullptr);
+        QObject::connect(&controller,&gui::AppController::requestExecute,[&](const auto &) { ++submissions; });
+        auto update=[&](QVariantList rows) {
+            CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList,SnapshotDevices(rows))));
+        };
+        QVariantMap first{{"vendor",1},{"index",1},{"key","allwinner:1-2.3"},{"bus",1},
+            {"ports",QVariantList{2,3}},{"accessError",5},{"mode","FEL/FES"}};
+        auto second=first; second["key"]="allwinner:1-2.4"; second["ports"]=QVariantList{2,4}; second["accessError"]=0;
+        update({first,second});
+        CHECK(controller.hasDevice() && !controller.hasFlashTarget());
+        CHECK(controller.deviceStatusText().contains("permissions"));
+        CHECK(controller.deviceLabels().first().contains("unavailable"));
+        controller.allwinner()->run(gui::Operations::AllwinnerDeviceInfo);
+        CHECK(submissions==0 && !controller.tasks()->busy());
+        first["accessError"]=0; update({first,second});
+        CHECK(controller.hasFlashTarget());
+        controller.setBatchTargets({first["key"].toString(),second["key"].toString()},true);
+        CHECK(controller.batchMode() && controller.hasFlashTarget());
+        first["accessError"]=5; update({first,second});
+        CHECK(!controller.hasFlashTarget());
+        controller.clearBatch(); first["accessError"]=0;
+        update({second,first});
+        const auto target=SnapshotDevices({first}).first().toMap().value("reference").value<core::DeviceRef>();
+        controller.tasks()->setBusy(true);
+        adb->felTargetReady(target);
+        CHECK(controller.deviceIndex()==1 && controller.tasks()->busy());
+        controller.tasks()->setBusy(false);
+        update({second});
+        CHECK(controller.deviceIndex()==-1 && !controller.hasFlashTarget());
+    }
     return failures;
 }
 

@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QTimer>
 #include <cstdio>
 
 static int failures = 0;
@@ -83,7 +84,8 @@ static int FakeAdb(QStringList args)
 		}
 		if (args.contains("-l") && mode == "missing")
 			return 0;
-		std::printf("List of devices attached\nboard device usb:1-5.4 model:AUT\n");
+		if(mode=="unmapped" || mode=="duplicate" || mode.startsWith("native-")) std::printf("List of devices attached\nboard device model:AUT\n");
+        else std::printf("List of devices attached\nboard device usb:1-5.4 model:AUT\n");
 		if (mode == "multi" || mode == "cancel")
 			std::printf("second device usb:1-5.2\n");
 		return 0;
@@ -97,7 +99,7 @@ static int FakeAdb(QStringList args)
 			return 0;
 		}
 		const bool android = mode == "android" || mode == "hang" || mode == "wrong-port" || mode == "unmapped" ||
-		                     mode == "normal-reboot" || mode == "duplicate" || mode.startsWith("native-");
+		                     mode == "normal-reboot" || mode == "duplicate" || mode.startsWith("native-") || mode=="arm-cancel";
 		std::printf(
 		    "AW_ANDROID=%s\nAW_BUILDROOT=%s\nAW_SOC=%s\nAW_UID=%s\nAW_DEVMEM=%s\nAW_REBOOT=%s\nAW_REBOOT_LINK=%s\n",
 		    android ? "12" : "", android ? "0" : "1", mode == "wrong-soc" ? "sun50i" : "arm,sun8iw11p1",
@@ -246,16 +248,13 @@ int main(int argc, char **argv)
 		QString message;
 		int choices = 0;
 		{
-			gui::AdbRunner runner(
-			    nullptr,
-			    [&](bool readSerial) {
+            auto scanner = [&](bool readSerial) {
                     if (qEnvironmentVariable("AW_TEST_MODE") == "loader") {
-                        gui::AdbUsbDevice d{1, {5, 4}, "board", false}; d.loader = !readSerial; return QVector<gui::AdbUsbDevice>{d};
+                        gui::AdbUsbDevice d{1, {5, 4}, "board"}; d.loader = !readSerial; return QVector<gui::AdbUsbDevice>{d};
                     }
 				    if (mode == "unmapped")
 					    return QVector<gui::AdbUsbDevice>{};
-				    const bool requested = QFile::exists(dir.path() + "/requested");
-				    gui::AdbUsbDevice d{1, {5, 4}, "board", !readSerial && requested && mode != "normal-reboot"};
+				    gui::AdbUsbDevice d{1, {5, 4}, "board"};
                     if (mode.startsWith("native-")) {
                         d.bus = 0; d.ports.clear(); d.location = "PCIROOT(0)#USBROOT(0)#USB(5)#USB(4)";
                         if (!readSerial && mode == "native-wrong-port") d.location += "#USB(2)";
@@ -263,10 +262,37 @@ int main(int argc, char **argv)
 				    if (!readSerial && mode == "wrong-port")
 					    d.ports = {5, 2};
 				    if (readSerial && mode == "duplicate")
-					    return QVector<gui::AdbUsbDevice>{d, d};
+					    { auto other=d; other.ports={5,2}; return QVector<gui::AdbUsbDevice>{d,other}; }
 				    return QVector<gui::AdbUsbDevice>{d};
-			    },
-			    200, 650);
+            };
+            gui::AdbRunner runner(nullptr,scanner,200,650);
+            gui::AllwinnerSwitchMonitor::Hooks hooks;
+            hooks.scan=[&] {
+                std::vector<core::DeviceDescriptor> result;
+                if(!QFile::exists(dir.filePath("requested")) || mode=="normal-reboot") return result;
+                for(const auto &row:scanner(false)) {
+                    core::DeviceIdentity identity; identity.vendor=core::Vendor::Allwinner;
+                    identity.bus=row.bus; identity.ports.assign(row.ports.begin(),row.ports.end());
+                    identity.physicalLocation=row.location.toStdString(); result.push_back(core::Describe(identity));
+                }
+                return result;
+            };
+            hooks.connect=[](const auto &,const auto &,auto) { core::allwinner::DeviceDetails d; d.mode=2; return d; };
+            hooks.release=[](const auto &) {};
+            gui::AllwinnerSwitchMonitor monitor(std::move(hooks));
+            QObject::connect(&runner,&gui::AdbRunner::felMonitorRequested,&monitor,[&](const gui::FelSwitchRequest &request) {
+                CHECK(!QFile::exists(dir.filePath("requested")));
+                if(mode=="arm-cancel") {
+                    runner.CancelSwitch();
+                    runner.FelMonitorReady(request.id);
+                    runner.FelMonitorFinished(request.id,true,"late success",{});
+                } else QTimer::singleShot(15,&monitor,[&,request] {
+                    CHECK(!QFile::exists(dir.filePath("requested"))); monitor.prepare(request);
+                });
+            });
+            QObject::connect(&runner,&gui::AdbRunner::felMonitorCancelled,&monitor,&gui::AllwinnerSwitchMonitor::cancel);
+            QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::ready,&runner,&gui::AdbRunner::FelMonitorReady);
+            QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::completed,&runner,&gui::AdbRunner::FelMonitorFinished);
 			QObject::connect(&runner, &gui::AdbRunner::finished, &app, [&](bool result, const QString &text) {
 				++completed;
 				ok = result;
@@ -344,8 +370,9 @@ int main(int argc, char **argv)
 	scenario("hang", Method::Auto, true, "adb");
 	scenario("wrong-port", Method::Auto, false, "adb");
 	scenario("normal-reboot", Method::Auto, false, "adb");
-	scenario("unmapped", Method::Auto, false, "adb");
-	scenario("duplicate", Method::Auto, false, "adb");
+	scenario("unmapped", Method::Auto, false, "");
+	scenario("duplicate", Method::Auto, false, "");
+    scenario("arm-cancel",Method::Auto,false,"");
     for (const QString mode : {"loader-good", "loader-disconnect", "loader-hang", "loader-maskrom",
                                "loader-wrong-port", "loader-duplicate", "loader-unmapped", "loader-location-conflict",
                                "loader-unauthorized", "loader-no-device"}) {
@@ -354,7 +381,7 @@ int main(int argc, char **argv)
         qputenv("AW_TEST_MODE", "loader-good");
         gui::AdbRunner runner(nullptr, [&](bool readSerial) {
             if (readSerial && mode == "loader-unmapped") return QVector<gui::AdbUsbDevice>{};
-            gui::AdbUsbDevice device{1, {5, 4}, "board", false};
+            gui::AdbUsbDevice device{1, {5, 4}, "board"};
             if (mode == "loader-location-conflict") device.location = readSerial
                 ? "PCIROOT(0)#USBROOT(0)#USB(5)#USB(4)" : "PCIROOT(1)#USBROOT(0)#USB(5)#USB(4)";
             device.loader = !readSerial && QFile::exists(dir.filePath("requested")) &&

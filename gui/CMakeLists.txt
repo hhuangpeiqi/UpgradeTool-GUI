@@ -20,6 +20,8 @@ add_library(upgrade_gui_backend STATIC
   QtObserver.h
   InspectionQueue.cpp
   InspectionQueue.h
+  AllwinnerSwitchMonitor.cpp
+  AllwinnerSwitchMonitor.h
   EngineWorker.cpp
   EngineWorker.h
   EdlRunner.cpp
@@ -273,6 +275,8 @@ set(_tr_sources
   ${CMAKE_CURRENT_SOURCE_DIR}/EdlRunner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/EdlTransport.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/UsbAccess.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/EngineWorker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/AllwinnerSwitchMonitor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbRunner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbService.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/QtObserver.cpp

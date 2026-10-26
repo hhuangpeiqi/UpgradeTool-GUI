@@ -7,9 +7,13 @@
 #include <array>
 #include <cwctype>
 #include <stdexcept>
+#include <mutex>
+#include <map>
 
 namespace core::allwinner {
 namespace {
+std::mutex sessionMutex;
+std::map<std::string,unsigned> openSessions;
 constexpr GUID usbDeviceGuid{0xa5dcbf10, 0x6530, 0x11d2, {0x90, 0x1f, 0x00, 0xc0, 0x4f, 0xb9, 0x51, 0xed}};
 // usbUDisc ABI, also used by the pinned libefex upstream Windows backend.
 constexpr DWORD sendCode = CTL_CODE(FILE_DEVICE_UNKNOWN, 0x807, METHOD_OUT_DIRECT, FILE_ANY_ACCESS);
@@ -120,11 +124,18 @@ HANDLE openNative(const NativeDevice &device) {
 }
 class NativeWire final : public UsbWire {
     Handle device;
+    std::string instance;
 public:
     ~NativeWire() override { Close(); }
     void Close() override {
         if (device.value != INVALID_HANDLE_VALUE) CloseHandle(device.value);
         device.value = INVALID_HANDLE_VALUE;
+        if(!instance.empty()) {
+            std::lock_guard<std::mutex> lock(sessionMutex);
+            auto it=openSessions.find(instance);
+            if(it!=openSessions.end() && --it->second==0) openSessions.erase(it);
+            instance.clear();
+        }
     }
     void Open(const DeviceIdentity &target, int &in, int &out) override {
         if (target.vendor != Vendor::Allwinner || target.physicalLocation.empty()) throw std::runtime_error("Missing full Allwinner physical device identity");
@@ -136,6 +147,10 @@ public:
         if (!selected) throw std::runtime_error("Target Allwinner device disconnected");
         device.value = openNative(*selected);
         if (device.value == INVALID_HANDLE_VALUE) throw std::runtime_error("Cannot open official Allwinner driver: " + std::to_string(GetLastError()));
+        {
+            std::lock_guard<std::mutex> lock(sessionMutex);
+            instance=selected->identity.deviceInstance; ++openSessions[instance];
+        }
         // The official driver's IOCTLs select the pipes; these values carry
         // direction for libefex callbacks, rather than selecting USB endpoints.
         in = 0x81; out = 0x01;
@@ -147,6 +162,7 @@ public:
         pending.hEvent = event.value;
         DWORD done = 0;
         const auto started = GetTickCount64();
+        const auto timeoutMs = TimeoutMs();
         const BOOL ok = DeviceIoControl(device.value, endpoint & 0x80 ? receiveCode : sendCode,
             nullptr, 0, data, DWORD(size), &done, &pending);
         DWORD failure = ok ? ERROR_SUCCESS : GetLastError();
@@ -157,7 +173,7 @@ public:
                     failure = GetOverlappedResult(device.value, &pending, &done, FALSE) ? ERROR_SUCCESS : GetLastError();
                     break;
                 }
-                if (wait == WAIT_FAILED || Stopped() || GetTickCount64() - started >= 60000) {
+                if (wait == WAIT_FAILED || Stopped() || GetTickCount64() - started >= timeoutMs) {
                     failure = wait == WAIT_FAILED ? GetLastError() : Stopped() ? ERROR_OPERATION_ABORTED : ERROR_TIMEOUT;
                     CancelIoEx(device.value, &pending);
                     // Cancellation is a request: data and OVERLAPPED must survive completion.
@@ -175,6 +191,11 @@ std::unique_ptr<UsbWire> CreateUsbWire(std::shared_ptr<platform::UsbContext>) { 
 int ProbeAllwinner(const std::string &instance) {
     try {
         for (const auto &d : enumerate()) if (d.identity.deviceInstance == utf8(upper(wide(instance)))) {
+            if(d.error) return int(d.error);
+            {
+                std::lock_guard<std::mutex> lock(sessionMutex);
+                if(openSessions.count(d.identity.deviceInstance)) return 0;
+            }
             Handle handle(openNative(d)); return handle.value == INVALID_HANDLE_VALUE ? int(GetLastError()) : 0;
         }
         return ERROR_NOT_FOUND;
@@ -184,8 +205,9 @@ std::vector<DeviceDescriptor> ScanUsb(libusb_context *) {
     std::vector<DeviceDescriptor> result;
     for (const auto &device : enumerate()) {
         auto d = Describe(device.identity); d.index = int(result.size() + 1); d.mode = "FEL/FES";
-        Handle handle(openNative(device));
-        d.accessError = handle.value == INVALID_HANDLE_VALUE ? int(GetLastError()) : 0;
+        // Enumeration reports driver readiness without opening a second handle.
+        d.accessError = int(device.error ? device.error :
+            device.identity.devicePath.empty() ? ERROR_NOT_FOUND : ERROR_SUCCESS);
         result.push_back(std::move(d));
     }
     return result;
