@@ -15,6 +15,7 @@ AppDialog {
         rbCheckBox.checked = !!v.rb_check_off;
         norBox.checked = !!v.nor_single_idb;
         logOffBox.checked = !!v.log_off;
+        logDetailsBox.checked = !!v.ui_log_details;
         stdoutBox.checked = !!v.stdout_buffer_off;
         bandField.text = v.force_data_band !== undefined ? v.force_data_band : "";
         logDirField.text = v.log_dir !== undefined ? v.log_dir : "";
@@ -111,6 +112,7 @@ AppDialog {
         AppCheckBox { id: rbCheckBox; text: "rb_check_off" }
         AppCheckBox { id: norBox; text: "nor_single_idb" }
         AppCheckBox { id: logOffBox; text: "log_off" }
+        AppCheckBox { id: logDetailsBox; objectName: "logDetailsBox"; text: qsTr("Show detailed logs") }
         AppCheckBox { id: stdoutBox; text: "stdout_buffer_off" }
     }
 
@@ -172,16 +174,19 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
+            objectName: "reloadSettingsButton"
             text: qsTr("Reload")
             onClicked: dlg.openDialog()
         }
 
         SecondaryButton {
+            objectName: "cancelSettingsButton"
             text: qsTr("Cancel")
             onClicked: dlg.close()
         }
 
         PrimaryButton {
+            objectName: "saveSettingsButton"
             text: qsTr("Save")
             onClicked: {
                 var map = {
@@ -189,6 +194,7 @@ AppDialog {
                     "rb_check_off": rbCheckBox.checked,
                     "nor_single_idb": norBox.checked,
                     "log_off": logOffBox.checked,
+                    "ui_log_details": logDetailsBox.checked,
                     "stdout_buffer_off": stdoutBox.checked,
                     "force_data_band": bandField.text,
                     "log_dir": logDirField.text,

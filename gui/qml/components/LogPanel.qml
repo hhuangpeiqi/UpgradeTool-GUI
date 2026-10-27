@@ -7,6 +7,7 @@ Rectangle {
     id: root
 
     property var logModel: null
+    property bool showDetails: false
 
     signal clearRequested()
 
@@ -87,8 +88,10 @@ Rectangle {
                 delegate: Text {
                     objectName: "logEntry"
                     width: list.width
-                    text: model.time + " [" + model.level + "] [" + model.source + "] "
-                          + (model.context ? "[" + model.context + "] " : "") + model.text
+                    text: root.showDetails
+                          ? model.time + " [" + model.level + "] [" + model.source + "] "
+                            + (model.context ? "[" + model.context + "] " : "") + model.text
+                          : model.time.slice(0, 8) + " " + model.text
                     textFormat: Text.PlainText
                     color: model.error ? Theme.danger : model.level === "WARN" ? Theme.warning : Theme.textSecondary
                     font.family: Qt.platform.os === "osx" ? "Menlo" : "DejaVu Sans Mono"

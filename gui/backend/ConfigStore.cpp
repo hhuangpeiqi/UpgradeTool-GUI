@@ -20,7 +20,7 @@ namespace {
 
 const char *kKeys[] = {
 	"lba_parity", "rb_check_off", "nor_single_idb", "log_off",
-	"stdout_buffer_off", "force_data_band", "log_dir",
+	"stdout_buffer_off", "ui_log_details", "force_data_band", "log_dir",
 	"firmware", "loader", "device"
 };
 
@@ -109,11 +109,13 @@ void ConfigStore::retranslate()
 
 QVariantMap ConfigStore::load()
 {
+	const bool previousDetails = uiLogDetails();
 	try { m_snapshot=core::ReadConfig(m_strFile.toStdString()); }
     catch(const std::exception &error) { SetStatus([text=QString::fromUtf8(error.what())] { return text; }); return {}; }
+	if (previousDetails != uiLogDetails()) emit uiLogDetailsChanged();
 
 	QVariantMap map;
-    for(const auto *key:{"lba_parity","rb_check_off","nor_single_idb","log_off","stdout_buffer_off"}) map[key]=m_snapshot.Flag(key);
+    for(const auto *key:{"lba_parity","rb_check_off","nor_single_idb","log_off","stdout_buffer_off","ui_log_details"}) map[key]=m_snapshot.Flag(key);
     for(const auto *key:{"force_data_band","log_dir","firmware","loader","device"}) map[key]=QString::fromStdString(m_snapshot.String(key));
 
 	SetStatus([this] { return tr("Loaded: %1").arg(m_strFile); });
@@ -154,6 +156,7 @@ bool ConfigStore::save(const QVariantMap &values)
 	strNew << (Flag(values, "nor_single_idb")      ? "nor_single_idb=true"      : "#nor_single_idb=");
 	strNew << (Flag(values, "log_off")             ? "log_off=true"             : "#log_off=");
 	strNew << (Flag(values, "stdout_buffer_off")   ? "stdout_buffer_off=true"   : "#stdout_buffer_off=");
+	strNew << (Flag(values, "ui_log_details")      ? "ui_log_details=true"      : "ui_log_details=false");
 	strNew << (strBand.isEmpty()     ? "#force_data_band=" : "force_data_band=" + strBand);
 	strNew << (strLogDir.isEmpty()   ? "#log_dir="         : "log_dir=" + strLogDir);
 	strNew << (strFirmware.isEmpty() ? "#firmware="        : "firmware=" + strFirmware);
@@ -176,7 +179,9 @@ bool ConfigStore::save(const QVariantMap &values)
 
 	m_strFile = strTarget;
 	emit filePathChanged();
+	const bool previousDetails = uiLogDetails();
 	m_snapshot=core::ReadConfig(m_strFile.toStdString());
+	if (previousDetails != uiLogDetails()) emit uiLogDetailsChanged();
 	SetStatus([strTarget] { return tr("Saved: %1").arg(strTarget); });
 	return true;
 }

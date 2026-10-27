@@ -2933,6 +2933,10 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Show detailed logs</source>
+        <translation>显示详细日志</translation>
+    </message>
+    <message>
         <location filename="../qml/dialogs/SettingsDialog.qml" line="+9"/>
         <source>Settings</source>
         <translation>配置</translation>

@@ -181,6 +181,7 @@ ApplicationWindow {
                         Layout.minimumWidth: 300
                         Layout.maximumWidth: 560
                         logModel: app.log
+                        showDetails: app.config.uiLogDetails
                         onClearRequested: app.log.clear()
                     }
                 }
