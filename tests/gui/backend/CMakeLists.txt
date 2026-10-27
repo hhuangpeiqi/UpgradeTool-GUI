@@ -13,7 +13,9 @@ set_tests_properties(test_adb_recovery PROPERTIES TIMEOUT 60)
 set_property(TEST test_edl_runner test_qualcomm_controller APPEND PROPERTY LABELS qualcomm)
 upgrade_test(test_gui_backend
   SOURCES test_gui_backend.cpp test_gui_devices.cpp test_gui_tasks.cpp test_gui_allwinner.cpp test_gui_language.cpp
-  LIBRARIES upgrade_gui_backend TIMEOUT 20 ENVIRONMENT ${test_gui_environment}
+  # This combined suite creates many controllers; Windows startup and teardown
+  # can consume the former 20-second budget even when every assertion passes.
+  LIBRARIES upgrade_gui_backend TIMEOUT 60 ENVIRONMENT ${test_gui_environment}
   LABELS gui controller)
 upgrade_attach_test_translations(test_gui_backend)
 upgrade_test(test_application_lifecycle LIBRARIES upgrade_gui_backend TIMEOUT 30

@@ -245,9 +245,12 @@ try {
     $AdbDir = Join-Path $Stage "tools/adb"
     Run-Checked { & $cmake -DADB_PLATFORM=win "-DADB_CACHE_DIR=$Build/adb-cache" "-DADB_DESTINATION=$AdbDir" -P (Join-Path $Root "scripts/prepare_adb.cmake") }
     Run-Checked { & "$AdbDir/adb.exe" version }
-    Run-Checked { & $cmake "-DAPP=$AdbDir/adb.exe" "-DDESTINATION=$AdbDir" "-DSEARCH_DIRS=$AdbDir;$env:PATH" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
+    # A trailing backslash can escape the closing quote in Windows PowerShell's
+    # native argument passing. CMake accepts forward slashes in search paths.
+    $AdbRuntimeSearch = "$AdbDir;$env:PATH" -replace '\\', '/'
+    Run-Checked { & $cmake "-DAPP=$AdbDir/adb.exe" "-DDESTINATION=$AdbDir" "-DSEARCH_DIRS=$AdbRuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
     Run-Checked { & $deploy --release --compiler-runtime --qmldir (Join-Path $Root "gui/qml") (Join-Path $Stage "upgrade_tool_gui.exe") }
-    $RuntimeSearch = "$Build;$env:PATH"
+    $RuntimeSearch = "$Build;$env:PATH" -replace '\\', '/'
     Run-Checked { & $cmake "-DAPP=$(Join-Path $Stage 'upgrade_tool_gui.exe')" "-DDESTINATION=$Stage" "-DSEARCH_DIRS=$RuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
     Run-Checked { & $cmake "-DAPP=$(Join-Path $Stage 'upgrade_driver_installer.exe')" "-DDESTINATION=$Stage" "-DSEARCH_DIRS=$RuntimeSearch" -P (Join-Path $Root "scripts/collect_windows_runtime.cmake") }
     $Licenses = Join-Path $Stage "licenses"
