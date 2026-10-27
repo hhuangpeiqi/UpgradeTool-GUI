@@ -75,6 +75,15 @@ int main() {
 	target.location = 3; CHECK(core::MatchDevice(devices, target) == -1);
 	a.serial.clear(); b.serial.clear(); devices = {b, a}; CHECK(core::MatchDevice(devices, a) == 1);
 	target = core::DeviceIdentity(); CHECK(core::MatchDevice(devices, target) == -2);
+	for (const auto vendor : {core::Vendor::Rockchip, core::Vendor::Allwinner, core::Vendor::Qualcomm}) {
+		core::DeviceIdentity original; original.vendor = vendor; original.serial = "72407970c1202880214e";
+		auto upper = original; upper.serial = "72407970C1202880214E";
+		CHECK(core::MatchDevice({upper}, original) == 0);
+		CHECK(core::MatchDevice({original}, upper) == 0);
+		CHECK(core::MatchDevice({original, upper}, original) == -2);
+		upper.serial = "another-device";
+		CHECK(core::MatchDevice({upper}, original) == -1);
+	}
 	std::filesystem::remove(platform::Path(parameter)); std::filesystem::remove(platform::Path(output));
 	std::printf("test_engine: %s\n", failures ? "FAIL" : "PASS"); return failures ? 1 : 0;
 }

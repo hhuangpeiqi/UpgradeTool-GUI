@@ -58,11 +58,11 @@ bool BindEdlNativeInterface(EdlEndpoint &endpoint, const QVector<EdlEndpoint> &n
         if (row.vid != endpoint.vid || row.pid != endpoint.pid ||
             row.interfaceNumber != endpoint.interfaceNumber || row.instance.isEmpty()) continue;
         if (!endpoint.instance.isEmpty() && endpoint.instance.compare(row.instance, Qt::CaseInsensitive)) continue;
-        if (!endpoint.serial.isEmpty() && !row.serial.isEmpty() && endpoint.serial != row.serial) continue;
+        if (!endpoint.serial.isEmpty() && !row.serial.isEmpty() && endpoint.serial.compare(row.serial, Qt::CaseInsensitive) != 0) continue;
         if (!endpoint.ports.isEmpty() && !row.ports.isEmpty() && endpoint.ports != row.ports) continue;
         if (endpoint.bus && row.bus && endpoint.bus != row.bus) continue;
         if (endpoint.instance.isEmpty() && !EdlRunner::sameLocation(endpoint, row) &&
-            (endpoint.serial.isEmpty() || endpoint.serial != row.serial) &&
+            (endpoint.serial.isEmpty() || endpoint.serial.compare(row.serial, Qt::CaseInsensitive) != 0) &&
             (endpoint.ports.isEmpty() || endpoint.ports != row.ports)) continue;
         if (binding) { binding = nullptr; break; }
         binding = &row;
@@ -230,7 +230,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
             if (!qtq_download_identity(e.vid,e.pid) && e.id == selected.id && targetKey(e) == targetId &&
                 e.kind == selected.kind && e.vid == selected.vid && e.pid == selected.pid &&
                 e.bus == selected.bus && e.ports == selected.ports &&
-                e.instance == selected.instance && e.serial == selected.serial && e.interfaceNumber == selected.interfaceNumber &&
+                e.instance == selected.instance && e.serial.compare(selected.serial, Qt::CaseInsensitive) == 0 && e.interfaceNumber == selected.interfaceNumber &&
                 e.alternate == selected.alternate && e.path == selected.path &&
                 e.in == selected.in && e.out == selected.out && e.address == selected.address &&
                 e.downloadInterface == selected.downloadInterface) {

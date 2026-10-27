@@ -1,6 +1,7 @@
 #ifndef BACKENDS_DEVICE_IDENTITY_H
 #define BACKENDS_DEVICE_IDENTITY_H
 #include "domain/Backend.h"
+#include "platform/Text.h"
 #include <sstream>
 #include <stdexcept>
 namespace core {
@@ -37,7 +38,7 @@ inline int MatchDevice(const std::vector<DeviceIdentity> &devices, const DeviceI
         if (target.transport != QualcommTransport::Auto && devices[i].transport != target.transport) continue;
         if (!target.ports.empty() && (devices[i].bus != target.bus || devices[i].ports != target.ports)) continue;
 		if (target.location && devices[i].location != target.location) continue;
-		if (!target.serial.empty() && devices[i].serial != target.serial) continue;
+		if (!target.serial.empty() && platform::FoldCase(devices[i].serial) != platform::FoldCase(target.serial)) continue;
 		if (found >= 0) return -2;
 		found = static_cast<int>(i);
 	}

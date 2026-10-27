@@ -786,13 +786,13 @@ void AppController::onDevicesReady(const QVariantList &incoming)
                 if(DevicePathKey(d.value("devicePath").toString())!=DevicePathKey(expected.path)) continue;
                 if(!expected.instance.isEmpty()) {
                     if(d.value("deviceInstance").toString()!=expected.instance) continue;
-                } else if(expected.serial.isEmpty() || d.value("serial").toString()!=expected.serial) continue;
+                } else if(expected.serial.isEmpty() || d.value("serial").toString().compare(expected.serial, Qt::CaseInsensitive)!=0) continue;
             } else {
                 if(expected.ports.isEmpty() || d.value("bus").toInt()!=expected.bus || ports!=expected.ports) continue;
                 if(d.value("usbAddress").toUInt()!=expected.address ||
                     d.value("interfaceNumber",-1).toInt()!=expected.interfaceNumber ||
                     d.value("alternate").toInt()!=expected.alternate) continue;
-                if(!expected.serial.isEmpty() && d.value("serial").toString()!=expected.serial) continue;
+                if(!expected.serial.isEmpty() && d.value("serial").toString().compare(expected.serial, Qt::CaseInsensitive)!=0) continue;
             }
             matches.append(d.value("key").toString());
         }

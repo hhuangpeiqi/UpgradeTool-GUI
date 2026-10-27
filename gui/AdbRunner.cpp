@@ -109,7 +109,7 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
     }
     for (const auto &native : platform::NativeUsbLocations()) {
         bool mapped = false;
-        for (auto &device : result) if (device.serial.toStdString() == native.serial) {
+        for (auto &device : result) if (device.serial.compare(QString::fromStdString(native.serial), Qt::CaseInsensitive) == 0) {
             device.location = QString::fromStdString(native.location); mapped = true;
         }
         if (!mapped) {
@@ -239,12 +239,16 @@ void AdbRunner::ChooseDevice(const QString &strSerial)
 {
 	if (!m_bAwaitingChoice)
 		return;
-	if (!Devices().contains(strSerial.trimmed())) {
+	QStringList matches;
+	for (const auto &serial : Devices())
+		if (serial.compare(strSerial.trimmed(), Qt::CaseInsensitive) == 0)
+			matches.append(serial);
+	if (matches.size() != 1) {
 		Complete(false, tr("The selected ADB device is no longer available."));
 		return;
 	}
 	m_bAwaitingChoice = false;
-	StartReboot(strSerial.trimmed());
+	StartReboot(matches.front());
 }
 
 void AdbRunner::CancelSwitch()
@@ -314,7 +318,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 		QString line;
 		for (const auto &candidate : output.split('\n')) {
 			const auto fields = candidate.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-			if (fields.size() >= 2 && fields[0] == m_serial && fields[1] == "device")
+			if (fields.size() >= 2 && fields[0].compare(m_serial, Qt::CaseInsensitive) == 0 && fields[1] == "device")
 				line = candidate;
 		}
 		if (line.isEmpty()) {
@@ -342,7 +346,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 #endif
 		if (matches.isEmpty())
 			for (const auto &d : devices)
-				if (!d.loader && d.serial == m_serial)
+				if (!d.loader && d.serial.compare(m_serial, Qt::CaseInsensitive) == 0)
 					matches.append(d);
 
         QVector<AdbUsbDevice> unique;
@@ -366,7 +370,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
             QJsonArray chain;
             for (const auto port : device.ports) chain.append(port);
             candidates.append(QJsonObject{{"serial", device.serial}, {"native", device.location},
-                {"bus", device.bus}, {"ports", chain}, {"selected", device.serial == m_serial}});
+                {"bus", device.bus}, {"ports", chain}, {"selected", device.serial.compare(m_serial, Qt::CaseInsensitive) == 0}});
         }
         QJsonArray ports;
         for(const auto port:m_target.ports) ports.append(port);

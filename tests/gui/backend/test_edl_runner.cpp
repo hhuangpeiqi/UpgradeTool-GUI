@@ -20,7 +20,7 @@ int main(int argc,char **argv) {
         if (args[1] == "devices") {
             if (qEnvironmentVariableIsSet("EDL_TEST_SLOW_QUERY")) QThread::msleep(6000);
             const auto status = qgetenv("EDL_TEST_UNAUTHORIZED");
-            std::printf("List of devices attached\nboard\t%s\n", status.isEmpty() ? "device" : status == "offline" ? "offline" : "unauthorized");
+            std::printf("List of devices attached\nBoArD\t%s\n", status.isEmpty() ? "device" : status == "offline" ? "offline" : "unauthorized");
             return 0;
         }
         if (args.mid(1) == QStringList({"-s","board","reboot","edl"})) return qgetenv("EDL_TEST_DISCONNECT").isEmpty() ? 0 : 1;
@@ -44,13 +44,13 @@ int main(int argc,char **argv) {
     qunsetenv("EDL_TEST_UNAUTHORIZED");
     bool authorized = false;
     for (const auto &endpoint : hooks.discover(app.applicationFilePath(), cancellation, commandError))
-        authorized |= endpoint.kind == EdlEndpoint::Adb && endpoint.serial == "board";
+        authorized |= endpoint.kind == EdlEndpoint::Adb && endpoint.serial == "BoArD";
     CHECK(authorized);
     // Both read-only entrypoints may implicitly start ADB and need more than five seconds.
     qputenv("EDL_TEST_SLOW_QUERY", "1");
     authorized = false;
     for (const auto &endpoint : hooks.discover(app.applicationFilePath(), cancellation, commandError))
-        authorized |= endpoint.kind == EdlEndpoint::Adb && endpoint.serial == "board";
+        authorized |= endpoint.kind == EdlEndpoint::Adb && endpoint.serial == "BoArD";
     CHECK(authorized);
     CHECK(hooks.reboot(app.applicationFilePath(), "board", cancellation, commandError));
     qunsetenv("EDL_TEST_SLOW_QUERY");
@@ -86,6 +86,9 @@ int main(int argc,char **argv) {
         CHECK(BindEdlNativeInterface(row,{adb,diag}));
         CHECK(row.instance==diag.instance && row.accessError==diag.accessError);
         CHECK(row.accessReason=="Driver missing");
+        row.instance.clear(); row.serial="BOARD";
+        CHECK(BindEdlNativeInterface(row,{diag}));
+        row.serial=diag.serial;
         row.instance.clear(); row.accessError=0;
         auto other=diag; other.instance="other"; other.ports={2,4}; other.accessError=0;
         CHECK(BindEdlNativeInterface(row,{other,diag}) && row.accessError!=0);

@@ -213,7 +213,7 @@ QVector<EdlEndpoint> enumerate(const EdlCancel &cancel, QString &error) {
         e.serial=QString::fromUtf8(d.serial);
         QSet<QString> nativeLocations;
         for(const auto &n:native)
-            if(!e.serial.isEmpty() && n.serial==e.serial && n.vid==e.vid && n.pid==e.pid && !n.location.isEmpty())
+            if(!e.serial.isEmpty() && n.serial.compare(e.serial, Qt::CaseInsensitive)==0 && n.vid==e.vid && n.pid==e.pid && !n.location.isEmpty())
                 nativeLocations.insert(n.location);
         if (nativeLocations.size()==1) e.location=*nativeLocations.begin();
         e.interfaceNumber=d.interface_number; e.alternate=d.alternate; e.in=d.in; e.out=d.out;
@@ -277,12 +277,12 @@ QVector<EdlEndpoint> discover(const QString &adb,const EdlCancel &cancel,QString
         if (!device.authorized()) continue;
         EdlEndpoint e; e.kind=EdlEndpoint::Adb; e.serial=device.serial; e.id="adb:"+e.serial; e.label="ADB — "+e.serial;
         QVector<EdlEndpoint> matches;
-        for(const auto &candidate:endpoints) if(candidate.kind==EdlEndpoint::Adb && candidate.serial==e.serial) matches.append(candidate);
+        for(const auto &candidate:endpoints) if(candidate.kind==EdlEndpoint::Adb && candidate.serial.compare(e.serial, Qt::CaseInsensitive)==0) matches.append(candidate);
         if(matches.size()==1) { e.location=matches[0].location; e.bus=matches[0].bus; e.ports=matches[0].ports; }
         // Native enumeration supplies serial/location even when the ADB driver cannot be opened by libusb.
         if(e.location.isEmpty()) {
             QSet<QString> locations;
-            for(const auto &n:nativeDevices()) if(n.serial==e.serial && !n.location.isEmpty()) locations.insert(n.location);
+            for(const auto &n:nativeDevices()) if(n.serial.compare(e.serial, Qt::CaseInsensitive)==0 && !n.location.isEmpty()) locations.insert(n.location);
             if(locations.size()==1) e.location=*locations.begin();
         }
 #ifdef Q_OS_LINUX
@@ -302,7 +302,7 @@ public:
         for(const auto &port : QSerialPortInfo::availablePorts()) {
             if (port.systemLocation() != e.path) continue;
             const auto current = serialEndpoint(port, native);
-            if(current.vid==e.vid && current.pid==e.pid && (e.location.isEmpty() || current.location==e.location) && (e.serial.isEmpty() || current.serial==e.serial)) { present=true; break; }
+            if(current.vid==e.vid && current.pid==e.pid && (e.location.isEmpty() || current.location==e.location) && (e.serial.isEmpty() || current.serial.compare(e.serial, Qt::CaseInsensitive)==0)) { present=true; break; }
         }
         if(!present) { error=EdlRunner::tr("The selected diagnostic port is no longer available."); return; }
         try { port=platform::OpenSerialPort(e.path.toStdString()); }
@@ -353,7 +353,7 @@ public:
             uint8_t ports[16]; int n=libusb_get_port_numbers(list[i],ports,sizeof(ports)); QVector<int> chain; for(int j=0;j<n;++j) chain.append(ports[j]);
             if(chain!=e.ports) continue;
             code=libusb_open(list[i],&usb.handle);
-            if(!code && !e.serial.isEmpty() && usbSerial(usb.handle,d)!=e.serial) { libusb_close(usb.handle); usb.handle=nullptr; code=LIBUSB_ERROR_NO_DEVICE; }
+            if(!code && !e.serial.isEmpty() && usbSerial(usb.handle,d).compare(e.serial, Qt::CaseInsensitive)!=0) { libusb_close(usb.handle); usb.handle=nullptr; code=LIBUSB_ERROR_NO_DEVICE; }
             break;
         }
         if(list) libusb_free_device_list(list,1);
@@ -433,7 +433,7 @@ EdlHooks DefaultEdlHooks(AdbService *service) {
             devices = AdbService::ParseDevices(output);
         }
         bool present=false;
-        for (const auto &device : devices) if (device.serial == serial && device.authorized()) present = true;
+        for (const auto &device : devices) if (device.serial.compare(serial, Qt::CaseInsensitive) == 0 && device.authorized()) present = true;
         if(!present) { error=EdlRunner::tr("The selected ADB device is disconnected or unauthorized."); return false; }
         bool started=false;
         process(service, adb,{"-s",serial,"reboot","edl"},cancel,10000,output,error,&started);

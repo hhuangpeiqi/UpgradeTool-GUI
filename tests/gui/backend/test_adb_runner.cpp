@@ -261,8 +261,10 @@ int main(int argc, char **argv)
                         if (readSerial) {
                             if (mode == "native-no-location") d.location.clear();
                             if (mode == "native-serial-case") d.serial = "Board";
+                            if (mode == "native-unrelated-serial") d.serial = "other";
                             if (mode == "native-duplicate") {
                                 auto other = d; other.location = "PCIROOT(1)#USBROOT(0)#USB(5)#USB(4)";
+                                other.serial = "BOARD";
                                 return QVector<gui::AdbUsbDevice>{d, other};
                             }
                             if (mode == "native-partial-location") {
@@ -271,6 +273,7 @@ int main(int argc, char **argv)
                             }
                             if (mode == "native-interfaces") {
                                 auto other = d; other.location += "#USBMI(1)";
+                                other.serial = "BOARD";
                                 return QVector<gui::AdbUsbDevice>{d, other, d};
                             }
                         }
@@ -281,7 +284,12 @@ int main(int argc, char **argv)
 					    { auto other=d; other.ports={5,2}; return QVector<gui::AdbUsbDevice>{d,other}; }
 				    return QVector<gui::AdbUsbDevice>{d};
             };
+            QJsonObject targetTrace;
             gui::AdbRunner runner(nullptr,scanner,200,650);
+            QObject::connect(&runner, &gui::AdbRunner::traceMessage, [&](const QString &text) {
+                const auto event = QJsonDocument::fromJson(text.toUtf8()).object();
+                if (event.value("event") == "switch_target") targetTrace = event;
+            });
             gui::AllwinnerSwitchMonitor::Hooks hooks;
             hooks.scan=[&] {
                 std::vector<core::DeviceDescriptor> result;
@@ -320,7 +328,7 @@ int main(int argc, char **argv)
 				if (mode == "cancel" && completed == 0)
 					runner.CancelSwitch();
 				else
-					runner.ChooseDevice("board");
+					runner.ChooseDevice("BOARD");
 			});
 			runner.Start();
 			CHECK(Await([&] { return !runner.Devices().isEmpty(); }));
@@ -334,7 +342,12 @@ int main(int argc, char **argv)
 			CHECK(!message.isEmpty());
             if (mode == "native-no-location" || mode == "native-partial-location")
                 CHECK(message.contains("could not be read"));
-            if (mode == "native-serial-case") CHECK(message.contains("Cannot map"));
+            if (mode == "native-serial-case") {
+                CHECK(targetTrace.value("resolution") == "resolved");
+                CHECK(targetTrace.value("serial") == "board");
+                CHECK(targetTrace.value("candidates").toArray().first().toObject().value("selected").toBool());
+            }
+            if (mode == "native-unrelated-serial") CHECK(message.contains("Cannot map"));
             if (mode == "native-duplicate") CHECK(message.contains("multiple physical USB ports"));
 			if (mode == "multi" || mode == "cancel")
 				CHECK(choices == 1);
@@ -374,7 +387,8 @@ int main(int argc, char **argv)
     scenario("native-interfaces", Method::Auto, true, "adb");
     scenario("native-no-location", Method::Auto, false, "");
     scenario("native-partial-location", Method::Auto, false, "");
-    scenario("native-serial-case", Method::Auto, false, "");
+    scenario("native-serial-case", Method::Auto, true, "adb");
+    scenario("native-unrelated-serial", Method::Auto, false, "");
     scenario("native-duplicate", Method::Auto, false, "");
 	scenario("linux", Method::Auto, true, "shell");
 	scenario("unknown", Method::Auto, true, "adb");
@@ -407,6 +421,7 @@ int main(int argc, char **argv)
         gui::AdbRunner runner(nullptr, [&](bool readSerial) {
             if (readSerial && mode == "loader-unmapped") return QVector<gui::AdbUsbDevice>{};
             gui::AdbUsbDevice device{1, {5, 4}, "board"};
+            if (readSerial) device.serial = "BOARD";
             if (mode == "loader-location-conflict") device.location = readSerial
                 ? "PCIROOT(0)#USBROOT(0)#USB(5)#USB(4)" : "PCIROOT(1)#USBROOT(0)#USB(5)#USB(4)";
             device.loader = !readSerial && QFile::exists(dir.filePath("requested")) &&
