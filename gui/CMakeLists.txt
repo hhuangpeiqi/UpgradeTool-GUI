@@ -174,6 +174,7 @@ set(_qml_files
   pages/AllwinnerFirmwarePage.qml
   pages/AllwinnerToolsPage.qml
   dialogs/AllwinnerDeviceDialog.qml
+  dialogs/SwitchRecoveryDialog.qml
   pages/FirmwarePage.qml
   pages/AdvancedPage.qml
   dialogs/SettingsDialog.qml

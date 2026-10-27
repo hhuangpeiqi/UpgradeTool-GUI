@@ -58,7 +58,7 @@ class AdbRunner : public QObject
     void felMonitorRequested(const gui::FelSwitchRequest &request);
     void felMonitorCancelled(quint64 id);
     void felTargetReady(const core::DeviceRef &target);
-	void finished(bool bOk, const QString &strMessage);
+	void finished(bool bOk, const QString &strMessage, bool cancelled = false);
 	void deviceChoiceRequested(const QStringList &strDevices);
 
 	void devicesChanged(const QStringList &strDevices);
@@ -74,7 +74,7 @@ class AdbRunner : public QObject
     void StartReboot(const QString &);
     void BeginSwitch();
     void StartCommand(const QStringList &);
-    void Complete(bool, const QString &);
+    void Complete(bool, const QString &, bool cancelled = false);
     void HandleSwitchCommand(int, bool, const QString &);
     AdbService *m_service;
     quint64 m_commandId = 0;

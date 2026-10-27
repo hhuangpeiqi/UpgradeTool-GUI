@@ -212,7 +212,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         if (m_shuttingDown) return;
         m_pAdb->service()->setPaused(false);
         m_pendingEdl = ok ? endpoint : EdlEndpoint();
-        FinishModeSwitch(ok, message);
+        FinishModeSwitch(ok, message, m_edl->state() == EdlRunner::Cancelled);
         emit requestScan(); refreshEdl();
     });
     connect(m_qualcomm, &QualcommController::executeRequested, this, [this](const core::OperationRequest &request) {
@@ -227,8 +227,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pObserver, &QtObserver::storageSelectionRequested, this, &AppController::onStorageSelection);
 	connect(m_pObserver, &QtObserver::resultReceived, this, &AppController::onOperationResult);
 
-	connect(m_pAdb, SIGNAL(finished(bool, QString)),
-	        this, SLOT(onAdbFinished(bool, QString)));
+	connect(m_pAdb, &AdbRunner::finished, this, &AppController::onAdbFinished);
 	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const QString &message) {
         if (!m_bSwitching) return;
         UpdateModeSwitch(message);
@@ -1228,8 +1227,9 @@ void AppController::UpdateModeSwitch(const QString &message)
 	AppendLog(message, false);
 }
 
-void AppController::FinishModeSwitch(bool ok, const QString &message)
+void AppController::FinishModeSwitch(bool ok, const QString &message, bool cancelled)
 {
+    if (!m_bSwitching) return;
 	m_tasks->setProgress(ok ? 100 : 0, message);
 	m_bSwitching = false;
 	emit switchingChanged();
@@ -1237,6 +1237,8 @@ void AppController::FinishModeSwitch(bool ok, const QString &message)
     m_drivers->refresh(true);
 	AppendLog(message, !ok);
 	emit toastRequested(message, !ok);
+    if (!ok && !cancelled && !m_shuttingDown)
+        emit switchRecoveryRequested();
 }
 
 void AppController::switchToLoader()
@@ -1303,7 +1305,7 @@ void AppController::cancelAdbChoice()
 	m_pAdb->CancelSwitch();
 }
 
-void AppController::onAdbFinished(bool bOk, const QString &strMessage)
+void AppController::onAdbFinished(bool bOk, const QString &strMessage, bool cancelled)
 {
 	if (!m_bSwitching) return;
 	if (m_switchingFel) {
@@ -1312,7 +1314,7 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage)
 		m_felSwitchError = !bOk;
 		emit felSwitchStateChanged();
 	}
-	FinishModeSwitch(bOk, strMessage);
+	FinishModeSwitch(bOk, strMessage, cancelled);
 	emit requestScan();
 }
 

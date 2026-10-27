@@ -196,6 +196,7 @@ signals:
 	void toastRequested(const QString &strText, bool bError);
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
+    void switchRecoveryRequested();
 
 private:
     void UpdateInteractionLock();
@@ -224,7 +225,7 @@ private slots:
 	void onOperationResult(const core::OperationResult &result);
 	void onTaskFinished(const core::TaskSummary &summary);
 	void onStepStarted(int step, int target, int total, const QString &device);
-	void onAdbFinished(bool bOk, const QString &strMessage);
+	void onAdbFinished(bool bOk, const QString &strMessage, bool cancelled = false);
 	void onAdbDeviceChoice(const QStringList &strDevices);
 	void onAdbDevicesChanged(const QStringList &strDevices);
 	void onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage);
@@ -242,7 +243,7 @@ private:
 	void StartJob(core::TaskJob job);
 	void BeginModeSwitch(const QString &message);
 	void UpdateModeSwitch(const QString &message);
-	void FinishModeSwitch(bool ok, const QString &message);
+	void FinishModeSwitch(bool ok, const QString &message, bool cancelled = false);
 	QVariantList BuildStandardPlaces() const;
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;

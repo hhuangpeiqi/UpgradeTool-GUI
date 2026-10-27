@@ -10,6 +10,7 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
+#include <stdexcept>
 #include <cstdio>
 
 static int failures = 0;
@@ -99,7 +100,8 @@ static int FakeAdb(QStringList args)
 			return 0;
 		}
 		const bool android = mode == "android" || mode == "hang" || mode == "wrong-port" || mode == "unmapped" ||
-		                     mode == "normal-reboot" || mode == "duplicate" || mode.startsWith("native-") || mode=="arm-cancel";
+		                     mode == "normal-reboot" || mode == "duplicate" || mode.startsWith("native-") || mode=="arm-cancel" ||
+                             mode == "connection-failed" || mode == "driver-missing";
 		std::printf(
 		    "AW_ANDROID=%s\nAW_BUILDROOT=%s\nAW_SOC=%s\nAW_UID=%s\nAW_DEVMEM=%s\nAW_REBOOT=%s\nAW_REBOOT_LINK=%s\n",
 		    android ? "12" : "", android ? "0" : "1", mode == "wrong-soc" ? "sun50i" : "arm,sun8iw11p1",
@@ -247,6 +249,8 @@ int main(int argc, char **argv)
 		bool ok = false;
 		QString message;
 		int choices = 0;
+        bool cancelled = false;
+        quint64 attempt = 0;
 		{
             auto scanner = [&](bool readSerial) {
                     if (qEnvironmentVariable("AW_TEST_MODE") == "loader") {
@@ -297,14 +301,21 @@ int main(int argc, char **argv)
                 for(const auto &row:scanner(false)) {
                     core::DeviceIdentity identity; identity.vendor=core::Vendor::Allwinner;
                     identity.bus=row.bus; identity.ports.assign(row.ports.begin(),row.ports.end());
-                    identity.physicalLocation=row.location.toStdString(); result.push_back(core::Describe(identity));
+                    identity.physicalLocation=row.location.toStdString();
+                    auto device = core::Describe(identity);
+                    if (mode == "driver-missing") device.accessError = 5;
+                    result.push_back(device);
                 }
                 return result;
             };
-            hooks.connect=[](const auto &,const auto &,auto) { core::allwinner::DeviceDetails d; d.mode=2; return d; };
+            hooks.connect=[&](const auto &,const auto &,auto) {
+                if (mode == "connection-failed") throw std::runtime_error("handshake failed");
+                core::allwinner::DeviceDetails d; d.mode=2; return d;
+            };
             hooks.release=[](const auto &) {};
             gui::AllwinnerSwitchMonitor monitor(std::move(hooks));
             QObject::connect(&runner,&gui::AdbRunner::felMonitorRequested,&monitor,[&](const gui::FelSwitchRequest &request) {
+                attempt = request.id;
                 CHECK(!QFile::exists(dir.filePath("requested")));
                 if(mode=="arm-cancel") {
                     runner.CancelSwitch();
@@ -316,8 +327,10 @@ int main(int argc, char **argv)
             });
             QObject::connect(&runner,&gui::AdbRunner::felMonitorCancelled,&monitor,&gui::AllwinnerSwitchMonitor::cancel);
             QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::ready,&runner,&gui::AdbRunner::FelMonitorReady);
-            QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::completed,&runner,&gui::AdbRunner::FelMonitorFinished);
-			QObject::connect(&runner, &gui::AdbRunner::finished, &app, [&](bool result, const QString &text) {
+            QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::completed,&runner,&gui::AdbRunner::FelMonitorFinished,
+                             Qt::QueuedConnection);
+			QObject::connect(&runner, &gui::AdbRunner::finished, &app, [&](bool result, const QString &text, bool wasCancelled) {
+                cancelled = wasCancelled;
 				++completed;
 				ok = result;
 				message = text;
@@ -340,6 +353,13 @@ int main(int argc, char **argv)
 			CHECK(completed == 1);
 			CHECK(ok == expectOk);
 			CHECK(!message.isEmpty());
+            CHECK(cancelled == (mode == "cancel" || mode == "arm-cancel"));
+            if (attempt) {
+                runner.FelMonitorFinished(attempt, false, "late failure", {});
+                runner.FelMonitorFinished(attempt, true, "late success", {});
+                CHECK(completed == 1);
+                CHECK(cancelled == (mode == "cancel" || mode == "arm-cancel"));
+            }
             if (mode == "native-no-location" || mode == "native-partial-location")
                 CHECK(message.contains("could not be read"));
             if (mode == "native-serial-case") {
@@ -357,7 +377,7 @@ int main(int argc, char **argv)
 			CHECK(Await([&] { return !runner.Devices().isEmpty(); }));
 			runner.SwitchToLoader();
 			CHECK(Await([&] { return completed == 2; }));
-			CHECK(ok);
+			CHECK(ok && !cancelled);
 		}
 		const auto log = Read(dir.path() + "/log");
 		bool found = false;
@@ -408,6 +428,8 @@ int main(int argc, char **argv)
 	scenario("probe-hang", Method::Auto, false, "");
 	scenario("hang", Method::Auto, true, "adb");
 	scenario("wrong-port", Method::Auto, false, "adb");
+    scenario("connection-failed", Method::Auto, false, "adb");
+    scenario("driver-missing", Method::Auto, false, "adb");
 	scenario("normal-reboot", Method::Auto, false, "adb");
 	scenario("unmapped", Method::Auto, false, "");
 	scenario("duplicate", Method::Auto, false, "");

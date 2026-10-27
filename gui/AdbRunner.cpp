@@ -255,7 +255,7 @@ void AdbRunner::CancelSwitch()
 {
 	if (!m_bAwaitingChoice && !m_bRunning)
 		return;
-	Complete(false, tr("Switch request cancelled; if the device already began rebooting, check the device list."));
+	Complete(false, tr("Switch request cancelled; if the device already began rebooting, check the device list."), true);
 }
 
 void AdbRunner::StartReboot(const QString &serial)
@@ -277,7 +277,7 @@ void AdbRunner::StartCommand(const QStringList &args)
         args.value(0) == "devices" ? kAdbReadTimeoutMs : m_commandTimeoutMs);
 }
 
-void AdbRunner::Complete(bool ok, const QString &message)
+void AdbRunner::Complete(bool ok, const QString &message, bool cancelled)
 {
     if(m_felAttempt && !ok) {
         if(m_felCancel) m_felCancel->request_stop();
@@ -292,8 +292,7 @@ void AdbRunner::Complete(bool ok, const QString &message)
     m_commandId = 0;
     m_service->setPaused(false);
 
-	emit finished(ok, message);
-
+	emit finished(ok, message, cancelled);
 }
 
 void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output)

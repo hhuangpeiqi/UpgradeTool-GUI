@@ -35,6 +35,15 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 		qputenv("ADB", fakeAdb.toUtf8());
 		{
 			gui::AppController controller(nullptr); controller.setVendor(1); controller.ignorePermission();
+            int recoveries = 0;
+            QObject::connect(&controller, &gui::AppController::switchRecoveryRequested,
+                             [&] {
+                ++recoveries;
+                CHECK(controller.felSwitchHint().contains("BusyBox"));
+                CHECK(!controller.switching() && !controller.tasks()->busy());
+                CHECK(controller.felSwitchError() && controller.tasks()->progressValue() == 0);
+                CHECK(controller.felSwitchHint() == controller.tasks()->progressText());
+            });
 			CHECK(Await([&] { return controller.adbReady(); }));
 			CHECK(!controller.allwinner()->valid());
 			controller.tasks()->setProgress(75, "Previous task");
@@ -48,6 +57,7 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 			CHECK(controller.felSwitchError() && controller.felSwitchHint().contains("BusyBox"));
 			CHECK(controller.tasks()->progressValue() == 0);
 			CHECK(controller.tasks()->progressText() == controller.felSwitchHint());
+            CHECK(recoveries == 1);
 			controller.switchToFel(1); CHECK(controller.tasks()->busy()); CHECK(controller.switching());
 			CHECK(controller.tasks()->progressValue() == -1);
 			controller.cancel(); CHECK(!controller.tasks()->busy()); CHECK(!controller.switching());
@@ -73,6 +83,8 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 			if (adb) adb->finished(true, QStringLiteral("Loader device detected on the target USB port."));
 			CHECK(!controller.switching() && !controller.tasks()->busy());
 			CHECK(controller.tasks()->progressValue() == 100);
+            CHECK(recoveries == 1); // Success and cancellation do not open recovery.
+
 		}
 		if (originalAdb.isNull()) qunsetenv("ADB"); else qputenv("ADB", originalAdb);
 	}

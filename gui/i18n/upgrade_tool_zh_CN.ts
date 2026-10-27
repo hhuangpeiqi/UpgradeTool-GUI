@@ -4620,4 +4620,19 @@
         <translation>目标设备在 FEL/FES 握手后断开了连接。</translation>
     </message>
 </context>
+<context>
+    <name>SwitchRecoveryDialog</name>
+    <message>
+        <source>Flash mode switch incomplete</source>
+        <translation>未能完成刷机模式切换</translation>
+    </message>
+    <message>
+        <source>Please enter flash mode manually.</source>
+        <translation>请手动进入刷机模式</translation>
+    </message>
+    <message>
+        <source>Got it</source>
+        <translation>知道了</translation>
+    </message>
+</context>
 </TS>

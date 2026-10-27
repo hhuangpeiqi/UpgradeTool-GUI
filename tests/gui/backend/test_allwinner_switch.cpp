@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
     int failures = 0;
     for (const QString scenario :
          {"fel", "fes", "native-topology", "native-windows", "driver-delay", "reenumeration", "disappeared",
-          "absent", "wrong-port", "ambiguous", "failed-handshake", "unsupported", "cancel-during-handshake",
+          "absent", "wrong-port", "ambiguous", "failed-handshake", "driver-missing", "unsupported", "cancel-during-handshake",
           "cancel-before-ready"}) {
         int scans = 0, opens = 0, releases = 0, completed = 0, ready = 0;
         bool ok = false;
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
             if (scenario == "native-windows")
                 identity.physicalLocation = "pciroot(0)#pci(0801)#usbroot(0)#usb(2)#usb(3)";
             auto device = core::Describe(identity);
-            if (scenario == "driver-delay" && scans < 3)
+            if (scenario == "driver-missing" || (scenario == "driver-delay" && scans < 3))
                 device.accessError = 5;
             if (scenario == "ambiguous")
                 return std::vector<core::DeviceDescriptor>{device, device};
@@ -108,6 +108,10 @@ int main(int argc, char **argv) {
                 CHECK(message.contains("disconnected"));
             if (scenario == "failed-handshake")
                 CHECK(message.contains("handshake failed"));
+            if (scenario == "driver-missing") {
+                CHECK(message.contains("driver or permissions"));
+                CHECK(opens == 0);
+            }
             monitor.cancel(11);
             CHECK(completed == 1);
             monitor.cancel(12);
