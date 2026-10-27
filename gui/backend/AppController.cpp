@@ -95,7 +95,7 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
     connect(m_tasks,&TaskController::busyChanged,this,[this] {
         UpdateInteractionLock();
     });
-    m_rockchip=new RockchipController(m_pConfig,this);
+    m_rockchip=new RockchipController(this);
     connect(m_rockchip,&RockchipController::executeRequested,this,[this](const core::TaskJob &job) { StartJob(job); });
     connect(m_rockchip,&RockchipController::toastRequested,this,&AppController::toastRequested);
     connect(m_rockchip,&RockchipController::inspectRequested,this,[this](const core::InspectionRequest &request) { m_inspections->inspect(m_rockchip, request); });
@@ -977,7 +977,6 @@ void AppController::StartJob(core::TaskJob job)
             job.targets.push_back(reference);
         }
 	}
-    job.config=m_pConfig->snapshot();
 	job.continueOnError = m_bBatchMode && m_bBatchContinue;
     job.logId = platform::LogService::nextTaskId();
     m_taskLogContext = {job.steps.empty() ? "Application" : core::VendorLogSource(job.steps.front().vendor()), job.logId};

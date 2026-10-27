@@ -194,27 +194,7 @@ macOS packaging requires system support for `diskutil image create/attach`; the 
 
 ## Configuration and logs
 
-`config.ini` is searched in order: user config directory → executable directory → the macOS app's `Contents/Resources/`. Saving in **Config** writes to the user config and takes effect immediately.
-
-Default Linux paths:
-
-- Config: `~/.config/upgrade_tool/config.ini`, following `XDG_CONFIG_HOME`.
-- Logs: `~/.local/state/upgrade_tool/log/`, following `XDG_STATE_HOME`.
-
-The config format is `key=value`, with lines starting with `#` as comments. The repository config is fully commented and uses default behavior.
-
-| Key | Meaning |
-|---|---|
-| `lba_parity` | LBA transfer parity check |
-| `rb_check_off` | Disable write read-back verification |
-| `nor_single_idb` | Single IDB for NOR |
-| `log_off` | Disable logging |
-| `stdout_buffer_off` | Disable stdout buffering |
-| `force_data_band` | Force data bandwidth |
-| `log_dir` | Log directory |
-| `firmware` | Default path when no recent firmware is saved |
-| `loader` | Default path when no loader is specified for an operation |
-| `device` | Kept for compatibility; the target device is chosen in the device bar |
+Preferences, including detailed log display, are saved in the user settings by the application. On Linux, logs default to `~/.local/state/upgrade_tool/log/`, following `XDG_STATE_HOME`.
 
 ## License
 

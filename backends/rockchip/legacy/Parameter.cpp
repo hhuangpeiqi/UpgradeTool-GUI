@@ -2,7 +2,6 @@
 #include "Parameter.h"
 #include "RKDevice.h"
 #include "crc.h"
-#include "Config.h"
 #include <sstream>
 #include <ctype.h>
 #include <stdio.h>
@@ -427,6 +426,15 @@ static string lower_name(const char *s)
 	for (string::size_type i = 0; i < r.size(); i++)
 		r[i] = (char)tolower((unsigned char)r[i]);
 	return r;
+}
+
+namespace {
+int find_config_item(const CONFIG_ITEM_VECTOR &items, const char *name)
+{
+	for (size_t i = 0; i < items.size(); ++i)
+		if (strcasecmp(name, items[i].szItemName) == 0) return static_cast<int>(i);
+	return -1;
+}
 }
 
 // The grow partition's ending_lba is diskSectors-1-reserve. The reserve is 33

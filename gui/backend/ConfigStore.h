@@ -2,7 +2,6 @@
 #define GUI_CONFIG_STORE_H
 
 #include <QObject>
-#include "domain/Config.h"
 #include <QString>
 #include <QVariantMap>
 
@@ -13,17 +12,14 @@ namespace gui {
 class ConfigStore : public QObject, public Retranslatable
 {
 	Q_OBJECT
-	Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
 	Q_PROPERTY(QString status READ status NOTIFY statusChanged)
 	Q_PROPERTY(bool uiLogDetails READ uiLogDetails NOTIFY uiLogDetailsChanged)
 
 public:
 	explicit ConfigStore(QObject *parent = NULL);
 
-	const core::ConfigSnapshot &snapshot() const { return m_snapshot; }
-    QString filePath() const { return m_strFile; }
 	QString status() const { return m_status.value(); }
-	bool uiLogDetails() const { return m_snapshot.Flag("ui_log_details"); }
+	bool uiLogDetails() const { return m_uiLogDetails; }
 
 	void retranslate() override;
 
@@ -35,7 +31,6 @@ public:
 	Q_INVOKABLE QString udevCommand() const;
 
 signals:
-	void filePathChanged();
 	void statusChanged();
 	void uiLogDetailsChanged();
 	void udevInstallFinished(bool bOk, const QString &strMessage);
@@ -43,9 +38,8 @@ signals:
 private:
 	void SetStatus(TranslatableText::Factory factory);
 
-    core::ConfigSnapshot m_snapshot;
+    bool m_uiLogDetails = false;
     QString m_usbVendor = "2207";
-	QString m_strFile;
 	TranslatableText m_status;
 };
 

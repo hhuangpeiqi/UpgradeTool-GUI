@@ -10,7 +10,6 @@ public:
     explicit RockchipBackend(platform::LogService *log=nullptr);
     ~RockchipBackend() override;
     Vendor vendor() const override { return Vendor::Rockchip; }
-    void Configure(const ConfigSnapshot &) override;
     std::vector<DeviceDescriptor> Scan() override;
     bool Supports(Operation) const override;
     FirmwareInfo InspectDirectory(const std::string &,const Cancellation &) override;

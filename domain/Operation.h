@@ -3,7 +3,6 @@
 
 #include <stop_token>
 #include "domain/Device.h"
-#include "domain/Config.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -351,7 +350,6 @@ inline bool RequiresEnumeratedDevice(const OperationRequest &r)
 using Cancellation = std::shared_ptr<std::stop_source>;
 struct TaskJob {
     uint64_t logId = 0;
-    ConfigSnapshot config;
 	std::vector<OperationRequest> steps;
 	std::vector<DeviceRef> targets;
 	bool continueOnError = false;

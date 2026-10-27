@@ -43,6 +43,7 @@ public:
 	std::vector<unsigned char> lastWriteData;
 	int readCalls;
 	DWORD testReadyCurrent;
+	int testReadyResult = ERR_SUCCESS;
 	int writeResult;
 	int resetCalls = 0;
 	int resetResult = ERR_SUCCESS;
@@ -92,7 +93,7 @@ public:
 	{
 		if (dwTotal) *dwTotal = 1;
 		if (dwCurrent) *dwCurrent = testReadyCurrent;
-		return ERR_SUCCESS;
+		return testReadyResult;
 	}
 	int RKU_WriteSector(DWORD, DWORD, BYTE *) { return ERR_SUCCESS; }
 	int RKU_DeviceRequest(DWORD, BYTE *, DWORD) { return ERR_SUCCESS; }
@@ -404,6 +405,24 @@ static void test_device_band()
 		dev.SetObject(NULL, comm, NULL);
 		CHECK(dev.DownloadImage() == 0);
 		CHECK(dev.Band() == 1);
+	}
+	{
+		Probe dev(d);
+		CHECK(dev.LoadFirmwarePackage(path));
+		FakeComm *comm = new FakeComm;
+		comm->testReadyCurrent = 32;
+		dev.SetObject(NULL, comm, NULL);
+		CHECK(dev.DownloadImage() == 0);
+		CHECK(dev.Band() == (1u << 16));
+	}
+	{
+		Probe dev(d);
+		CHECK(dev.LoadFirmwarePackage(path));
+		FakeComm *comm = new FakeComm;
+		comm->testReadyResult = ERR_FAILED;
+		dev.SetObject(NULL, comm, NULL);
+		CHECK(dev.DownloadImage() != 0);
+		CHECK(comm->writeCalls.empty());
 	}
 }
 

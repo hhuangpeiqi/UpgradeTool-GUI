@@ -5,7 +5,6 @@
 #include "AndroidDevice.h"
 #include "RKBoot.h"
 #include "Parameter.h"
-#include "Config.h"
 #include "crc.h"
 #include <cstdio>
 #include <cstring>

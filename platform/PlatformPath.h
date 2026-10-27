@@ -9,11 +9,8 @@ std::string GetExecutableDir();
 std::string GetUserHomeDir();
 
 std::string GetUserConfigDir();
-std::string GetUserConfigFile();
 
 std::string GetUserLogDir();
-
-std::string FindConfigFile();
 
 bool EnsureDir(const std::string &strPath);
 

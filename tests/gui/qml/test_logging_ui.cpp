@@ -108,9 +108,9 @@ static void TestPanel(QQmlEngine &engine) {
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, dir.path());
     qputenv("ADB", dir.filePath("missing-adb").toUtf8());
     CHECK(platform::EnsureDirRecursive(platform::GetUserConfigDir()));
-    QFile configFile(QString::fromStdString(platform::GetUserConfigFile()));
+    QFile configFile(QString::fromStdString(platform::GetUserConfigDir() + "/config.ini"));
     CHECK(configFile.open(QIODevice::WriteOnly));
-    configFile.write("lba_parity=true\ncustom_key=preserved\n"); // An older configuration has no display option.
+    configFile.write("ui_log_details=true\nforce_data_band=6\nfirmware=ignored.img\nloader=ignored.bin\n"); // Old application configuration must be ignored.
     configFile.close();
     gui::AppController controller(nullptr);
     controller.findChild<gui::AdbRunner *>()->Stop();
@@ -170,9 +170,8 @@ Window {
     auto *details = FindVisualItem(window->contentItem(), "logDetailsBox");
     auto *save = FindVisualItem(window->contentItem(), "saveSettingsButton");
     auto *cancel = FindVisualItem(window->contentItem(), "cancelSettingsButton");
-    auto *reload = FindVisualItem(window->contentItem(), "reloadSettingsButton");
-    CHECK(details && save && cancel && reload);
-    if (!details || !save || !cancel || !reload) return;
+    CHECK(details && save && cancel);
+    if (!details || !save || !cancel) return;
     CHECK(!details->property("checked").toBool());
     details->setProperty("checked", true);
     CHECK(!controller.config()->uiLogDetails()); // Edits wait for Save.
@@ -181,19 +180,20 @@ Window {
     CHECK(QMetaObject::invokeMethod(settings, "openDialog"));
     CHECK(!details->property("checked").toBool());
     details->setProperty("checked", true);
-    CHECK(QMetaObject::invokeMethod(reload, "clicked"));
-    CHECK(!details->property("checked").toBool());
-    details->setProperty("checked", true);
     CHECK(QMetaObject::invokeMethod(save, "clicked"));
     CHECK(controller.config()->uiLogDetails() && detailChanges == 1);
     CHECK(AwaitUi([&] { return sampleRow->property("text").toString() == detailed; }));
     CHECK(sampleRow->property("color").value<QColor>() == object->property("errorColor").value<QColor>());
     gui::ConfigStore restored;
     CHECK(restored.uiLogDetails()); // A new store reads the saved preference at startup.
-    CHECK(restored.snapshot().Flag("lba_parity"));
-    CHECK(restored.snapshot().String("custom_key") == "preserved");
+    QSettings preferences(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+    CHECK(preferences.value("ui/logDetails").toBool());
+    CHECK(preferences.value("ui/language").toString() == "en");
+    CHECK(controller.config()->save({{"ui_log_details", true}}));
+    CHECK(detailChanges == 1); // Saving an unchanged preference emits no notification.
+    CHECK(controller.rockchip()->firmwarePath().isEmpty());
     CHECK(configFile.open(QIODevice::ReadOnly));
-    CHECK(configFile.readAll().count("ui_log_details=true") == 1);
+    CHECK(configFile.readAll() == "ui_log_details=true\nforce_data_band=6\nfirmware=ignored.img\nloader=ignored.bin\n");
     configFile.close();
     CHECK(QMetaObject::invokeMethod(settings, "openDialog"));
     CHECK(details->property("checked").toBool());
@@ -202,10 +202,10 @@ Window {
     CHECK(!controller.config()->uiLogDetails() && detailChanges == 2);
     CHECK(AwaitUi([&] { return sampleRow->property("text").toString() == compact; }));
     CHECK(!gui::ConfigStore().uiLogDetails());
-    // Reloading an externally edited configuration also refreshes existing rows.
-    CHECK(configFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
-    configFile.write("ui_log_details=true\n");
-    configFile.close();
+    // Reloading an externally edited preference also refreshes existing rows.
+    preferences.setValue("ui/logDetails", true);
+    preferences.sync();
+    CHECK(preferences.status() == QSettings::NoError);
     CHECK(controller.config()->load().value("ui_log_details").toBool());
     CHECK(detailChanges == 3);
     CHECK(AwaitUi([&] { return sampleRow->property("text").toString() == detailed; }));
@@ -257,6 +257,24 @@ Window {
     model.clear();
     CHECK(model.count() == 0);
 }
+static void TestSaveFailure() {
+    QTemporaryDir dir;
+    const QString blocked = dir.filePath("blocked");
+    QFile file(blocked);
+    CHECK(file.open(QIODevice::WriteOnly));
+    file.close();
+    // A regular file as the settings root fails consistently on every platform.
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, blocked);
+    gui::ConfigStore store;
+    int changes = 0;
+    QObject::connect(&store, &gui::ConfigStore::uiLogDetailsChanged, [&] { ++changes; });
+    CHECK(!store.save({{"ui_log_details", true}}));
+    CHECK(!store.uiLogDetails() && changes == 0);
+    CHECK(store.status().contains("Save failed"));
+    CHECK(!gui::ConfigStore().uiLogDetails());
+    CHECK(!store.load().value("ui_log_details").toBool());
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, dir.path());
+}
 int main(int argc, char **argv) {
     QGuiApplication application(argc, argv);
     QQuickStyle::setStyle("Basic");
@@ -264,5 +282,6 @@ int main(int argc, char **argv) {
     QQmlEngine engine;
     engine.addImportPath("qrc:/qt/qml");
     TestPanel(engine);
+    TestSaveFailure();
     return failures ? 1 : 0;
 }

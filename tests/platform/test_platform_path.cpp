@@ -11,16 +11,16 @@ static bool WriteFile(const std::string &path)
     FILE *f = fopen(path.c_str(), "w");
     if (!f)
         return false;
-    fputs("# test configuration\n", f);
+    fputs("test file\n", f);
     return fclose(f) == 0;
 }
 
 #ifdef __APPLE__
-static bool CheckConfig(const std::string &executable, const std::string &expected)
+static bool CheckExecutable(const std::string &executable, const std::string &expected)
 {
     pid_t pid = fork();
     if (pid == 0) {
-        execl(executable.c_str(), executable.c_str(), "--expect-config", expected.c_str(),
+        execl(executable.c_str(), executable.c_str(), "--expect-executable", expected.c_str(),
               static_cast<char *>(NULL));
         _exit(127);
     }
@@ -32,8 +32,8 @@ static bool CheckConfig(const std::string &executable, const std::string &expect
 
 int main(int argc, char **argv)
 {
-    if (argc == 3 && std::string(argv[1]) == "--expect-config")
-        return platform::FindConfigFile() == argv[2] ? 0 : 1;
+    if (argc == 3 && std::string(argv[1]) == "--expect-executable")
+        return platform::GetExecutableDir() == argv[2] ? 0 : 1;
     char temp[] = "/tmp/upgrade_tool_path_XXXXXX";
     char *root = mkdtemp(temp);
     if (!root)
@@ -55,8 +55,8 @@ int main(int argc, char **argv)
         platform::GetUserLogDir() != dir + "/log" ||
         !platform::EnsureDirRecursive(dir + "/nested/child"))
         return 1;
-    std::string config = dir + "/config.ini";
-    if (!WriteFile(config) || platform::FindConfigFile() != config || platform::EnsureDir(config))
+    std::string config = dir + "/file";
+    if (!WriteFile(config) || platform::EnsureDir(config))
         return 1;
 #ifdef __APPLE__
     // Run a copy from a bundle with a Unicode/space path and an unrelated cwd.
@@ -78,16 +78,7 @@ int main(int argc, char **argv)
     fclose(in);
     fclose(out);
     chmod(copy.c_str(), 0700);
-    std::string bundledConfig = resources + "/config.ini";
-    std::string exeConfig = macos + "/config.ini";
-    if (!WriteFile(bundledConfig) || !CheckConfig(copy, config))
-        return 1;
-    remove(config.c_str());
-    if (!CheckConfig(copy, bundledConfig) || !WriteFile(exeConfig) || !CheckConfig(copy, exeConfig))
-        return 1;
-    remove(exeConfig.c_str());
-    remove(bundledConfig.c_str());
-    if (!CheckConfig(copy, ""))
+    if (!CheckExecutable(copy, macos))
         return 1;
     remove(copy.c_str());
     rmdir(macos.c_str());

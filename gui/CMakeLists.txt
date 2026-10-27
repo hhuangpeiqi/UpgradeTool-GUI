@@ -362,9 +362,7 @@ if(APPLE)
     VERBATIM)
   set_source_files_properties("${_app_icon}" PROPERTIES
     GENERATED TRUE MACOSX_PACKAGE_LOCATION Resources)
-  set_source_files_properties("${CMAKE_SOURCE_DIR}/config.ini" PROPERTIES
-    MACOSX_PACKAGE_LOCATION Resources)
-  target_sources(upgrade_tool_gui PRIVATE "${_app_icon}" "${CMAKE_SOURCE_DIR}/config.ini")
+  target_sources(upgrade_tool_gui PRIVATE "${_app_icon}")
   set_target_properties(upgrade_tool_gui PROPERTIES
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.rockchip.upgrade-tool"

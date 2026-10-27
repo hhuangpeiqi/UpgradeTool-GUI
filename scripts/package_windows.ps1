@@ -238,7 +238,6 @@ try {
     New-Item -ItemType Directory -Force $Stage | Out-Null
     Copy-Item (Join-Path $Build "upgrade_tool_gui.exe") $Stage
     Copy-Item (Join-Path $Build "upgrade_driver_installer.exe") $Stage
-    Copy-Item (Join-Path $Root "config.ini") $Stage
     Run-Checked { & $cmake "-DQUALCOMM_DRIVER_CACHE_DIR=$Build/qualcomm-driver-cache" "-DQUALCOMM_DRIVER_DESTINATION=$Stage/tools/qualcomm" -P (Join-Path $Root "scripts/prepare_qualcomm_driver.cmake") }
     Run-Checked { & $cmake "-DROCKUSB_DRIVER_CACHE_DIR=$Build/rockusb-driver-cache" "-DROCKUSB_DRIVER_DESTINATION=$Stage/tools/rockusb" -P (Join-Path $Root "scripts/prepare_rockusb_driver.cmake") }
     Run-Checked { & $cmake "-DALLWINNER_DRIVER_CACHE_DIR=$Build/allwinner-driver-cache" "-DALLWINNER_DRIVER_DESTINATION=$Stage/tools/allwinner" -P (Join-Path $Root "scripts/prepare_allwinner_driver.cmake") }

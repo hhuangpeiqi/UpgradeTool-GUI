@@ -330,31 +330,6 @@ void CRKDevice::SetGptFlag(bool value)
 {
 	m_bGptFlag = value;
 }
-bool CRKDevice::GetNoCheckMode()
-{
-	return m_bNoCheckMode;
-}
-void CRKDevice::SetNoCheckMode(bool value)
-{
-	m_bNoCheckMode = value;
-}
-bool CRKDevice::GetNorSingleIDB()
-{
-	return m_bNorSingleIDB;
-}
-void CRKDevice::SetNorSingleIDB(bool value)
-{
-	m_bNorSingleIDB = value;
-}
-UINT CRKDevice::GetForceDataBand()
-{
-	return m_uiForceDataBand;
-}
-void CRKDevice::SetForceDataBand(UINT value)
-{
-	m_uiForceDataBand = value;
-    m_hasForceDataBand=true;
-}
 UINT CRKDevice::GetIDBend()
 {
 	return m_uiIDBend;
@@ -561,12 +536,9 @@ CRKDevice::CRKDevice(STRUCT_RKDEVICE_DESC &device)
 	m_bDirectLbaFlag = false;
 	m_bFirst4AccessFlag = false;
 	m_bGptFlag = false;
-	m_bNoCheckMode = false;
-	m_bNorSingleIDB = false;
 	m_bReadIDBConfigFlag = false;
 	m_bSecureModeFlag = false;
 	m_bNewIDBFlag = false;
-	m_uiForceDataBand = 0;
 	m_uiMiscModifyFlag = 0;
 	m_uiIDBend = 0;
 	m_iError = 0;

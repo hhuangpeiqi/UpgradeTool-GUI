@@ -106,7 +106,7 @@ endif()
 find_package(Threads REQUIRED)
 target_link_libraries(usb1 PUBLIC Threads::Threads)
 
-add_library(upgrade_platform STATIC platform/PlatformPath.cpp platform/File.cpp platform/Text.cpp platform/Config.cpp platform/FileLog.cpp platform/LogService.cpp platform/Process.cpp platform/SerialPort.cpp platform/UsbLocation.cpp)
+add_library(upgrade_platform STATIC platform/PlatformPath.cpp platform/File.cpp platform/Text.cpp platform/FileLog.cpp platform/LogService.cpp platform/Process.cpp platform/SerialPort.cpp platform/UsbLocation.cpp)
 target_include_directories(upgrade_platform PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(upgrade_platform PUBLIC upgrade_domain)
 if(WIN32)
@@ -117,7 +117,7 @@ endif()
 add_library(upgrade_usb STATIC platform/UsbContext.cpp)
 target_include_directories(upgrade_usb PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(upgrade_usb PUBLIC upgrade_domain PRIVATE usb1)
-add_library(upgrade_application STATIC application/TaskRunner.cpp application/TaskService.cpp application/BackendRegistry.cpp application/ConfigService.cpp)
+add_library(upgrade_application STATIC application/TaskRunner.cpp application/TaskService.cpp application/BackendRegistry.cpp)
 target_include_directories(upgrade_application PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(upgrade_application PUBLIC upgrade_domain PRIVATE upgrade_platform)
 
@@ -134,7 +134,7 @@ if(UPGRADE_TOOL_ROCKCHIP)
   target_link_libraries(upgrade_rockchip_usb PRIVATE upgrade_platform)
   add_library(upgrade_rockchip STATIC
     backends/rockchip/legacy/crc.cpp backends/rockchip/legacy/RKScan.cpp backends/rockchip/legacy/RKComm.cpp backends/rockchip/legacy/RKDevice.cpp
-    backends/rockchip/legacy/RKBoot.cpp backends/rockchip/legacy/RKImage.cpp backends/rockchip/legacy/Config.cpp backends/rockchip/legacy/Parameter.cpp backends/rockchip/legacy/Idb.cpp
+    backends/rockchip/legacy/RKBoot.cpp backends/rockchip/legacy/RKImage.cpp backends/rockchip/legacy/Parameter.cpp backends/rockchip/legacy/Idb.cpp
     backends/rockchip/legacy/MD5Checksum.cpp backends/rockchip/legacy/AndroidDevice.cpp backends/rockchip/legacy/RKDisk.cpp backends/rockchip/legacy/DeviceFactory.cpp backends/rockchip/legacy/Upgrade.cpp
     backends/rockchip/UpgradeEngine.cpp backends/rockchip/FirmwareOperations.cpp
     backends/rockchip/FirmwareService.cpp backends/rockchip/RockchipBackend.cpp
@@ -194,8 +194,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   install(PROGRAMS scripts/install-udev.sh
           DESTINATION share/upgrade_tool)
 endif()
-install(FILES config.ini
-        DESTINATION share/upgrade_tool)
 if(UPGRADE_TOOL_ALLWINNER)
 install(FILES third_party/libefex/LICENSE backends/allwinner/LICENSE.OpenixCLI
         DESTINATION share/doc/upgrade-tool/allwinner)

@@ -22,7 +22,6 @@ class IDeviceBackend {
 public:
     virtual ~IDeviceBackend() {}
     virtual Vendor vendor() const = 0;
-    virtual void Configure(const ConfigSnapshot &) {}
     virtual std::vector<DeviceDescriptor> Scan() = 0;
     virtual bool Supports(Operation) const = 0;
     virtual FirmwareInfo InspectDirectory(const std::string &,const Cancellation &) { return {}; }

@@ -13,7 +13,6 @@
 #include <exception>
 #include <unistd.h>
 
-#include "Config.h"
 #include "Parameter.h"
 #include "RKComm.h"
 #include "RKDevice.h"

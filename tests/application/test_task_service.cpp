@@ -1,5 +1,4 @@
 #include "application/TaskService.h"
-#include "application/ConfigService.h"
 #include "backends/DeviceIdentity.h"
 #include <cstdio>
 static int failures=0;
@@ -18,11 +17,9 @@ public:
 class Backend : public core::IDeviceBackend {
 public:
     int executions=0;
-    bool crash=false, configCrash=false;
-    core::ConfigSnapshot config;
+    bool crash=false;
     std::vector<core::DeviceDescriptor> devices;
     core::Vendor vendor() const override { return core::Vendor::Rockchip; }
-    void Configure(const core::ConfigSnapshot &value) override { if(configCrash) throw std::runtime_error("Configuration failure"); config=value; }
     std::vector<core::DeviceDescriptor> Scan() override { return devices; }
     bool Supports(core::Operation op) const override { return op==core::Operation::TestDevice || op==core::Operation::FirmwareInfo; }
     core::OperationResult Execute(const core::OperationRequest &request,const core::DeviceRef &,const core::Cancellation &,core::IUpgradeObserver *) override {
@@ -41,13 +38,10 @@ int main() {
     CHECK(service.Run(job,&observer).status==core::OperationStatus::Failed); CHECK(observer.last.error==core::ErrorCode::DeviceMissing); CHECK(backend.executions==1);
     core::DeviceIdentity expected; expected.location=2; expected.serial="same";
     backend.devices={core::Describe(original),core::Describe(expected)};
-    job.config=core::ParseConfig("force_data_band=4\nforce_data_band=7\nloader=固件.bin\nlog_off=yes\n");
-    CHECK(service.Run(job,&observer).succeeded==1); CHECK(backend.config.Number("force_data_band")==4); CHECK(backend.config.Flag("log_off"));
+    CHECK(service.Run(job,&observer).succeeded==1);
     backend.devices.push_back(core::Describe(expected)); CHECK(service.Run(job,&observer).status==core::OperationStatus::Failed); CHECK(observer.last.error==core::ErrorCode::DeviceAmbiguous);
     backend.devices={core::Describe(expected)}; backend.crash=true;
     int before=observer.results; CHECK(service.Run(job,&observer).failed==1); CHECK(observer.results==before+1); CHECK(observer.last.diagnostic=="Fake transport failure");
-    backend.configCrash=true; before=observer.results; const int executions=backend.executions;
-    CHECK(service.Run(job,&observer).failed==1); CHECK(observer.results==before+1); CHECK(backend.executions==executions); CHECK(observer.last.diagnostic=="Configuration failure");
     job.cancelled->request_stop(); before=backend.executions; CHECK(service.Run(job,&observer).status==core::OperationStatus::Cancelled); CHECK(backend.executions==before);
     core::OperationRequest qualcomm(core::QualcommFlashRequest{}); CHECK(qualcomm.vendor()==core::Vendor::Qualcomm);
     try { qualcomm.allwinner(); CHECK(false); } catch(const std::logic_error &) {}

@@ -12,7 +12,6 @@
 #include <exception>
 #include <unistd.h>
 
-#include "Config.h"
 #include "Parameter.h"
 #include "RKComm.h"
 #include "RKDevice.h"
@@ -26,22 +25,15 @@
 extern const char *szManufName[];
 
 namespace core {
-static UINT DiDownloadChunkSectors(CRKComm *pComm, const ConfigSnapshot &config)
+static UINT DiDownloadChunkSectors(CRKComm *pComm)
 {
 	u64 ullChunk;
-	UINT uiForceBand = 0;
-	if ((config.Number("force_data_band") ? (uiForceBand=*config.Number("force_data_band"), true) : false) && uiForceBand > 0) {
-		if (uiForceBand > 16)
-			uiForceBand = 16;
-		ullChunk = (u64)0x20 << uiForceBand;
-	} else {
-		DWORD dwTotal = 0, dwCurrent = 0;
-		if (pComm->RKU_TestDeviceReady(&dwTotal, &dwCurrent) != ERR_SUCCESS)
-			return 0;
-		if (dwCurrent > 16)
-			dwCurrent = 16;
-		ullChunk = (u64)0x20 << dwCurrent;
-	}
+	DWORD dwTotal = 0, dwCurrent = 0;
+	if (pComm->RKU_TestDeviceReady(&dwTotal, &dwCurrent) != ERR_SUCCESS)
+		return 0;
+	if (dwCurrent > 16)
+		dwCurrent = 16;
+	ullChunk = (u64)0x20 << dwCurrent;
 	if (ullChunk < 1)
 		ullChunk = 1;
 	if (ullChunk > 0xFFFF)
@@ -321,7 +313,7 @@ bool UpgradeEngine::WriteLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, char *szFi
 	}
 
 	if (uiChunkSectors == 0) {
-		uiChunkSectors = DiDownloadChunkSectors(pComm,m_config);
+		uiChunkSectors = DiDownloadChunkSectors(pComm);
 		if (uiChunkSectors == 0) {
 			Emit(LogLevel::Error, "Write LBA failed, RKU_TestDeviceReady error\r\n");
 			goto exit_write;
@@ -392,7 +384,7 @@ bool UpgradeEngine::WriteSparseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT
 	}
 
 	if (uiChunkSectors == 0) {
-		uiChunkSectors = DiDownloadChunkSectors(pComm,m_config);
+		uiChunkSectors = DiDownloadChunkSectors(pComm);
 		if (uiChunkSectors == 0) {
 			Emit(LogLevel::Error, "Write sparse LBA failed, RKU_TestDeviceReady error\r\n");
 			goto exit_sparse;

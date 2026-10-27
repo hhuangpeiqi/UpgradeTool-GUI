@@ -85,7 +85,6 @@ public:
 	OperationResult Execute(const OperationRequest &request);
 	void SetCancellation(const Cancellation &cancelled);
 	void BeginTask();
-    void SetConfig(const ConfigSnapshot &config) { m_config=config; }
 	void SetTarget(const DeviceIdentity &target) { m_target = target; }
 
 private:
@@ -185,7 +184,6 @@ private:
 	ENUM_PROGRESS_PROMPT m_lastProgressPrompt = DOWNLOADIMAGE_PROGRESS;
 	bool m_bCaptureResultText;
 	OperationResult m_lastResult;
-	ConfigSnapshot m_config;
     Cancellation m_cancelled;
     std::stop_source m_abort;
     std::unique_ptr<std::stop_callback<std::function<void()>>> m_cancelCallback;

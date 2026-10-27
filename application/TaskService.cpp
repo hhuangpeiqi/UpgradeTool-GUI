@@ -29,8 +29,6 @@ TaskSummary TaskService::Run(const TaskJob &job,IUpgradeObserver *observer,const
     };
     if(job.cancelled && job.cancelled->stop_requested()) { TaskSummary s; s.status=OperationStatus::Cancelled; return s; }
     if(!backends.Validate(job)) return fail(ErrorCode::InvalidInput,"Invalid or mixed-vendor task");
-    try { backends.Find(job.steps.front().vendor())->Configure(job.config); }
-    catch(const std::exception &error) { return fail(ErrorCode::OperationFailed,error.what()); }
     if(RequiresEnumeratedDevice(job.steps.front())) {
         std::vector<DeviceRef> identities;
         try { for(const auto &d:backends.Find(job.steps.front().vendor())->Scan()) identities.push_back(d.reference); }

@@ -5,6 +5,7 @@
 #include "domain/DeviceSelection.h"
 #include "RKDevice.h"
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -45,7 +46,10 @@ int main() {
 	{ std::ifstream file(platform::Path(output), std::ios::binary);
 	  unsigned char head[0x4400] = {};
 	  CHECK(bool(file.read(reinterpret_cast<char *>(head), sizeof(head))));
-	  CHECK(head[0x200] == 'E' && head[0x201] == 'F' && head[0x202] == 'I'); }
+	  CHECK(head[0x200] == 'E' && head[0x201] == 'F' && head[0x202] == 'I');
+	  const unsigned char uuid[] = {0x33, 0x22, 0x11, 0x00, 0x55, 0x44, 0x77, 0x66,
+	                                0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
+	  CHECK(std::memcmp(head + 0x410, uuid, sizeof(uuid)) == 0); }
 	request.file().output.clear(); CHECK(engine.Execute(request).error == core::ErrorCode::InvalidInput);
 	request=core::OperationRequest(core::Operation::FirmwareInfo); request.file().path=parameter; CHECK(engine.Execute(request).error == core::ErrorCode::InvalidFirmware);
 	core::FirmwareInfo info; CHECK(!core::FirmwareService::Inspect(parameter, info)); CHECK(!info.valid);

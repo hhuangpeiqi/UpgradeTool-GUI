@@ -7,7 +7,6 @@
 
 #include "AndroidDevice.h"
 #include "Parameter.h"
-#include "Config.h"
 #include "crc.h"
 #include "Idb.h"
 
@@ -1704,30 +1703,20 @@ int CRKAndroidDevice::DownloadImage()
 	if (m_uiFwTotal == 0)
 		m_uiFwTotal = 1;
 
-	// Transfer band (DownloadImage): it starts at 1; config.ini `force_data_band`
-	// (capped at 6) overrides it, otherwise the loader is asked via
-	// RKU_TestDeviceReady and its value is used as the exponent. RKA_File_Download
-	// then issues one WRITE_LBA of `m_uiBand << 14` bytes at a time. Skipping
-	// this query would silently fall back to 16 KB and make UF much slower.
+	// Ask the loader for its transfer band; RKA_File_Download writes
+	// m_uiBand << 14 bytes at a time, with the existing WriteLBACore cap.
 	m_uiBand = 1;
-	UINT uiForceBand = GetForceDataBand();
-	if (HasForceDataBand()) {
-		if (uiForceBand > 6)
-			uiForceBand = 6;
-		m_uiBand = 1u << uiForceBand;
-	} else {
-		DWORD dwTotal = 0, dwCurrent = 0;
-		int iReady = m_pComm->RKU_TestDeviceReady(&dwTotal, &dwCurrent);
-		if (iReady != ERR_SUCCESS) {
-			if (m_pLog)
-				m_pLog->writef(core::LogLevel::Error, "Rockchip", "DownloadImage-->RKU_TestDeviceReady failed,Err=%d", iReady);
-			return -1;
-		}
-		if (dwCurrent > 16)		// clamp the shift; WriteLBACore caps the block
-			dwCurrent = 16;
-		if (dwCurrent)
-			m_uiBand <<= dwCurrent;
+	DWORD dwTotal = 0, dwCurrent = 0;
+	int iReady = m_pComm->RKU_TestDeviceReady(&dwTotal, &dwCurrent);
+	if (iReady != ERR_SUCCESS) {
+		if (m_pLog)
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "DownloadImage-->RKU_TestDeviceReady failed,Err=%d", iReady);
+		return -1;
 	}
+	if (dwCurrent > 16)		// clamp the shift; WriteLBACore caps the block
+		dwCurrent = 16;
+	if (dwCurrent)
+		m_uiBand <<= dwCurrent;
 	if (m_pLog)
 		m_pLog->writef(core::LogLevel::Debug, "Rockchip", "Start download image,total=%lld,band=%d",
 		               (long long)m_uiFwTotal, m_uiBand);

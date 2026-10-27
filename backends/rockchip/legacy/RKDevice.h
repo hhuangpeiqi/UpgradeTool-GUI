@@ -49,7 +49,6 @@ typedef struct _STRUCT_FLASHINFO_CMD {
 class CRKDevice
 {
     std::stop_token m_cancellation;
-    bool m_hasForceDataBand=false;
 public:
 	USHORT GetVendorID();
 	void SetVendorID(USHORT value);
@@ -147,13 +146,6 @@ public:
 	void SetFirst4Access(bool value);
 	bool GetGptFlag();
 	void SetGptFlag(bool value);
-	bool GetNoCheckMode();
-	void SetNoCheckMode(bool value);
-	bool GetNorSingleIDB();
-	void SetNorSingleIDB(bool value);
-	UINT GetForceDataBand();
-	void SetForceDataBand(UINT value);
-    bool HasForceDataBand() const { return m_hasForceDataBand; }
 	UINT GetIDBend();
 	bool GetEmmcStor();
 	bool GetNorStor();
@@ -235,12 +227,9 @@ protected:
 	bool   m_bDirectLbaFlag;	// +0xa5e
 	bool   m_bFirst4AccessFlag;	// +0xa5f
 	bool   m_bGptFlag;		// +0xa60
-	bool   m_bNoCheckMode;		// +0xa61
-	bool   m_bNorSingleIDB;		// +0xa62
 	bool   m_bReadIDBConfigFlag;	// +0xa63
 	bool   m_bSecureModeFlag;	// +0xa64
 	bool   m_bNewIDBFlag;		// +0xa65
-	UINT   m_uiForceDataBand;	// +0xa68
 	UINT   m_uiMiscModifyFlag;	// +0xa6c
 	UINT   m_uiIDBend;		// +0xa50
 	int    m_iError;		// +0xa54

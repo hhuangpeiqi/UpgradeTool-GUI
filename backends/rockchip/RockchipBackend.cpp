@@ -26,7 +26,6 @@ public:
 RockchipBackend::RockchipBackend(platform::LogService *log) : runtime(std::make_unique<RockchipRuntime>(log)) {}
 RockchipBackend::~RockchipBackend() = default;
 
-void RockchipBackend::Configure(const ConfigSnapshot &config) { runtime->engine.SetCancellation({}); runtime->engine.SetConfig(config); runtime->engine.BeginTask(); }
 std::vector<DeviceDescriptor> RockchipBackend::Scan() {
     if(runtime->engine.GetScan()) runtime->engine.GetScan()->Search(RKUSB_MASKROM | RKUSB_LOADER);
     std::vector<DeviceDescriptor> result;

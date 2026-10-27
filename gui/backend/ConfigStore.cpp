@@ -9,28 +9,15 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QStringList>
-#include <QTextStream>
+#include <QSettings>
 
-#include "application/ConfigService.h"
 #include "platform/PlatformPath.h"
 
 namespace gui {
 
 namespace {
 
-const char *kKeys[] = {
-	"lba_parity", "rb_check_off", "nor_single_idb", "log_off",
-	"stdout_buffer_off", "ui_log_details", "force_data_band", "log_dir",
-	"firmware", "loader", "device"
-};
-
-bool IsKey(const QString &strName)
-{
-	for (size_t i = 0; i < sizeof(kKeys) / sizeof(kKeys[0]); i++)
-		if (strName == kKeys[i])
-			return true;
-	return false;
-}
+const char *kLogDetailsKey = "ui/logDetails";
 
 #ifdef Q_OS_LINUX
 QString FindUdevRule(const QString &name)
@@ -73,26 +60,13 @@ bool RuleGrantsUsbAccess(const QString &strText, const QString &vendor)
 
 #endif
 
-QString Key(const QVariantMap &values, const char *pszKey)
-{
-	return values.value(pszKey).toString().trimmed();
-}
-
-bool Flag(const QVariantMap &values, const char *pszKey)
-{
-	return values.value(pszKey).toBool();
-}
-
 }
 
 ConfigStore::ConfigStore(QObject *parent)
 	: QObject(parent)
 {
-	std::string strExisting = platform::FindConfigFile();
-	m_strFile = strExisting.empty()
-	            ? QString::fromStdString(platform::GetUserConfigFile())
-	            : QString::fromStdString(strExisting);
-    try { m_snapshot=core::ReadConfig(m_strFile.toStdString()); } catch(const std::exception &) {}
+	QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+	m_uiLogDetails = settings.value(kLogDetailsKey, false).toBool();
 }
 
 void ConfigStore::SetStatus(TranslatableText::Factory factory)
@@ -109,80 +83,40 @@ void ConfigStore::retranslate()
 
 QVariantMap ConfigStore::load()
 {
-	const bool previousDetails = uiLogDetails();
-	try { m_snapshot=core::ReadConfig(m_strFile.toStdString()); }
-    catch(const std::exception &error) { SetStatus([text=QString::fromUtf8(error.what())] { return text; }); return {}; }
-	if (previousDetails != uiLogDetails()) emit uiLogDetailsChanged();
-
-	QVariantMap map;
-    for(const auto *key:{"lba_parity","rb_check_off","nor_single_idb","log_off","stdout_buffer_off","ui_log_details"}) map[key]=m_snapshot.Flag(key);
-    for(const auto *key:{"force_data_band","log_dir","firmware","loader","device"}) map[key]=QString::fromStdString(m_snapshot.String(key));
-
-	SetStatus([this] { return tr("Loaded: %1").arg(m_strFile); });
-	return map;
+	QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+	settings.sync();
+	if (settings.status() != QSettings::NoError) {
+		SetStatus([] { return tr("Load failed: cannot read user settings."); });
+		return {{"ui_log_details", m_uiLogDetails}};
+	}
+	const bool details = settings.value(kLogDetailsKey, false).toBool();
+	if (m_uiLogDetails != details) {
+		m_uiLogDetails = details;
+		emit uiLogDetailsChanged();
+	}
+	SetStatus([] { return tr("Settings loaded."); });
+	return {{"ui_log_details", m_uiLogDetails}};
 }
 
 bool ConfigStore::save(const QVariantMap &values)
 {
-	QStringList strUnknown;
-	QFile in(m_strFile);
-	if (in.open(QIODevice::ReadOnly | QIODevice::Text)) {
-		QTextStream stream(&in);
-		while (!stream.atEnd()) {
-			QString strLine = stream.readLine().trimmed();
-			if (strLine.isEmpty() || strLine.startsWith('#'))
-				continue;
-			int iEq = strLine.indexOf('=');
-			if (iEq < 0) {
-				strUnknown << strLine;
-				continue;
-			}
-			if (!IsKey(strLine.left(iEq).trimmed()))
-				strUnknown << strLine;
-		}
-		in.close();
-	}
-
-	QString strBand = Key(values, "force_data_band");
-	QString strLogDir = Key(values, "log_dir");
-	QString strFirmware = Key(values, "firmware");
-	QString strLoader = Key(values, "loader");
-	QString strDevice = Key(values, "device");
-
-	QStringList strNew;
-	strNew << "# upgrade_tool configuration (managed by the GUI)";
-	strNew << (Flag(values, "lba_parity")          ? "lba_parity=true"          : "#lba_parity=");
-	strNew << (Flag(values, "rb_check_off")        ? "rb_check_off=true"        : "#rb_check_off=");
-	strNew << (Flag(values, "nor_single_idb")      ? "nor_single_idb=true"      : "#nor_single_idb=");
-	strNew << (Flag(values, "log_off")             ? "log_off=true"             : "#log_off=");
-	strNew << (Flag(values, "stdout_buffer_off")   ? "stdout_buffer_off=true"   : "#stdout_buffer_off=");
-	strNew << (Flag(values, "ui_log_details")      ? "ui_log_details=true"      : "ui_log_details=false");
-	strNew << (strBand.isEmpty()     ? "#force_data_band=" : "force_data_band=" + strBand);
-	strNew << (strLogDir.isEmpty()   ? "#log_dir="         : "log_dir=" + strLogDir);
-	strNew << (strFirmware.isEmpty() ? "#firmware="        : "firmware=" + strFirmware);
-	strNew << (strLoader.isEmpty()   ? "#loader="          : "loader=" + strLoader);
-	strNew << (strDevice.isEmpty()   ? "#device="          : "device=" + strDevice);
-	strNew += strUnknown;
-
-	platform::EnsureDirRecursive(platform::GetUserConfigDir());
-	QString strTarget = QString::fromStdString(platform::GetUserConfigFile());
-
-	QFile out(strTarget);
-	if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-		SetStatus([strTarget] { return tr("Save failed: cannot write %1").arg(strTarget); });
+	const bool details = values.value("ui_log_details").toBool();
+	QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+	const QVariant previous = settings.value(kLogDetailsKey);
+	settings.setValue(kLogDetailsKey, details);
+	settings.sync();
+	if (settings.status() != QSettings::NoError) {
+		// Roll back Qt's shared cache as well, so a failed save cannot look persisted.
+		if (previous.isValid()) settings.setValue(kLogDetailsKey, previous);
+		else settings.remove(kLogDetailsKey);
+		SetStatus([] { return tr("Save failed: cannot write user settings."); });
 		return false;
 	}
-	QTextStream stream(&out);
-	for (int i = 0; i < strNew.size(); i++)
-		stream << strNew[i] << "\n";
-	out.close();
-
-	m_strFile = strTarget;
-	emit filePathChanged();
-	const bool previousDetails = uiLogDetails();
-	m_snapshot=core::ReadConfig(m_strFile.toStdString());
-	if (previousDetails != uiLogDetails()) emit uiLogDetailsChanged();
-	SetStatus([strTarget] { return tr("Saved: %1").arg(strTarget); });
+	if (m_uiLogDetails != details) {
+		m_uiLogDetails = details;
+		emit uiLogDetailsChanged();
+	}
+	SetStatus([] { return tr("Settings saved."); });
 	return true;
 }
 

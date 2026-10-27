@@ -11,17 +11,7 @@ AppDialog {
 
     function openDialog() {
         var v = app.config.load();
-        parityBox.checked = !!v.lba_parity;
-        rbCheckBox.checked = !!v.rb_check_off;
-        norBox.checked = !!v.nor_single_idb;
-        logOffBox.checked = !!v.log_off;
         logDetailsBox.checked = !!v.ui_log_details;
-        stdoutBox.checked = !!v.stdout_buffer_off;
-        bandField.text = v.force_data_band !== undefined ? v.force_data_band : "";
-        logDirField.text = v.log_dir !== undefined ? v.log_dir : "";
-        firmwareField.text = v.firmware !== undefined ? v.firmware : "";
-        loaderField.text = v.loader !== undefined ? v.loader : "";
-        deviceField.text = v.device !== undefined ? v.device : "";
         themeBox.currentIndex = dlg.themeIndex();
         languageBox.currentIndex = dlg.languageIndex();
         dlg.open();
@@ -97,7 +87,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: qsTr("config.ini")
+        text: qsTr("Logging")
         color: Theme.textPrimary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontMedium
@@ -108,57 +98,7 @@ AppDialog {
         width: parent.width
         spacing: 8
 
-        AppCheckBox { id: parityBox; text: "lba_parity" }
-        AppCheckBox { id: rbCheckBox; text: "rb_check_off" }
-        AppCheckBox { id: norBox; text: "nor_single_idb" }
-        AppCheckBox { id: logOffBox; text: "log_off" }
         AppCheckBox { id: logDetailsBox; objectName: "logDetailsBox"; text: qsTr("Show detailed logs") }
-        AppCheckBox { id: stdoutBox; text: "stdout_buffer_off" }
-    }
-
-    Column {
-        width: parent.width
-        spacing: 8
-
-        Row {
-            width: parent.width
-            spacing: 10
-            Text { text: "force_data_band"; width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-            AppTextField { id: bandField; width: parent.width - 150; placeholderText: qsTr("Number; leave empty to omit") }
-        }
-        Row {
-            width: parent.width
-            spacing: 10
-            Text { text: "log_dir"; width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-            AppTextField { id: logDirField; width: parent.width - 150; placeholderText: qsTr("Leave empty to omit") }
-        }
-        Row {
-            width: parent.width
-            spacing: 10
-            Text { text: "firmware"; width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-            AppTextField { id: firmwareField; width: parent.width - 150; placeholderText: qsTr("Leave empty to omit") }
-        }
-        Row {
-            width: parent.width
-            spacing: 10
-            Text { text: "loader"; width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-            AppTextField { id: loaderField; width: parent.width - 150; placeholderText: qsTr("Leave empty to omit") }
-        }
-        Row {
-            width: parent.width
-            spacing: 10
-            Text { text: "device"; width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-            AppTextField { id: deviceField; width: parent.width - 150; placeholderText: qsTr("Number; leave empty to omit") }
-        }
-    }
-
-    Text {
-        width: parent.width
-        text: qsTr("Boolean keys are written as true/false; Reload discards unsaved changes.")
-        color: Theme.textSecondary
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontNormal
-        wrapMode: Text.WordWrap
     }
 
     footerContent: RowLayout {
@@ -174,12 +114,6 @@ AppDialog {
         Item { Layout.fillWidth: true }
 
         SecondaryButton {
-            objectName: "reloadSettingsButton"
-            text: qsTr("Reload")
-            onClicked: dlg.openDialog()
-        }
-
-        SecondaryButton {
             objectName: "cancelSettingsButton"
             text: qsTr("Cancel")
             onClicked: dlg.close()
@@ -190,17 +124,7 @@ AppDialog {
             text: qsTr("Save")
             onClicked: {
                 var map = {
-                    "lba_parity": parityBox.checked,
-                    "rb_check_off": rbCheckBox.checked,
-                    "nor_single_idb": norBox.checked,
-                    "log_off": logOffBox.checked,
-                    "ui_log_details": logDetailsBox.checked,
-                    "stdout_buffer_off": stdoutBox.checked,
-                    "force_data_band": bandField.text,
-                    "log_dir": logDirField.text,
-                    "firmware": firmwareField.text,
-                    "loader": loaderField.text,
-                    "device": deviceField.text
+                    "ui_log_details": logDetailsBox.checked
                 };
                 if (app.config.save(map))
                     dlg.close();

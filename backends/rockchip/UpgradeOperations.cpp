@@ -12,7 +12,6 @@
 #include <exception>
 #include <unistd.h>
 
-#include "Config.h"
 #include "Parameter.h"
 #include "RKComm.h"
 #include "RKDevice.h"
@@ -51,7 +50,6 @@ bool UpgradeEngine::DownloadBoot(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 	}
 	CRKDevice *pDevice = CDeviceFactory::CreateDevice(dev);
 	pDevice->SetCancellation(m_abort.get_token());
-    if(auto band=m_config.Number("force_data_band")) pDevice->SetForceDataBand(*band);
 	pDevice->SetObject(pImage, pComm, m_pLog);
 	Emit(LogLevel::Info, "Download boot...\r\n");
 	int iDlRet = pDevice->DownloadBoot();
@@ -121,7 +119,6 @@ bool UpgradeEngine::UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader, boo
 	Emit(LogLevel::Info, "Start to upgrade loader...\r\n");
 	pDevice = (CRKAndroidDevice *)CDeviceFactory::CreateDevice(dev);
 	pDevice->SetCancellation(m_abort.get_token());
-    if(auto band=m_config.Number("force_data_band")) pDevice->SetForceDataBand(*band);
 	pDevice->SetObject(pImage, pComm, m_pLog);
 
 	{
@@ -169,7 +166,6 @@ bool UpgradeEngine::EraseFlash(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 	}
 	CRKDevice *pDevice = CDeviceFactory::CreateDevice(dev);
 	pDevice->SetCancellation(m_abort.get_token());
-    if(auto band=m_config.Number("force_data_band")) pDevice->SetForceDataBand(*band);
 	pDevice->SetObject(pImage, pComm, m_pLog);
 
 	std::vector<STRUCT_UPGRADE_STEP> vecStep;
@@ -242,7 +238,6 @@ bool UpgradeEngine::UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware,
 	}
 	pDevice = (CRKAndroidDevice *)CDeviceFactory::CreateDevice(dev);
 	pDevice->SetCancellation(m_abort.get_token());
-    if(auto band=m_config.Number("force_data_band")) pDevice->SetForceDataBand(*band);
 	pDevice->SetObject(pImage, pComm, m_pLog);
 
 	ResetDownloadProgress();

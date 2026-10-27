@@ -130,11 +130,6 @@ std::string GetUserConfigDir()
 #endif
 }
 
-std::string GetUserConfigFile()
-{
-	return GetUserConfigDir() + "/config.ini";
-}
-
 std::string GetUserLogDir()
 {
 #ifdef _WIN32
@@ -145,41 +140,6 @@ std::string GetUserLogDir()
 		return std::string(xdg) + "/upgrade_tool/log";
 	return GetUserHomeDir() + "/.local/state/upgrade_tool/log";
 #endif
-}
-
-namespace {
-
-bool FileExists(const std::string &strPath)
-{
-#ifdef _WIN32
-	return _access(strPath.c_str(), 0) == 0;
-#else
-	struct stat st;
-	return stat(strPath.c_str(), &st) == 0 && S_ISREG(st.st_mode);
-#endif
-}
-
-}
-
-std::string FindConfigFile()
-{
-	std::string strUser = GetUserConfigFile();
-	if (FileExists(strUser))
-		return strUser;
-	std::string strExe = GetExecutableDir() + "/config.ini";
-	if (FileExists(strExe))
-		return strExe;
-#ifdef __APPLE__
-	std::string strDir = GetExecutableDir();
-	const std::string suffix = "/Contents/MacOS";
-	if (strDir.size() >= suffix.size() &&
-	    strDir.compare(strDir.size() - suffix.size(), suffix.size(), suffix) == 0) {
-		std::string resource = strDir.substr(0, strDir.size() - 5) + "Resources/config.ini";
-		if (FileExists(resource))
-			return resource;
-	}
-#endif
-	return std::string();
 }
 
 }

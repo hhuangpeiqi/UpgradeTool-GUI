@@ -22,7 +22,7 @@ QString ErrorText(core::ErrorCode code)
 	}
 }
 }
-RockchipController::RockchipController(ConfigStore *config,QObject *parent) : QObject(parent),m_config(config),m_pImageEntries(new ImageEntryModel(this)),m_pFirmwareEntries(new KeyValueModel(this)),m_pResults(new KeyValueModel(this)) {
+RockchipController::RockchipController(QObject *parent) : QObject(parent),m_pImageEntries(new ImageEntryModel(this)),m_pFirmwareEntries(new KeyValueModel(this)),m_pResults(new KeyValueModel(this)) {
     m_strFwVersion=m_strFwLoader=m_strFwChip=m_strFwBuild=m_strFwSign="-";
     SetImageHint([] { return AppTr("Select the split package directory (with parameter.txt, per-partition .img and Loader .bin)."); },false);
     SetFirmwareHint([] { return AppTr("Select firmware."); },false);
@@ -35,7 +35,6 @@ void RockchipController::restore() {
 		QSettings settings(QSettings::IniFormat, QSettings::UserScope,
 		                   "upgrade_tool", "upgrade_tool");
 		QString strLast = settings.value(kLastFirmwareKey).toString().trimmed();
-		if (strLast.isEmpty()) { strLast = QString::fromStdString(m_config->snapshot().String("firmware")); }
 		if (!strLast.isEmpty()) {
 			if (QFileInfo(strLast).isFile())
 				setFirmware(strLast);
@@ -152,9 +151,6 @@ void RockchipController::runOperation(int operation, const QVariantMap &paramete
 	r.rockchip().system.uboot = parameters.value("uboot").toString().toStdString();
 	r.rockchip().system.trust = parameters.value("trust").toString().toStdString();
 	r.rockchip().system.boot = parameters.value("boot").toString().toStdString();
-	// Keep existing loader fallback, resolved before submitting a business request.
-	if (r.file().path.empty() && (r.operation()== core::Operation::EraseFlash || r.operation() == core::Operation::DownloadBoot || r.operation() == core::Operation::LoaderUpgrade))
-		r.file().path=m_config->snapshot().String("loader");
 	if (!valid) { SetAdvancedHint([] { return AppTr("Numeric parameter invalid or out of range"); }, true); emit toastRequested(AppTr("Numeric parameter invalid or out of range"), true); return; }
 	core::TaskJob job; job.steps.push_back(r); emit executeRequested(job);
 }

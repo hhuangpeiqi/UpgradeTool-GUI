@@ -63,7 +63,6 @@ CONTENTS="$STAGE/contents"
 mkdir -p "$CONTENTS"
 APP="$CONTENTS/UpgradeTool-GUI.app"
 ditto "$BUILD_DIR/upgrade_tool_gui.app" "$APP"
-cp "$ROOT/config.ini" "$CONTENTS/config.ini"
 ADB_DIR="$APP/Contents/Helpers/adb"
 cmake -DADB_PLATFORM=darwin "-DADB_CACHE_DIR=$BUILD_DIR/adb-cache" \
     "-DADB_DESTINATION=$ADB_DIR" -P "$ROOT/scripts/prepare_adb.cmake"

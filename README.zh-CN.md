@@ -194,27 +194,7 @@ macOS 打包需系统支持 `diskutil image create/attach`；应用使用 ad-hoc
 
 ## 配置与日志
 
-`config.ini` 查找顺序：用户配置目录 → 可执行文件目录 → macOS 应用的 `Contents/Resources/`。在「配置」中保存后写入用户配置并立即生效。
-
-Linux 默认路径：
-
-- 配置：`~/.config/upgrade_tool/config.ini`，遵循 `XDG_CONFIG_HOME`。
-- 日志：`~/.local/state/upgrade_tool/log/`，遵循 `XDG_STATE_HOME`。
-
-配置格式为 `键=值`，以 `#` 开头的行为注释。仓库中的配置全部注释，使用默认行为。
-
-| 键 | 含义 |
-|---|---|
-| `lba_parity` | LBA 传输奇偶校验 |
-| `rb_check_off` | 关闭写入回读校验 |
-| `nor_single_idb` | NOR 单份 IDB |
-| `log_off` | 关闭日志 |
-| `stdout_buffer_off` | 关闭 stdout 缓冲 |
-| `force_data_band` | 强制数据带宽 |
-| `log_dir` | 日志目录 |
-| `firmware` | 未保存最近固件时的默认路径 |
-| `loader` | 操作未指定 Loader 时的默认路径 |
-| `device` | 兼容保留，目标设备在设备栏选择 |
+主题、语言和详细日志显示等偏好由应用统一保存到用户设置。日志写入用户日志目录，Linux 下默认为 `~/.local/state/upgrade_tool/log/`，遵循 `XDG_STATE_HOME`。
 
 ## 许可
 

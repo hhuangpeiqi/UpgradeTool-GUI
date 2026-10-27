@@ -2933,6 +2933,10 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Logging</source>
+        <translation>日志</translation>
+    </message>
+    <message>
         <source>Show detailed logs</source>
         <translation>显示详细日志</translation>
     </message>
@@ -2988,37 +2992,9 @@
         <translation>English</translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>config.ini</source>
-        <translation>config.ini</translation>
-    </message>
-    <message>
-        <location line="+26"/>
-        <location line="+24"/>
-        <source>Number; leave empty to omit</source>
-        <translation>数值，留空则不写入</translation>
-    </message>
-    <message>
-        <location line="-18"/>
-        <location line="+6"/>
-        <location line="+6"/>
-        <source>Leave empty to omit</source>
-        <translation>留空则不写入</translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>Boolean keys are written as true/false; Reload discards unsaved changes.</source>
-        <translation>布尔键写入 true/false；重新加载会丢弃未保存的修改。</translation>
-    </message>
-    <message>
         <location line="+13"/>
         <source>Install udev rules</source>
         <translation>安装 udev 规则</translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Reload</source>
-        <translation>重新加载</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -3914,19 +3890,20 @@
 <context>
     <name>gui::ConfigStore</name>
     <message>
-        <location filename="../backend/ConfigStore.cpp" line="+119"/>
-        <source>Loaded: %1</source>
-        <translation>已加载：%1</translation>
+        <source>Settings loaded.</source>
+        <translation>已加载设置。</translation>
     </message>
     <message>
-        <location line="+50"/>
-        <source>Save failed: cannot write %1</source>
-        <translation>保存失败：无法写入 %1</translation>
+        <source>Settings saved.</source>
+        <translation>已保存设置。</translation>
     </message>
     <message>
-        <location line="+11"/>
-        <source>Saved: %1</source>
-        <translation>已保存：%1</translation>
+        <source>Load failed: cannot read user settings.</source>
+        <translation>加载失败：无法读取用户设置。</translation>
+    </message>
+    <message>
+        <source>Save failed: cannot write user settings.</source>
+        <translation>保存失败：无法写入用户设置。</translation>
     </message>
     <message>
         <location line="+7"/>

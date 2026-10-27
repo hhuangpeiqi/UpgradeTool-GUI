@@ -18,7 +18,6 @@ on run argv
             set background picture of viewOptions to file ".background:background.png"
             set position of item "UpgradeTool-GUI.app" to {160, 130}
             set position of item "Applications" to {480, 130}
-            set position of item "config.ini" to {320, 320}
             update without registering applications
             delay 2
             close

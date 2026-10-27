@@ -1,7 +1,6 @@
 #ifndef GUI_ROCKCHIP_CONTROLLER_H
 #define GUI_ROCKCHIP_CONTROLLER_H
 #include <QObject>
-#include "gui/backend/ConfigStore.h"
 #include "gui/backend/ImageEntryModel.h"
 #include "gui/backend/KeyValueModel.h"
 #include "gui/backend/Retranslatable.h"
@@ -30,7 +29,7 @@ class RockchipController : public QObject, public Retranslatable {
 	Q_PROPERTY(bool advancedHintError READ advancedHintError NOTIFY advancedStateChanged)
 	Q_PROPERTY(QStringList storages READ storages CONSTANT)
 public:
-    explicit RockchipController(ConfigStore *,QObject *parent=nullptr);
+    explicit RockchipController(QObject *parent=nullptr);
     ~RockchipController() override;
     void restore();
     void setLocked(bool locked) { m_locked=locked; }
@@ -85,7 +84,6 @@ private:
     void SetImageHint(TranslatableText::Factory,bool);
     void SetFirmwareHint(TranslatableText::Factory,bool);
     void SetAdvancedHint(TranslatableText::Factory,bool);
-    ConfigStore *m_config;
     ImageEntryModel *m_pImageEntries;
     KeyValueModel *m_pFirmwareEntries,*m_pResults;
     Translatable<QVariantList> m_firmwareInfo;
