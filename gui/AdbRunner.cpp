@@ -40,7 +40,7 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
     QVector<AdbUsbDevice> result;
 #ifdef Q_OS_WIN
     if (readSerial) {
-        for (const auto &native : platform::NativeAdbLocations()) {
+        for (const auto &native : platform::NativeUsbLocations()) {
             AdbUsbDevice device;
             device.serial = QString::fromStdString(native.serial);
             device.location = QString::fromStdString(native.location);
@@ -107,7 +107,7 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
         }
         result.append(device);
     }
-    for (const auto &native : platform::NativeAdbLocations()) {
+    for (const auto &native : platform::NativeUsbLocations()) {
         bool mapped = false;
         for (auto &device : result) if (device.serial.toStdString() == native.serial) {
             device.location = QString::fromStdString(native.location); mapped = true;
@@ -346,9 +346,10 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 					matches.append(d);
 
         QVector<AdbUsbDevice> unique;
+        bool missingLocation = false;
         for(const auto &device:matches) {
             const platform::UsbLocation location{device.location.toStdString(),device.bus,{device.ports.begin(),device.ports.end()}};
-            if(!location.known()) continue;
+            if(!location.known()) { missingLocation = true; continue; }
             if(std::none_of(unique.begin(),unique.end(),[&](const auto &other) {
                 return location.matches({other.location.toStdString(),other.bus,{other.ports.begin(),other.ports.end()}});
             })) unique.append(device);
@@ -357,15 +358,31 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
             const auto &device=unique.front();
             m_target={device.location.toStdString(),device.bus,{device.ports.begin(),device.ports.end()}};
         }
-        if(m_felSwitch && unique.size()!=1) {
-            Complete(false,tr("Cannot uniquely identify the target USB port; no switch command was sent.")); return;
+        const QString resolution = matches.isEmpty() ? QStringLiteral("unmapped")
+            : missingLocation ? QStringLiteral("missing_location")
+            : unique.size() != 1 ? QStringLiteral("ambiguous") : QStringLiteral("resolved");
+        QJsonArray candidates;
+        for (const auto &device : devices) {
+            QJsonArray chain;
+            for (const auto port : device.ports) chain.append(port);
+            candidates.append(QJsonObject{{"serial", device.serial}, {"native", device.location},
+                {"bus", device.bus}, {"ports", chain}, {"selected", device.serial == m_serial}});
         }
         QJsonArray ports;
         for(const auto port:m_target.ports) ports.append(port);
         emit traceMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
             {"event","switch_target"},{"gui_pid",QCoreApplication::applicationPid()},
             {"serial",m_serial},{"native",QString::fromStdString(m_target.native)},{"bus",m_target.bus},{"ports",ports},
-            {"mode",m_felSwitch?"fel":"loader"}}).toJson(QJsonDocument::Compact)));
+            {"mode",m_felSwitch?"fel":"loader"},{"resolution",resolution},{"candidates",candidates}}).toJson(QJsonDocument::Compact)));
+        if (m_felSwitch && resolution != "resolved") {
+            const auto message = matches.isEmpty()
+                ? tr("Cannot map the selected ADB serial number to a physical USB device; no switch command was sent.")
+                : missingLocation
+                    ? tr("The physical USB port of the selected ADB device could not be read; no switch command was sent.")
+                    : tr("The selected ADB serial number matches multiple physical USB ports; no switch command was sent.");
+            Complete(false, message);
+            return;
+        }
         if (!m_felSwitch) {
             m_stage = Stage::Rebooting;
             emit switchProgress(tr("Loader switch request sent; waiting for the USB device…"));

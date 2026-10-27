@@ -10,7 +10,7 @@ struct NativeUsbLocation {
     std::string serial, location;
     bool operator==(const NativeUsbLocation &) const = default;
 };
-std::vector<NativeUsbLocation> NativeAdbLocations();
+std::vector<NativeUsbLocation> NativeUsbLocations();
 std::string UsbTopologyLocation(int bus, const std::vector<int> &ports);
 inline std::string NormalizeUsbLocation(std::string location) {
     // Windows interface suffixes identify siblings, not distinct physical ports.
@@ -21,11 +21,6 @@ inline std::string NormalizeUsbLocation(std::string location) {
         if (suffix != std::string::npos) location.resize(suffix);
     }
     return location;
-}
-inline bool IsAdbInterfaceCompatibleId(std::string id) {
-    std::transform(id.begin(), id.end(), id.begin(),
-                   [](unsigned char c) { return char(std::toupper(c)); });
-    return id.find("SUBCLASS_42&PROT_01") != std::string::npos;
 }
 struct UsbLocation {
     std::string native;

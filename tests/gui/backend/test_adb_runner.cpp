@@ -258,6 +258,22 @@ int main(int argc, char **argv)
                     if (mode.startsWith("native-")) {
                         d.bus = 0; d.ports.clear(); d.location = "PCIROOT(0)#USBROOT(0)#USB(5)#USB(4)";
                         if (!readSerial && mode == "native-wrong-port") d.location += "#USB(2)";
+                        if (readSerial) {
+                            if (mode == "native-no-location") d.location.clear();
+                            if (mode == "native-serial-case") d.serial = "Board";
+                            if (mode == "native-duplicate") {
+                                auto other = d; other.location = "PCIROOT(1)#USBROOT(0)#USB(5)#USB(4)";
+                                return QVector<gui::AdbUsbDevice>{d, other};
+                            }
+                            if (mode == "native-partial-location") {
+                                auto other = d; other.location.clear();
+                                return QVector<gui::AdbUsbDevice>{d, other};
+                            }
+                            if (mode == "native-interfaces") {
+                                auto other = d; other.location += "#USBMI(1)";
+                                return QVector<gui::AdbUsbDevice>{d, other, d};
+                            }
+                        }
                     }
 				    if (!readSerial && mode == "wrong-port")
 					    d.ports = {5, 2};
@@ -316,6 +332,10 @@ int main(int argc, char **argv)
 			CHECK(completed == 1);
 			CHECK(ok == expectOk);
 			CHECK(!message.isEmpty());
+            if (mode == "native-no-location" || mode == "native-partial-location")
+                CHECK(message.contains("could not be read"));
+            if (mode == "native-serial-case") CHECK(message.contains("Cannot map"));
+            if (mode == "native-duplicate") CHECK(message.contains("multiple physical USB ports"));
 			if (mode == "multi" || mode == "cancel")
 				CHECK(choices == 1);
 			std::printf("ADB scenario %s: %s\n", mode.toUtf8().constData(), message.toUtf8().constData());
@@ -351,6 +371,11 @@ int main(int argc, char **argv)
 	scenario("android", Method::Auto, true, "adb");
     scenario("native-location", Method::Auto, true, "adb");
     scenario("native-wrong-port", Method::Auto, false, "adb");
+    scenario("native-interfaces", Method::Auto, true, "adb");
+    scenario("native-no-location", Method::Auto, false, "");
+    scenario("native-partial-location", Method::Auto, false, "");
+    scenario("native-serial-case", Method::Auto, false, "");
+    scenario("native-duplicate", Method::Auto, false, "");
 	scenario("linux", Method::Auto, true, "shell");
 	scenario("unknown", Method::Auto, true, "adb");
 	scenario("busybox", Method::Auto, true, "t3");

@@ -3331,8 +3331,16 @@
         <translation>ADB 操作超时，未完成模式切换。</translation>
     </message>
     <message>
-        <source>Cannot uniquely identify the target USB port; no switch command was sent.</source>
-        <translation>无法唯一确定目标 USB 端口，未发送切换命令。</translation>
+        <source>Cannot map the selected ADB serial number to a physical USB device; no switch command was sent.</source>
+        <translation>无法将所选 ADB 序列号对应到物理 USB 设备，未发送切换命令。</translation>
+    </message>
+    <message>
+        <source>The physical USB port of the selected ADB device could not be read; no switch command was sent.</source>
+        <translation>无法读取所选 ADB 设备的物理 USB 端口，未发送切换命令。</translation>
+    </message>
+    <message>
+        <source>The selected ADB serial number matches multiple physical USB ports; no switch command was sent.</source>
+        <translation>所选 ADB 序列号对应多个物理 USB 端口，未发送切换命令。</translation>
     </message>
     <message>
         <source>Preparing to detect and connect the target FEL/FES device…</source>

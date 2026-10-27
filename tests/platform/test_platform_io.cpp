@@ -1,5 +1,6 @@
 #include "platform/Process.h"
 #include "platform/UsbLocation.h"
+#include "platform/WindowsUsbLocation.h"
 #include "platform/SerialPort.h"
 #include "platform/Text.h"
 #include "platform/File.h"
@@ -77,15 +78,63 @@ static void TestProcess(const char *program) {
 }
 
 static void TestUsbLocation() {
-    for(const auto &id:{"USB\\Class_ff&SubClass_42&Prot_01","USB\\CLASS_FF&SUBCLASS_42&PROT_01","usb\\class_ff&subclass_42&prot_01"})
-        CHECK(platform::IsAdbInterfaceCompatibleId(id));
-    CHECK(!platform::IsAdbInterfaceCompatibleId("USB\\Class_FF&SubClass_FF&Prot_FF"));
-    CHECK(!platform::IsAdbInterfaceCompatibleId("USB\\Class_06&SubClass_01&Prot_01"));
     const platform::UsbLocation adb{"PCIROOT(0)#PCI(0801)#PCI(0003)#USBROOT(0)#USB(2)#USBMI(1)"};
     const platform::UsbLocation fes{"pciroot(0)#pci(0801)#pci(0003)#usbroot(0)#usb(2)"};
     CHECK(adb.matches(fes) && fes.matches(adb));
     CHECK(!adb.matches({"PCIROOT(1)#PCI(0801)#PCI(0003)#USBROOT(0)#USB(2)"}));
     CHECK(!platform::UsbLocation{}.matches({}));
+
+    // Interface names, compatible IDs and driver services are deliberately not
+    // inputs: the ADB serial is associated with its physical USB parent.
+    const std::string parent = "USB\\VID_1F3A&PID_1007\\BoardSerial";
+    const std::string port = "PCIROOT(0)#USBROOT(0)#USB(2)";
+    const platform::WindowsUsbNode physical{parent, "USB\\ROOT_HUB30\\hub", port, true};
+    const platform::WindowsUsbNode adbInterface{"usb\\vid_1f3a&pid_1007&mi_01\\generated-adb", parent,
+                                                port + "#USBMI(1)", false};
+    const platform::WindowsUsbNode mtpInterface{"USB\\VID_1F3A&PID_1007&MI_00\\generated-mtp", parent,
+                                                port + "#USBMI(0)", false};
+    const auto locations = platform::WindowsUsbLocations({adbInterface, mtpInterface, physical});
+    CHECK((locations == std::vector<platform::NativeUsbLocation>{{"BoardSerial", port}}));
+    auto parentCase = adbInterface;
+    parentCase.parent = "usb\\vid_1f3a&pid_1007\\boardserial";
+    CHECK(platform::WindowsUsbLocations({parentCase, physical, mtpInterface, physical}) == locations);
+    CHECK(platform::WindowsUsbLocations({adbInterface, mtpInterface}).empty());
+    auto noSerial = physical;
+    noSerial.uniqueId = false;
+    CHECK(platform::WindowsUsbLocations({adbInterface, noSerial}).empty());
+    auto noLocation = physical;
+    noLocation.location.clear();
+    const auto missing = platform::WindowsUsbLocations({adbInterface, noLocation});
+    CHECK(missing.size() == 1 && missing.front().serial == "BoardSerial" && missing.front().location.empty());
+    auto other = physical;
+    other.instance = "USB\\VID_1F3A&PID_1008\\BoardSerial";
+    other.location = "PCIROOT(1)#USBROOT(0)#USB(2)";
+    const auto duplicates = platform::WindowsUsbLocations({physical, other});
+    CHECK(duplicates.size() == 2 && duplicates[0].serial == duplicates[1].serial &&
+          duplicates[0].location != duplicates[1].location);
+    auto mixed = physical;
+    mixed.instance = "usb\\vid_1f3a&pid_1007\\Board&MI_Serial";
+    mixed.location = "pciroot(0)#usbroot(0)#usb(2)";
+    const auto mixedLocations = platform::WindowsUsbLocations({mixed});
+    CHECK((mixedLocations == std::vector<platform::NativeUsbLocation>{{"Board&MI_Serial", port}}));
+    auto generated = physical;
+    generated.instance = "USB\\VID_1F3A&PID_1007\\6&1a5c4b4f&0&2";
+    generated.uniqueId = false;
+    CHECK(platform::WindowsUsbLocations({generated}).empty());
+    // A device without a serial must not inherit its upstream hub's serial.
+    const platform::WindowsUsbNode hub{"USB\\VID_1234&PID_5678\\HubSerial", "", "PCIROOT(0)#USBROOT(0)", true};
+    generated.parent = hub.instance;
+    CHECK((platform::WindowsUsbLocations({generated, hub}) ==
+           std::vector<platform::NativeUsbLocation>{{"HubSerial", hub.location}}));
+    auto emptySerial = physical;
+    emptySerial.instance = "USB\\VID_1F3A&PID_1007\\";
+    CHECK(platform::WindowsUsbLocations({emptySerial}).empty());
+    auto malformed = physical;
+    malformed.instance = "USB\\VID_ZZZZ&PID_1007\\BoardSerial";
+    CHECK(platform::WindowsUsbLocations({malformed}).empty());
+    const platform::WindowsUsbNode cycleA{"USB\\interface-a", "USB\\interface-b", "", false};
+    const platform::WindowsUsbNode cycleB{"USB\\interface-b", "USB\\interface-a", "", false};
+    CHECK(platform::WindowsUsbLocations({cycleA, cycleB}).empty());
 }
 
 static void TestText() {

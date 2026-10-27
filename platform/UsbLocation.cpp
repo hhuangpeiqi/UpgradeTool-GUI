@@ -1,12 +1,59 @@
 #include "platform/UsbLocation.h"
 #include "platform/File.h"
 #include "platform/WindowsUsb.h"
+#include "platform/WindowsUsbLocation.h"
 #include <cstdio>
+#include <map>
+#include <set>
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #endif
 namespace platform {
+namespace {
+std::string UpperUsbId(std::string id) {
+    std::transform(id.begin(), id.end(), id.begin(),
+                   [](unsigned char c) { return char(std::toupper(c)); });
+    return id;
+}
+bool PhysicalUsbDevice(const std::string &id) {
+    // Inspect the device portion only; the serial may itself contain "&MI_".
+    const auto end = id.find('\\', 4);
+    if (end == std::string::npos) return false;
+    const auto device = id.substr(0, end);
+    if (device.size() < 21 || device.rfind("USB\\VID_", 0) != 0 || device.substr(12, 5) != "&PID_")
+        return false;
+    for (const auto offset : {8, 17})
+        for (int i = offset; i < offset + 4; ++i)
+            if (!std::isxdigit(static_cast<unsigned char>(device[i]))) return false;
+    return (device.size() == 21 || device[21] == '&') && device.find("&MI_") == std::string::npos;
+}
+}
+std::vector<NativeUsbLocation> WindowsUsbLocations(const std::vector<WindowsUsbNode> &nodes) {
+    std::map<std::string, const WindowsUsbNode *> byInstance;
+    for (const auto &node : nodes) byInstance.emplace(UpperUsbId(node.instance), &node);
+    std::vector<NativeUsbLocation> result;
+    std::set<std::string> visited;
+    for (const auto &node : nodes) {
+        auto *physical = &node;
+        for (size_t depth = 0; depth < nodes.size(); ++depth) {
+            const auto id = UpperUsbId(physical->instance);
+            if (PhysicalUsbDevice(id)) {
+                if (!visited.insert(id).second || !physical->uniqueId) break;
+                // UNIQUEID distinguishes device serials from Windows-generated
+                // per-port instance IDs. Preserve the serial's original case.
+                const auto serial = physical->instance.substr(physical->instance.find_last_of('\\') + 1);
+                if (!serial.empty())
+                    result.push_back({serial, NormalizeUsbLocation(physical->location)});
+                break;
+            }
+            const auto parent = byInstance.find(UpperUsbId(physical->parent));
+            if (parent == byInstance.end()) break;
+            physical = parent->second;
+        }
+    }
+    return result;
+}
 std::string UsbTopologyLocation(int bus, const std::vector<int> &ports) {
     if (ports.empty()) return {};
 #ifdef __APPLE__
@@ -24,24 +71,32 @@ std::string UsbTopologyLocation(int bus, const std::vector<int> &ports) {
     return result;
 #endif
 }
-std::vector<NativeUsbLocation> NativeAdbLocations() {
+std::vector<NativeUsbLocation> NativeUsbLocations() {
     std::vector<NativeUsbLocation> result;
 #ifdef _WIN32
     HDEVINFO set = SetupDiGetClassDevsW(nullptr, L"USB", nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT);
     if (set == INVALID_HANDLE_VALUE) return result;
+    std::vector<WindowsUsbNode> nodes;
     SP_DEVINFO_DATA info{}; info.cbSize = sizeof(info);
     for (DWORD i = 0; SetupDiEnumDeviceInfo(set, i, &info); ++i) {
-        bool adb = false;
-        for (const auto &id : WindowsUsbProperty(set, info, SPDRP_COMPATIBLEIDS))
-            adb |= IsAdbInterfaceCompatibleId(Utf8(std::filesystem::path(id)));
-        if (!adb) continue;
-        const auto serial = WindowsUsbSerial(info.DevInst);
+        WindowsUsbNode node;
+        node.instance = Utf8(std::filesystem::path(WindowsUsbInstance(set, info)));
+        if (node.instance.empty()) continue;
+        DEVINST parent;
+        wchar_t parentId[MAX_DEVICE_ID_LEN] = {};
+        if (CM_Get_Parent(&parent, info.DevInst, 0) == CR_SUCCESS &&
+            CM_Get_Device_IDW(parent, parentId, MAX_DEVICE_ID_LEN, 0) == CR_SUCCESS)
+            node.parent = Utf8(std::filesystem::path(parentId));
+        DWORD capabilities = 0, type = 0;
+        node.uniqueId = SetupDiGetDeviceRegistryPropertyW(set, &info, SPDRP_CAPABILITIES, &type,
+            reinterpret_cast<BYTE *>(&capabilities), sizeof(capabilities), nullptr) &&
+            type == REG_DWORD && (capabilities & CM_DEVCAP_UNIQUEID);
         const auto locations = WindowsUsbProperty(set, info, SPDRP_LOCATION_PATHS);
-        if (serial.empty() || locations.empty() || locations.front().empty()) continue;
-        NativeUsbLocation entry{Utf8(std::filesystem::path(serial)), NormalizeUsbLocation(Utf8(std::filesystem::path(locations.front())))};
-        if (std::find(result.begin(), result.end(), entry) == result.end()) result.push_back(std::move(entry));
+        if (!locations.empty()) node.location = Utf8(std::filesystem::path(locations.front()));
+        nodes.push_back(std::move(node));
     }
     SetupDiDestroyDeviceInfoList(set);
+    result = WindowsUsbLocations(nodes);
 #elif defined(__APPLE__)
     io_iterator_t iterator = 0;
     if (IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOUSBHostDevice"), &iterator) != KERN_SUCCESS) return result;

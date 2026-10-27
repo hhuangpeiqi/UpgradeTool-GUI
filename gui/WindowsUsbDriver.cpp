@@ -1,4 +1,3 @@
-#include "platform/UsbLocation.h"
 #include "platform/WindowsUsb.h"
 #include "gui/WindowsUsbDriver.h"
 #include "application/BuildFeatures.h"
@@ -315,16 +314,6 @@ DriverScan ScanWindowsUsbDrivers(bool probe) {
 #endif
     return result;
 }
-
-QVector<QPair<QString, QString>> WindowsAdbLocations() {
-    QVector<QPair<QString, QString>> result;
-#ifdef Q_OS_WIN
-    for (const auto &device : platform::NativeAdbLocations())
-        result.append({QString::fromStdString(device.serial), QString::fromStdString(device.location)});
-#endif
-    return result;
-}
-
 
 DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation operation, const DriverDevice &target,
     const QVector<DriverDevice> &affected, const DriverProgress &progress) {

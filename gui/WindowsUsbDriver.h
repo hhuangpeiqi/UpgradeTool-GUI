@@ -56,5 +56,4 @@ DriverInstallResult RunWindowsDriverOperationWithProgress(DriverOperation, const
 DriverInstallResult RunQualcommDriverElevated(DriverOperation, const DriverDevice &, const DriverProgress &);
 const DriverDevice *FindDriverDevice(const QVector<DriverDevice> &, const DriverDevice &);
 DriverScan ScanWindowsUsbDrivers(bool probe = false);
-QVector<QPair<QString, QString>> WindowsAdbLocations();
 }
