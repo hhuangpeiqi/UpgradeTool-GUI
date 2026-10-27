@@ -15,6 +15,7 @@ void AllwinnerSwitchMonitor::prepare(const FelSwitchRequest &request) {
     m_lastError.clear();
     m_seen = false;
     m_present = false;
+    m_accessBlocked = false;
     if (request.cancelled && request.cancelled->stop_requested()) {
         cancel(request.id);
         return;
@@ -44,7 +45,7 @@ void AllwinnerSwitchMonitor::cancel(quint64 id) {
         m_retainedId = 0;
     }
 }
-void AllwinnerSwitchMonitor::finish(bool ok, const QString &message, const core::DeviceRef &target) {
+void AllwinnerSwitchMonitor::finish(bool ok, const QString &message, const core::DeviceRef &target, ModeSwitchFailure failure) {
     const auto id = m_request.id;
     m_timer.stop();
     m_request.id = 0;
@@ -53,7 +54,7 @@ void AllwinnerSwitchMonitor::finish(bool ok, const QString &message, const core:
                    .arg(ok)
                    .arg(m_elapsed.isValid() ? m_elapsed.elapsed() : 0)
                    .arg(message));
-    emit completed(id, ok, message, target);
+    emit completed(id, ok, message, target, failure);
 }
 void AllwinnerSwitchMonitor::poll() {
     if (!m_request.id)
@@ -62,14 +63,15 @@ void AllwinnerSwitchMonitor::poll() {
         cancel(m_request.id);
         return;
     }
-    if (m_elapsed.elapsed() >= m_request.timeoutMs) {
+    const bool timedOut = m_elapsed.elapsed() >= m_request.timeoutMs;
+    auto timeout = [this] {
         finish(false, !m_seen ? tr("No FEL/FES device appeared at the target USB port.")
                               : tr("The target FEL/FES device appeared, but a usable connection could not be "
-                                   "established: %1")
-                                    .arg(m_lastError));
-        return;
-    }
+                                   "established: %1").arg(m_lastError), {},
+               m_present && m_accessBlocked ? ModeSwitchFailure::DeviceAccess : ModeSwitchFailure::Generic);
+    };
     try {
+        m_accessBlocked = false;
         std::vector<core::DeviceDescriptor> matches;
         for (const auto &device : m_hooks.scan()) {
             const auto &identity = core::DeviceAccess::Identity(device.reference);
@@ -94,6 +96,7 @@ void AllwinnerSwitchMonitor::poll() {
                                .arg(m_elapsed.elapsed()));
             }
             m_present = false;
+            if (timedOut) timeout();
             return;
         }
         m_seen = true;
@@ -106,9 +109,12 @@ void AllwinnerSwitchMonitor::poll() {
                        .arg(device.accessError)
                        .arg(m_elapsed.elapsed()));
         if (device.accessError) {
+            m_accessBlocked = true;
             m_lastError = tr("USB driver or permissions are not ready (%1).").arg(device.accessError);
+            if (timedOut) timeout();
             return;
         }
+        if (timedOut) { timeout(); return; }
         const auto remaining = std::min<qint64>(1500, m_request.timeoutMs - m_elapsed.elapsed());
         if (remaining <= 0)
             return;
@@ -142,6 +148,7 @@ void AllwinnerSwitchMonitor::poll() {
         if (message != m_lastError)
             emit trace(QString("fel_retry attempt=%1 error=%2").arg(m_request.id).arg(message));
         m_lastError = message;
+        if (timedOut) timeout();
     }
 }
 } // namespace gui

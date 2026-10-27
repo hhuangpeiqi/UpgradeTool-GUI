@@ -56,14 +56,14 @@ int main(int argc, char **argv) {
     CHECK(gui::SelectEdlDevice(expected, rows({usb, com})) == 1);
 #endif
 
-    for (int scenario = 0; scenario < 6; ++scenario) {
+    for (int scenario = 0; scenario < 10; ++scenario) {
         gui::EdlHooks hooks;
         hooks.discover = [](const QString &, const gui::EdlCancel &, QString &) { return QVector<gui::EdlEndpoint>{}; };
         gui::AppController controller(nullptr, hooks, 100, nullptr, {}, false);
         CHECK(QObject::disconnect(&controller, SIGNAL(requestScan()), nullptr, nullptr));
         controller.setVendor(2);
         controller.ignorePermission();
-        int successes = 0, recoveries = 0, scans = 0;
+        int successes = 0, recoveries = 0, scans = 0, accessPrompts = 0;
         QObject::connect(&controller, &gui::AppController::toastRequested, [&](const QString &message, bool error) {
             if (!error && message == gui::AppController::tr("Download device ready.")) {
                 ++successes;
@@ -72,6 +72,7 @@ int main(int argc, char **argv) {
             }
         });
         QObject::connect(&controller, &gui::AppController::switchRecoveryRequested, [&] { ++recoveries; });
+        QObject::connect(&controller, &gui::AppController::switchAccessRequested, [&](const QString &) { ++accessPrompts; });
         QObject::connect(&controller, &gui::AppController::requestScan, [&] { ++scans; });
         auto update = [&](const QVariantList &devices) {
             CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
@@ -94,7 +95,17 @@ int main(int argc, char **argv) {
         update({denied, other});
         CHECK(controller.deviceIndex() == -1 && !controller.hasFlashTarget());
         update({com, duplicate}); CHECK(controller.deviceIndex() == -1);
-        if (scenario == 0) {
+        if (scenario >= 6) {
+            auto unrelatedDenied = other; unrelatedDenied["accessError"] = LIBUSB_ERROR_NOT_SUPPORTED;
+            if (scenario == 6) update({denied, other});
+            if (scenario == 7) { update({denied}); update({}); }
+            if (scenario == 8) update({unrelatedDenied});
+            if (scenario == 9) update({denied, denied});
+            CHECK(Await([&] { return !controller.switching(); }));
+            CHECK(accessPrompts == (scenario == 6 ? 1 : 0));
+            CHECK(recoveries == (scenario == 6 ? 0 : 1));
+            CHECK(successes == 0 && !controller.hasFlashTarget());
+        } else if (scenario == 0) {
             controller.setBatchTargets({"diag", "other"}, true); // Locked: ignored.
             update({other, com});
             CHECK(successes == 1 && controller.deviceIndex() == 1);

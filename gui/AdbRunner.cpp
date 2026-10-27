@@ -5,6 +5,9 @@
 #include "backends/rockchip/UsbTransport.h"
 #endif
 #include "gui/AdbRunner.h"
+#ifdef Q_OS_WIN
+#include "gui/WindowsUsbDriver.h"
+#endif
 
 #include <QRegularExpression>
 #include <QCoreApplication>
@@ -72,6 +75,31 @@ QVector<AdbUsbDevice> ScanUsb(bool readSerial)
             device.location = QString::fromStdString(platform::UsbTopologyLocation(device.bus, {device.ports.begin(), device.ports.end()}));
 #endif
             result.append(device);
+        }
+#endif
+#ifdef Q_OS_WIN
+        for (const auto &native : ScanWindowsUsbDrivers(false).devices) {
+            if (native.vendor != 0 || !native.verifiedInterface || !native.needsAttention() || native.location.isEmpty()) continue;
+            const auto location = platform::NormalizeUsbLocation(native.location.toStdString());
+            QString reason;
+            if (native.state == DriverState::Missing)
+                reason = AdbRunner::tr("The target USB interface driver is missing. Open USB Drivers to install it.");
+            else
+                reason = AdbRunner::tr("The target USB interface is not accessible. Check its USB driver, permissions, and whether another tool is using it.");
+            bool mapped = false;
+            for (auto &device : result) {
+                if (platform::NormalizeUsbLocation(device.location.toStdString()) != location) continue;
+                device.accessError = native.problem ? native.problem : LIBUSB_ERROR_ACCESS;
+                device.accessReason = reason;
+                mapped = true;
+            }
+            if (!mapped) {
+                AdbUsbDevice device;
+                device.location = QString::fromStdString(location);
+                device.accessError = native.problem ? native.problem : LIBUSB_ERROR_ACCESS;
+                device.accessReason = reason;
+                result.append(device);
+            }
         }
 #endif
         return result;
@@ -277,7 +305,7 @@ void AdbRunner::StartCommand(const QStringList &args)
         args.value(0) == "devices" ? kAdbReadTimeoutMs : m_commandTimeoutMs);
 }
 
-void AdbRunner::Complete(bool ok, const QString &message, bool cancelled)
+void AdbRunner::Complete(bool ok, const QString &message, bool cancelled, ModeSwitchFailure failure)
 {
     if(m_felAttempt && !ok) {
         if(m_felCancel) m_felCancel->request_stop();
@@ -292,7 +320,7 @@ void AdbRunner::Complete(bool ok, const QString &message, bool cancelled)
     m_commandId = 0;
     m_service->setPaused(false);
 
-	emit finished(ok, message, cancelled);
+	emit finished(ok, message, cancelled, failure);
 }
 
 void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output)
@@ -449,28 +477,35 @@ void AdbRunner::FelMonitorReady(quint64 id) {
     emit switchProgress(tr("FEL switch request sent; waiting for the USB device…"));
     StartCommand(m_felCommand);
 }
-void AdbRunner::FelMonitorFinished(quint64 id,bool ok,const QString &message,const core::DeviceRef &target) {
+void AdbRunner::FelMonitorFinished(quint64 id,bool ok,const QString &message,const core::DeviceRef &target, ModeSwitchFailure failure) {
     if(!m_bRunning || id!=m_felAttempt) return;
     if(ok) emit felTargetReady(target);
-    Complete(ok,message);
+    Complete(ok,message,false,failure);
 }
 
 void AdbRunner::CheckLoaderMode()
 {
 	if (m_felSwitch || !m_bRunning || (m_stage != Stage::Rebooting && m_stage != Stage::Waiting))
 		return;
+    QString accessReason;
     if (m_target.known()) {
         int matches = 0;
         for (const auto &device : m_usbScanner(false)) {
             const platform::UsbLocation candidate{device.location.toStdString(), device.bus,
                 {device.ports.begin(), device.ports.end()}};
-            if (device.loader && m_target.matches(candidate)) ++matches;
+            if ((device.loader || device.accessError) && m_target.matches(candidate)) {
+                ++matches;
+                if (device.accessError)
+                    accessReason = device.accessReason.isEmpty()
+                        ? tr("The target USB interface is not accessible. Check its USB driver, permissions, and whether another tool is using it.")
+                        : device.accessReason;
+            }
         }
         if (matches > 1) {
             Complete(false, tr("Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly."));
             return;
         }
-        if (matches == 1) {
+        if (matches == 1 && accessReason.isEmpty()) {
             if (m_commandId != 0) {
                 m_stage = Stage::Waiting;
                 if (m_commandCancel) m_commandCancel->request_stop();
@@ -481,6 +516,10 @@ void AdbRunner::CheckLoaderMode()
         }
     }
 	if (m_loaderElapsed.elapsed() >= m_modeTimeoutMs) {
+        if (!accessReason.isEmpty()) {
+            Complete(false, accessReason, false, ModeSwitchFailure::DeviceAccess);
+            return;
+        }
         Complete(false, m_target.known()
                 ? tr("No Loader device detected on the target USB port. %1").arg(m_loaderCommandError)
                 : tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list."));

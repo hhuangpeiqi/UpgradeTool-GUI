@@ -1,6 +1,7 @@
 #ifndef GUI_EDL_RUNNER_H
 #define GUI_EDL_RUNNER_H
 #include <QObject>
+#include "gui/ModeSwitchFailure.h"
 #include "backends/qualcomm/DevicePolicy.h"
 #include <QVariantList>
 #include <QVector>
@@ -91,7 +92,7 @@ signals:
     void started();
     void selectionRequested();
     void errorOccurred(const QString &message);
-    void finished(bool ok, const QString &message, const gui::EdlEndpoint &endpoint);
+    void finished(bool ok, const QString &message, const gui::EdlEndpoint &endpoint, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
 private:
     void setMessage(const QString &message);
     void setState(State state);

@@ -3354,6 +3354,14 @@
         <source>Preparing to detect and connect the target FEL/FES device…</source>
         <translation>正在准备检测并连接目标 FEL/FES 设备…</translation>
     </message>
+    <message>
+        <source>The target USB interface driver is missing. Open USB Drivers to install it.</source>
+        <translation>目标 USB 接口缺少驱动，请打开 USB 驱动窗口安装。</translation>
+    </message>
+    <message>
+        <source>The target USB interface is not accessible. Check its USB driver, permissions, and whether another tool is using it.</source>
+        <translation>无法访问目标 USB 接口，请检查 USB 驱动、访问权限，以及是否被其它工具占用。</translation>
+    </message>
 </context>
 <context>
     <name>gui::AppController</name>
@@ -4657,6 +4665,18 @@
     <message>
         <source>Got it</source>
         <translation>知道了</translation>
+    </message>
+    <message>
+        <source>Device access unavailable</source>
+        <translation>设备暂不可访问</translation>
+    </message>
+    <message>
+        <source>Check the USB driver, access permissions, and whether another tool is using the device.</source>
+        <translation>请检查 USB 驱动、访问权限，以及设备是否被其它工具占用。</translation>
+    </message>
+    <message>
+        <source>View USB Drivers</source>
+        <translation>查看 USB 驱动</translation>
     </message>
 </context>
 </TS>

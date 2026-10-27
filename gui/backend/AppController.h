@@ -198,6 +198,7 @@ signals:
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
     void switchRecoveryRequested();
+    void switchAccessRequested(const QString &message);
 
 private:
     void UpdateInteractionLock();
@@ -207,7 +208,7 @@ private:
     EdlRunner *m_edl = nullptr;
     std::optional<EdlEndpoint> m_edlHandoff;
     QTimer *m_edlHandoffTimer = nullptr;
-    void FinishEdlSwitch(bool ok, const QString &message, bool cancelled = false);
+    void FinishEdlSwitch(bool ok, const QString &message, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
     int m_vendor = 0;
     QualcommController *m_qualcomm;
     platform::FileLog *m_diskLog = nullptr;
@@ -228,7 +229,7 @@ private slots:
 	void onOperationResult(const core::OperationResult &result);
 	void onTaskFinished(const core::TaskSummary &summary);
 	void onStepStarted(int step, int target, int total, const QString &device);
-	void onAdbFinished(bool bOk, const QString &strMessage, bool cancelled = false);
+	void onAdbFinished(bool bOk, const QString &strMessage, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
 	void onAdbDeviceChoice(const QStringList &strDevices);
 	void onAdbDevicesChanged(const QStringList &strDevices);
 	void onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage);
@@ -246,7 +247,7 @@ private:
 	void StartJob(core::TaskJob job);
 	void BeginModeSwitch(const QString &message);
 	void UpdateModeSwitch(const QString &message);
-	void FinishModeSwitch(bool ok, const QString &message, bool cancelled = false);
+	void FinishModeSwitch(bool ok, const QString &message, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
 	QVariantList BuildStandardPlaces() const;
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;

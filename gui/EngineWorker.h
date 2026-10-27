@@ -31,7 +31,7 @@ public slots:
     void releaseAllwinnerSessions();
 signals:
     void felMonitorReady(quint64 id);
-    void felMonitorFinished(quint64 id, bool ok, const QString &message, const core::DeviceRef &target);
+    void felMonitorFinished(quint64 id, bool ok, const QString &message, const core::DeviceRef &target, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
     void traceMessage(const QString &message);
     void inspectionFinished(int context,quint64 generation,const core::OperationResult &result);
 	void devicesReady(const QVariantList &devices);

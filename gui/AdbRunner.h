@@ -22,6 +22,8 @@ struct AdbUsbDevice {
 	QString serial;
     QString location;
     bool loader = false;
+    int accessError = 0;
+    QString accessReason;
 };
 
 class AdbRunner : public QObject
@@ -52,13 +54,13 @@ class AdbRunner : public QObject
 
 	void CancelSwitch();
     void FelMonitorReady(quint64 id);
-    void FelMonitorFinished(quint64 id, bool ok, const QString &message, const core::DeviceRef &target);
+    void FelMonitorFinished(quint64 id, bool ok, const QString &message, const core::DeviceRef &target, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
 
   signals:
     void felMonitorRequested(const gui::FelSwitchRequest &request);
     void felMonitorCancelled(quint64 id);
     void felTargetReady(const core::DeviceRef &target);
-	void finished(bool bOk, const QString &strMessage, bool cancelled = false);
+	void finished(bool bOk, const QString &strMessage, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
 	void deviceChoiceRequested(const QStringList &strDevices);
 
 	void devicesChanged(const QStringList &strDevices);
@@ -74,7 +76,7 @@ class AdbRunner : public QObject
     void StartReboot(const QString &);
     void BeginSwitch();
     void StartCommand(const QStringList &);
-    void Complete(bool, const QString &, bool cancelled = false);
+    void Complete(bool, const QString &, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
     void HandleSwitchCommand(int, bool, const QString &);
     AdbService *m_service;
     quint64 m_commandId = 0;

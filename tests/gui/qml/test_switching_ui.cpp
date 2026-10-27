@@ -53,7 +53,10 @@ int main(int argc, char **argv) {
             error = "Test connection failure";
             return std::unique_ptr<gui::DiagSession>{};
         };
-        gui::AppController controller(nullptr, std::move(hooks), 1, nullptr, gui::DriverHooks{}, false);
+        gui::DriverHooks driverHooks;
+        driverHooks.scan = [](bool) { return gui::DriverScan{}; };
+        driverHooks.qualcommInstalled = [] { return false; };
+        gui::AppController controller(nullptr, std::move(hooks), 1, nullptr, std::move(driverHooks), true);
         controller.ignorePermission();
         CHECK(AwaitUi([&] { return controller.adbReady(); }));
         QQmlApplicationEngine engine;
@@ -207,6 +210,34 @@ int main(int argc, char **argv) {
                 }
                 CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
                 CHECK(!controller.switching() && !controller.tasks()->busy());
+            }
+            auto *driverButton = window->findChild<QQuickItem *>("switchRecoveryDriverButton");
+            auto *driverDialog = window->findChild<QObject *>("driverDialog");
+            CHECK(driverButton && driverDialog);
+            if (driverButton && driverDialog) for (int vendor : {0, 1, 2}) {
+                controller.setVendor(vendor);
+                controller.switchAccessRequested("Original diagnostic <preserved>\n" + QString(2000, 'x'));
+                CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                CHECK(driverButton->isVisible());
+                CHECK(recoveryDialog->property("titleText").toString() == QString::fromUtf8(
+                    QString(language) == "zh" ? "设备暂不可访问" : "Device access unavailable"));
+                CHECK(instructions->property("text").toString().contains("Original diagnostic <preserved>"));
+                CHECK(!instructions->property("text").toString().contains("Please enter flash mode manually."));
+                CHECK(!instructions->property("text").toString().contains(QString::fromUtf8("请手动进入刷机模式")));
+                CHECK(recoveryDialog->property("height").toReal() <= window->height() - 24);
+                CHECK(QMetaObject::invokeMethod(driverButton, "clicked"));
+                CHECK(AwaitUi([&] { return driverDialog->property("visible").toBool(); }));
+                CHECK(!recoveryDialog->property("visible").toBool());
+                CHECK(!controller.drivers()->busy() && !controller.tasks()->busy());
+                CHECK(QMetaObject::invokeMethod(driverDialog, "close"));
+                CHECK(AwaitUi([&] { return !driverDialog->property("visible").toBool(); }));
+                controller.switchRecoveryRequested();
+                CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                CHECK(!driverButton->isVisible());
+                CHECK(instructions->property("text").toString() == QString::fromUtf8(QString(language) == "zh"
+                    ? "请手动进入刷机模式" : "Please enter flash mode manually."));
+                CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));
+                CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
             }
         }
     }

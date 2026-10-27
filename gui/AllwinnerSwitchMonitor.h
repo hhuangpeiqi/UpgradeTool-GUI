@@ -3,6 +3,7 @@
 #include "platform/UsbLocation.h"
 #include <QElapsedTimer>
 #include <QObject>
+#include "gui/ModeSwitchFailure.h"
 #include <QTimer>
 #include <functional>
 
@@ -31,18 +32,18 @@ class AllwinnerSwitchMonitor : public QObject {
     void cancel(quint64);
   signals:
     void ready(quint64 id);
-    void completed(quint64 id, bool ok, const QString &message, const core::DeviceRef &target);
+    void completed(quint64 id, bool ok, const QString &message, const core::DeviceRef &target, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
     void trace(const QString &message);
 
   private:
     void poll();
-    void finish(bool, const QString &, const core::DeviceRef & = {});
+    void finish(bool, const QString &, const core::DeviceRef & = {}, ModeSwitchFailure = ModeSwitchFailure::Generic);
     Hooks m_hooks;
     QTimer m_timer;
     QElapsedTimer m_elapsed;
     FelSwitchRequest m_request;
     QString m_lastError;
-    bool m_seen = false, m_present = false;
+    bool m_seen = false, m_present = false, m_accessBlocked = false;
     quint64 m_retainedId = 0;
     core::DeviceRef m_retained;
 };

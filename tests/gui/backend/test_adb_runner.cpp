@@ -329,7 +329,9 @@ int main(int argc, char **argv)
             QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::ready,&runner,&gui::AdbRunner::FelMonitorReady);
             QObject::connect(&monitor,&gui::AllwinnerSwitchMonitor::completed,&runner,&gui::AdbRunner::FelMonitorFinished,
                              Qt::QueuedConnection);
-			QObject::connect(&runner, &gui::AdbRunner::finished, &app, [&](bool result, const QString &text, bool wasCancelled) {
+            auto failure = gui::ModeSwitchFailure::Generic;
+			QObject::connect(&runner, &gui::AdbRunner::finished, &app, [&](bool result, const QString &text, bool wasCancelled, gui::ModeSwitchFailure reason) {
+                failure = reason;
                 cancelled = wasCancelled;
 				++completed;
 				ok = result;
@@ -354,11 +356,13 @@ int main(int argc, char **argv)
 			CHECK(ok == expectOk);
 			CHECK(!message.isEmpty());
             CHECK(cancelled == (mode == "cancel" || mode == "arm-cancel"));
+            CHECK((failure == gui::ModeSwitchFailure::DeviceAccess) == (mode == "driver-missing"));
             if (attempt) {
                 runner.FelMonitorFinished(attempt, false, "late failure", {});
                 runner.FelMonitorFinished(attempt, true, "late success", {});
                 CHECK(completed == 1);
                 CHECK(cancelled == (mode == "cancel" || mode == "arm-cancel"));
+                CHECK((failure == gui::ModeSwitchFailure::DeviceAccess) == (mode == "driver-missing"));
             }
             if (mode == "native-no-location" || mode == "native-partial-location")
                 CHECK(message.contains("could not be read"));
@@ -436,11 +440,16 @@ int main(int argc, char **argv)
     scenario("arm-cancel",Method::Auto,false,"");
     for (const QString mode : {"loader-good", "loader-disconnect", "loader-hang", "loader-maskrom",
                                "loader-wrong-port", "loader-duplicate", "loader-unmapped", "loader-location-conflict",
-                               "loader-unauthorized", "loader-no-device"}) {
+                               "loader-unauthorized", "loader-no-device", "loader-driver-missing", "loader-driver-delay",
+                               "loader-driver-disappeared", "loader-driver-wrong-port", "loader-driver-incompatible"}) {
         QTemporaryDir dir;
         qputenv("AW_TEST_DIR", dir.path().toUtf8());
         qputenv("AW_TEST_MODE", "loader-good");
+        int targetScans = 0;
         gui::AdbRunner runner(nullptr, [&](bool readSerial) {
+            if (!readSerial) ++targetScans;
+            if (!readSerial && mode == "loader-driver-disappeared" && targetScans > 1)
+                return QVector<gui::AdbUsbDevice>{};
             if (readSerial && mode == "loader-unmapped") return QVector<gui::AdbUsbDevice>{};
             gui::AdbUsbDevice device{1, {5, 4}, "board"};
             if (readSerial) device.serial = "BOARD";
@@ -449,17 +458,30 @@ int main(int argc, char **argv)
             device.loader = !readSerial && QFile::exists(dir.filePath("requested")) &&
                 mode != "loader-maskrom" && mode != "loader-no-device";
             if (!readSerial && mode == "loader-wrong-port") device.ports = {5, 2};
+            if (!readSerial && mode.startsWith("loader-driver-") &&
+                (mode != "loader-driver-delay" || targetScans < 2)) {
+                device.loader = false;
+                device.accessError = -12;
+                // Wording deliberately contains no driver keyword.
+                device.accessReason = "test interface unavailable";
+                if (mode == "loader-driver-wrong-port") device.ports = {5, 2};
+            }
             if (device.loader && mode == "loader-duplicate") return QVector<gui::AdbUsbDevice>{device, device};
             return QVector<gui::AdbUsbDevice>{device};
         }, 200, 650);
         int completed = 0; bool ok = false;
-        QObject::connect(&runner, &gui::AdbRunner::finished, [&](bool result, const QString &) { ++completed; ok = result; });
+        auto failure = gui::ModeSwitchFailure::Generic;
+        QObject::connect(&runner, &gui::AdbRunner::finished, [&](bool result, const QString &, bool, gui::ModeSwitchFailure reason) {
+            ++completed; ok = result; failure = reason;
+        });
         runner.Start(); CHECK(Await([&] { return runner.Devices() == QStringList{"board"}; }));
         qputenv("AW_TEST_MODE", mode.toUtf8());
         runner.SwitchToLoader();
         CHECK(Await([&] { return completed == 1; }));
-        const bool expected = mode == "loader-good" || mode == "loader-disconnect" || mode == "loader-hang";
+        const bool expected = mode == "loader-good" || mode == "loader-disconnect" || mode == "loader-hang" || mode == "loader-driver-delay";
         CHECK(ok == expected);
+        CHECK((failure == gui::ModeSwitchFailure::DeviceAccess) ==
+              (mode == "loader-driver-missing" || mode == "loader-driver-incompatible"));
         runner.Stop();
         int reboots = 0;
         for (const auto &line : Read(dir.filePath("log")).split('\n')) {

@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     if (libusb_init(nullptr) < 0) return 2;
     int failures = 0;
     {
-        enum Scenario { CommandFailure, Timeout, Success, Cancel, Shutdown };
+        enum Scenario { CommandFailure, Timeout, Success, DriverMissing, Cancel, Shutdown };
         std::atomic<Scenario> scenario{CommandFailure};
         gui::EdlEndpoint source;
         source.id = "adb:board"; source.kind = gui::EdlEndpoint::Adb;
@@ -51,6 +51,10 @@ int main(int argc, char **argv) {
             return scenario != CommandFailure;
         };
         hooks.scan = [&] {
+            if (scenario == DriverMissing) {
+                auto blocked = target; blocked.accessError = -12; blocked.accessReason = "test diagnostic";
+                return QVector<gui::EdlEndpoint>{blocked};
+            }
             return scenario == Success ? QVector<gui::EdlEndpoint>{target} : QVector<gui::EdlEndpoint>{};
         };
         gui::AppController controller(nullptr, std::move(hooks), 15, nullptr, gui::DriverHooks{}, false);
@@ -65,7 +69,13 @@ int main(int argc, char **argv) {
         CHECK(Await([&] { return controller.adbReady(); }));
         auto *adb = controller.findChild<gui::AdbRunner *>();
         CHECK(adb);
-        int recoveries = 0, choices = 0;
+        int recoveries = 0, choices = 0, accessPrompts = 0;
+        QObject::connect(&controller, &gui::AppController::switchAccessRequested, [&](const QString &message) {
+            ++accessPrompts;
+            CHECK(!message.isEmpty());
+            CHECK(!controller.switching() && !controller.tasks()->busy());
+            CHECK(controller.tasks()->progressValue() == 0);
+        });
         QObject::connect(&controller, &gui::AppController::switchRecoveryRequested, [&] {
             ++recoveries;
             CHECK(!controller.switching() && !controller.tasks()->busy());
@@ -75,8 +85,9 @@ int main(int argc, char **argv) {
                          [&](const QStringList &) { ++choices; });
         if (adb) for (int vendor : {0, 1}) {
             controller.setVendor(vendor);
-            for (int outcome : {0, 1, 2}) {
+            for (int outcome : {0, 1, 2, 3}) {
                 const auto before = recoveries;
+                const auto beforeAccess = accessPrompts;
                 const auto previousChoices = choices;
                 if (vendor == 0) controller.switchToLoader();
                 else controller.switchToFel();
@@ -85,14 +96,17 @@ int main(int argc, char **argv) {
                 if (outcome == 2) controller.cancel();
                 else {
                     // Failure classification must not depend on diagnostic wording.
-                    adb->finished(outcome == 1, "Original diagnostic: cancelled USB transfer");
+                    adb->finished(outcome == 1, "Original diagnostic: cancelled USB transfer", false,
+                                  outcome == 3 ? gui::ModeSwitchFailure::DeviceAccess : gui::ModeSwitchFailure::Generic);
                     CHECK(controller.tasks()->progressText() == "Original diagnostic: cancelled USB transfer");
                     adb->CancelSwitch();
                 }
                 CHECK(!controller.switching() && !controller.tasks()->busy());
                 CHECK(recoveries == before + (outcome == 0 ? 1 : 0));
+                CHECK(accessPrompts == beforeAccess + (outcome == 3 ? 1 : 0));
                 adb->finished(false, "late failure");
                 CHECK(recoveries == before + (outcome == 0 ? 1 : 0));
+                CHECK(accessPrompts == beforeAccess + (outcome == 3 ? 1 : 0));
             }
         }
         const auto beforeValidation = recoveries;
@@ -110,11 +124,12 @@ int main(int argc, char **argv) {
         controller.edl()->setMethod(gui::EdlRunner::Adb);
         controller.switchToEdl("missing", gui::EdlRunner::Adb, "missing");
         CHECK(!controller.switching() && recoveries == beforeValidation);
-        for (Scenario value : {CommandFailure, Timeout, Success, Cancel, Shutdown}) {
+        for (Scenario value : {CommandFailure, Timeout, Success, DriverMissing, Cancel, Shutdown}) {
             scenario = value;
             controller.refreshEdl();
             CHECK(Await([&] { return controller.edl()->ready(); }));
             const auto before = recoveries;
+            const auto beforeAccess = accessPrompts;
             controller.requestEdlSwitch();
             CHECK(controller.switching() && controller.tasks()->busy());
             if (value == Cancel) controller.cancel();
@@ -125,10 +140,12 @@ int main(int argc, char **argv) {
             }
             CHECK(Await([&] { return !controller.edl()->running() && (value == Shutdown || !controller.switching()); }));
             CHECK(recoveries == before + (value == CommandFailure || value == Timeout ? 1 : 0));
+            CHECK(accessPrompts == beforeAccess + (value == DriverMissing ? 1 : 0));
             if (value != Shutdown) {
                 CHECK(!controller.switching() && !controller.tasks()->busy());
                 controller.edl()->finished(false, "late failure", {});
                 CHECK(recoveries == before + (value == CommandFailure || value == Timeout ? 1 : 0));
+                CHECK(accessPrompts == beforeAccess + (value == DriverMissing ? 1 : 0));
             }
         }
     }

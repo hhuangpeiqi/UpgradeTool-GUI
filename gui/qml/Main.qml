@@ -266,7 +266,10 @@ ApplicationWindow {
     }
 
     AllwinnerDeviceDialog { id: allwinnerDeviceDialog }
-    SwitchRecoveryDialog { id: switchRecoveryDialog }
+    SwitchRecoveryDialog {
+        id: switchRecoveryDialog
+        onDriversRequested: driverDialog.openDialog()
+    }
     DriverDialog { id: driverDialog }
     EdlSwitchDialog { id: edlDialog }
     Connections {
@@ -306,8 +309,11 @@ ApplicationWindow {
         function onAdbDeviceChoiceRequested(devices) {
             adbDialog.openWith(devices);
         }
+        function onSwitchAccessRequested(message) {
+            switchRecoveryDialog.openAccess(message);
+        }
         function onSwitchRecoveryRequested() {
-            switchRecoveryDialog.open();
+            switchRecoveryDialog.openFailure();
         }
     }
 

@@ -163,6 +163,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pThread, SIGNAL(started()), this, SLOT(onThreadStarted()));
 	connect(this, SIGNAL(requestScan()), m_pWorker, SLOT(scanDevices()));
 	qRegisterMetaType<core::TaskJob>();
+    qRegisterMetaType<gui::ModeSwitchFailure>();
 	qRegisterMetaType<core::OperationResult>();
 	qRegisterMetaType<core::TaskSummary>();
 	connect(this, &AppController::requestExecute, m_pWorker, &EngineWorker::execute);
@@ -192,8 +193,24 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
     m_edlHandoffTimer->setSingleShot(true);
     m_edlHandoffTimer->setInterval(std::clamp(edlWaitMs, 1, 15000));
     connect(m_edlHandoffTimer, &QTimer::timeout, this, [this] {
-        if (m_edlHandoff)
-            FinishEdlSwitch(false, tr("Device entered 9008 mode, but its download interface is not ready. Check the USB driver and refresh."));
+        if (!m_edlHandoff) return;
+        int matches = 0;
+        bool accessBlocked = false;
+        for (const auto &entry : m_deviceModel->allRows()) {
+            auto row = entry.toMap();
+            const bool blocked = row.value("accessError").toInt() != 0;
+            // Compare identity without the eligibility check; keep the actual
+            // snapshot and its access error unchanged.
+            row["accessError"] = 0;
+            if (MatchesEdlDevice(*m_edlHandoff, row)) {
+                ++matches;
+                accessBlocked |= blocked;
+            }
+        }
+        const auto failure = matches == 1 && accessBlocked
+            ? ModeSwitchFailure::DeviceAccess : ModeSwitchFailure::Generic;
+        FinishEdlSwitch(false, tr("Device entered 9008 mode, but its download interface is not ready. Check the USB driver and refresh."),
+                        false, failure);
     });
     connect(m_edl, &EdlRunner::errorOccurred, this, [this](const QString &message) {
         AppendLog(message, true); emit toastRequested(message, true);
@@ -209,10 +226,10 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
             UpdateModeSwitch(m_edl->message());
         }
     });
-    connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint) {
+    connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint, ModeSwitchFailure failure) {
         if (m_shuttingDown || m_vendor != 2 || !m_bSwitching || m_edlHandoff) return;
         if (!ok) {
-            FinishEdlSwitch(false, message, m_edl->state() == EdlRunner::Cancelled);
+            FinishEdlSwitch(false, message, m_edl->state() == EdlRunner::Cancelled, failure);
             return;
         }
         m_edlHandoff = endpoint;
@@ -1212,7 +1229,7 @@ void AppController::requestEdlSwitch()
     if (!m_shuttingDown && m_vendor == 2 && !interactionLocked()) m_edl->requestSwitch(m_pAdb->AdbPath());
 }
 
-void AppController::FinishEdlSwitch(bool ok, const QString &message, bool cancelled)
+void AppController::FinishEdlSwitch(bool ok, const QString &message, bool cancelled, ModeSwitchFailure failure)
 {
     if (m_vendor != 2 || !m_bSwitching) return;
     const bool wasHandingOff = m_edlHandoff.has_value();
@@ -1222,7 +1239,7 @@ void AppController::FinishEdlSwitch(bool ok, const QString &message, bool cancel
     // must not replace the missing target with an unrelated EDL device.
     if (!ok && wasHandingOff) m_qualcommManualSelection = true;
     m_pAdb->service()->setPaused(false);
-    FinishModeSwitch(ok, message, cancelled);
+    FinishModeSwitch(ok, message, cancelled, failure);
     emit requestScan();
     refreshEdl();
 }
@@ -1244,7 +1261,7 @@ void AppController::UpdateModeSwitch(const QString &message)
 	AppendLog(message, false);
 }
 
-void AppController::FinishModeSwitch(bool ok, const QString &message, bool cancelled)
+void AppController::FinishModeSwitch(bool ok, const QString &message, bool cancelled, ModeSwitchFailure failure)
 {
     if (!m_bSwitching) return;
 	m_tasks->setProgress(ok ? 100 : 0, message);
@@ -1254,8 +1271,10 @@ void AppController::FinishModeSwitch(bool ok, const QString &message, bool cance
     m_drivers->refresh(true);
 	AppendLog(message, !ok);
 	emit toastRequested(message, !ok);
-    if (!ok && !cancelled && !m_shuttingDown)
-        emit switchRecoveryRequested();
+    if (!ok && !cancelled && !m_shuttingDown) {
+        if (failure == ModeSwitchFailure::DeviceAccess) emit switchAccessRequested(message);
+        else emit switchRecoveryRequested();
+    }
 }
 
 void AppController::switchToLoader()
@@ -1322,7 +1341,7 @@ void AppController::cancelAdbChoice()
 	m_pAdb->CancelSwitch();
 }
 
-void AppController::onAdbFinished(bool bOk, const QString &strMessage, bool cancelled)
+void AppController::onAdbFinished(bool bOk, const QString &strMessage, bool cancelled, ModeSwitchFailure failure)
 {
 	if (!m_bSwitching) return;
 	if (m_switchingFel) {
@@ -1331,7 +1350,7 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage, bool canc
 		m_felSwitchError = !bOk;
 		emit felSwitchStateChanged();
 	}
-	FinishModeSwitch(bOk, strMessage, cancelled);
+	FinishModeSwitch(bOk, strMessage, cancelled, failure);
 	emit requestScan();
 }
 

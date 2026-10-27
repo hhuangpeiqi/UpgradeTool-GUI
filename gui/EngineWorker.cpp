@@ -43,12 +43,12 @@ void EngineWorker::prepareFelSwitch(const FelSwitchRequest &request) {
         connect(m_felMonitor,&AllwinnerSwitchMonitor::ready,this,&EngineWorker::felMonitorReady);
         connect(m_felMonitor,&AllwinnerSwitchMonitor::trace,this,&EngineWorker::traceMessage);
         connect(m_felMonitor,&AllwinnerSwitchMonitor::completed,this,
-            [this,backend](quint64 id,bool ok,const QString &message,const core::DeviceRef &target) {
+            [this,backend](quint64 id,bool ok,const QString &message,const core::DeviceRef &target, ModeSwitchFailure failure) {
                 // The queued snapshot reaches the GUI before it unlocks the switch.
                 scanDevices();
                 if(ok && !backend->HasSession(target))
                     emit felMonitorFinished(id,false,tr("The target device disconnected after the FEL/FES handshake."),{});
-                else emit felMonitorFinished(id,ok,message,target);
+                else emit felMonitorFinished(id,ok,message,target,failure);
             });
     }
     if(m_felMonitor) { m_felMonitor->prepare(request); return; }

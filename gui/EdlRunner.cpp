@@ -213,7 +213,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
     m_cancel = cancel;
     setState(Checking);
     emit started(); setMessage(tr("Checking the selected device…"));
-    struct Result { bool ok = false; QString message; EdlEndpoint edl; };
+    struct Result { bool ok = false; QString message; EdlEndpoint edl; ModeSwitchFailure failure = ModeSwitchFailure::Generic; };
     auto result = std::make_shared<Result>();
     m_thread = QThread::create([=, this] {
         auto progress = [this](State state, const QString &text) {
@@ -240,6 +240,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         }
         if (!found) { result->message = tr("The selected switch endpoint is no longer available. Refresh and select it again."); return; }
         if (target.accessError) {
+            result->failure = ModeSwitchFailure::DeviceAccess;
             result->message = target.accessReason.isEmpty()
                 ? tr("Cannot access the selected interface; check its USB driver and close other device tools.")
                 : target.accessReason;
@@ -278,16 +279,29 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
             QVector<EdlEndpoint> matches;
             for (const auto &e : m_hooks.scan())
                 if (e.mode() == QTQ_EDL && sameLocation(target, e)) matches.append(e);
+            result->failure = ModeSwitchFailure::Generic;
             if (matches.size() > 1) {
                 result->message = tr("Multiple EDL interfaces appeared at the target location; refresh and select one explicitly."); return;
             }
+            // Keep waiting through driver installation/rebinding; only a current
+            // target may classify the final timeout as an access problem.
+            result->message.clear();
             if (matches.size() == 1) {
-                result->ok = true; result->edl = matches.first();
-                result->message = tr("Target device detected in 9008 mode."); return;
+                const auto &endpoint = matches.first();
+                if (!endpoint.accessError) {
+                    result->ok = true; result->edl = endpoint;
+                    result->message = tr("Target device detected in 9008 mode."); return;
+                }
+                result->failure = ModeSwitchFailure::DeviceAccess;
+                result->message = endpoint.accessReason.isEmpty()
+                    ? tr("Cannot access the selected interface; check its USB driver and close other device tools.")
+                    : endpoint.accessReason;
             }
             if (cancel->stop_requested()) return;
+            if (timer.elapsed() >= m_waitMs) break;
             QThread::msleep(100);
-        } while (timer.elapsed() < m_waitMs);
+        } while (true);
+        if (result->failure == ModeSwitchFailure::DeviceAccess) return;
         result->message = target.location.isEmpty() && target.ports.isEmpty()
             ? tr("Request sent, but the target USB location could not be identified; success cannot be confirmed.")
             : tr("The target device did not appear in 9008 mode before the timeout.");
@@ -300,7 +314,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         setState(cancel->stop_requested() ? Cancelled : result->ok ? Completed : Failed);
         emit targetsChanged();
         setMessage(result->message);
-        emit finished(result->ok, result->message, result->edl);
+        emit finished(result->ok, result->message, result->edl, result->failure);
     });
     m_thread->start();
 }

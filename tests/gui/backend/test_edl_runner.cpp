@@ -132,11 +132,56 @@ int main(int argc,char **argv) {
         missing=false; runner.refresh(""); CHECK(await([&]{return !runner.discovering();}));
         CHECK(runner.ready() && runner.canStart("usb:1-2","diag"));
         // The driver disappears after discovery but before the command starts.
+        auto failure = ModeSwitchFailure::Generic;
+        QObject::connect(&runner, &EdlRunner::finished, [&](bool, const QString &, const EdlEndpoint &, ModeSwitchFailure reason) {
+            failure = reason;
+        });
         missing=true; runner.start("usb:1-2",EdlRunner::Diag,"diag","");
         CHECK(await([&]{return !runner.running() && runner.stopped();}));
         CHECK(opens==0 && reboots==0 && runner.message()=="Driver missing");
+        CHECK(failure == ModeSwitchFailure::DeviceAccess);
         runner.refresh(""); CHECK(await([&]{return !runner.discovering();}));
         CHECK(!runner.ready());
+    }
+    for (int method : {EdlRunner::Diag, EdlRunner::Adb})
+    for (const QString scenario : {"missing", "incompatible", "delay", "disappeared", "wrong-port", "ambiguous-after-access"}) {
+        EdlEndpoint source;
+        source.id = "source"; source.location = "usb:1-2"; source.suggested = true;
+        source.vid = 0x05c6; source.pid = 0x9091;
+        if (method == EdlRunner::Adb) { source.kind = EdlEndpoint::Adb; source.serial = "board"; }
+        auto target = source;
+        target.kind = EdlEndpoint::Usb; target.vid = 0x05c6; target.pid = 0x9008; target.downloadInterface = true;
+        int scans = 0;
+        EdlHooks injected;
+        injected.discover = [source](const QString &, const EdlCancel &, QString &) { return QVector<EdlEndpoint>{source}; };
+        injected.openDiag = FakeDiagFactory([](const EdlEndpoint &, const QByteArray &request, const EdlCancel &, QString &, bool &sent) {
+            sent = true;
+            return request == QByteArray(1, 0) ? QByteArray(55, 0) : request;
+        });
+        injected.reboot = [](const QString &, const QString &, const EdlCancel &, QString &) { return true; };
+        injected.scan = [&] {
+            ++scans;
+            if (scenario == "disappeared" && scans > 1) return QVector<EdlEndpoint>{};
+            auto current = target;
+            if (scenario != "delay" || scans < 2) {
+                current.accessError = -12;
+                current.accessReason = "original interface diagnostic";
+            }
+            if (scenario == "wrong-port") current.location = "usb:1-3";
+            if (scenario == "ambiguous-after-access" && scans > 1) return QVector<EdlEndpoint>{current, current};
+            return QVector<EdlEndpoint>{current};
+        };
+        EdlRunner runner(injected, 150);
+        runner.setMethod(method);
+        bool done = false;
+        auto failure = ModeSwitchFailure::Generic;
+        QObject::connect(&runner, &EdlRunner::finished, [&](bool ok, const QString &, const EdlEndpoint &, ModeSwitchFailure reason) {
+            CHECK(ok == (scenario == "delay")); failure = reason; done = true;
+        });
+        runner.refresh("adb"); CHECK(await([&] { return !runner.discovering(); }));
+        runner.requestSwitch("adb"); CHECK(await([&] { return done; }));
+        CHECK((failure == ModeSwitchFailure::DeviceAccess) == (scenario == "missing" || scenario == "incompatible"));
+        if (failure == ModeSwitchFailure::DeviceAccess) CHECK(runner.message() == "original interface diagnostic");
     }
     for(int scenario=0;scenario<23;++scenario) {
         EdlEndpoint diag; diag.id="diag"; diag.label="DIAG"; diag.location="usb:1-2"; diag.suggested=true;

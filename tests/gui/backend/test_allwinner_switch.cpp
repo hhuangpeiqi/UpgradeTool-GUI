@@ -11,9 +11,10 @@ int main(int argc, char **argv) {
     for (const QString scenario :
          {"fel", "fes", "native-topology", "native-windows", "driver-delay", "reenumeration", "disappeared",
           "absent", "wrong-port", "ambiguous", "failed-handshake", "driver-missing", "unsupported", "cancel-during-handshake",
-          "cancel-before-ready"}) {
+          "cancel-before-ready", "driver-disappeared", "driver-wrong-port", "driver-incompatible"}) {
         int scans = 0, opens = 0, releases = 0, completed = 0, ready = 0;
         bool ok = false;
+        auto failure = gui::ModeSwitchFailure::Generic;
         QString message;
         core::DeviceRef result;
         core::DeviceIdentity target;
@@ -26,17 +27,18 @@ int main(int argc, char **argv) {
         hooks.scan = [&] {
             ++scans;
             if (scenario == "absent" || (scenario == "reenumeration" && scans == 2) ||
-                (scenario == "disappeared" && scans > 1))
+                ((scenario == "disappeared" || scenario == "driver-disappeared") && scans > 1))
                 return std::vector<core::DeviceDescriptor>{};
             auto identity = target;
-            if (scenario == "wrong-port")
+            if (scenario == "wrong-port" || scenario == "driver-wrong-port")
                 identity.ports = {2, 4};
             if (scenario == "reenumeration" && scans > 2)
                 identity.usbAddress = 8;
             if (scenario == "native-windows")
                 identity.physicalLocation = "pciroot(0)#pci(0801)#usbroot(0)#usb(2)#usb(3)";
             auto device = core::Describe(identity);
-            if (scenario == "driver-missing" || (scenario == "driver-delay" && scans < 3))
+            if (scenario == "driver-missing" || scenario == "driver-incompatible" || scenario == "driver-disappeared" ||
+                scenario == "driver-wrong-port" || (scenario == "driver-delay" && scans < 3))
                 device.accessError = 5;
             if (scenario == "ambiguous")
                 return std::vector<core::DeviceDescriptor>{device, device};
@@ -63,7 +65,8 @@ int main(int argc, char **argv) {
         gui::AllwinnerSwitchMonitor monitor(std::move(hooks));
         QObject::connect(
             &monitor, &gui::AllwinnerSwitchMonitor::completed,
-            [&](quint64 id, bool success, const QString &text, const core::DeviceRef &reference) {
+            [&](quint64 id, bool success, const QString &text, const core::DeviceRef &reference, gui::ModeSwitchFailure reason) {
+                failure = reason;
                 CHECK(id == 12);
                 ++completed;
                 ok = success;
@@ -98,6 +101,8 @@ int main(int argc, char **argv) {
                                   scenario == "reenumeration" || scenario.startsWith("native-");
             CHECK(ok == expected && !message.isEmpty());
             CHECK(bool(result) == expected);
+            CHECK((failure == gui::ModeSwitchFailure::DeviceAccess) ==
+                  (scenario == "driver-missing" || scenario == "driver-incompatible"));
             if (scenario == "wrong-port" || scenario == "absent" || scenario == "ambiguous")
                 CHECK(opens == 0);
             if (scenario == "driver-delay")

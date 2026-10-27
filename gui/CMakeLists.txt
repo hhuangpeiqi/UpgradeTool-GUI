@@ -33,6 +33,7 @@ add_library(upgrade_gui_backend STATIC
   AdbRunner.cpp
   AdbRunner.h
   AdbTiming.h
+  ModeSwitchFailure.h
   AdbExecutable.cpp
   AdbExecutable.h
   backend/DeviceModel.cpp
