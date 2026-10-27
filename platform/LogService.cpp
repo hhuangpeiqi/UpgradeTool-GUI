@@ -5,6 +5,21 @@
 #include <sstream>
 #include <vector>
 
+namespace core {
+namespace {
+// Keep ownership on the stack: MinGW can release emulated TLS storage before
+// running destructors for thread_local objects containing strings.
+thread_local LogContext *activeContext = nullptr;
+}
+const LogContext &ActiveLogContext() {
+    static const LogContext empty;
+    return activeContext ? *activeContext : empty;
+}
+ScopedLogContext::ScopedLogContext(LogContext context)
+    : current(std::move(context)), previous(std::exchange(activeContext, &current)) {}
+ScopedLogContext::~ScopedLogContext() { activeContext = previous; }
+}
+
 namespace platform {
 namespace {
 std::string Normalize(std::string text) {
@@ -35,10 +50,10 @@ uint64_t LogService::nextTaskId() {
     return ++next;
 }
 void LogService::write(core::LogEntry entry) {
-    if (entry.context.source.empty()) entry.context.source = core::activeLogContext.source.empty() ? "Application" : core::activeLogContext.source;
-    if (!entry.context.task) entry.context.task = core::activeLogContext.task;
-    if (!entry.context.step) entry.context.step = core::activeLogContext.step;
-    if (entry.context.device.empty()) entry.context.device = core::activeLogContext.device;
+    if (entry.context.source.empty()) entry.context.source = core::ActiveLogContext().source.empty() ? "Application" : core::ActiveLogContext().source;
+    if (!entry.context.task) entry.context.task = core::ActiveLogContext().task;
+    if (!entry.context.step) entry.context.step = core::ActiveLogContext().step;
+    if (entry.context.device.empty()) entry.context.device = core::ActiveLogContext().device;
     // Normalize after interpolation so argument newlines receive the same treatment.
     const auto text = Normalize(entry.message.English());
     if (text.find_first_not_of(" \n") == std::string::npos) return;

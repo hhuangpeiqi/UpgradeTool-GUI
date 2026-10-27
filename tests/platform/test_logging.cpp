@@ -21,9 +21,14 @@ static void TestBlocks() {
     log.setConsumer([&](const auto &entry) { captured = entry; ++visible; });
     {
         core::ScopedLogContext context({"Allwinner", 12, 2, "usb:1-5.3"});
+        {
+            core::ScopedLogContext nested({"Rockchip", 99, 4, "usb:2-1"});
+            CHECK(core::ActiveLogContext().task == 99);
+        }
+        CHECK(core::ActiveLogContext().task == 12);
         log.write(core::LogLevel::Warn, {}, {"Context", "Hello %1\r\n\tsecond\rthird\n\n", {"board"}});
     }
-    CHECK(core::activeLogContext.source.empty());
+    CHECK(core::ActiveLogContext().source.empty());
     CHECK(visible == 1 && captured.context.task == 12 && captured.context.step == 2);
     CHECK(captured.message.context == "Context");
     log.write(core::LogLevel::Debug, "ADB", {{}, "details", {}});
@@ -66,6 +71,11 @@ static void TestConcurrentBlocks() {
         if (marker == std::string::npos) break;
         const auto prefix = first.substr(0, marker + 2);
         const auto id = first.substr(marker + 2, first.size() - marker - 8);
+        const auto producer = std::stoi(id);
+        CHECK(prefix.find("[Worker] [session=") != std::string::npos);
+        CHECK(prefix.find(" task=" + std::to_string(producer + 1) +
+                          " step=" + std::to_string(producer + 1) +
+                          " device=usb:" + std::to_string(producer) + "] ") != std::string::npos);
         CHECK(second == prefix + "| " + id + " end");
         ++count;
     }

@@ -134,9 +134,9 @@ void EngineWorker::execute(const core::TaskJob &job)
     }
 #endif
     core::TaskService service(m_runtime->registry);
-    auto summary=service.Run(job,m_observer,[this,&job](size_t step,size_t target,const core::DeviceRef &device) {
-        core::activeLogContext.step = static_cast<int>(step + 1);
-        core::activeLogContext.device = device ? device.key() : std::string();
+    auto summary=service.Run(job,m_observer,[this,&job,&logContext](size_t step,size_t target,const core::DeviceRef &device) {
+        logContext.context().step = static_cast<int>(step + 1);
+        logContext.context().device = device ? device.key() : std::string();
         if (m_log && step < job.steps.size()) {
             const auto operation = job.steps[step].operation();
             const auto &request = job.steps[step];

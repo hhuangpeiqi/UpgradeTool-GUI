@@ -32,15 +32,17 @@ struct LogContext {
     int step = 0;
     std::string device;
 };
-inline thread_local LogContext activeLogContext;
+const LogContext &ActiveLogContext();
 class ScopedLogContext {
 public:
-    explicit ScopedLogContext(LogContext context) : previous(std::exchange(activeLogContext, std::move(context))) {}
-    ~ScopedLogContext() { activeLogContext = std::move(previous); }
+    explicit ScopedLogContext(LogContext context);
+    ~ScopedLogContext();
+    LogContext &context() { return current; }
     ScopedLogContext(const ScopedLogContext &) = delete;
     ScopedLogContext &operator=(const ScopedLogContext &) = delete;
 private:
-    LogContext previous;
+    LogContext current;
+    LogContext *previous;
 };
 struct LogEntry {
     std::chrono::system_clock::time_point time = std::chrono::system_clock::now();

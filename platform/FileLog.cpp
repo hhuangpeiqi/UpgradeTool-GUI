@@ -22,11 +22,21 @@ void FileLog::write(const core::LogEntry &entry, const std::string &session) {
     const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(entry.time.time_since_epoch()).count();
     std::ostringstream prefix;
     prefix << std::put_time(&local, "%Y-%m-%dT%H:%M:%S") << '.' << std::setw(3) << std::setfill('0') << (millis % 1000);
+#ifdef _WIN32
+    // The Windows CRT does not reliably format %z as a numeric UTC offset.
+    auto wallClock = local;
+    const auto minutes = static_cast<int>(std::difftime(_mkgmtime(&wallClock), now) / 60);
+    const auto magnitude = minutes < 0 ? -minutes : minutes;
+    prefix << (minutes < 0 ? '-' : '+') << std::setw(2) << magnitude / 60
+           << ':' << std::setw(2) << magnitude % 60;
+#else
     char zone[16]{};
     std::strftime(zone, sizeof(zone), "%z", &local);
     std::string offset(zone);
     if (offset.size() == 5) offset.insert(3, ":");
-    prefix << offset << " [" << core::LogLevelName(entry.level) << "] [" << entry.context.source
+    prefix << offset;
+#endif
+    prefix << " [" << core::LogLevelName(entry.level) << "] [" << entry.context.source
            << "] [session=" << session;
     if (entry.context.task) prefix << " task=" << entry.context.task;
     if (entry.context.step) prefix << " step=" << entry.context.step;

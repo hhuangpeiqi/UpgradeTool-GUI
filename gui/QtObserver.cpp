@@ -118,11 +118,11 @@ void QtObserver::OnResult(const core::OperationResult &result)
     const auto text = QString::fromStdString(diagnostic.English()).trimmed().toStdString();
     const bool alreadyLogged = std::any_of(m_loggedErrors.begin(), m_loggedErrors.end(), [&](const auto &error) {
         // Rockchip's diagnostic is a captured transcript, not a new error event.
-        return text == error || (core::activeLogContext.source == "Rockchip" && !error.empty() && text.find(error) != std::string::npos);
+        return text == error || (core::ActiveLogContext().source == "Rockchip" && !error.empty() && text.find(error) != std::string::npos);
     });
     if (result.status == core::OperationStatus::Failed && !alreadyLogged && !text.empty())
         OnMessage(core::LogLevel::Error, diagnostic);
-    m_log.writef(core::LogLevel::Debug, core::activeLogContext.source.c_str(),
+    m_log.writef(core::LogLevel::Debug, core::ActiveLogContext().source.c_str(),
         "Result: operation=%d status=%d error=%d", int(result.operation), int(result.status), int(result.error));
     m_log.write(result.status == core::OperationStatus::Failed ? core::LogLevel::Error : core::LogLevel::Info,
                  {}, {"gui::AppController", result.status == core::OperationStatus::Cancelled ? "Cancelled" :
