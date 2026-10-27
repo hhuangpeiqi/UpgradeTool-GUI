@@ -11,6 +11,8 @@ foreach(name test_shared_services test_adb_executable test_adb_runner test_adb_r
 endforeach()
 set_tests_properties(test_adb_recovery PROPERTIES TIMEOUT 60)
 set_property(TEST test_edl_runner test_qualcomm_controller APPEND PROPERTY LABELS qualcomm)
+upgrade_test(test_edl_handoff LIBRARIES upgrade_gui_backend TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui controller qualcomm)
 upgrade_test(test_gui_backend
   SOURCES test_gui_backend.cpp test_gui_devices.cpp test_gui_tasks.cpp test_gui_allwinner.cpp test_gui_language.cpp
   # This combined suite creates many controllers; Windows startup and teardown

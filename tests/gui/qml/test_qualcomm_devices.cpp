@@ -41,6 +41,35 @@ bool QualcommUiTests::TestDevices() {
         CHECK(!download->isEnabled());
         update({});
     }
+    {
+        auto update = [&](const QVariantList &devices) {
+            CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,
+                Q_ARG(QVariantList, SnapshotDevices(devices))));
+        };
+        auto *combo = window->findChild<QObject *>("deviceCombo"); CHECK(combo);
+        controller.language()->setMode("en");
+        QVariantMap com{{"vendor", 2}, {"index", 2}, {"key", "handoff-com"}, {"vid", 0x05c6}, {"pid", 0x9008},
+            {"qualcommMode", QTQ_EDL}, {"transport", 2}, {"devicePath", "\\\\.\\COM8"},
+            {"deviceInstance", "ready-instance"}, {"physicalLocation", "PCIROOT(0)#USB(2)"}};
+        update({com}); controller.setDeviceIndex(-1);
+        CHECK(AwaitUi([&] { return combo->property("displayText").toString() == "Select a device"; }));
+        CHECK(!download->isEnabled());
+        gui::EdlEndpoint target; target.vid = 0x05c6; target.pid = 0x9008;
+        target.downloadInterface = true; target.location = "PCIROOT(0)#USB(2)";
+        target.instance = "temporary-instance";
+        controller.edl()->started(); controller.edl()->finished(true, "9008 detected", target);
+        CHECK(controller.switching() && !download->isEnabled());
+        CHECK(AwaitUi([&] { return combo->property("displayText").toString().startsWith("Waiting for the download device"); }));
+        controller.language()->setMode("zh");
+        CHECK(AwaitUi([&] { return combo->property("displayText").toString() == QStringLiteral("等待下载设备就绪…"); }));
+        update({com});
+        CHECK(AwaitUi([&] { return !controller.switching() && download->isEnabled(); }));
+        CHECK(combo->property("currentIndex").toInt() == 0);
+        CHECK(combo->property("displayText").toString().startsWith("#2"));
+        controller.language()->setMode("en");
+        update({});
+        CHECK(AwaitUi([&] { return combo->property("displayText").toString() == "No selectable device"; }));
+    }
     loadXml = window->findChild<QObject *>("qcLoadXml");
     programPicker = window->findChild<QObject *>("qcProgramPicker");
     patchPicker = window->findChild<QObject *>("qcPatchPicker");
@@ -217,5 +246,6 @@ bool QualcommUiTests::TestDevices() {
     window->setProperty("currentPage", 1);
     window->setWidth(1300); window->setHeight(780);
     showEdl = true; endpointMask = 0; refreshSwitch();
+    CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection, Q_ARG(QVariantList, QVariantList{})));
     return true;
 }

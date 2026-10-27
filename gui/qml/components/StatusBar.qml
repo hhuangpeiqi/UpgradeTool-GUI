@@ -9,6 +9,7 @@ EdgeRoundedRect {
     property string statusText: ""
     property var deviceLabels: []
     property int deviceIndex: -1
+    property bool deviceSwitching: false
     property int progressValue: 0
     property string progressText: ""
     property string progressStage: ""
@@ -125,7 +126,9 @@ EdgeRoundedRect {
             Layout.minimumWidth: 240
             model: root.deviceLabels
             currentIndex: root.deviceLabels.length > 0 ? root.deviceIndex : -1
-            displayText: count > 0 ? currentText : qsTr("No selectable device")
+            displayText: root.deviceSwitching ? qsTr("Waiting for the download device to become ready…")
+                : currentIndex >= 0 && currentText !== "" ? currentText
+                : count > 0 ? qsTr("Select a device") : qsTr("No selectable device")
             enabled: root.deviceLabels.length > 0 && !root.controlsLocked
             onActivated: (index) => root.deviceActivated(index)
             ToolTip.visible: hovered && currentIndex >= 0

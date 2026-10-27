@@ -80,6 +80,7 @@ inline DeviceDescriptor Describe(const DeviceIdentity &identity) {
     DeviceDescriptor d; d.reference=identity;
     d.vid=identity.vid; d.pid=identity.pid; d.serial=identity.serial;
     d.location=identity.location; d.devicePath=identity.devicePath; d.deviceInstance=identity.deviceInstance;
+    d.physicalLocation=identity.physicalLocation;
     d.transport=static_cast<int>(identity.transport); d.bus=identity.bus; d.ports=identity.ports;
     d.usbAddress=identity.usbAddress; d.interfaceNumber=identity.interfaceNumber; d.alternate=identity.alternate;
     d.inEndpoint=identity.inEndpoint; d.outEndpoint=identity.outEndpoint;

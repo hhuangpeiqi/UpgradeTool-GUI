@@ -37,7 +37,7 @@ int main(int argc,char **argv) {
         diag.id = "diag:board"; diag.label = "Board diagnostic interface";
         diag.location = "usb:1-2"; diag.vid = 0x05c6; diag.pid = 0x9091; diag.suggested = true;
         auto adb = diag; adb.kind = gui::EdlEndpoint::Adb; adb.id = "adb:board"; adb.serial = "board";
-        auto edl = diag; edl.downloadInterface = true; edl.vid=0x05c6; edl.pid = 0x9008;
+        auto edl = diag; edl.downloadInterface = true; edl.vid=0x05c6; edl.pid = 0x9008; edl.bus = 1; edl.ports = {2}; edl.address = 9; edl.interfaceNumber = 0;
         gui::EdlHooks hooks;
         hooks.discover = [&](const QString &, const gui::EdlCancel &, QString &) {
             QVector<gui::EdlEndpoint> endpoints;
@@ -72,6 +72,13 @@ int main(int argc,char **argv) {
         // Keep periodic and vendor-triggered hardware scans from replacing the
         // device snapshots injected by these UI tests.
         CHECK(QObject::disconnect(&controller, SIGNAL(requestScan()), nullptr, nullptr));
+        QObject::connect(&controller, &gui::AppController::requestScan, &controller, [&] {
+            if (!controller.switching() || controller.edl()->running() || !showEdl.load() || !requestSent.load()) return;
+            const auto snapshot = SnapshotDevices({QVariantMap{{"vendor", 2}, {"index", 2}, {"key", "switched-edl"},
+                {"vid", 0x05c6}, {"pid", 0x9008}, {"qualcommMode", QTQ_EDL}, {"transport", 0},
+                {"bus", 1}, {"ports", QVariantList{2}}, {"usbAddress", 9}, {"interfaceNumber", 0}}});
+            QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::QueuedConnection, Q_ARG(QVariantList, snapshot));
+        });
         CHECK(AwaitUi([&]{return !controller.tasks()->busy();})); controller.setVendor(2); controller.ignorePermission();
         auto *qc=controller.qualcomm();
         controller.language()->setMode("zh");

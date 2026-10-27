@@ -3,6 +3,7 @@
 
 #include <QElapsedTimer>
 #include <map>
+#include <optional>
 #include "gui/backend/QualcommController.h"
 #include "gui/backend/AllwinnerController.h"
 #include "gui/backend/RockchipController.h"
@@ -204,7 +205,9 @@ private:
     void TryDriverInstall();
     DriverController *m_drivers = nullptr;
     EdlRunner *m_edl = nullptr;
-    EdlEndpoint m_pendingEdl;
+    std::optional<EdlEndpoint> m_edlHandoff;
+    QTimer *m_edlHandoffTimer = nullptr;
+    void FinishEdlSwitch(bool ok, const QString &message, bool cancelled = false);
     int m_vendor = 0;
     QualcommController *m_qualcomm;
     platform::FileLog *m_diskLog = nullptr;

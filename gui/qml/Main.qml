@@ -195,6 +195,7 @@ ApplicationWindow {
                 hasInterface: app.connectionState === "interface" || app.connectionState === "adb-unavailable"
                 deviceLabels: app.deviceLabels
                 deviceIndex: app.deviceIndex
+                deviceSwitching: app.vendor === 2 && app.switching
                 progressValue: app.shuttingDown ? -1 : app.tasks.progressValue
                 progressText: app.tasks.progressText
                 progressStage: app.tasks.progressStage

@@ -1,4 +1,5 @@
 #include "gui/InspectionQueue.h"
+#include "gui/EdlDeviceSelection.h"
 #include "gui/backend/AppController.h"
 #include "gui/MessageDisplay.h"
 #include "application/BuildFeatures.h"
@@ -17,6 +18,7 @@
 #include <QVariantMap>
 
 #include <cstring>
+#include <algorithm>
 #include <utility>
 
 #ifdef Q_OS_LINUX
@@ -52,16 +54,6 @@ bool QualcommSimulation(const core::TaskJob &job)
     return core::IsSimulation(r);
 }
 
-
-// The QUD backend reports the kernel handle ("\\.\COM5") while the pre-switch
-// native enumeration reports the bare name ("COM5"). Compare the device itself,
-// not its escaping, when matching the device that just entered 9008 mode.
-QString DevicePathKey(const QString &path)
-{
-    QString key = path.trimmed();
-    if (key.startsWith(QStringLiteral("\\\\.\\"))) key.remove(0, 4);
-    return key.toUpper();
-}
 
 QString PromptText(int prompt, bool &failed)
 {
@@ -196,10 +188,19 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         refreshEdl();
     });
     m_edl = new EdlRunner(edlHooks.discover ? std::move(edlHooks) : DefaultEdlHooks(m_pAdb->service()), edlWaitMs, this);
+    m_edlHandoffTimer = new QTimer(this);
+    m_edlHandoffTimer->setSingleShot(true);
+    m_edlHandoffTimer->setInterval(std::clamp(edlWaitMs, 1, 15000));
+    connect(m_edlHandoffTimer, &QTimer::timeout, this, [this] {
+        if (m_edlHandoff)
+            FinishEdlSwitch(false, tr("Device entered 9008 mode, but its download interface is not ready. Check the USB driver and refresh."));
+    });
     connect(m_edl, &EdlRunner::errorOccurred, this, [this](const QString &message) {
         AppendLog(message, true); emit toastRequested(message, true);
     });
     connect(m_edl, &EdlRunner::started, this, [this] {
+        if (m_shuttingDown || m_bSwitching) return;
+        m_edlHandoff.reset();
         m_pAdb->service()->setPaused(true);
         BeginModeSwitch(tr("Switching…"));
     });
@@ -209,11 +210,18 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         }
     });
     connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint) {
-        if (m_shuttingDown) return;
-        m_pAdb->service()->setPaused(false);
-        m_pendingEdl = ok ? endpoint : EdlEndpoint();
-        FinishModeSwitch(ok, message, m_edl->state() == EdlRunner::Cancelled);
-        emit requestScan(); refreshEdl();
+        if (m_shuttingDown || m_vendor != 2 || !m_bSwitching || m_edlHandoff) return;
+        if (!ok) {
+            FinishEdlSwitch(false, message, m_edl->state() == EdlRunner::Cancelled);
+            return;
+        }
+        m_edlHandoff = endpoint;
+        m_edlHandoffTimer->start();
+        UpdateModeSwitch(tr("Waiting for the download device to become ready…"));
+        // Ignore pre-switch snapshots. Only a fresh backend scan can bind the
+        // download target and complete the user-visible switch.
+        onDevicesReady({});
+        emit requestScan();
     });
     connect(m_qualcomm, &QualcommController::executeRequested, this, [this](const core::OperationRequest &request) {
         if(m_vendor != 2 || interactionLocked()) return;
@@ -312,6 +320,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 AppController::~AppController()
 {
     m_shuttingDown = true;
+    m_edlHandoffTimer->stop();
 	m_drivers->shutdown();
 	m_scanTimer->stop();
 	m_pAdb->Stop();
@@ -383,6 +392,8 @@ void AppController::confirmQuit(bool confirmed)
 void AppController::BeginShutdown()
 {
 	m_shuttingDown = true;
+    m_edlHandoff.reset();
+    m_edlHandoffTimer->stop();
 	emit shuttingDownChanged();
     UpdateInteractionLock();
 	if (m_diskLog) m_diskLog->Record("Stopping polling and cancelling outstanding work");
@@ -759,7 +770,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
     m_deviceModel->setSnapshot(incoming);
     // Keep the active target stable while an operation or driver task runs.
     // UpdateInteractionLock replays the latest snapshot when it finishes.
-    if (m_vendor == 2 && interactionLocked()) return;
+    if (m_vendor == 2 && interactionLocked() && !m_edlHandoff) return;
     QVariantList devices;
     for (const auto &entry : incoming) {
         const auto row = entry.toMap();
@@ -772,34 +783,8 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 #endif
         devices.append(entry);
     }
-    QString edlKey;
-    if (m_vendor == 2 && m_pendingEdl.mode() == QTQ_EDL) {
-        QStringList matches;
-        const auto &expected=m_pendingEdl;
-        for (const auto &entry : devices) {
-            const auto d=entry.toMap();
-            if(d.value("vendor").toInt()!=2 || d.value("qualcommMode").toInt()!=QTQ_EDL ||
-                d.value("vid").toUInt()!=expected.vid || d.value("pid").toUInt()!=expected.pid) continue;
-            QVector<int> ports; for(const auto &p:d.value("ports").toList()) ports.append(p.toInt());
-            if(d.value("transport",-1).toInt()==int(core::QualcommTransport::Qud) && !expected.path.isEmpty()) {
-                if(DevicePathKey(d.value("devicePath").toString())!=DevicePathKey(expected.path)) continue;
-                if(!expected.instance.isEmpty()) {
-                    if(d.value("deviceInstance").toString()!=expected.instance) continue;
-                } else if(expected.serial.isEmpty() || d.value("serial").toString().compare(expected.serial, Qt::CaseInsensitive)!=0) continue;
-            } else {
-                if(expected.ports.isEmpty() || d.value("bus").toInt()!=expected.bus || ports!=expected.ports) continue;
-                if(d.value("usbAddress").toUInt()!=expected.address ||
-                    d.value("interfaceNumber",-1).toInt()!=expected.interfaceNumber ||
-                    d.value("alternate").toInt()!=expected.alternate) continue;
-                if(!expected.serial.isEmpty() && d.value("serial").toString().compare(expected.serial, Qt::CaseInsensitive)!=0) continue;
-            }
-            matches.append(d.value("key").toString());
-        }
-        if(matches.size()==1) edlKey=matches.first();
-        // Keep an ambiguous or not-yet-accessible target pending; ordinary
-        // automatic selection must not substitute a different device.
-        if (!edlKey.isEmpty()) m_pendingEdl={};
-    }
+    const bool handingOff = m_vendor == 2 && m_edlHandoff.has_value();
+    const int edlIndex = handingOff ? SelectEdlDevice(*m_edlHandoff, devices) : -1;
 
 	QString strPrevious = m_vendorSelection[m_vendor];
 	if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceModel->keys().size())
@@ -812,8 +797,8 @@ void AppController::onDevicesReady(const QVariantList &incoming)
     const bool rowsChanged = devices != m_deviceModel->rows();
     m_deviceModel->setRows(devices);
 
-	int iSelected = m_deviceModel->keys().indexOf(edlKey.isEmpty() ? strPrevious : edlKey);
-	if (!devices.isEmpty() && edlKey.isEmpty() && (m_vendor != 2 || m_pendingEdl.mode() != QTQ_EDL)) {
+	int iSelected = handingOff ? edlIndex : m_deviceModel->keys().indexOf(strPrevious);
+	if (!devices.isEmpty() && !handingOff) {
 #ifdef Q_OS_WIN
         if (m_vendor == 2) {
             const bool canChoose = !m_bBatchMode && !m_qualcommManualSelection &&
@@ -850,7 +835,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
         m_vendorSelection[m_vendor] = m_deviceModel->keys().value(iSelected);
         if(m_vendor==1) m_pendingFelKey.clear();
     }
-    if (!rowsChanged && iSelected == m_iDeviceIndex) return;
+    if (!rowsChanged && iSelected == m_iDeviceIndex && !handingOff) return;
 
 	if (iSelected != m_iDeviceIndex) {
 		m_iDeviceIndex = iSelected;
@@ -871,6 +856,17 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 	}
 
 	SetDeviceStatus();
+    if (handingOff && iSelected >= 0) {
+        // A mode switch is a single-target action, even if batch selection was
+        // previously active. Eligibility must describe the adopted device.
+        if (m_bBatchMode) {
+            m_bBatchMode = false;
+            m_batchKeys.clear();
+            emit batchModeChanged();
+            SetDeviceStatus();
+        }
+        FinishEdlSwitch(true, tr("Download device ready."));
+    }
 }
 
 bool AppController::PermissionMissing() const
@@ -891,7 +887,6 @@ void AppController::setDeviceIndex(int iIndex)
 		return;
     if (m_vendor == 2) {
         m_qualcommManualSelection = true;
-        m_pendingEdl = {};
     }
 	if (iIndex == m_iDeviceIndex && !m_bBatchMode)
 		return;
@@ -901,7 +896,6 @@ void AppController::setDeviceIndex(int iIndex)
 		m_batchKeys.clear();
 		emit batchModeChanged();
 	}
-	m_pendingEdl = {};
     m_pendingFelKey.clear();
 	m_iDeviceIndex = iIndex;
     m_vendorSelection[m_vendor] = iIndex >= 0 ? m_deviceModel->keys().value(iIndex) : QString();
@@ -912,6 +906,10 @@ void AppController::setDeviceIndex(int iIndex)
 
 void AppController::refresh()
 {
+    if (m_edlHandoff && !m_shuttingDown) {
+        emit requestScan();
+        return;
+    }
 	if (interactionLocked()) return;
     m_drivers->poll();
 	emit requestScan();
@@ -939,6 +937,10 @@ void AppController::cancel()
 	if (!m_tasks->busy())
 		return;
 	if (m_bSwitching) {
+        if (m_edlHandoff) {
+            FinishEdlSwitch(false, tr("Switch cancelled. A reboot request already sent may not be reversible."), true);
+            return;
+        }
         if (m_edl->running()) { m_edl->cancel(); return; }
 		m_pAdb->CancelSwitch();
 		return;
@@ -1208,6 +1210,21 @@ void AppController::switchToEdl(const QString &target, int method, const QString
 void AppController::requestEdlSwitch()
 {
     if (!m_shuttingDown && m_vendor == 2 && !interactionLocked()) m_edl->requestSwitch(m_pAdb->AdbPath());
+}
+
+void AppController::FinishEdlSwitch(bool ok, const QString &message, bool cancelled)
+{
+    if (m_vendor != 2 || !m_bSwitching) return;
+    const bool wasHandingOff = m_edlHandoff.has_value();
+    m_edlHandoff.reset();
+    m_edlHandoffTimer->stop();
+    // Failed handoffs require an explicit selection; normal automatic selection
+    // must not replace the missing target with an unrelated EDL device.
+    if (!ok && wasHandingOff) m_qualcommManualSelection = true;
+    m_pAdb->service()->setPaused(false);
+    FinishModeSwitch(ok, message, cancelled);
+    emit requestScan();
+    refreshEdl();
 }
 
 void AppController::BeginModeSwitch(const QString &message)

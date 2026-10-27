@@ -389,23 +389,23 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
         expected.bus=1; expected.ports={2}; expected.address=9; expected.interfaceNumber=0;
         // A Linux serial alias must match the USB interface through topology.
         expected.path="/dev/ttyUSB0";
-        update({diag}); controller.edl()->finished(true,"detected",expected);
-        auto stale=edl; stale["usbAddress"]=8; update({diag,stale}); CHECK(controller.deviceIndex()==0);
+        update({diag}); controller.edl()->started(); controller.edl()->finished(true,"detected",expected);
+        auto stale=edl; stale["usbAddress"]=8; update({diag,stale}); CHECK(controller.deviceIndex()==-1);
         update({diag,edl}); CHECK(controller.deviceIndex()==1);
         controller.setDeviceIndex(0);
         // An ambiguous follow-up scan must not select the first candidate.
-        controller.edl()->finished(true,"detected",expected);
+        controller.edl()->started(); controller.edl()->finished(true,"detected",expected);
         auto duplicate=edl; duplicate["key"]="duplicate";
-        update({diag,edl,duplicate}); CHECK(controller.deviceIndex()==0);
-        update({diag,edl,duplicate}); CHECK(controller.deviceIndex()==0);
+        update({diag,edl,duplicate}); CHECK(controller.deviceIndex()==-1);
+        update({diag,edl,duplicate}); CHECK(controller.deviceIndex()==-1);
         update({diag,edl}); CHECK(controller.deviceIndex()==1);
         controller.setDeviceIndex(0);
         expected.path="COM8"; expected.instance="USB-instance";
         expected.ports.clear(); expected.address=0; expected.interfaceNumber=-1;
         edl["transport"]=2; edl["devicePath"]="\\\\.\\COM8"; edl["deviceInstance"]="USB-instance";
-        update({diag}); controller.edl()->finished(true,"detected",expected);
+        update({diag}); controller.edl()->started(); controller.edl()->finished(true,"detected",expected);
         auto recycled=edl; recycled["deviceInstance"]="replacement";
-        update({diag,recycled}); CHECK(controller.deviceIndex()==0);
+        update({diag,recycled}); CHECK(controller.deviceIndex()==-1);
         update({diag,edl}); CHECK(controller.deviceIndex()==1);
     }
 
@@ -487,7 +487,7 @@ int TestQualcommDevices([[maybe_unused]] QGuiApplication &application) {
             } else {
                 gui::EdlEndpoint expected; expected.vid=0x05c6; expected.pid=0x9008;
                 expected.downloadInterface=true; expected.path="COM8"; expected.instance="instance-COM8";
-                controller.edl()->finished(true,"detected",expected);
+                controller.edl()->started(); controller.edl()->finished(true,"detected",expected);
                 auto denied = com; denied["accessError"]=LIBUSB_ERROR_NOT_SUPPORTED;
                 update({denied, other}); CHECK(controller.deviceIndex() == -1);
                 update({other}); CHECK(controller.deviceIndex() == -1);

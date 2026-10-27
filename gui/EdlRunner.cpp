@@ -295,7 +295,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
     });
     connect(m_thread, &QThread::finished, this, [=, this] {
         m_thread->deleteLater(); m_thread = nullptr;
-        if (cancel->stop_requested()) { result->ok = false; result->message = tr("Switch cancelled. A reboot already sent cannot be undone."); }
+        if (cancel->stop_requested()) { result->ok = false; result->message = tr("Switch cancelled. A reboot request already sent may not be reversible."); }
         m_endpoints.clear(); m_targets.clear(); m_discovered = false;
         setState(cancel->stop_requested() ? Cancelled : result->ok ? Completed : Failed);
         emit targetsChanged();

@@ -6,7 +6,7 @@ namespace core {
 enum class DeviceMode { Unknown, Diag, Adb, Download, CrashDump };
 struct DeviceDescriptor {
     DeviceRef reference;
-    std::string serial,devicePath,deviceInstance;
+    std::string serial,devicePath,deviceInstance,physicalLocation;
     uint32_t location=0;
     int transport=-1, interfaceNumber=-1,alternate=0,inEndpoint=0,outEndpoint=0;
     unsigned usbAddress=0;

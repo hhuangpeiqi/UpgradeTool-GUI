@@ -4,6 +4,9 @@
 #include "backends/qualcomm/OperationPolicy.h"
 #include "backends/qualcomm/QudError.h"
 #include "qdl_bridge.h"
+#include "platform/WindowsUsb.h"
+#include "platform/UsbLocation.h"
+#include "platform/File.h"
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -11,6 +14,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
+#include <map>
 
 namespace core { namespace qualcomm {
 namespace {
@@ -61,10 +65,31 @@ std::vector<DeviceDescriptor> QualcommBackend::Scan() {
     std::lock_guard<std::mutex> lock(qdlMutex);
     qtq_device *rows = nullptr; size_t count = 0;
     if (qtq_scan(&rows, &count) < 0) throw std::runtime_error("Qualcomm enumeration failed");
+#ifdef _WIN32
+    // Correlate transport snapshots with the native location without opening a
+    // protocol session. The location survives a driver/COM binding change.
+    std::map<std::string, std::string> locations;
+    HDEVINFO set = SetupDiGetClassDevsW(nullptr, L"USB", nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT);
+    if (set != INVALID_HANDLE_VALUE) {
+        SP_DEVINFO_DATA info{}; info.cbSize = sizeof(info);
+        for (DWORD i = 0; SetupDiEnumDeviceInfo(set, i, &info); ++i) {
+            const auto paths = platform::WindowsUsbProperty(set, info, SPDRP_LOCATION_PATHS);
+            if (paths.empty()) continue;
+            const auto instance = platform::Utf8(std::filesystem::path(platform::WindowsUsbInstance(set, info)));
+            locations[platform::FoldCase(instance)] = platform::NormalizeUsbLocation(
+                platform::Utf8(std::filesystem::path(paths.front())));
+        }
+        SetupDiDestroyDeviceInfoList(set);
+    }
+#endif
     std::vector<DeviceDescriptor> devices;
     for (size_t i = 0; i < count; ++i) {
         DeviceIdentity identity;
         identity.deviceInstance = rows[i].instance;
+#ifdef _WIN32
+        const auto location = locations.find(platform::FoldCase(identity.deviceInstance));
+        if (location != locations.end()) identity.physicalLocation = location->second;
+#endif
         identity.vendor = Vendor::Qualcomm; identity.serial = rows[i].serial;
         identity.bus = rows[i].bus; identity.devicePath = rows[i].path;
         identity.transport = static_cast<QualcommTransport>(rows[i].backend);

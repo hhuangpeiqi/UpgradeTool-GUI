@@ -1,6 +1,7 @@
 #include "gui/AdbRunner.h"
 #include "gui/backend/AppController.h"
 #include "tests/support/Checks.h"
+#include "tests/support/qt/TestDevices.h"
 #include "tests/support/qt/Await.h"
 #include <QGuiApplication>
 #include <QSettings>
@@ -36,6 +37,7 @@ int main(int argc, char **argv) {
         auto target = source;
         target.id = "edl"; target.kind = gui::EdlEndpoint::Usb;
         target.vid = 0x05c6; target.pid = 0x9008; target.downloadInterface = true;
+        target.bus = 1; target.ports = {2}; target.address = 9; target.interfaceNumber = 0;
         gui::EdlHooks hooks;
         hooks.discover = [source](const QString &, const gui::EdlCancel &, QString &) {
             return QVector<gui::EdlEndpoint>{source};
@@ -53,6 +55,13 @@ int main(int argc, char **argv) {
         };
         gui::AppController controller(nullptr, std::move(hooks), 15, nullptr, gui::DriverHooks{}, false);
         controller.ignorePermission();
+        QObject::connect(&controller, &gui::AppController::requestScan, &controller, [&] {
+            if (scenario != Success || !controller.switching() || controller.edl()->running()) return;
+            const auto snapshot = SnapshotDevices({QVariantMap{{"vendor", 2}, {"key", "edl"},
+                {"vid", 0x05c6}, {"pid", 0x9008}, {"qualcommMode", QTQ_EDL}, {"transport", 0}, {"serial", "board"},
+                {"bus", 1}, {"ports", QVariantList{2}}, {"usbAddress", 9}, {"interfaceNumber", 0}}});
+            QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::QueuedConnection, Q_ARG(QVariantList, snapshot));
+        });
         CHECK(Await([&] { return controller.adbReady(); }));
         auto *adb = controller.findChild<gui::AdbRunner *>();
         CHECK(adb);
@@ -114,7 +123,7 @@ int main(int argc, char **argv) {
                 controller.confirmQuit(true);
                 CHECK(controller.shuttingDown());
             }
-            CHECK(Await([&] { return !controller.edl()->running(); }));
+            CHECK(Await([&] { return !controller.edl()->running() && (value == Shutdown || !controller.switching()); }));
             CHECK(recoveries == before + (value == CommandFailure || value == Timeout ? 1 : 0));
             if (value != Shutdown) {
                 CHECK(!controller.switching() && !controller.tasks()->busy());

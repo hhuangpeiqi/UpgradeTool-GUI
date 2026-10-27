@@ -3089,6 +3089,14 @@
         <source>Cancelling tasks and closing…</source>
         <translation>正在取消任务并关闭…</translation>
     </message>
+    <message>
+        <source>Waiting for the download device to become ready…</source>
+        <translation>等待下载设备就绪…</translation>
+    </message>
+    <message>
+        <source>Select a device</source>
+        <translation>请选择设备</translation>
+    </message>
 </context>
 <context>
     <name>StorageSelectDialog</name>
@@ -3866,6 +3874,22 @@
         <source>USB driver or permissions are not ready (%1).</source>
         <translation>USB 驱动或访问权限尚未就绪（%1）。</translation>
     </message>
+    <message>
+        <source>Waiting for the download device to become ready…</source>
+        <translation>等待下载设备就绪…</translation>
+    </message>
+    <message>
+        <source>Download device ready.</source>
+        <translation>下载设备已就绪。</translation>
+    </message>
+    <message>
+        <source>Device entered 9008 mode, but its download interface is not ready. Check the USB driver and refresh.</source>
+        <translation>设备已进入 9008 模式，但下载接口尚未就绪。请检查 USB 驱动并刷新。</translation>
+    </message>
+    <message>
+        <source>Switch cancelled. A reboot request already sent may not be reversible.</source>
+        <translation>切换已取消。已发送的重启请求可能无法撤销。</translation>
+    </message>
 </context>
 <context>
     <name>gui::ConfigStore</name>
@@ -4280,8 +4304,8 @@
     </message>
     <message>
         <location line="+36"/>
-        <source>Switch cancelled. A reboot already sent cannot be undone.</source>
-        <translation>已取消等待切换。已经发送的重启请求无法撤销。</translation>
+        <source>Switch cancelled. A reboot request already sent may not be reversible.</source>
+        <translation>切换已取消。已发送的重启请求可能无法撤销。</translation>
     </message>
     <message>
         <location line="-12"/>

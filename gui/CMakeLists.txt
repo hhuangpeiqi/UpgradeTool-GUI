@@ -26,6 +26,7 @@ add_library(upgrade_gui_backend STATIC
   EngineWorker.h
   EdlRunner.cpp
   EdlRunner.h
+  EdlDeviceSelection.h
   EdlTransport.cpp
   AdbService.cpp
   AdbService.h

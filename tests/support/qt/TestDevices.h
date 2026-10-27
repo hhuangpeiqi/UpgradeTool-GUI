@@ -13,6 +13,7 @@ inline QVariantList SnapshotDevices(QVariantList rows) {
             identity.vid=map.value("vid").toUInt(); identity.pid=map.value("pid").toUInt();
             identity.location=map.value("locationId").toUInt(); identity.serial=map.value("serial").toString().toStdString();
             identity.devicePath=map.value("devicePath").toString().toStdString(); identity.deviceInstance=map.value("deviceInstance").toString().toStdString();
+            identity.physicalLocation=map.value("physicalLocation").toString().toStdString();
             identity.transport=static_cast<core::QualcommTransport>(map.value("transport",-1).toInt());
             identity.bus=map.value("bus").toUInt(); identity.usbAddress=map.value("usbAddress").toUInt();
             identity.interfaceNumber=map.value("interfaceNumber",-1).toInt(); identity.alternate=map.value("alternate").toInt();

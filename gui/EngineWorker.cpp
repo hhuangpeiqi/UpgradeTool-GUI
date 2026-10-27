@@ -83,6 +83,7 @@ void EngineWorker::scanDevices()
                     map["mode"]=label+source.mid(source.indexOf(" / "));
                 } map["serial"] = QString::fromStdString(dev.serial);
                 map["deviceInstance"]=QString::fromStdString(dev.deviceInstance);
+                map["physicalLocation"]=QString::fromStdString(dev.physicalLocation);
                 map["devicePath"]=QString::fromStdString(dev.devicePath);
                 map["transport"]=static_cast<int>(dev.transport);
                 map["qualcommMode"] = static_cast<int>(dev.modeCode); map["accessError"] = dev.accessError;
