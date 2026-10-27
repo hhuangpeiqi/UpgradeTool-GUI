@@ -115,6 +115,7 @@ int main(int argc, char **argv) {
                 CHECK(message.contains("handshake failed"));
             if (scenario == "driver-missing") {
                 CHECK(message.contains("driver or permissions"));
+                CHECK(message.contains("FEL/FES device detected"));
                 CHECK(opens == 0);
             }
             monitor.cancel(11);

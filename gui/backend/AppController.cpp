@@ -171,6 +171,9 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pThread, &QThread::finished, m_pWorker, &QObject::deleteLater);
 	connect(m_pWorker, &EngineWorker::devicesReady, this, &AppController::onDevicesReady);
     connect(m_pAdb,&AdbRunner::felMonitorRequested,m_pWorker,&EngineWorker::prepareFelSwitch);
+    connect(m_pAdb, &AdbRunner::felMonitorRequested, this, [this](const FelSwitchRequest &request) {
+        if (m_switchingFel && request.target.known()) m_felSwitchLocation = request.target;
+    });
     connect(m_pAdb,&AdbRunner::felMonitorCancelled,m_pWorker,&EngineWorker::cancelFelSwitch);
     connect(m_pWorker,&EngineWorker::felMonitorReady,m_pAdb,&AdbRunner::FelMonitorReady);
     connect(m_pWorker,&EngineWorker::felMonitorFinished,m_pAdb,&AdbRunner::FelMonitorFinished);
@@ -361,7 +364,7 @@ void AppController::UpdateInteractionLock()
     m_qualcomm->setLocked(locked);
     m_drivers->setSuspended(locked);
     emit interactionLockedChanged();
-    if (!locked && m_vendor == 2) {
+    if (!locked && (m_vendor == 2 || (m_vendor == 1 && m_pendingFelLocation))) {
         const auto snapshot = m_deviceModel->allRows();
         onDevicesReady(snapshot);
     }
@@ -788,6 +791,7 @@ void AppController::onDevicesReady(const QVariantList &incoming)
     // Keep the active target stable while an operation or driver task runs.
     // UpdateInteractionLock replays the latest snapshot when it finishes.
     if (m_vendor == 2 && interactionLocked() && !m_edlHandoff) return;
+    if (m_vendor == 1 && m_pendingFelLocation && interactionLocked()) return;
     QVariantList devices;
     for (const auto &entry : incoming) {
         const auto row = entry.toMap();
@@ -815,7 +819,27 @@ void AppController::onDevicesReady(const QVariantList &incoming)
     m_deviceModel->setRows(devices);
 
 	int iSelected = handingOff ? edlIndex : m_deviceModel->keys().indexOf(strPrevious);
-	if (!devices.isEmpty() && !handingOff) {
+    const bool recoveringFel = m_vendor == 1 && m_pendingFelLocation.has_value();
+    if (recoveringFel) {
+        // Driver installation can change the interface key. Follow the original
+        // physical USB port, and never fall back to an unrelated device.
+        int matches = 0;
+        iSelected = -1;
+        for (int i = 0; i < devices.size(); ++i) {
+            const auto row = devices[i].toMap();
+            std::vector<int> ports;
+            for (const auto &port : row.value("ports").toList()) ports.push_back(port.toInt());
+            const int bus = row.value("bus").toInt();
+            const auto physical = row.value("physicalLocation").toString().toStdString();
+            const platform::UsbLocation location{physical.empty() ? platform::UsbTopologyLocation(bus, ports) : physical,
+                bus, ports};
+            if (!m_pendingFelLocation->matches(location)) continue;
+            ++matches;
+            if (!row.value("accessError").toInt()) iSelected = i;
+        }
+        if (matches != 1) iSelected = -1;
+    }
+	if (!devices.isEmpty() && !handingOff && !recoveringFel) {
 #ifdef Q_OS_WIN
         if (m_vendor == 2) {
             const bool canChoose = !m_bBatchMode && !m_qualcommManualSelection &&
@@ -851,6 +875,14 @@ void AppController::onDevicesReady(const QVariantList &incoming)
     if (iSelected >= 0) {
         m_vendorSelection[m_vendor] = m_deviceModel->keys().value(iSelected);
         if(m_vendor==1) m_pendingFelKey.clear();
+        if (recoveringFel) {
+            m_pendingFelLocation.reset();
+            if (m_bBatchMode) {
+                m_bBatchMode = false;
+                m_batchKeys.clear();
+                emit batchModeChanged();
+            }
+        }
     }
     if (!rowsChanged && iSelected == m_iDeviceIndex && !handingOff) return;
 
@@ -902,6 +934,7 @@ void AppController::setDeviceIndex(int iIndex)
 	if (interactionLocked()) return;
 	if (iIndex < -1 || iIndex >= m_deviceModel->rows().size())
 		return;
+    m_pendingFelLocation.reset();
     if (m_vendor == 2) {
         m_qualcommManualSelection = true;
     }
@@ -1048,6 +1081,7 @@ void AppController::StartJob(core::TaskJob job)
 void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnError)
 {
 	if (interactionLocked()) return;
+    m_pendingFelLocation.reset();
 	QStringList strAlive;
 	for (int i = 0; i < keys.size(); i++)
 		if (m_deviceModel->keys().contains(keys[i]))
@@ -1297,6 +1331,9 @@ void AppController::switchToFel(int mode)
 		emit toastRequested(tr("No ADB device detected or the switch method is invalid."), true);
 		return;
 	}
+    m_pendingFelKey.clear();
+    m_pendingFelLocation.reset();
+    m_felSwitchLocation.reset();
 	m_switchingFel = true;
 	m_felSwitchHint.Set([] { return tr("Preparing to switch ADB device to FEL mode…"); });
 	m_felSwitchError = false;
@@ -1345,6 +1382,11 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage, bool canc
 {
 	if (!m_bSwitching) return;
 	if (m_switchingFel) {
+        if (!bOk && !cancelled && failure == ModeSwitchFailure::DeviceAccess)
+            m_pendingFelLocation = m_felSwitchLocation;
+        else
+            m_pendingFelLocation.reset();
+        m_felSwitchLocation.reset();
 		m_switchingFel = false;
 		m_felSwitchHint.Set([strMessage] { return strMessage; });
 		m_felSwitchError = !bOk;
@@ -1383,6 +1425,8 @@ void AppController::setVendor(int vendor)
         m_vendorSelection[m_vendor].clear();
     if(m_vendor==1) QMetaObject::invokeMethod(m_pWorker,&EngineWorker::releaseAllwinnerSessions,Qt::QueuedConnection);
     m_pendingFelKey.clear();
+    m_pendingFelLocation.reset();
+    m_felSwitchLocation.reset();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
     m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0); m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
     m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();

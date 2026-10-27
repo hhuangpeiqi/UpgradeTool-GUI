@@ -4609,6 +4609,14 @@
 <context>
     <name>gui::AllwinnerSwitchMonitor</name>
     <message>
+        <source>FEL/FES device detected but unavailable. Check or install its USB driver. (%1)</source>
+        <translation>检测到 FEL/FES 设备，但暂不可访问。请检查或安装 USB 驱动。（%1）</translation>
+    </message>
+    <message>
+        <source>FEL/FES device detected but unavailable. Check its driver, permissions, or use by another tool. (%1)</source>
+        <translation>检测到 FEL/FES 设备，但暂不可访问。请检查驱动、权限或设备占用。（%1）</translation>
+    </message>
+    <message>
         <source>Cannot uniquely identify the target USB port; no switch command was sent.</source>
         <translation>无法唯一确定目标 USB 端口，未发送切换命令。</translation>
     </message>

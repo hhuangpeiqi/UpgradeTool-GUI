@@ -65,10 +65,23 @@ void AllwinnerSwitchMonitor::poll() {
     }
     const bool timedOut = m_elapsed.elapsed() >= m_request.timeoutMs;
     auto timeout = [this] {
+        if (m_present && m_accessBlocked) {
+#ifdef Q_OS_WIN
+            const auto message = tr("FEL/FES device detected but unavailable. "
+                                    "Check or install its USB driver. (%1)")
+                                     .arg(m_lastError);
+#else
+            const auto message = tr("FEL/FES device detected but unavailable. "
+                                    "Check its driver, permissions, or use by another tool. (%1)")
+                                     .arg(m_lastError);
+#endif
+            finish(false, message, {}, ModeSwitchFailure::DeviceAccess);
+            return;
+        }
         finish(false, !m_seen ? tr("No FEL/FES device appeared at the target USB port.")
                               : tr("The target FEL/FES device appeared, but a usable connection could not be "
                                    "established: %1").arg(m_lastError), {},
-               m_present && m_accessBlocked ? ModeSwitchFailure::DeviceAccess : ModeSwitchFailure::Generic);
+               ModeSwitchFailure::Generic);
     };
     try {
         m_accessBlocked = false;

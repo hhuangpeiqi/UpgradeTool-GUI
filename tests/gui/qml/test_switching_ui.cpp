@@ -247,6 +247,24 @@ int main(int argc, char **argv) {
                 CHECK(!controller.drivers()->busy() && !controller.tasks()->busy());
                 CHECK(QMetaObject::invokeMethod(driverDialog, "close"));
                 CHECK(AwaitUi([&] { return !driverDialog->property("visible").toBool(); }));
+                if (vendor == 1) {
+#ifdef Q_OS_WIN
+                    const auto felAccess = QCoreApplication::translate("gui::AllwinnerSwitchMonitor",
+                        "FEL/FES device detected but unavailable. Check or install its USB driver. (%1)");
+#else
+                    const auto felAccess = QCoreApplication::translate("gui::AllwinnerSwitchMonitor",
+                        "FEL/FES device detected but unavailable. Check its driver, permissions, or use by another tool. (%1)");
+#endif
+                    CHECK(felAccess.contains(QString::fromUtf8(QString(language) == "zh"
+                        ? "检测到 FEL/FES 设备" : "FEL/FES device detected")));
+                    controller.switchAccessRequested(felAccess.arg("5"));
+                    CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                    CHECK(instructions->property("text").toString() == felAccess.arg("5"));
+                    CHECK(driverButton->isVisible());
+                    CHECK(recoveryDialog->property("height").toReal() <= window->height() - 24);
+                    CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));
+                    CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
+                }
                 controller.switchRecoveryRequested();
                 CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
                 CHECK(!driverButton->isVisible());

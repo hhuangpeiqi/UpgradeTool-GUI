@@ -257,6 +257,7 @@ private:
 	QThread *m_pThread;
 	AdbRunner *m_pAdb;
     QString m_pendingFelKey;
+    std::optional<platform::UsbLocation> m_felSwitchLocation, m_pendingFelLocation;
     InspectionQueue *m_inspections;
 	ConfigStore *m_pConfig;
 	ThemeManager *m_pTheme;
