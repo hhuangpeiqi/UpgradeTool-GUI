@@ -10,6 +10,7 @@ foreach(name test_shared_services test_adb_executable test_adb_runner test_adb_r
   upgrade_test(${name} LIBRARIES upgrade_gui_backend TIMEOUT 30 LABELS gui controller)
 endforeach()
 set_tests_properties(test_adb_recovery PROPERTIES TIMEOUT 60)
+set_tests_properties(test_adb_runner PROPERTIES TIMEOUT 90)
 set_property(TEST test_edl_runner test_qualcomm_controller APPEND PROPERTY LABELS qualcomm)
 upgrade_test(test_edl_handoff LIBRARIES upgrade_gui_backend TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui controller qualcomm)

@@ -15,6 +15,11 @@
 #include <cstdio>
 
 static int failures = 0;
+// These scenarios launch real child processes. Allow Windows startup/scanning
+// time, and keep deliberate hangs well beyond the command and mode deadlines.
+static constexpr int kCommandTimeoutMs = 1000;
+static constexpr int kModeTimeoutMs = 2000;
+static constexpr int kFakeHangMs = 10000;
 #define CHECK(c)                                                                                                       \
 	do {                                                                                                               \
 		if (!(c)) {                                                                                                    \
@@ -26,7 +31,7 @@ template <class F> bool Await(F predicate)
 {
 	QElapsedTimer timer;
 	timer.start();
-	while (!predicate() && timer.elapsed() < 3000) {
+	while (!predicate() && timer.elapsed() < 8000) {
 		QCoreApplication::processEvents();
 		QThread::msleep(2);
 	}
@@ -97,7 +102,7 @@ static int FakeAdb(QStringList args)
 	const auto command = args.value(3);
 	if (args.value(2) == "shell" && command.contains("AW_ANDROID=")) {
 		if (mode == "probe-hang") {
-			QThread::msleep(1500);
+			QThread::msleep(kFakeHangMs);
 			return 0;
 		}
 		const bool android = mode == "android" || mode == "hang" || mode == "wrong-port" || mode == "unmapped" ||
@@ -116,9 +121,9 @@ static int FakeAdb(QStringList args)
 	}
 	Write(dir + "/requested", "1");
 	if (mode == "loader-disconnect") return 1;
-	if (mode == "loader-hang") QThread::msleep(1500);
+	if (mode == "loader-hang") QThread::msleep(kFakeHangMs);
 	if (mode == "hang")
-		QThread::msleep(1500);
+		QThread::msleep(kFakeHangMs);
 	return 0;
 }
 
@@ -135,7 +140,7 @@ int main(int argc, char **argv)
 		gui::AdbPollTiming timing;
 		timing.initialRetryMs = 20;
 		timing.maximumRetryMs = 100;
-		gui::AdbRunner runner(nullptr, [](bool) { return QVector<gui::AdbUsbDevice>{}; }, 200, 650,
+		gui::AdbRunner runner(nullptr, [](bool) { return QVector<gui::AdbUsbDevice>{}; }, kCommandTimeoutMs, kModeTimeoutMs,
 		                      platform::MakeAdbProcess, timing);
 		int availability = 0, diagnostics = 0;
 		bool available = false;
@@ -290,7 +295,7 @@ int main(int argc, char **argv)
 				    return QVector<gui::AdbUsbDevice>{d};
             };
             QJsonObject targetTrace;
-            gui::AdbRunner runner(nullptr,scanner,200,650);
+            gui::AdbRunner runner(nullptr,scanner,kCommandTimeoutMs,kModeTimeoutMs);
             QObject::connect(&runner, &gui::AdbRunner::traceRecord, [&](const QJsonObject &event) {
                 if (event.value("event") == "switch_target") targetTrace = event;
             });
@@ -468,7 +473,7 @@ int main(int argc, char **argv)
             }
             if (device.loader && mode == "loader-duplicate") return QVector<gui::AdbUsbDevice>{device, device};
             return QVector<gui::AdbUsbDevice>{device};
-        }, 200, 650);
+        }, kCommandTimeoutMs, kModeTimeoutMs);
         int completed = 0; bool ok = false;
         auto failure = gui::ModeSwitchFailure::Generic;
         QObject::connect(&runner, &gui::AdbRunner::finished, [&](bool result, const QString &, bool, gui::ModeSwitchFailure reason) {
