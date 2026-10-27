@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
             CHECK(!window->findChild<QObject *>("switchRecoveryRefreshButton"));
             CHECK(!window->findChild<QObject *>("switchRecoveryDetail"));
             CHECK(!window->findChild<QObject *>("switchRecoverySummary"));
-            auto *closeButton = window->findChild<QObject *>("switchRecoveryCloseButton");
+            auto *closeButton = window->findChild<QQuickItem *>("switchRecoveryCloseButton");
             auto *instructions = window->findChild<QQuickItem *>("switchRecoveryInstructions");
             CHECK(closeButton && instructions);
             if (!closeButton || !instructions) continue;
@@ -216,14 +216,30 @@ int main(int argc, char **argv) {
             CHECK(driverButton && driverDialog);
             if (driverButton && driverDialog) for (int vendor : {0, 1, 2}) {
                 controller.setVendor(vendor);
-                controller.switchAccessRequested("Original diagnostic <preserved>\n" + QString(2000, 'x'));
+                const auto missingDriver = QCoreApplication::translate("gui::AdbRunner",
+                    "The target USB interface driver is missing. Open USB Drivers to install it.");
+                const auto fallback = QCoreApplication::translate("SwitchRecoveryDialog",
+                    "Check the USB driver, access permissions, and whether another tool is using the device.");
+                for (const auto &diagnostic : {QString("Original diagnostic <preserved>\n") + QString(2000, 'x'),
+                                               QString(), QString(" \n\t"), missingDriver}) {
+                    controller.switchAccessRequested(diagnostic);
+                    CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                    CHECK(instructions->property("text").toString() ==
+                          (diagnostic.trimmed().isEmpty() ? fallback : diagnostic));
+                    CHECK(recoveryDialog->property("height").toReal() <= window->height() - 24);
+                    CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));
+                    CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
+                }
+                controller.switchAccessRequested(missingDriver);
                 CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
                 CHECK(driverButton->isVisible());
+                CHECK(AwaitUi([&] {
+                    const auto driverRight = driverButton->mapToScene(QPointF(driverButton->width(), 0)).x();
+                    return qAbs(closeButton->mapToScene(QPointF()).x() - driverRight - 10) < 0.5;
+                }));
                 CHECK(recoveryDialog->property("titleText").toString() == QString::fromUtf8(
                     QString(language) == "zh" ? "设备暂不可访问" : "Device access unavailable"));
-                CHECK(instructions->property("text").toString().contains("Original diagnostic <preserved>"));
-                CHECK(!instructions->property("text").toString().contains("Please enter flash mode manually."));
-                CHECK(!instructions->property("text").toString().contains(QString::fromUtf8("请手动进入刷机模式")));
+                CHECK(instructions->property("text").toString() == missingDriver);
                 CHECK(recoveryDialog->property("height").toReal() <= window->height() - 24);
                 CHECK(QMetaObject::invokeMethod(driverButton, "clicked"));
                 CHECK(AwaitUi([&] { return driverDialog->property("visible").toBool(); }));

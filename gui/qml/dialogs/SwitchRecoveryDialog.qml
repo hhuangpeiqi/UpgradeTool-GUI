@@ -28,8 +28,8 @@ AppDialog {
         objectName: "switchRecoveryInstructions"
         width: parent.width
         text: dialog.accessProblem
-            ? qsTr("Check the USB driver, access permissions, and whether another tool is using the device.")
-                + (dialog.accessMessage ? "\n\n" + dialog.accessMessage : "")
+            ? (dialog.accessMessage.trim() !== "" ? dialog.accessMessage
+                : qsTr("Check the USB driver, access permissions, and whether another tool is using the device."))
             : qsTr("Please enter flash mode manually.")
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
@@ -39,6 +39,7 @@ AppDialog {
     }
     footerContent: RowLayout {
         width: parent.width
+        spacing: 10
         Item { Layout.fillWidth: true }
         PrimaryButton {
             objectName: "switchRecoveryDriverButton"
