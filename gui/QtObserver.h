@@ -9,6 +9,7 @@
 #include <QVariant>
 
 #include "domain/UpgradeObserver.h"
+#include "platform/LogService.h"
 
 namespace gui {
 
@@ -16,7 +17,7 @@ class QtObserver : public QObject, public core::IUpgradeObserver
 {
 	Q_OBJECT
 public:
-	explicit QtObserver(QObject *parent = NULL);
+	explicit QtObserver(platform::LogService &log, QObject *parent = nullptr);
 
 	virtual void OnOutput(core::LogLevel emLevel, const std::string &strText);
     void OnMessage(core::LogLevel,const core::Message &) override;
@@ -35,7 +36,6 @@ public:
 
 signals:
     void stageProgressReceived(const QString &stage, long long total, long long current, int overallPercent);
-	void outputReceived(int iLevel, const QString &strText);
 	void progressReceived(const QString &strPrompt, long long llTotal,
 	                      long long llCurrent, int iCall);
 	void upgradePromptReceived(int prompt);
@@ -43,6 +43,9 @@ signals:
 	void resultReceived(const core::OperationResult &result);
 
 private:
+    platform::LogService &m_log;
+    std::vector<std::string> m_loggedErrors;
+    std::string m_lastStage;
 	int m_iSelectResult;
 	bool m_bSelectActive;
 	QMutex m_selectMutex;

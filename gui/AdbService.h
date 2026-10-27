@@ -2,7 +2,9 @@
 #include "gui/ProcessAdapter.h"
 #include "gui/AdbTiming.h"
 #include "domain/Operation.h"
+#include "domain/LogEntry.h"
 #include <QElapsedTimer>
+#include <QJsonObject>
 #include <QSet>
 #include <QTimer>
 #include <deque>
@@ -40,6 +42,8 @@ public:
     void Stop();
     void Resume();
     void setPaused(bool paused) { m_paused = paused; if (!paused) SchedulePoll(0); }
+    void setLogContext(core::LogContext context) { m_commandLogContext = std::move(context); }
+    core::LogContext logContext() const { return m_commandLogContext; }
     quint64 execute(const QString &, const QStringList &, core::Cancellation, int timeoutMs);
     // Worker threads only; completion never requires blocking the GUI thread.
     AdbCommandResult executeBlocking(const QString &, const QStringList &, const core::Cancellation &, int timeoutMs);
@@ -51,10 +55,11 @@ signals:
     void availabilityChanged(bool, const QString &);
     void recoveryStateChanged(bool, const QString &);
     void diagnosticMessage(const QString &);
-    void traceMessage(const QString &);
+    void traceRecord(const QJsonObject &);
     void commandFinished(quint64, const gui::AdbCommandResult &);
 private:
     struct Command {
+        core::LogContext logContext;
         quint64 id;
         QString executable;
         QStringList args;
@@ -62,6 +67,7 @@ private:
         int timeoutMs;
         std::function<void(AdbCommandResult)> complete;
     };
+    core::LogContext m_commandLogContext;
     void Enqueue(Command);
     void StartNextCommand();
     void FinishCommand(AdbCommandResult);
@@ -77,7 +83,7 @@ private:
     void ClearPollDevices();
     void SetRecovery(bool, bool starting = false);
     void SchedulePoll(int);
-    void TracePoll(const QString &, const QByteArray & = {}, const QString & = {});
+    void TracePoll(core::LogLevel, const QString &, const QByteArray & = {}, const QString & = {});
     ProcessAdapter *m_pPollProc, *m_commandProc;
     QTimer *m_pPollTimer, *m_pPollKill;
     QTimer m_commandTimer;

@@ -5,7 +5,7 @@
 #include <QHash>
 #include <QThread>
 #include <functional>
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 namespace gui {
 class EngineWorker;
 // One cancellable file-inspection queue, separate from device operations.
@@ -14,7 +14,7 @@ class InspectionQueue : public QObject {
 public:
     using Completion = std::function<void()>;
     using Work = std::function<Completion(std::stop_token)>;
-    explicit InspectionQueue(QObject *parent = nullptr, platform::FileLog *log = nullptr);
+    explicit InspectionQueue(QObject *parent = nullptr, platform::LogService *log = nullptr);
     ~InspectionQueue() override;
     void submit(QObject *owner, const QString &key, core::Cancellation, Work);
     void inspect(QObject *owner, const core::InspectionRequest &);
@@ -26,7 +26,7 @@ private:
     QThread m_thread;
     QObject *m_context;
     EngineWorker *m_engine = nullptr;
-    platform::FileLog *m_log;
+    platform::LogService *m_log;
     QHash<QString, core::Cancellation> m_requests;
     bool m_stopping = false;
 };

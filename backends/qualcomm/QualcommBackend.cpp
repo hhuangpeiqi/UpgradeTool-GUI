@@ -28,7 +28,7 @@ const char *optional(const std::string &s) { return s.empty() ? nullptr : s.c_st
 void log(void *p, int level, const char *text) {
     auto &ctx = *static_cast<Context *>(p);
     if (level == 2) ctx.result->diagnostic = text;
-    if (ctx.observer) ctx.observer->OnOutput(level == 2 ? LogLevel::Error : level == 1 ? LogLevel::Warn : LogLevel::Info, text);
+    if (ctx.observer) ctx.observer->OnOutput(level == 2 ? LogLevel::Error : level == 1 ? LogLevel::Warn : level == 3 ? LogLevel::Debug : LogLevel::Info, text);
 }
 int cancelled(void *p) { const auto &c = static_cast<Context *>(p)->cancellation; return c && c->stop_requested(); }
 void progress(void *p, const char *stage, uint64_t current, uint64_t total) {

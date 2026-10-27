@@ -61,7 +61,7 @@ bool UpgradeEngine::ExtractEntryData(FILE *pFw, u64 uiDataOff, u64 uiSize,
 	const auto szPath = std::string(szOutDir) + "/" + szName;
 	FILE *file = platform::OpenFile(szPath.c_str(), "wb");
 	if (!file) {
-		Emit(LogLevel::Info, "Failed to create %s\r\n", szName);
+		Emit(LogLevel::Error, "Failed to create %s\r\n", szName);
 		return false;
 	}
 	if (uiSize == 0) {
@@ -76,7 +76,7 @@ bool UpgradeEngine::ExtractEntryData(FILE *pFw, u64 uiDataOff, u64 uiSize,
 		DWORD dwChunk = (uiLeft > 0x40000) ? 0x40000 : (DWORD)uiLeft;
 		fseeko(pFw, uiDataOff + uiDone, SEEK_SET);
 		if (fread(pBuf, 1, dwChunk, pFw) != dwChunk) {
-			Emit(LogLevel::Info, "Failed to read,err=%d\r\n", errno);
+			Emit(LogLevel::Error, "Failed to read,err=%d\r\n", errno);
 			delete []pBuf;
 			fclose(file);
 			return false;
@@ -127,7 +127,7 @@ bool UpgradeEngine::ExtractStorageFw(char *szFirmware, char *szOutDir)
 	}
 	FILE *file = platform::OpenFile(szFirmware, "rb");
 	if (!file) {
-		Emit(LogLevel::Info, "Failed to Open %s,err=%d\r\n", szFirmware, errno);
+		Emit(LogLevel::Error, "Failed to Open %s,err=%d\r\n", szFirmware, errno);
 		delete pStorage;
 		return false;
 	}
@@ -212,7 +212,7 @@ bool UpgradeEngine::ExtractFirmware(char *szFirmware, char *szOutDir)
 		int iRet = pImage->ObjectInit(szFirmware);
 		if (iRet != 0) {
 			Fail(ErrorCode::InvalidFirmware);
-			Emit(LogLevel::Info, "Failed to Create update object\r");
+			Emit(LogLevel::Error, "Failed to Create update object\r");
 			delete pImage;
 			return false;
 		}
@@ -229,7 +229,7 @@ bool UpgradeEngine::ExtractFirmware(char *szFirmware, char *szOutDir)
 		Emit(LogLevel::Info, "Type:Update Loader\r");
 		FILE *file = platform::OpenFile(szFirmware, "rb");
 		if (!file) {
-			Emit(LogLevel::Info, "Failed to Open %s,err=%d\r\n", szFirmware, errno);
+			Emit(LogLevel::Error, "Failed to Open %s,err=%d\r\n", szFirmware, errno);
 			return false;
 		}
 		fseeko(file, 0, SEEK_END);
@@ -246,7 +246,7 @@ bool UpgradeEngine::ExtractFirmware(char *szFirmware, char *szOutDir)
 		int iRet = pBoot->ObjectInit();
 		if (iRet != 0) {
 			Fail(ErrorCode::InvalidFirmware);
-			Emit(LogLevel::Info, "Failed to init Boot Object,ret=%d\r\n", iRet);
+			Emit(LogLevel::Error, "Failed to init Boot Object,ret=%d\r\n", iRet);
 			delete pBoot;
 			return false;
 		}
@@ -292,20 +292,20 @@ bool UpgradeEngine::CreateGptByParameter(char *pParameter, char *pOutput)
 		fclose(file);
 	}
 	if (!pBuffer) {
-		if (m_pLog) m_pLog->Record("%s failed,can't open or read %s\r\n", "create_gpt_by_parameter", pParameter);
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s failed,can't open or read %s\r\n", "create_gpt_by_parameter", pParameter);
 		snprintf(szMsg, sizeof(szMsg), "Fail to open or read %s!", pParameter);
 		Emit(LogLevel::Error, szMsg);
 		return false;
 	}
 	if (!get_parameter_gptflag(pBuffer)) {
-		if (m_pLog) m_pLog->Record("%s failed,can't get gpt flag\r\n", "create_gpt_by_parameter");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s failed,can't get gpt flag\r\n", "create_gpt_by_parameter");
 		Emit(LogLevel::Error, "No Found Gpt Line in the parameter!");
 		delete []pBuffer;
 		return false;
 	}
 	unsigned int uiDiskSize = get_parameter_gpt_size(pBuffer);
 	if (!parse_parameter(pBuffer, vecItems, vecUuid)) {
-		if (m_pLog) m_pLog->Record("%s failed,can't find mtdparts line\r\n", "create_gpt_by_parameter");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s failed,can't find mtdparts line\r\n", "create_gpt_by_parameter");
 		Emit(LogLevel::Error, "Fail to find mtdparts in the parameter!");
 		delete []pBuffer;
 		return false;
@@ -318,7 +318,7 @@ bool UpgradeEngine::CreateGptByParameter(char *pParameter, char *pOutput)
 
 	file = platform::OpenFile(pOutput, "wb");
 	if (!file) {
-		if (m_pLog) m_pLog->Record("%s failed,can't create %s,err=%d\r\n", "create_gpt_by_parameter", pOutput, errno);
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s failed,can't create %s,err=%d\r\n", "create_gpt_by_parameter", pOutput, errno);
 		snprintf(szMsg, sizeof(szMsg), "Create gpt image failed,err=%d!", errno);
 		Emit(LogLevel::Error, szMsg);
 		return false;

@@ -5,6 +5,7 @@
 #include "backends/rockchip/UsbTransport.h"
 #endif
 #include "gui/AdbRunner.h"
+#include "gui/MessageDisplay.h"
 #ifdef Q_OS_WIN
 #include "gui/WindowsUsbDriver.h"
 #endif
@@ -14,7 +15,6 @@
 #include <QTimer>
 #include <QScopeGuard>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
 #include <libusb.h>
 #include <utility>
@@ -23,8 +23,11 @@
 namespace gui
 {
 
-namespace
-{
+namespace {
+core::Message Text(const char *key, std::vector<std::string> args = {}) {
+    return {"gui::AdbRunner", key, std::move(args)};
+}
+
 
 const char *kRebootTarget = "loader";
 const int kRebootTimeoutMs = 10000;
@@ -190,13 +193,13 @@ AdbRunner::AdbRunner(QObject *parent, UsbScanner scanner, int commandTimeoutMs, 
     connect(m_service, &AdbService::availabilityChanged, this, &AdbRunner::availabilityChanged);
     connect(m_service, &AdbService::recoveryStateChanged, this, &AdbRunner::recoveryStateChanged);
     connect(m_service, &AdbService::diagnosticMessage, this, &AdbRunner::diagnosticMessage);
-    connect(m_service, &AdbService::traceMessage, this, &AdbRunner::traceMessage);
+    connect(m_service, &AdbService::traceRecord, this, &AdbRunner::traceRecord);
     connect(m_service, &AdbService::commandFinished, this, [this](quint64 id, const AdbCommandResult &result) {
         if (id != m_commandId || !m_bRunning) return;
         m_commandId = 0;
-        if (!result.started) { Complete(false, tr("Cannot start ADB process: %1").arg(result.error)); return; }
+        if (!result.started) { Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Cannot start ADB process: %1"), {result.error.toStdString()})); return; }
         if (result.timedOut && m_stage != Stage::Rebooting) {
-            Complete(false, tr("ADB operation timed out; mode switch not completed.")); return;
+            Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "ADB operation timed out; mode switch not completed."))); return;
         }
         if (m_stage != Stage::Waiting)
             HandleSwitchCommand(result.exitCode, result.succeeded(), QString::fromLocal8Bit(result.output).trimmed());
@@ -272,7 +275,7 @@ void AdbRunner::ChooseDevice(const QString &strSerial)
 		if (serial.compare(strSerial.trimmed(), Qt::CaseInsensitive) == 0)
 			matches.append(serial);
 	if (matches.size() != 1) {
-		Complete(false, tr("The selected ADB device is no longer available."));
+		Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The selected ADB device is no longer available.")));
 		return;
 	}
 	m_bAwaitingChoice = false;
@@ -283,7 +286,7 @@ void AdbRunner::CancelSwitch()
 {
 	if (!m_bAwaitingChoice && !m_bRunning)
 		return;
-	Complete(false, tr("Switch request cancelled; if the device already began rebooting, check the device list."), true);
+	Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Switch request cancelled; if the device already began rebooting, check the device list.")), true);
 }
 
 void AdbRunner::StartReboot(const QString &serial)
@@ -294,7 +297,7 @@ void AdbRunner::StartReboot(const QString &serial)
 	m_bRunning = true;
     m_service->setPaused(true);
     m_stage = Stage::Listing;
-    emit switchProgress(tr("Checking ADB devices and USB ports…"));
+    emit switchProgress(Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Checking ADB devices and USB ports…")));
     StartCommand({"devices", "-l"});
 }
 
@@ -305,7 +308,7 @@ void AdbRunner::StartCommand(const QStringList &args)
         args.value(0) == "devices" ? kAdbReadTimeoutMs : m_commandTimeoutMs);
 }
 
-void AdbRunner::Complete(bool ok, const QString &message, bool cancelled, ModeSwitchFailure failure)
+void AdbRunner::Complete(bool ok, const core::Message &message, bool cancelled, ModeSwitchFailure failure, const QString &displayText)
 {
     if(m_felAttempt && !ok) {
         if(m_felCancel) m_felCancel->request_stop();
@@ -320,14 +323,18 @@ void AdbRunner::Complete(bool ok, const QString &message, bool cancelled, ModeSw
     m_commandId = 0;
     m_service->setPaused(false);
 
-	emit finished(ok, message, cancelled, failure);
+    emit traceRecord(QJsonObject{{"log_level", int(!ok && !cancelled ? core::LogLevel::Warn : core::LogLevel::Info)},
+        {"event", "switch_finished"}, {"ok", ok}, {"cancelled", cancelled},
+        {"log_task", qint64(m_service->logContext().task)}, {"failure", int(failure)},
+        {"message", QString::fromStdString(message.English())}});
+	emit finished(ok, displayText.isEmpty() ? Display(message) : displayText, cancelled, failure);
 }
 
 void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output)
 {
 	if (m_stage == Stage::Rebooting) {
 		if (m_felSwitch && output.contains("AW_SWITCH_ERROR")) {
-			Complete(false, tr("Failed to set T3 FEL flag or reboot: %1").arg(output));
+			Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Failed to set T3 FEL flag or reboot: %1"), {output.toStdString()}));
 			return;
 		}
 		// A disconnect can make ADB fail even when the device enters the requested mode.
@@ -338,7 +345,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 		return;
 	}
 	if (status != true || code != 0) {
-		Complete(false, tr("ADB check failed: %1").arg(output.isEmpty() ? QString::number(code) : output));
+		Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "ADB check failed: %1"), {(output.isEmpty() ? QString::number(code) : output).toStdString()}));
 		return;
 	}
 	if (m_stage == Stage::Listing) {
@@ -349,7 +356,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 				line = candidate;
 		}
 		if (line.isEmpty()) {
-			Complete(false, tr("The selected ADB device is disconnected or unauthorized."));
+			Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The selected ADB device is disconnected or unauthorized.")));
 			return;
 		}
 		const auto devices = m_usbScanner(true);
@@ -401,28 +408,28 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
         }
         QJsonArray ports;
         for(const auto port:m_target.ports) ports.append(port);
-        emit traceMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
-            {"event","switch_target"},{"gui_pid",QCoreApplication::applicationPid()},
+        emit traceRecord(QJsonObject{
+            {"log_task",qint64(m_service->logContext().task)}, {"log_level", int(resolution == "resolved" ? core::LogLevel::Debug : core::LogLevel::Warn)}, {"event","switch_target"},{"gui_pid",QCoreApplication::applicationPid()},
             {"serial",m_serial},{"native",QString::fromStdString(m_target.native)},{"bus",m_target.bus},{"ports",ports},
-            {"mode",m_felSwitch?"fel":"loader"},{"resolution",resolution},{"candidates",candidates}}).toJson(QJsonDocument::Compact)));
+            {"mode",m_felSwitch?"fel":"loader"},{"resolution",resolution},{"candidates",candidates}});
         if (m_felSwitch && resolution != "resolved") {
             const auto message = matches.isEmpty()
-                ? tr("Cannot map the selected ADB serial number to a physical USB device; no switch command was sent.")
+                ? Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Cannot map the selected ADB serial number to a physical USB device; no switch command was sent."))
                 : missingLocation
-                    ? tr("The physical USB port of the selected ADB device could not be read; no switch command was sent.")
-                    : tr("The selected ADB serial number matches multiple physical USB ports; no switch command was sent.");
+                    ? Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The physical USB port of the selected ADB device could not be read; no switch command was sent."))
+                    : Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The selected ADB serial number matches multiple physical USB ports; no switch command was sent."));
             Complete(false, message);
             return;
         }
         if (!m_felSwitch) {
             m_stage = Stage::Rebooting;
-            emit switchProgress(tr("Loader switch request sent; waiting for the USB device…"));
+            emit switchProgress(Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Loader switch request sent; waiting for the USB device…")));
             m_loaderElapsed.start(); m_loaderTimer->start();
             StartCommand({"-s", m_serial, "reboot", kRebootTarget});
             return;
         }
 		m_stage = Stage::Probing;
-		emit switchProgress(tr("Detecting device system and switch capability…"));
+		emit switchProgress(Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Detecting device system and switch capability…")));
 		StartCommand({"-s", m_serial, "shell", QString::fromLatin1(kProbe)});
 		return;
 	}
@@ -435,7 +442,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 		const bool busybox = ProbeValue(output, "AW_BUSYBOX") == "1" ||
 		                     ProbeValue(output, "AW_REBOOT_LINK").contains("busybox", Qt::CaseInsensitive);
 		if (ProbeValue(output, "AW_UID").isEmpty() || ProbeValue(output, "AW_BUILDROOT").isEmpty()) {
-			Complete(false, tr("Could not fully identify the device system; no switch command was sent."));
+			Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Could not fully identify the device system; no switch command was sent.")));
 			return;
 		}
 		QStringList command{"-s", m_serial};
@@ -443,7 +450,7 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 		if (m_felMethod == FelMethod::T3Buildroot) {
 			if (!t3Capable) {
 				Complete(false,
-				         tr("The alternate requires sun8iw11p1, Buildroot, root and devmem."));
+				         Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The alternate requires sun8iw11p1, Buildroot, root and devmem.")));
 				return;
 			}
 			command << "shell" << kT3FelCommand;
@@ -453,8 +460,8 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
 				command << "shell" << kT3FelCommand;
 			} else {
 				Complete(false, buildroot && t3
-				                    ? tr("This T3 Buildroot lacks root or devmem; automatic switching is unavailable. Enter flash mode manually.")
-				                    : tr("No supported FEL switch entry was found in this BusyBox environment; enter flash mode manually."));
+				                    ? Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "This T3 Buildroot lacks root or devmem; automatic switching is unavailable. Enter flash mode manually."))
+				                    : Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "No supported FEL switch entry was found in this BusyBox environment; enter flash mode manually.")));
 				return;
 			}
 		} else if (!android && !ProbeValue(output, "AW_REBOOT").isEmpty()) {
@@ -466,21 +473,21 @@ void AdbRunner::HandleSwitchCommand(int code, bool status, const QString &output
         m_felCommand=command;
         m_felAttempt=++m_nextFelAttempt;
         m_felCancel=std::make_shared<std::stop_source>();
-        emit switchProgress(tr("Preparing to detect and connect the target FEL/FES device…"));
-        emit felMonitorRequested(FelSwitchRequest{m_felAttempt,m_target,m_felCancel,m_modeTimeoutMs});
+        emit switchProgress(Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Preparing to detect and connect the target FEL/FES device…")));
+        emit felMonitorRequested(FelSwitchRequest{m_felAttempt,m_target,m_felCancel,m_modeTimeoutMs,m_service->logContext().task});
 	}
 }
 
 void AdbRunner::FelMonitorReady(quint64 id) {
     if(!m_bRunning || m_stage!=Stage::Arming || id!=m_felAttempt) return;
     m_stage=Stage::Rebooting;
-    emit switchProgress(tr("FEL switch request sent; waiting for the USB device…"));
+    emit switchProgress(Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "FEL switch request sent; waiting for the USB device…")));
     StartCommand(m_felCommand);
 }
 void AdbRunner::FelMonitorFinished(quint64 id,bool ok,const QString &message,const core::DeviceRef &target, ModeSwitchFailure failure) {
     if(!m_bRunning || id!=m_felAttempt) return;
     if(ok) emit felTargetReady(target);
-    Complete(ok,message,false,failure);
+    Complete(ok, Text(ok ? "FEL/FES device connected on the target USB port." : "FEL/FES connection failed; see monitor diagnostics"), false, failure, message);
 }
 
 void AdbRunner::CheckLoaderMode()
@@ -502,7 +509,7 @@ void AdbRunner::CheckLoaderMode()
             }
         }
         if (matches > 1) {
-            Complete(false, tr("Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly."));
+            Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Multiple flashing interfaces appeared at the target USB port; refresh and select one explicitly.")));
             return;
         }
         if (matches == 1 && accessReason.isEmpty()) {
@@ -511,18 +518,18 @@ void AdbRunner::CheckLoaderMode()
                 if (m_commandCancel) m_commandCancel->request_stop();
                 return;
             }
-            Complete(true,tr("Loader device detected on the target USB port."));
+            Complete(true,Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Loader device detected on the target USB port.")));
             return;
         }
     }
 	if (m_loaderElapsed.elapsed() >= m_modeTimeoutMs) {
         if (!accessReason.isEmpty()) {
-            Complete(false, accessReason, false, ModeSwitchFailure::DeviceAccess);
+            Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The target USB interface is not accessible. Check its USB driver, permissions, and whether another tool is using it.")), false, ModeSwitchFailure::DeviceAccess, accessReason);
             return;
         }
         Complete(false, m_target.known()
-                ? tr("No Loader device detected on the target USB port. %1").arg(m_loaderCommandError)
-                : tr("Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list."));
+                ? Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "No Loader device detected on the target USB port. %1"), {m_loaderCommandError.toStdString()})
+                : Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "Switch request sent, but the target USB port could not be uniquely identified to confirm success; check the device list.")));
 	}
 }
 

@@ -121,7 +121,7 @@ void CRKDevice::SetCallBackPointer(ProgressPromptCB value)
 		m_callBackProc = value;
 	}
 }
-platform::FileLog* CRKDevice::GetLogObjectPointer()
+platform::LogService* CRKDevice::GetLogObjectPointer()
 {
 	return m_pLog;
 }
@@ -593,7 +593,7 @@ CRKDevice::~CRKDevice()
 	if (m_pImei) { delete []m_pImei; m_pImei = NULL; }
 	if (m_pCustomData) { delete []m_pCustomData; m_pCustomData = NULL; }
 }
-bool CRKDevice::SetObject(CRKImage *pImage, CRKComm *pComm, platform::FileLog *pLog)
+bool CRKDevice::SetObject(CRKImage *pImage, CRKComm *pComm, platform::LogService *pLog)
 {
 	if (!pComm) {
 		return false;
@@ -620,7 +620,7 @@ int CRKDevice::BuildBlockStateMap(UCHAR ucFlashCS)
 			return 1;
 		m_iError = 0x65;
 		if (m_pLog)
-			m_pLog->Record("ERROR:BuildBlockStateMap-->RKU_TestBadBlock failed,RetCode(%d)", iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "BuildBlockStateMap-->RKU_TestBadBlock failed,RetCode(%d)", iRet);
 		return 0;
 	}
 	for (unsigned int i = 0; i < 0x200; i++) {
@@ -652,7 +652,7 @@ int CRKDevice::ReadMutilSector(UINT uiPos, UINT uiCount, PBYTE lpBuffer)
 	if (iRet != ERR_SUCCESS) {
 		m_iError = 0x65;
 		if (m_pLog)
-			m_pLog->Record("ERROR:ReadMutilSector-->RKU_ReadSector failed,RetCode(%d)", iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "ReadMutilSector-->RKU_ReadSector failed,RetCode(%d)", iRet);
 		return iRet;
 	}
 	return ERR_SUCCESS;
@@ -716,7 +716,7 @@ int CRKDevice::GetIDBData(UINT uiCount, PBYTE lpBuffer, UINT uiSectorNum)
 		if (iLast == -1) {
 			if (m_pComm->RKU_ReadSector(uiOffset, uiSectorNum, pTemp) != ERR_SUCCESS) {
 				if (m_pLog)
-					m_pLog->Record("ERROR:GetIDBData-->RKU_ReadSector failed");
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "GetIDBData-->RKU_ReadSector failed");
 				continue;
 			}
 			if (*(UINT *)pTemp != 0x0FF0AA55)
@@ -744,12 +744,12 @@ int CRKDevice::GetWriteBackData(UINT uiCount, PBYTE lpBuffer)
 	return GetIDBData(uiCount, lpBuffer, 4);
 }
 
-bool CRKDevice::FormatDisk(char cDiskIndex, char *pName, platform::FileLog *pLog)
+bool CRKDevice::FormatDisk(char cDiskIndex, char *pName, platform::LogService *pLog)
 {
 	(void)cDiskIndex; (void)pName; (void)pLog;
 	return false;
 }
-bool CRKDevice::CopyData(char cSrc, char *pName, platform::FileLog *pLog)
+bool CRKDevice::CopyData(char cSrc, char *pName, platform::LogService *pLog)
 {
 	(void)cSrc; (void)pName; (void)pLog;
 	return false;
@@ -766,7 +766,7 @@ int CRKDevice::EraseEmmcBlock(UCHAR ucFlashCS, DWORD dwPos, DWORD dwCount)
 		iRet = m_pComm->RKU_WriteSector(sectorOffset, 4, emptyData);
 		if ((iRet != ERR_SUCCESS) && (iRet != ERR_FOUND_BAD_BLOCK)) {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:EraseEmmcBlock-->RKU_WriteSector failed, RetCode(%d)", m_layerName.c_str(), iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> EraseEmmcBlock-->RKU_WriteSector failed, RetCode(%d)", m_layerName.c_str(), iRet);
 			}
 			return iRet;
 		}
@@ -788,7 +788,7 @@ int CRKDevice::EraseEmmcByWriteLBA(DWORD dwSectorPos, DWORD dwCount)
 		iRet = m_pComm->RKU_WriteLBA(dwSectorPos, nWritten, emptyData);
 		if (iRet != ERR_SUCCESS) {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:EraseEmmcByWriteLBA-->RKU_WriteLBA failed, RetCode(%d)", m_layerName.c_str(), iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> EraseEmmcByWriteLBA-->RKU_WriteLBA failed, RetCode(%d)", m_layerName.c_str(), iRet);
 			}
 			return iRet;
 		}
@@ -822,7 +822,7 @@ bool CRKDevice::EraseEmmc()
 			
 		if (iRet != ERR_SUCCESS) {
 			if (m_pLog) {
-				m_pLog->Record("ERROR:EraseEmmc-->RKU_EraseLBA failed,RetCode(%d),offset=0x%x,count=0x%x",iRet, uiSectorOffset, uiEraseCount);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseEmmc-->RKU_EraseLBA failed,RetCode(%d),offset=0x%x,count=0x%x",iRet, uiSectorOffset, uiEraseCount);
 			}
 			return false;
 		}
@@ -852,7 +852,7 @@ bool CRKDevice::GetFlashInfo()
 	if( ERR_SUCCESS == iRet ) {
 		if ((info.usBlockSize == 0) || (info.bPageSize == 0)) {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:GetFlashInfo-->RKU_ReadFlashInfo failed,pagesize or blocksize is zero", m_layerName.c_str());
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> GetFlashInfo-->RKU_ReadFlashInfo failed,pagesize or blocksize is zero", m_layerName.c_str());
 			}
 			return false;
 		}
@@ -883,12 +883,14 @@ bool CRKDevice::GetFlashInfo()
 		memcpy(m_pFlashInfoData, (PBYTE)&info, uiRead);
 		if (m_pLog) {
 			string strFlashInfo;
-			m_pLog->PrintBuffer(strFlashInfo, m_pFlashInfoData, 11);
-			m_pLog->Record("<LAYER %s> INFO:FlashInfo:%s", m_layerName.c_str(), strFlashInfo.c_str());
+			for (unsigned i = 0; i < 11; ++i) {
+                char hex[4]; std::snprintf(hex, sizeof(hex), "%02X ", m_pFlashInfoData[i]); strFlashInfo += hex;
+            }
+			m_pLog->writef(core::LogLevel::Debug, "Rockchip", "<LAYER %s> FlashInfo:%s", m_layerName.c_str(), strFlashInfo.c_str());
 		}
 	} else {
 		if (m_pLog) {
-			m_pLog->Record("<LAYER %s> ERROR:GetFlashInfo-->RKU_ReadFlashInfo failed, RetCode(%d)", m_layerName.c_str(), iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> GetFlashInfo-->RKU_ReadFlashInfo failed, RetCode(%d)", m_layerName.c_str(), iRet);
 		}
 		return false;
 	}
@@ -901,7 +903,7 @@ bool CRKDevice::GetFlashInfo()
 			m_bEmmc = false;
 	} else {
 		if (m_pLog) {
-			m_pLog->Record("<LAYER %s> ERROR:GetFlashInfo-->RKU_ReadFlashID failed, RetCode(%d)", m_layerName.c_str(), iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> GetFlashInfo-->RKU_ReadFlashID failed, RetCode(%d)", m_layerName.c_str(), iRet);
 		}
 		return false;
 	}
@@ -921,7 +923,7 @@ bool CRKDevice::TestDevice()
 				break;
 			}
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:TestDevice-->RKU_TestDeviceReady failed, RetCode(%d)", m_layerName.c_str(), iResult);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> TestDevice-->RKU_TestDeviceReady failed, RetCode(%d)", m_layerName.c_str(), iResult);
 			}
 			iTryCount--;
 			std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -942,7 +944,7 @@ bool CRKDevice::TestDevice()
 		}
 		if (dwCurrent>dwTotal) {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:TestDevice-->RKU_TestDeviceReady failed,Total=%d, Current=%d", m_layerName.c_str(), dwTotal, dwCurrent);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> TestDevice-->RKU_TestDeviceReady failed,Total=%d, Current=%d", m_layerName.c_str(), dwTotal, dwCurrent);
 			}
 			return false;
 		}
@@ -950,7 +952,7 @@ bool CRKDevice::TestDevice()
 			if (dwTotal == 0) {
 				if (m_pLog)
 				{
-					m_pLog->Record("<LAYER %s> ERROR:TestDevice-->RKU_TestDeviceReady failed, Total is zero", m_layerName.c_str());
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> TestDevice-->RKU_TestDeviceReady failed, Total is zero", m_layerName.c_str());
 				}
 				return false;
 			}
@@ -978,7 +980,7 @@ bool CRKDevice::ResetDevice(UCHAR ucSubCode)
 		if (!bRet)
 			m_iError = 0x65;
 		if (m_pLog)
-			m_pLog->Record("<LAYER %s> ERROR:ResetDevice-->RKU_ResetDevice failed, RetCode(%d)", m_layerName.c_str(), iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> ResetDevice-->RKU_ResetDevice failed, RetCode(%d)", m_layerName.c_str(), iRet);
 		return bRet;
 	}
 }
@@ -992,7 +994,7 @@ bool CRKDevice::PowerOffDevice()
 	} else {
 		m_iError = 0x65;
 		if (m_pLog) {
-			m_pLog->Record("<LAYER %s> ERROR:PowerOffDevice-->RKU_ResetDevice failed, RetCode(%d)", m_layerName.c_str(), iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> PowerOffDevice-->RKU_ResetDevice failed, RetCode(%d)", m_layerName.c_str(), iRet);
 		}
 		return false;
 	}
@@ -1050,14 +1052,14 @@ bool CRKDevice::CheckChip()
 			return true;
 		} else {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:CheckChip-->Chip is not match, firmware(0x%x), device(0x%x)", m_layerName.c_str(), m_device, *pValue);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> CheckChip-->Chip is not match, firmware(0x%x), device(0x%x)", m_layerName.c_str(), m_device, *pValue);
 			}
 			return false;
 		}
 	}
 	else {
 		if (m_pLog) {
-			m_pLog->Record("<LAYER %s> ERROR:CheckChip-->RKU_ReadChipInfo failed,RetCode(%d)", m_layerName.c_str(), iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> CheckChip-->RKU_ReadChipInfo failed,RetCode(%d)", m_layerName.c_str(), iRet);
 		}
 		return false;
 	}
@@ -1071,24 +1073,24 @@ int CRKDevice::DownloadBoot()
 	for ( i = 0; i < m_pImage->m_bootObject->Entry471Count; i++ ) {
 		if ( !m_pImage->m_bootObject->GetEntryProperty(ENTRY471, i, dwSize, dwDelay) ) {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry471Property failed,index(%d)", m_layerName.c_str(), i);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry471Property failed,index(%d)", m_layerName.c_str(), i);
 			}
 			return -2;
 		}
 		if (dwSize>0) {
-			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0471 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+			if (m_pLog) m_pLog->writef(core::LogLevel::Debug, "Rockchip", "Maskrom boot entry: request=0x0471 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
 				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(m_pImage->m_bootObject->GetRc4DisableFlag()), int(m_pImage->m_bootObject->GetSignFlag()));
 			pBuffer = new BYTE[dwSize];
 			if ( !m_pImage->m_bootObject->GetEntryData(ENTRY471, i, pBuffer) ) {
 				if (m_pLog) {
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry471Data failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry471Data failed,index(%d)", m_layerName.c_str(), i);
 				}
 				delete []pBuffer;
 				return -3;
 			}
 			if ( !Boot_VendorRequest(0x0471,pBuffer,dwSize) ) {
 				if (m_pLog) {
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->Boot_VendorRequest471 failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->Boot_VendorRequest471 failed,index(%d)", m_layerName.c_str(), i);
 				}
 				delete []pBuffer;
 				return -4;
@@ -1105,7 +1107,7 @@ int CRKDevice::DownloadBoot()
 	for ( i=0; i < m_pImage->m_bootObject->Entry472Count; i++ ) {
 		if ( !m_pImage->m_bootObject->GetEntryProperty(ENTRY472, i, dwSize, dwDelay) ) {
 			if (m_pLog) {
-				m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry472Property failed,index(%d)", m_layerName.c_str(), i);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry472Property failed,index(%d)", m_layerName.c_str(), i);
 			}
 			return -2;
 		}
@@ -1113,16 +1115,16 @@ int CRKDevice::DownloadBoot()
 			pBuffer = new BYTE[dwSize];
 			if ( !m_pImage->m_bootObject->GetEntryData(ENTRY472, i, pBuffer) ) {
 				if (m_pLog) {
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry472Data failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry472Data failed,index(%d)", m_layerName.c_str(), i);
 				}
 				delete []pBuffer;
 				return -3;
 			}
-			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0472 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+			if (m_pLog) m_pLog->writef(core::LogLevel::Debug, "Rockchip", "Maskrom boot entry: request=0x0472 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
 				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(m_pImage->m_bootObject->GetRc4DisableFlag()), int(m_pImage->m_bootObject->GetSignFlag()));
 			if ( !Boot_VendorRequest(0x0472, pBuffer, dwSize) ) {
 				if (m_pLog) {
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->Boot_VendorRequest472 failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->Boot_VendorRequest472 failed,index(%d)", m_layerName.c_str(), i);
 				}
 				delete []pBuffer;
 				return -4;
@@ -1163,7 +1165,7 @@ int CRKDevice::EraseAllBlocks(bool force_block_erase)
 		if ((m_bEmmc)||(m_bDirectLba)) {
 			if (!EraseEmmc()) {
 				if (m_pLog) {
-					m_pLog->Record("<LAYER %s> ERROR:EraseAllBlocks-->EraseEmmc failed", m_layerName.c_str());
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> EraseAllBlocks-->EraseEmmc failed", m_layerName.c_str());
 				}
 				return -1;
 			}
@@ -1182,7 +1184,7 @@ int CRKDevice::EraseAllBlocks(bool force_block_erase)
 				iRet = m_pComm->RKU_EraseBlock(i, iErasePos, iEraseBlockNum, ERASE_FORCE);
 				if ((iRet != ERR_SUCCESS) && (iRet != ERR_FOUND_BAD_BLOCK)) {
 					if (m_pLog) {
-						m_pLog->Record("<LAYER %s> ERROR:EraseAllBlocks-->RKU_EraseBlock failed,RetCode(%d)", m_layerName.c_str(), iRet);
+						m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> EraseAllBlocks-->RKU_EraseBlock failed,RetCode(%d)", m_layerName.c_str(), iRet);
 					}
 					return -1;
 				}
@@ -1215,7 +1217,7 @@ bool CRKDevice::ReadCapability()
 	{
 		if (m_pLog)
 		{
-			m_pLog->Record("ERROR:ReadCapability-->RKU_ReadCapability failed,err(%d)", ret);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "ReadCapability-->RKU_ReadCapability failed,err(%d)", ret);
 		}
 		return false;
 	}
@@ -1258,7 +1260,7 @@ bool CRKDevice::LowerFormatDevice(bool &bRet)
 		if ((iRet == ERR_SUCCESS) || (iRet == ERR_DEVICE_UNREADY))
 			return true;
 		if (m_pLog)
-			m_pLog->Record("ERROR:LowerFormatDevice-->RKU_TestDeviceReady failed,subCode(0x%x),RetCode(%d)", ucSubCode, iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "LowerFormatDevice-->RKU_TestDeviceReady failed,subCode(0x%x),RetCode(%d)", ucSubCode, iRet);
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 	bRet = false;
@@ -1270,7 +1272,7 @@ bool CRKDevice::SetResetFlag()
 	if (iRet == ERR_SUCCESS)
 		return true;
 	if (m_pLog)
-		m_pLog->Record("ERROR:SetResetFlag-->RKU_ResetDevice failed,RetCode(%d)", iRet);
+		m_pLog->writef(core::LogLevel::Error, "Rockchip", "SetResetFlag-->RKU_ResetDevice failed,RetCode(%d)", iRet);
 	return false;
 }
 bool CRKDevice::RefreshComm(STRUCT_RKDEVICE_DESC &deviceDesc)
@@ -1290,7 +1292,7 @@ bool CRKDevice::RefreshComm(STRUCT_RKDEVICE_DESC &deviceDesc)
 	m_locationID = deviceDesc.uiLocationID;
 	return true;
 }
-bool CRKDevice::SendExtCommand(char cCommand, UINT uiCommand, platform::FileLog *pLog, PBYTE pData, UINT uiSize)
+bool CRKDevice::SendExtCommand(char cCommand, UINT uiCommand, platform::LogService *pLog, PBYTE pData, UINT uiSize)
 {
 	return false;
 }
@@ -1302,7 +1304,7 @@ bool CRKDevice::EraseMutilBlock(UCHAR ucFlashCS, UINT uiPos, UINT uiCount, bool 
 		int iRet = m_pComm->RKU_EraseBlock(ucFlashCS, uiPos, uiBlock, ucType);
 		if ((iRet != ERR_SUCCESS) && (iRet != ERR_FOUND_BAD_BLOCK)) {
 			if (m_pLog)
-				m_pLog->Record("<LAYER %s> ERROR:EraseMutilBlock-->RKU_EraseBlock failed, RetCode(%d)", m_layerName.c_str(), iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> EraseMutilBlock-->RKU_EraseBlock failed, RetCode(%d)", m_layerName.c_str(), iRet);
 			return false;
 		}
 		uiPos += uiBlock;
@@ -1319,7 +1321,7 @@ bool CRKDevice::EraseEmmcIDB()
 		int iRet = m_pComm->RKU_EraseLBA(uiPos, uiChunk);
 		if (iRet != ERR_SUCCESS) {
 			if (m_pLog)
-				m_pLog->Record("<LAYER %s> ERROR:EraseEmmcIDB-->RKU_EraseLBA failed, RetCode(%d)", m_layerName.c_str(), iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> EraseEmmcIDB-->RKU_EraseLBA failed, RetCode(%d)", m_layerName.c_str(), iRet);
 			return false;
 		}
 		uiPos += uiChunk;

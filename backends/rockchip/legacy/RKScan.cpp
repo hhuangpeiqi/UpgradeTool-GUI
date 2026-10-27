@@ -548,7 +548,7 @@ bool CRKScan::GetDevice(STRUCT_RKDEVICE_DESC &device, int pos)
 	return true;
 }
 
-bool CRKScan::SetLogObject(platform::FileLog *pLog)
+bool CRKScan::SetLogObject(platform::LogService *pLog)
 {
 	if (pLog) {
 		if (m_log) {

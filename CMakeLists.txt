@@ -106,7 +106,7 @@ endif()
 find_package(Threads REQUIRED)
 target_link_libraries(usb1 PUBLIC Threads::Threads)
 
-add_library(upgrade_platform STATIC platform/PlatformPath.cpp platform/File.cpp platform/Text.cpp platform/Config.cpp platform/FileLog.cpp platform/Process.cpp platform/SerialPort.cpp platform/UsbLocation.cpp)
+add_library(upgrade_platform STATIC platform/PlatformPath.cpp platform/File.cpp platform/Text.cpp platform/Config.cpp platform/FileLog.cpp platform/LogService.cpp platform/Process.cpp platform/SerialPort.cpp platform/UsbLocation.cpp)
 target_include_directories(upgrade_platform PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(upgrade_platform PUBLIC upgrade_domain)
 if(WIN32)

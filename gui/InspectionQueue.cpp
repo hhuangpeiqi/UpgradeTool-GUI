@@ -2,7 +2,7 @@
 #include "gui/EngineWorker.h"
 #include <QPointer>
 namespace gui {
-InspectionQueue::InspectionQueue(QObject *parent, platform::FileLog *log)
+InspectionQueue::InspectionQueue(QObject *parent, platform::LogService *log)
     : QObject(parent), m_context(new QObject), m_log(log) {
     m_context->moveToThread(&m_thread);
     connect(&m_thread, &QThread::finished, m_context, &QObject::deleteLater);

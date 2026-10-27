@@ -5,7 +5,7 @@
 #include <functional>
 #include <vector>
 #include "DefineHeader.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include "RKScan.h"
 #include "RKComm.h"
 #include "gpt.h"
@@ -63,8 +63,8 @@ public:
 	void RequestAbort();
 	bool IsAborted() const;
 
-	void SetLogObject(platform::FileLog *pLog);
-	platform::FileLog *GetLogObject() const;
+	void SetLogObject(platform::LogService *pLog);
+	platform::LogService *GetLogObject() const;
 
 	void SetScan(CRKScan *pScan);
 	CRKScan *GetScan() const;
@@ -171,7 +171,7 @@ private:
 	static void PromptThunk(UINT deviceLayer, ENUM_UPGRADE_PROMPT emPrompt, UINT uiParam);
 
 	IUpgradeObserver *m_pObserver;
-	platform::FileLog *m_pLog;
+	platform::LogService *m_pLog;
 	CRKScan *m_pScan;
 	bool m_bReadComLog;
 	bool m_bSwitchStorage;

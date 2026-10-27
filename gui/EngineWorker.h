@@ -7,7 +7,7 @@
 #include "application/TaskRunner.h"
 #include "domain/Backend.h"
 #include "domain/UpgradeObserver.h"
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 class CRKScan;
 namespace core { class UpgradeEngine; }
 Q_DECLARE_METATYPE(core::InspectionRequest)
@@ -18,7 +18,7 @@ namespace gui {
 class EngineWorker : public QObject {
 	Q_OBJECT
 public:
-	explicit EngineWorker(platform::FileLog *log, QObject *parent = nullptr);
+	explicit EngineWorker(platform::LogService *log, QObject *parent = nullptr);
 	~EngineWorker();
 	void SetObserver(core::IUpgradeObserver *observer);
     core::OperationResult inspectResult(const core::InspectionRequest &);
@@ -32,12 +32,12 @@ public slots:
 signals:
     void felMonitorReady(quint64 id);
     void felMonitorFinished(quint64 id, bool ok, const QString &message, const core::DeviceRef &target, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
-    void traceMessage(const QString &message);
     void inspectionFinished(int context,quint64 generation,const core::OperationResult &result);
 	void devicesReady(const QVariantList &devices);
 	void taskFinished(const core::TaskSummary &summary);
 	void stepStarted(int step, int target, int total, const QString &device);
 private:
+    platform::LogService *m_log;
     AllwinnerSwitchMonitor *m_felMonitor = nullptr;
     struct Runtime;
     std::unique_ptr<Runtime> m_runtime;

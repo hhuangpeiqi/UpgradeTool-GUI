@@ -16,6 +16,9 @@ add_library(upgrade_gui_backend STATIC
   MessageCatalog.cpp
   OperationSpec.cpp
   OperationSpec.h
+  DiagnosticLog.cpp
+  DiagnosticLog.h
+  UpgradePromptMessage.h
   QtObserver.cpp
   QtObserver.h
   InspectionQueue.cpp

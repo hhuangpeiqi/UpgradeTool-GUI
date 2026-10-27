@@ -115,7 +115,7 @@ bool UpgradeEngine::GetDeviceStorage(CRKComm *pComm, BYTE *lpBuffer, StorageCode
 	BYTE capability[8];
 	int iRet = pComm->RKU_ReadCapability(capability);
 	if (iRet != ERR_SUCCESS) {
-		if (m_pLog) m_pLog->Record("Error:%s-->RKU_ReadCapability failed,err=%d",
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s-->RKU_ReadCapability failed,err=%d",
 			               "get_device_storage", iRet);
 		return false;
 	}
@@ -129,7 +129,7 @@ bool UpgradeEngine::GetDeviceStorage(CRKComm *pComm, BYTE *lpBuffer, StorageCode
 		}
 		if (iRet != ERR_DEVICE_UNREADY) {
 			if (m_pLog)
-				if (m_pLog) m_pLog->Record("Error:%s-->RKU_ReadStorageList failed,err=%d",
+				if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s-->RKU_ReadStorageList failed,err=%d",
 				               "get_device_storage", iRet);
 			return false;
 		}
@@ -142,14 +142,14 @@ bool UpgradeEngine::SwitchDeviceStorage(CRKComm *pComm, StorageCode uiStorage)
 {
 	BYTE ucIndex = GetStorageIndex(uiStorage);
 	if (ucIndex == 0xFF) {
-		if (m_pLog) m_pLog->Record("Error:%s-->switch_device_storage invalid storage,storage=0x%x",
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s-->switch_device_storage invalid storage,storage=0x%x",
 		               "switch_device_storage", uiStorage);
 		return false;
 	}
 	int iRet = pComm->RKU_SwitchStorage(ucIndex);
 	if (iRet == ERR_SUCCESS)
 		return true;
-	if (m_pLog) m_pLog->Record("Error:%s-->RKU_SwitchStorage failed,err=%d", "switch_device_storage", iRet);
+	if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s-->RKU_SwitchStorage failed,err=%d", "switch_device_storage", iRet);
 	return false;
 }
 
@@ -172,7 +172,7 @@ bool UpgradeEngine::SwitchStorage(STRUCT_RKDEVICE_DESC &dev, int iIndex)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to create comm object!", "switch_storage");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to create comm object!", "switch_storage");
 		Emit(LogLevel::Error, "SwitchStorage quit,Creating comm object failed!");
 		return false;
 	}
@@ -201,7 +201,7 @@ bool UpgradeEngine::SwitchStorage(STRUCT_RKDEVICE_DESC &dev, int iIndex)
 	if (iIndex < 0) {
 		Emit(LogLevel::Info, "List of supported storage\r\n");
 		if (!GetDeviceStorage(pComm, lpBuffer, uiCurStorage)) {
-			if (m_pLog) m_pLog->Record("Error:%s->Fail to get device storage", "switch_storage");
+			if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to get device storage", "switch_storage");
 			Emit(LogLevel::Error, "Error:Read Storage list failed!");
 			delete pComm;
 			return false;
@@ -225,13 +225,13 @@ bool UpgradeEngine::SwitchStorage(STRUCT_RKDEVICE_DESC &dev, int iIndex)
 		UINT uiValue = GetStorageValue(vecStorage[iIndex - 1]);
 		int iRet = pComm->RKU_SwitchStorage(GetStorageIndex(uiValue));
 		if (iRet != ERR_SUCCESS) {
-			if (m_pLog) m_pLog->Record("Error:%s->Fail to switch storage,err=%d", "switch_storage", iRet);
+			if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to switch storage,err=%d", "switch_storage", iRet);
 			Emit(LogLevel::Error, "Error:Switch Storage failed!");
 			delete pComm;
 			return false;
 		}
 		if (!GetDeviceStorage(pComm, lpBuffer, uiCurStorage)) {
-			if (m_pLog) m_pLog->Record("Error:%s->Fail to get device storage After switching", "switch_storage");
+			if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to get device storage After switching", "switch_storage");
 			Emit(LogLevel::Error, "Error:Switch Storage failed!");
 			delete pComm;
 			return false;
@@ -241,7 +241,7 @@ bool UpgradeEngine::SwitchStorage(STRUCT_RKDEVICE_DESC &dev, int iIndex)
 			delete pComm;
 			return true;
 		}
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to check Storage,storage=%s,switch=%s",
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to check Storage,storage=%s,switch=%s",
 		               "switch_storage", GetStorageString(uiCurStorage).c_str(),
 		               vecStorage[iIndex - 1].c_str());
 		Emit(LogLevel::Error, "Error:Switch Storage failed!");
@@ -261,13 +261,13 @@ bool UpgradeEngine::ReadLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT uiLen,
 	FILE *file = NULL;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read LBA quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Read LBA quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	if (szFile) {
 		file = platform::OpenFile(szFile, "wb+");
 		if (!file) {
-			Emit(LogLevel::Info, "Read LBA failed,err=%d,can't open file: %s\r\n", errno, szFile);
+			Emit(LogLevel::Error, "Read LBA failed,err=%d,can't open file: %s\r\n", errno, szFile);
 			delete pComm;
 			return false;
 		}
@@ -278,7 +278,7 @@ bool UpgradeEngine::ReadLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT uiLen,
 		iRead = (uiLen >= DEFAULT_RW_LBA) ? DEFAULT_RW_LBA : uiLen;
 		int iRet = pComm->RKU_ReadLBA(uiBegin + iTotalRead, iRead, pBuf);
 		if (iRet != ERR_SUCCESS) {
-			Emit(LogLevel::Info, "Read LBA failed!\r\n");
+			Emit(LogLevel::Error, "Read LBA failed!\r\n");
 			goto exit_read;
 		}
 		uiLen -= iRead;
@@ -315,7 +315,7 @@ bool UpgradeEngine::WriteLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, char *szFi
 		pComm = new CRKUsbComm(dev, m_pLog, bRet);
 		bOwn = true;
 		if (!bRet) {
-			Emit(LogLevel::Info, "Write LBA quit, creating comm object failed!\r\n");
+			Emit(LogLevel::Error, "Write LBA quit, creating comm object failed!\r\n");
 			return false;
 		}
 	}
@@ -323,7 +323,7 @@ bool UpgradeEngine::WriteLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, char *szFi
 	if (uiChunkSectors == 0) {
 		uiChunkSectors = DiDownloadChunkSectors(pComm,m_config);
 		if (uiChunkSectors == 0) {
-			Emit(LogLevel::Info, "Write LBA failed, RKU_TestDeviceReady error\r\n");
+			Emit(LogLevel::Error, "Write LBA failed, RKU_TestDeviceReady error\r\n");
 			goto exit_write;
 		}
 	}
@@ -336,7 +336,7 @@ bool UpgradeEngine::WriteLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, char *szFi
 	Emit(LogLevel::Info, "Start to write %s at 0x%x...\r\n", szFile, uiBegin);
 	file = platform::OpenFile(szFile, "rb");
 	if (!file) {
-		Emit(LogLevel::Info, "Write LBA failed, err=%d, can't open file: %s\r\n", errno, szFile);
+		Emit(LogLevel::Error, "Write LBA failed, err=%d, can't open file: %s\r\n", errno, szFile);
 		goto exit_write;
 	}
 	fseeko(file, 0, SEEK_END);
@@ -351,7 +351,7 @@ bool UpgradeEngine::WriteLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, char *szFi
 		uiLen = ((iWrite % 512) == 0) ? (iWrite / 512) : (iWrite / 512 + 1);
 		int iRet = pComm->RKU_WriteLBA(uiBegin, uiLen, pBuf);
 		if (iRet != ERR_SUCCESS) {
-			Emit(LogLevel::Info, "Write LBA failed!\r\n");
+			Emit(LogLevel::Error, "Write LBA failed!\r\n");
 			goto exit_write;
 		}
 		uiBegin += uiLen;
@@ -386,7 +386,7 @@ bool UpgradeEngine::WriteSparseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT
 		pComm = new CRKUsbComm(dev, m_pLog, bRet);
 		bOwn = true;
 		if (!bRet) {
-			Emit(LogLevel::Info, "Write sparse LBA quit, creating comm object failed!\r\n");
+			Emit(LogLevel::Error, "Write sparse LBA quit, creating comm object failed!\r\n");
 			return false;
 		}
 	}
@@ -394,7 +394,7 @@ bool UpgradeEngine::WriteSparseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT
 	if (uiChunkSectors == 0) {
 		uiChunkSectors = DiDownloadChunkSectors(pComm,m_config);
 		if (uiChunkSectors == 0) {
-			Emit(LogLevel::Info, "Write sparse LBA failed, RKU_TestDeviceReady error\r\n");
+			Emit(LogLevel::Error, "Write sparse LBA failed, RKU_TestDeviceReady error\r\n");
 			goto exit_sparse;
 		}
 	}
@@ -406,7 +406,7 @@ bool UpgradeEngine::WriteSparseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT
 		goto exit_sparse;
 	file = platform::OpenFile(szFile, "rb");
 	if (!file) {
-		Emit(LogLevel::Info, "%s failed, err=%d, can't open file: %s\r\n", "write_sparse_lba", errno, szFile);
+		Emit(LogLevel::Error, "%s failed, err=%d, can't open file: %s\r\n", "write_sparse_lba", errno, szFile);
 		goto exit_sparse;
 	}
 	fseeko(file, 0, SEEK_SET);
@@ -419,7 +419,7 @@ bool UpgradeEngine::WriteSparseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT
 	if (uiSize == (u32)-1)
 		uiSize = ALIGN(iFileSize, SECTOR_SIZE);
 	if (!ErasePartition(pComm, uiBegin, uiSize)) {
-		Emit(LogLevel::Info, "%s failed, erase partition error\r\n", "write_sparse_lba");
+		Emit(LogLevel::Error, "%s failed, erase partition error\r\n", "write_sparse_lba");
 		goto exit_sparse;
 	}
 	while (curChunk < header.total_chunks) {
@@ -512,7 +512,7 @@ bool UpgradeEngine::EraseLba(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT uiCou
 	}
 	int iRet = pComm->RKU_EraseLBA(uiBegin, uiCount);
 	bool bSuccess = (iRet == ERR_SUCCESS);
-	Emit(LogLevel::Info, bSuccess ? "Erase LBA OK.\r\n" : "Erase LBA failed!\r\n");
+	Emit(bSuccess ? LogLevel::Info : LogLevel::Error, bSuccess ? "Erase LBA OK.\r\n" : "Erase LBA failed!\r\n");
 	delete pComm;
 	return bSuccess;
 }
@@ -529,13 +529,13 @@ bool UpgradeEngine::EraseBlock(STRUCT_RKDEVICE_DESC &dev, BYTE ucFlashCS, UINT u
 		return false;
 	}
 	if (uiCount > MAX_ERASE_BLOCKS) {
-		Emit(LogLevel::Info, "Erase block count is larger than %d!\r\n", MAX_ERASE_BLOCKS);
+		Emit(LogLevel::Error, "Erase block count is larger than %d!\r\n", MAX_ERASE_BLOCKS);
 		delete pComm;
 		return false;
 	}
 	int iRet = pComm->RKU_EraseBlock(ucFlashCS, uiBegin, uiCount, bForce ? ERASE_FORCE : ERASE_NORMAL);
 	bool bSuccess = (iRet == ERR_SUCCESS || iRet == ERR_FOUND_BAD_BLOCK);
-	Emit(LogLevel::Info, bSuccess ? "Erase Block OK.\r\n" : "Erase Block failed!\r\n");
+	Emit(bSuccess ? LogLevel::Info : LogLevel::Error, bSuccess ? "Erase Block OK.\r\n" : "Erase Block failed!\r\n");
 	delete pComm;
 	return bSuccess;
 }
@@ -549,7 +549,7 @@ bool UpgradeEngine::WriteSector(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT ui
 	(void)uiPageSize; (void)uiSpareSize;
 	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file) {
-		Emit(LogLevel::Info, "Read file failed, err=%d, can't open file: %s\r\n", errno, szFile);
+		Emit(LogLevel::Error, "Read file failed, err=%d, can't open file: %s\r\n", errno, szFile);
 		return false;
 	}
 	fseek(file, 0, SEEK_END);
@@ -572,7 +572,7 @@ bool UpgradeEngine::WriteSector(STRUCT_RKDEVICE_DESC &dev, UINT uiBegin, UINT ui
 	}
 	int iRet = pComm->RKU_WriteSector(uiBegin, uiSector, pBuf);
 	bool bSuccess = (iRet == ERR_SUCCESS);
-	Emit(LogLevel::Info, bSuccess ? "Write Sector OK.\r\n" : "Write Sector failed!\r\n");
+	Emit(bSuccess ? LogLevel::Info : LogLevel::Error, bSuccess ? "Write Sector OK.\r\n" : "Write Sector failed!\r\n");
 	delete pComm;
 	delete []pBuf;
 	return bSuccess;
@@ -608,28 +608,28 @@ bool UpgradeEngine::RunSystem(STRUCT_RKDEVICE_DESC &dev, UINT uiUbootAddr, UINT 
 	stParam.dwUbootAddr = uiUbootAddr << 9;
 	stParam.dwUbootSize = GetFileSize(szUboot);
 	if (stParam.dwUbootSize == (DWORD)-1) {
-		Emit(LogLevel::Info, "Failed to get size of uboot!\r\n");
+		Emit(LogLevel::Error, "Failed to get size of uboot!\r\n");
 		return false;
 	}
 	stParam.dwTrustType = 1;
 	stParam.dwTrustAddr = uiTrustAddr << 9;
 	stParam.dwTrustSize = GetFileSize(szTrust);
 	if (stParam.dwTrustSize == (DWORD)-1) {
-		Emit(LogLevel::Info, "Failed to get size of trust!\r\n");
+		Emit(LogLevel::Error, "Failed to get size of trust!\r\n");
 		return false;
 	}
 	stParam.dwBootType = 4;
 	stParam.dwBootAddr = uiBootAddr << 9;
 	stParam.dwBootSize = GetFileSize(szBoot);
 	if (stParam.dwBootSize == (DWORD)-1) {
-		Emit(LogLevel::Info, "Failed to get size of boot!\r\n");
+		Emit(LogLevel::Error, "Failed to get size of boot!\r\n");
 		return false;
 	}
 
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to create comm object", "run_system");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to create comm object", "run_system");
 		Emit(LogLevel::Error, "Run system quit,Creating comm object failed!");
 		return false;
 	}
@@ -637,14 +637,14 @@ bool UpgradeEngine::RunSystem(STRUCT_RKDEVICE_DESC &dev, UINT uiUbootAddr, UINT 
 	Emit(LogLevel::Info, "start to run system...\r\n");
 	int iRet = pComm->RKU_WriteSDRam((DWORD)sizeof(stParam), (BYTE *)&stParam);
 	if (iRet != ERR_SUCCESS) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to write sdram, err=%d", "run_system", iRet);
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to write sdram, err=%d", "run_system", iRet);
 		Emit(LogLevel::Error, "Failed to send param!");
 		delete pComm;
 		return false;
 	}
 	iRet = pComm->RKU_RunSDRam();
 	if (iRet != ERR_SUCCESS) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to run sdram, err=%d", "run_system", iRet);
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to run sdram, err=%d", "run_system", iRet);
 		Emit(LogLevel::Error, "Failed to run system!");
 		delete pComm;
 		return false;
@@ -665,7 +665,7 @@ bool UpgradeEngine::EraseUbiBlock(STRUCT_RKDEVICE_DESC &dev, u32 uiOffset, u32 u
 		return false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Erase ubi quit, creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Erase ubi quit, creating comm object failed!\r\n");
 		delete pComm;
 		return false;
 	}
@@ -714,7 +714,7 @@ bool UpgradeEngine::DownloadImage(STRUCT_RKDEVICE_DESC &dev, char *szPartName, U
 
 			bSuccess = WriteLba(dev, uiOffset, szImage, NULL, 0);
 		else
-			Emit(LogLevel::Info, "Failure of Erase for writing ubi image!\r\n");
+			Emit(LogLevel::Error, "Failure of Erase for writing ubi image!\r\n");
 	}
 	(void)szPartName;
 	return bSuccess;

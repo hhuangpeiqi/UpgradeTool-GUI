@@ -98,8 +98,7 @@ struct Harness {
     explicit Harness(gui::AdbPollTiming timing = {10, 30, 200, 30, 120})
         : runner(nullptr, [](bool) { return QVector<gui::AdbUsbDevice>{}; }, 200, 650,
                  [state = model] { return std::make_unique<ScriptProcess>(state); }, timing) {
-        QObject::connect(&runner, &gui::AdbRunner::traceMessage, [&](const QString &message) {
-            const auto record = QJsonDocument::fromJson(message.toUtf8()).object();
+        QObject::connect(&runner, &gui::AdbRunner::traceRecord, [&](const QJsonObject &record) {
             records.append(record);
             const auto event = record.value("event").toString();
             if (event == "failed" || event == "timeout") {
@@ -270,8 +269,8 @@ static void TestNativeAck()
         int kills = 0;
         QObject::connect(&runner, &gui::AdbRunner::availabilityChanged,
                          [&](bool ok, const QString &) { available = ok; });
-        QObject::connect(&runner, &gui::AdbRunner::traceMessage, [&](const QString &message) {
-            const auto event = QJsonDocument::fromJson(message.toUtf8()).object().value("event").toString();
+        QObject::connect(&runner, &gui::AdbRunner::traceRecord, [&](const QJsonObject &record) {
+            const auto event = record.value("event").toString();
             if (event == "slow_query") slow = true;
             if (event == "timeout_kill_requested") ++kills;
         });

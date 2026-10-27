@@ -1,4 +1,5 @@
 #include "gui/backend/DriverController.h"
+#include "gui/MessageDisplay.h"
 #include <QCoreApplication>
 #include <QThread>
 #include <QSettings>
@@ -132,29 +133,30 @@ QString DriverController::summaryText() const {
     if (hasPending()) return tr("Driver setup needs attention");
     return {};
 }
-QString DriverController::phaseText() const {
+core::Message DriverController::phaseMessage() const {
     if (m_operation == DriverOperation::RockusbAssistant && m_phase == DriverPhase::Installing)
-        return tr("Complete installation in the Rockchip driver assistant, then close it…");
+        return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Complete installation in the Rockchip driver assistant, then close it…"), {}};
     if (m_operation == DriverOperation::QualcommUninstall) {
-        if (m_phase == DriverPhase::Preparing) return tr("Preparing driver removal…");
-        return tr("Windows is removing the Qualcomm drivers…");
+        if (m_phase == DriverPhase::Preparing) return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Preparing driver removal…"), {}};
+        return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Windows is removing the Qualcomm drivers…"), {}};
     }
     switch (m_phase) {
-    case DriverPhase::Preparing: return tr("Preparing driver installation…");
-    case DriverPhase::Installing: return tr("Windows is installing the driver…");
-    case DriverPhase::Bound: return tr("Driver bound. Waiting for Windows to finish…");
-    case DriverPhase::Recovering: return tr("Recovering device…");
-    case DriverPhase::Verifying: return tr("Checking driver…");
+    case DriverPhase::Preparing: return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Preparing driver installation…"), {}};
+    case DriverPhase::Installing: return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Windows is installing the driver…"), {}};
+    case DriverPhase::Bound: return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Driver bound. Waiting for Windows to finish…"), {}};
+    case DriverPhase::Recovering: return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Recovering device…"), {}};
+    case DriverPhase::Verifying: return core::Message{"gui::DriverController", QT_TRANSLATE_NOOP("gui::DriverController", "Checking driver…"), {}};
     }
     return {};
 }
+QString DriverController::phaseText() const { return Display(phaseMessage()); }
 QString DriverController::progressText() const {
     return m_busy ? tr("%1 · %2 s elapsed").arg(m_message).arg(m_elapsedSeconds) : m_message;
 }
 void DriverController::setPhase(DriverPhase phase) {
     if (m_phase != phase) {
         m_phase = phase;
-        emit diagnostic(QStringLiteral("Phase [%1 ms]: %2").arg(m_installElapsed.elapsed()).arg(phaseText()));
+        emit diagnostic(QStringLiteral("Phase [%1 ms]: %2").arg(m_installElapsed.elapsed()).arg(QString::fromStdString(phaseMessage().English())));
         emit devicesChanged();
     }
     setMessage(phaseText());
@@ -363,8 +365,8 @@ void DriverController::beginInstall() {
 void DriverController::finish(Outcome outcome, const QString &message) {
     m_progressTimer.stop();
     m_elapsedSeconds = int(m_installElapsed.elapsed() / 1000);
-    emit diagnostic(QStringLiteral("Installation finished [%1 ms]: outcome=%2 reboot=%3 %4")
-        .arg(m_installElapsed.elapsed()).arg(int(outcome)).arg(m_rebootRequired).arg(message));
+    emit diagnostic(QStringLiteral("Installation finished [%1 ms]: outcome=%2 reboot=%3")
+        .arg(m_installElapsed.elapsed()).arg(int(outcome)).arg(m_rebootRequired));
     m_verifyTimer.stop(); m_verifying = m_installPending = false; m_busy = false;
     if (outcome == Outcome::Succeeded && !m_stopping && m_operation != DriverOperation::QualcommUninstall) forgetPending();
     m_affected.clear(); setMessage(message); emit busyChanged(); emit devicesChanged(); emit confirmationChanged(); emit finished(outcome, message);

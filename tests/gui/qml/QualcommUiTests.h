@@ -27,7 +27,7 @@
 #include <QVariantList>
 #include <libusb.h>
 #include <cstdio>
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 #include "tests/support/Checks.h"
 #include "tests/support/qt/QmlHelpers.h"
 

@@ -1,5 +1,6 @@
 #include "platform/UsbLocation.h"
 #include "gui/EdlRunner.h"
+#include "gui/MessageDisplay.h"
 #include <QElapsedTimer>
 #include <QThread>
 #include <QMap>
@@ -7,6 +8,9 @@
 #include <libusb.h>
 namespace gui {
 namespace {
+core::Message Text(const char *key, std::vector<std::string> args = {}) {
+    return {"gui::EdlRunner", key, std::move(args)};
+}
 quint16 crc(const QByteArray &data) {
     quint16 value = 0xffff;
     for (unsigned char byte : data) {
@@ -87,8 +91,8 @@ bool BindEdlNativeInterface(EdlEndpoint &endpoint, const QVector<EdlEndpoint> &n
     return true;
 }
 EdlRunner::EdlRunner(QObject *parent) : EdlRunner(DefaultEdlHooks(), 45000, parent) {}
-EdlRunner::EdlRunner(EdlHooks hooks, int waitMs, QObject *parent)
-    : QObject(parent), m_hooks(std::move(hooks)), m_waitMs(waitMs) {}
+EdlRunner::EdlRunner(EdlHooks hooks, int waitMs, QObject *parent, platform::LogService *log)
+    : QObject(parent), m_log(log), m_hooks(std::move(hooks)), m_waitMs(waitMs) {}
 EdlRunner::~EdlRunner() {
     shutdown();
     if (m_discoveryThread) { m_discoveryThread->wait(); delete m_discoveryThread; }
@@ -213,12 +217,15 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
     m_cancel = cancel;
     setState(Checking);
     emit started(); setMessage(tr("Checking the selected device…"));
-    struct Result { bool ok = false; QString message; EdlEndpoint edl; ModeSwitchFailure failure = ModeSwitchFailure::Generic; };
+    struct Result { bool ok = false; core::Message message; QString displayOverride, detail; EdlEndpoint edl; ModeSwitchFailure failure = ModeSwitchFailure::Generic; };
     auto result = std::make_shared<Result>();
+    const auto context = m_logContext;
     m_thread = QThread::create([=, this] {
-        auto progress = [this](State state, const QString &text) {
+        core::ScopedLogContext logContext(context);
+        auto progress = [this](State state, const core::Message &text) {
+            if (m_log) m_log->write(core::LogLevel::Info, "Qualcomm", text);
             QMetaObject::invokeMethod(this, [this,state,text] {
-                if (running()) { setState(state); setMessage(text); }
+                if (running()) { setState(state); setMessage(Display(text)); }
             }, Qt::QueuedConnection);
         };
         QString error;
@@ -234,46 +241,45 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
                 e.alternate == selected.alternate && e.path == selected.path &&
                 e.in == selected.in && e.out == selected.out && e.address == selected.address &&
                 e.downloadInterface == selected.downloadInterface) {
-                if (found) { result->message = tr("The selected switch endpoint is no longer available. Refresh and select it again."); return; }
+                if (found) { result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "The selected switch endpoint is no longer available. Refresh and select it again.")); return; }
                 target = e; found = true;
             }
         }
-        if (!found) { result->message = tr("The selected switch endpoint is no longer available. Refresh and select it again."); return; }
+        if (!found) { result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "The selected switch endpoint is no longer available. Refresh and select it again.")); return; }
         if (target.accessError) {
             result->failure = ModeSwitchFailure::DeviceAccess;
-            result->message = target.accessReason.isEmpty()
-                ? tr("Cannot access the selected interface; check its USB driver and close other device tools.")
-                : target.accessReason;
+            result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Cannot access the selected interface; check its USB driver and close other device tools."));
+            result->displayOverride = target.accessReason;
             return;
         }
         const bool useDiag = method == Diag;
         std::unique_ptr<DiagSession> session;
         if (useDiag) {
-            progress(Verifying, tr("Verifying the selected DIAG interface…"));
+            progress(Verifying, Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Verifying the selected DIAG interface…")));
             session = m_hooks.openDiag(target, cancel, error);
-            if (!session) { result->message = tr("DIAG verification failed: %1").arg(error); return; }
+            if (!session) { result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "DIAG verification failed: %1"), {error.toStdString()}); return; }
             bool sent = false;
             const auto response = session->exchange(QByteArray(1, char(0)), cancel, error, sent);
             if (!validVersion(response)) {
-                result->message = tr("DIAG verification failed: %1").arg(error.isEmpty() ? tr("Invalid or unsupported version response") : error); return;
+                result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "DIAG verification failed: %1"), {error.isEmpty() ? "Invalid or unsupported version response" : error.toStdString()}); return;
             }
         }
         if (cancel->stop_requested()) return;
         if (useDiag) {
-            progress(Sending, tr("Sending DIAG EDL request…"));
+            progress(Sending, Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Sending DIAG EDL request…")));
             bool sent = false;
             const auto reply = session->exchange(QByteArray::fromHex("4b650100"), cancel, error, sent);
-            if (!sent) { result->message = tr("EDL request could not be sent: %1").arg(error); return; }
+            if (!sent) { result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "EDL request could not be sent: %1"), {error.toStdString()}); return; }
             if (!reply.isEmpty() && !reply.startsWith(QByteArray::fromHex("4b650100"))) {
-                result->message = tr("The device rejected the DIAG EDL request."); return;
+                result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "The device rejected the DIAG EDL request.")); return;
             }
         } else {
-            progress(Sending, tr("Sending ADB EDL request…"));
-            if (!m_hooks.reboot(adbPath, target.serial, cancel, error)) { result->message = tr("EDL request could not be sent: %1").arg(error); return; }
+            progress(Sending, Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Sending ADB EDL request…")));
+            if (!m_hooks.reboot(adbPath, target.serial, cancel, error)) { result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "EDL request could not be sent: %1"), {error.toStdString()}); return; }
         }
         if (cancel->stop_requested()) return;
         session.reset();
-        progress(Waiting, tr("Request sent; waiting for the target device in 9008 mode…"));
+        progress(Waiting, Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Request sent; waiting for the target device in 9008 mode…")));
         QElapsedTimer timer; timer.start();
         do {
             QVector<EdlEndpoint> matches;
@@ -281,21 +287,21 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
                 if (e.mode() == QTQ_EDL && sameLocation(target, e)) matches.append(e);
             result->failure = ModeSwitchFailure::Generic;
             if (matches.size() > 1) {
-                result->message = tr("Multiple EDL interfaces appeared at the target location; refresh and select one explicitly."); return;
+                result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Multiple EDL interfaces appeared at the target location; refresh and select one explicitly.")); return;
             }
             // Keep waiting through driver installation/rebinding; only a current
             // target may classify the final timeout as an access problem.
-            result->message.clear();
+            result->message = {};
+            result->displayOverride.clear();
             if (matches.size() == 1) {
                 const auto &endpoint = matches.first();
                 if (!endpoint.accessError) {
                     result->ok = true; result->edl = endpoint;
-                    result->message = tr("Target device detected in 9008 mode."); return;
+                    result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Target device detected in 9008 mode.")); return;
                 }
                 result->failure = ModeSwitchFailure::DeviceAccess;
-                result->message = endpoint.accessReason.isEmpty()
-                    ? tr("Cannot access the selected interface; check its USB driver and close other device tools.")
-                    : endpoint.accessReason;
+                result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Cannot access the selected interface; check its USB driver and close other device tools."));
+                result->displayOverride = endpoint.accessReason;
             }
             if (cancel->stop_requested()) return;
             if (timer.elapsed() >= m_waitMs) break;
@@ -303,18 +309,26 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         } while (true);
         if (result->failure == ModeSwitchFailure::DeviceAccess) return;
         result->message = target.location.isEmpty() && target.ports.isEmpty()
-            ? tr("Request sent, but the target USB location could not be identified; success cannot be confirmed.")
-            : tr("The target device did not appear in 9008 mode before the timeout.");
-        if (!error.isEmpty()) result->message += "\n" + error;
+            ? Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Request sent, but the target USB location could not be identified; success cannot be confirmed."))
+            : Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "The target device did not appear in 9008 mode before the timeout."));
+        result->detail = error;
     });
     connect(m_thread, &QThread::finished, this, [=, this] {
         m_thread->deleteLater(); m_thread = nullptr;
-        if (cancel->stop_requested()) { result->ok = false; result->message = tr("Switch cancelled. A reboot request already sent may not be reversible."); }
+        if (cancel->stop_requested()) { result->ok = false; result->displayOverride.clear(); result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Switch cancelled. A reboot request already sent may not be reversible.")); }
         m_endpoints.clear(); m_targets.clear(); m_discovered = false;
         setState(cancel->stop_requested() ? Cancelled : result->ok ? Completed : Failed);
         emit targetsChanged();
-        setMessage(result->message);
-        emit finished(result->ok, result->message, result->edl, result->failure);
+        core::ScopedLogContext logContext(context);
+        if (m_log) {
+            m_log->write(result->ok || cancel->stop_requested() ? core::LogLevel::Info : core::LogLevel::Error,
+                         "Qualcomm", result->message, false);
+            if (!result->detail.isEmpty()) m_log->write(core::LogLevel::Debug, "Qualcomm", {{}, result->detail.toStdString(), {}}, false);
+        }
+        const auto message = (result->displayOverride.isEmpty() ? Display(result->message) : result->displayOverride)
+            + (result->detail.isEmpty() ? QString() : "\n" + result->detail);
+        setMessage(message);
+        emit finished(result->ok, message, result->edl, result->failure);
     });
     m_thread->start();
 }

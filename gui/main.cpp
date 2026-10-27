@@ -16,7 +16,7 @@
 
 #include <libusb.h>
 
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include "platform/PlatformPath.h"
 #include "gui/backend/AppController.h"
 #include "gui/backend/DirModel.h"
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 	std::string strLogDir = platform::GetUserLogDir();
 
 	platform::EnsureDirRecursive(strLogDir);
-	platform::FileLog *pLog = new platform::FileLog(strLogDir.c_str(), "log", true);
+	platform::LogService *pLog = new platform::LogService(strLogDir.c_str(), "log", true);
 
 
 	if (libusb_init(NULL) < 0) {
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 		gui::ApplicationLifecycle lifecycle(&controller,
 		    qobject_cast<QQuickWindow *>(engine.rootObjects().first()));
 		QObject::connect(&controller, &gui::AppController::shutdownReady, &app, [&] {
-			pLog->Record("Application shutdown complete");
+			pLog->write(core::LogLevel::Info, "Application", {{}, "Application shutdown complete", {}}, false);
 			// Exit directly after orderly cleanup. QGuiApplication::quit() would
 			// dispatch another Quit event and close unrelated popup windows again.
 			QCoreApplication::exit(0);

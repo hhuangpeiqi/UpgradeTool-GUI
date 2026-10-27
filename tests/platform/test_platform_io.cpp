@@ -4,7 +4,7 @@
 #include "platform/SerialPort.h"
 #include "platform/Text.h"
 #include "platform/File.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include "tests/support/TestFiles.h"
 #include <chrono>
 #include <cerrno>
@@ -154,19 +154,23 @@ static void TestFile() {
 
 static void TestLongLog() {
     TemporaryDirectory dir;
-    platform::FileLog log(platform::Utf8(dir.path), "driver-test-", true);
+    platform::LogService log(platform::Utf8(dir.path), "driver-test-", true);
     const std::string payload = std::string(80 * 1024, 'x') + "\n完整驱动安装日志";
-    log.Record("installer: %s\nfinal status=%d", payload.c_str(), 17);
+    log.writef(core::LogLevel::Debug, "Driver", "installer: %s\nfinal status=%d", payload.c_str(), 17);
     std::string content;
     for (const auto &entry : std::filesystem::directory_iterator(dir.path)) {
         std::ifstream file(entry.path(), std::ios::binary);
         content.append(std::istreambuf_iterator<char>(file), {});
     }
-    CHECK(content.find("installer: " + payload + "\nfinal status=17\r\n") != std::string::npos);
+    CHECK(content.find("installer: " + std::string(80 * 1024, 'x')) != std::string::npos);
+    CHECK(content.find("| 完整驱动安装日志") != std::string::npos);
+    CHECK(content.find("| final status=17\n") != std::string::npos);
+    CHECK(content.find("[DEBUG] [Driver] [session=") != std::string::npos);
+    CHECK(content.find('\r') == std::string::npos);
     const auto logPath = std::filesystem::directory_iterator(dir.path)->path();
     const auto size = std::filesystem::file_size(logPath);
-    log.SetEnableLog(false);
-    log.Record("must not be written");
+    log.setEnabled(false);
+    log.writef(core::LogLevel::Info, "Test", "must not be written");
     CHECK(std::filesystem::file_size(logPath) == size);
 }
 

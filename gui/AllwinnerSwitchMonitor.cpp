@@ -1,8 +1,23 @@
 #include "gui/AllwinnerSwitchMonitor.h"
 #include "backends/DeviceIdentity.h"
+#include "gui/MessageDisplay.h"
 #include <algorithm>
 
 namespace gui {
+namespace {
+core::Message Text(const char *key, std::vector<std::string> args = {}) {
+    return {"gui::AllwinnerSwitchMonitor", key, std::move(args)};
+}
+}
+void AllwinnerSwitchMonitor::traceEvent(core::LogLevel level, const std::string &text) {
+    core::LogEntry entry;
+    entry.level = level;
+    entry.context = {"Allwinner", m_request.logId, 0, m_request.target.native};
+    entry.message = {{}, text, {}};
+    entry.visible = false;
+    emit trace(entry);
+}
+
 AllwinnerSwitchMonitor::AllwinnerSwitchMonitor(Hooks hooks, QObject *parent)
     : QObject(parent), m_hooks(std::move(hooks)) {
     m_timer.setInterval(100);
@@ -12,7 +27,7 @@ void AllwinnerSwitchMonitor::prepare(const FelSwitchRequest &request) {
     if (m_request.id)
         cancel(m_request.id);
     m_request = request;
-    m_lastError.clear();
+    m_lastError = {};
     m_seen = false;
     m_present = false;
     m_accessBlocked = false;
@@ -21,15 +36,15 @@ void AllwinnerSwitchMonitor::prepare(const FelSwitchRequest &request) {
         return;
     }
     if (!request.id || !request.target.known() || !m_hooks.scan || !m_hooks.connect || !m_hooks.release) {
-        finish(false, tr("Cannot uniquely identify the target USB port; no switch command was sent."));
+        finish(false, Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "Cannot uniquely identify the target USB port; no switch command was sent.")));
         return;
     }
     m_elapsed.start();
     m_timer.start();
-    emit trace(QString("fel_monitor_ready attempt=%1 native=%2 bus=%3")
+    traceEvent(core::LogLevel::Debug, (QString("fel_monitor_ready attempt=%1 native=%2 bus=%3")
                    .arg(request.id)
                    .arg(QString::fromStdString(request.target.native))
-                   .arg(request.target.bus));
+                   .arg(request.target.bus)).toStdString());
     emit ready(request.id);
 }
 void AllwinnerSwitchMonitor::cancel(quint64 id) {
@@ -45,16 +60,16 @@ void AllwinnerSwitchMonitor::cancel(quint64 id) {
         m_retainedId = 0;
     }
 }
-void AllwinnerSwitchMonitor::finish(bool ok, const QString &message, const core::DeviceRef &target, ModeSwitchFailure failure) {
+void AllwinnerSwitchMonitor::finish(bool ok, const core::Message &message, const core::DeviceRef &target, ModeSwitchFailure failure) {
     const auto id = m_request.id;
     m_timer.stop();
-    m_request.id = 0;
-    emit trace(QString("fel_monitor_finished attempt=%1 ok=%2 elapsed_ms=%3 message=%4")
+    traceEvent(ok ? core::LogLevel::Info : core::LogLevel::Error, (QString("fel_monitor_finished attempt=%1 ok=%2 elapsed_ms=%3 message=%4")
                    .arg(id)
                    .arg(ok)
                    .arg(m_elapsed.isValid() ? m_elapsed.elapsed() : 0)
-                   .arg(message));
-    emit completed(id, ok, message, target, failure);
+                   .arg(QString::fromStdString(message.English()))).toStdString());
+    m_request.id = 0;
+    emit completed(id, ok, Display(message), target, failure);
 }
 void AllwinnerSwitchMonitor::poll() {
     if (!m_request.id)
@@ -67,20 +82,18 @@ void AllwinnerSwitchMonitor::poll() {
     auto timeout = [this] {
         if (m_present && m_accessBlocked) {
 #ifdef Q_OS_WIN
-            const auto message = tr("FEL/FES device detected but unavailable. "
-                                    "Check or install its USB driver. (%1)")
-                                     .arg(m_lastError);
+            const auto message = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "FEL/FES device detected but unavailable. "
+                                    "Check or install its USB driver. (%1)"), {m_lastError.English()});
 #else
-            const auto message = tr("FEL/FES device detected but unavailable. "
-                                    "Check its driver, permissions, or use by another tool. (%1)")
-                                     .arg(m_lastError);
+            const auto message = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "FEL/FES device detected but unavailable. "
+                                    "Check its driver, permissions, or use by another tool. (%1)"), {m_lastError.English()});
 #endif
             finish(false, message, {}, ModeSwitchFailure::DeviceAccess);
             return;
         }
-        finish(false, !m_seen ? tr("No FEL/FES device appeared at the target USB port.")
-                              : tr("The target FEL/FES device appeared, but a usable connection could not be "
-                                   "established: %1").arg(m_lastError), {},
+        finish(false, !m_seen ? Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "No FEL/FES device appeared at the target USB port."))
+                              : Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "The target FEL/FES device appeared, but a usable connection could not be "
+                                   "established: %1"), {m_lastError.English()}), {},
                ModeSwitchFailure::Generic);
     };
     try {
@@ -97,16 +110,16 @@ void AllwinnerSwitchMonitor::poll() {
                 matches.push_back(device);
         }
         if (matches.size() > 1) {
-            finish(false, tr("Multiple flashing interfaces appeared at the target USB port; refresh and "
-                             "select one explicitly."));
+            finish(false, Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "Multiple flashing interfaces appeared at the target USB port; refresh and "
+                             "select one explicitly.")));
             return;
         }
         if (matches.empty()) {
             if (m_present) {
-                m_lastError = tr("The target device disconnected before the FEL/FES handshake completed.");
-                emit trace(QString("fel_disconnected attempt=%1 elapsed_ms=%2")
+                m_lastError = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "The target device disconnected before the FEL/FES handshake completed."));
+                traceEvent(core::LogLevel::Debug, (QString("fel_disconnected attempt=%1 elapsed_ms=%2")
                                .arg(m_request.id)
-                               .arg(m_elapsed.elapsed()));
+                               .arg(m_elapsed.elapsed())).toStdString());
             }
             m_present = false;
             if (timedOut) timeout();
@@ -115,15 +128,15 @@ void AllwinnerSwitchMonitor::poll() {
         m_seen = true;
         m_present = true;
         const auto &device = matches.front();
-        emit trace(QString("fel_candidate attempt=%1 key=%2 instance=%3 access_error=%4 elapsed_ms=%5")
+        traceEvent(core::LogLevel::Debug, (QString("fel_candidate attempt=%1 key=%2 instance=%3 access_error=%4 elapsed_ms=%5")
                        .arg(m_request.id)
                        .arg(QString::fromStdString(device.reference.key()))
                        .arg(QString::fromStdString(device.deviceInstance))
                        .arg(device.accessError)
-                       .arg(m_elapsed.elapsed()));
+                       .arg(m_elapsed.elapsed())).toStdString());
         if (device.accessError) {
             m_accessBlocked = true;
-            m_lastError = tr("USB driver or permissions are not ready (%1).").arg(device.accessError);
+            m_lastError = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "USB driver or permissions are not ready (%1)."), {std::to_string(device.accessError)});
             if (timedOut) timeout();
             return;
         }
@@ -141,26 +154,25 @@ void AllwinnerSwitchMonitor::poll() {
         }
         if (details.mode != 1 && details.mode != 2) {
             m_hooks.release(device.reference);
-            m_lastError = tr("Unsupported Allwinner device mode.");
+            m_lastError = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "Unsupported Allwinner device mode."));
             return;
         }
-        emit trace(QString("fel_handshake attempt=%1 mode=%2 elapsed_ms=%3")
+        traceEvent(core::LogLevel::Debug, (QString("fel_handshake attempt=%1 mode=%2 elapsed_ms=%3")
                        .arg(m_request.id)
                        .arg(details.mode)
                        .arg(std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::steady_clock::now() - started)
-                                .count()));
+                                .count())).toStdString());
         m_retained = device.reference;
         m_retainedId = m_request.id;
         finish(true,
-               tr("%1 device connected on the target USB port.")
-                   .arg(details.mode == 1 ? QStringLiteral("FEL") : QStringLiteral("FES")),
+               Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "%1 device connected on the target USB port."), {details.mode == 1 ? "FEL" : "FES"}),
                device.reference);
     } catch (const std::exception &error) {
         const auto message = QString::fromUtf8(error.what());
-        if (message != m_lastError)
-            emit trace(QString("fel_retry attempt=%1 error=%2").arg(m_request.id).arg(message));
-        m_lastError = message;
+        if (message.toStdString() != m_lastError.English())
+            traceEvent(core::LogLevel::Warn, (QString("fel_retry attempt=%1 error=%2").arg(m_request.id).arg(message)).toStdString());
+        m_lastError = {{}, message.toStdString(), {}};
         if (timedOut) timeout();
     }
 }

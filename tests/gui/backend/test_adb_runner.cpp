@@ -1,5 +1,6 @@
 #include "gui/AdbRunner.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
+#include "gui/DiagnosticLog.h"
 #include <QProcess>
 #include <QCoreApplication>
 #include <QFile>
@@ -142,9 +143,9 @@ int main(int argc, char **argv)
 		QStringList traces;
 		const auto diskDir = dir.filePath("diagnostics");
 		CHECK(QDir().mkpath(diskDir));
-		platform::FileLog disk(diskDir.toStdString(), "adb-", true);
-		QObject::connect(&runner, &gui::AdbRunner::traceMessage, [&](const QString &message) {
-			const auto record = QJsonDocument::fromJson(message.toUtf8()).object();
+		platform::LogService disk(diskDir.toStdString(), "adb-", true);
+		QObject::connect(&runner, &gui::AdbRunner::traceRecord, [&](const QJsonObject &record) {
+            const auto message = QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact));
 			CHECK(!record.isEmpty());
 			CHECK(record.value("gui_pid").toInteger() == QCoreApplication::applicationPid());
 			CHECK(QDir::isAbsolutePath(record.value("path").toString()));
@@ -152,7 +153,7 @@ int main(int argc, char **argv)
 			CHECK(record.value("timeout_ms").toInt() == gui::kAdbReadTimeoutMs);
 			CHECK(record.value("spawn_elapsed_ms").toInteger() >= 0);
 			traces.append(message);
-			disk.Record("[ADB] %s", message.toUtf8().constData());
+			gui::WriteDiagnostic(disk, "ADB", record);
 		});
 		QObject::connect(&runner, &gui::AdbRunner::availabilityChanged, [&](bool ok, const QString &message) {
 			++availability; available = ok; error = message;
@@ -290,8 +291,7 @@ int main(int argc, char **argv)
             };
             QJsonObject targetTrace;
             gui::AdbRunner runner(nullptr,scanner,200,650);
-            QObject::connect(&runner, &gui::AdbRunner::traceMessage, [&](const QString &text) {
-                const auto event = QJsonDocument::fromJson(text.toUtf8()).object();
+            QObject::connect(&runner, &gui::AdbRunner::traceRecord, [&](const QJsonObject &event) {
                 if (event.value("event") == "switch_target") targetTrace = event;
             });
             gui::AllwinnerSwitchMonitor::Hooks hooks;

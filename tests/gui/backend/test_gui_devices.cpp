@@ -8,7 +8,7 @@
 #include "gui/UsbAccess.h"
 #include "gui/backend/QualcommController.h"
 #include "backends/qualcomm/QudError.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include <QGuiApplication>
 #include <QTemporaryDir>
 #include <QFile>
@@ -43,12 +43,12 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 	{
 		// Status uses the same ADB discovery for both vendors; flash modes take priority.
 		QTemporaryDir logDirectory;
-		platform::FileLog disk(logDirectory.path().toStdString(), "adb-", true);
+		platform::LogService disk(logDirectory.path().toStdString(), "adb-", true);
 		gui::AppController controller(&disk);
 		auto *adb = controller.findChild<gui::AdbRunner *>();
 		CHECK(adb != nullptr);
 		if (adb) adb->Stop();
-		if (adb) adb->traceMessage(QStringLiteral("test-disk-trace"));
+		if (adb) adb->traceRecord(QJsonObject{{"event", "test-disk-trace"}});
 		controller.language()->setMode("en");
 		// Stop clears recovery state without publishing a new availability event.
 		// Supply the initial state explicitly, as with subsequent updates below.
@@ -98,8 +98,9 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 			CHECK(file.open(QIODevice::ReadOnly));
 			diskContent += file.readAll();
 		}
-		CHECK(diskContent.contains("ADB monitoring: app_version="));
-		CHECK(diskContent.contains("[ADB] test-disk-trace"));
+		CHECK(diskContent.contains("Environment: app_version="));
+		CHECK(diskContent.contains("[ADB] [session="));
+        CHECK(diskContent.contains("test-disk-trace"));
 		CHECK(diskContent.contains("ADB availability: available=0"));
 		CHECK(diskContent.contains("ADB availability: available=1"));
 	}

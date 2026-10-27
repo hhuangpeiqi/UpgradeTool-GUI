@@ -34,13 +34,13 @@ bool UpgradeEngine::TestDevice(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Test Device quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Test Device quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	int iRet = pComm->RKU_TestDeviceReady();
 	bool bSuccess = (iRet == ERR_SUCCESS);
 	if (!bSuccess)
-		Emit(LogLevel::Info, "Test Device Fail!\r\n");
+		Emit(LogLevel::Error, "Test Device Fail!\r\n");
 	else
 		Emit(LogLevel::Info, "Test Device OK.\r\n");
 	delete pComm;
@@ -87,12 +87,12 @@ bool UpgradeEngine::ResetDevice(STRUCT_RKDEVICE_DESC &dev, BYTE subCode)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Reset Device quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Reset Device quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	int iRet = pComm->RKU_ResetDevice(subCode);
 	bool bSuccess = (iRet == ERR_SUCCESS);
-	Emit(LogLevel::Info, bSuccess ? "Reset Device OK.\r\n" : "Reset Device failed!\r\n");
+	Emit(bSuccess ? LogLevel::Info : LogLevel::Error, bSuccess ? "Reset Device OK.\r\n" : "Reset Device failed!\r\n");
 	delete pComm;
 	return bSuccess;
 }
@@ -104,7 +104,7 @@ bool UpgradeEngine::ReadFlashId(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read flash ID quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Read flash ID quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	BYTE flashID[5];
@@ -120,7 +120,7 @@ bool UpgradeEngine::ReadFlashId(STRUCT_RKDEVICE_DESC &dev)
 		m_lastResult.items.clear();
 		m_lastResult.items.push_back(ResultItem{"Flash ID", szId});
 	} else {
-		Emit(LogLevel::Info, "Read flash ID Fail!\r\n");
+		Emit(LogLevel::Error, "Read flash ID Fail!\r\n");
 	}
 	delete pComm;
 	return bSuccess;
@@ -133,7 +133,7 @@ bool UpgradeEngine::ReadFlashInfo(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read flash Info quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Read flash Info quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	STRUCT_FLASHINFO_CMD info;
@@ -149,11 +149,11 @@ bool UpgradeEngine::ReadFlashInfo(STRUCT_RKDEVICE_DESC &dev)
 		Emit(LogLevel::Info, "\tPage Size: %dKB,value=%d\r\n", info.bPageSize / 2, info.bPageSize);
 		Emit(LogLevel::Info, "\tECC Bits: %d\r\n", info.bECCBits);
 		Emit(LogLevel::Info, "\tAccess Time: %d\r\n", info.bAccessTime);
-		Emit(LogLevel::Info, "\tFlash CS: ");
-		for (int i = 0; i < 8; i++)
-			if (info.bFlashCS & (1 << i))
-				Emit(LogLevel::Info, "<%d> ", i);
-		Emit(LogLevel::Info, "\r\n");
+        std::string chipSelects = "    Flash CS: ";
+        for (unsigned i = 0; i < 8; ++i)
+            if (info.bFlashCS & (1 << i)) chipSelects += "<" + std::to_string(i) + "> ";
+        Emit(LogLevel::Info, chipSelects);
+
 
 		char szVal[64];
 		m_lastResult.kind = ResultKind::FlashInfo;
@@ -184,7 +184,7 @@ bool UpgradeEngine::ReadFlashInfo(STRUCT_RKDEVICE_DESC &dev)
 		}
 		m_lastResult.items.push_back(ResultItem{"Flash CS", strCs});
 	} else {
-		Emit(LogLevel::Info, "Read flash Info Fail!\r\n");
+		Emit(LogLevel::Error, "Read flash Info Fail!\r\n");
 	}
 	delete pComm;
 	return bSuccess;
@@ -197,7 +197,7 @@ bool UpgradeEngine::ReadChipInfo(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read Chip Info quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Read Chip Info quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	BYTE chipInfo[16];
@@ -211,7 +211,7 @@ bool UpgradeEngine::ReadChipInfo(STRUCT_RKDEVICE_DESC &dev)
 		m_lastResult.items.clear();
 		m_lastResult.items.push_back(ResultItem{"Chip Info", strHex});
 	} else {
-		Emit(LogLevel::Info, "Read Chip Info Fail!\r\n");
+		Emit(LogLevel::Error, "Read Chip Info Fail!\r\n");
 	}
 	delete pComm;
 	return bSuccess;
@@ -225,9 +225,9 @@ bool UpgradeEngine::ReadCapability(STRUCT_RKDEVICE_DESC &dev, bool bPrint)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to create comm object!", "read_capability");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to create comm object!", "read_capability");
 		if (bPrint)
-			Emit(LogLevel::Info, "Read capability quit,Creating comm object failed!\r\n");
+			Emit(LogLevel::Error, "Read capability quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	BYTE capability[8];
@@ -261,9 +261,9 @@ bool UpgradeEngine::ReadCapability(STRUCT_RKDEVICE_DESC &dev, bool bPrint)
 			if (capability[1] & 0x08) { Emit(LogLevel::Info, "Read OTP Chip:\tenabled\r\n"); m_lastResult.items.push_back(ResultItem{"Read OTP Chip", "enabled"}); }
 		}
 	} else {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to read capability,err=%d", "read_capability", iRet);
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to read capability,err=%d", "read_capability", iRet);
 		if (bPrint)
-			Emit(LogLevel::Info, "Read capability Fail!\r\n");
+			Emit(LogLevel::Error, "Read capability Fail!\r\n");
 	}
 	delete pComm;
 	return bSuccess;
@@ -276,7 +276,7 @@ bool UpgradeEngine::ReadOtpChip(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read OTP Chip quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Read OTP Chip quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	BYTE otp[32];
@@ -284,7 +284,7 @@ bool UpgradeEngine::ReadOtpChip(STRUCT_RKDEVICE_DESC &dev)
 	bool bSuccess = (iRet == ERR_SUCCESS);
 	if (bSuccess) {
 		if (otp[0] != 'R' || otp[1] != 'K') {
-			Emit(LogLevel::Info, "OTP chip tag Invalid!\r\n");
+			Emit(LogLevel::Error, "OTP chip tag Invalid!\r\n");
 			delete pComm;
 			return false;
 		}
@@ -293,7 +293,7 @@ bool UpgradeEngine::ReadOtpChip(STRUCT_RKDEVICE_DESC &dev)
 		m_lastResult.kind = ResultKind::Generic;
 		m_lastResult.items.push_back(ResultItem{"OTP", HexList(otp, 32)});
 	} else {
-		Emit(LogLevel::Info, "Read OTP chip Fail!\r\n");
+		Emit(LogLevel::Error, "Read OTP chip Fail!\r\n");
 	}
 	delete pComm;
 	return bSuccess;
@@ -308,7 +308,7 @@ bool UpgradeEngine::ReadComLog(STRUCT_RKDEVICE_DESC &dev, char *szFile)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to create comm object", "read_com_log");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to create comm object", "read_com_log");
 		Emit(LogLevel::Error, "Read Com Log quit,Creating comm object failed!");
 		return false;
 	}
@@ -317,7 +317,7 @@ bool UpgradeEngine::ReadComLog(STRUCT_RKDEVICE_DESC &dev, char *szFile)
 	if (szFile) {
 		file = platform::OpenFile(szFile, "wb+");
 		if (!file) {
-			if (m_pLog) m_pLog->Record("Error:%s->Fail to create %s,err=%d",
+			if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to create %s,err=%d",
 			               "read_com_log", szFile, errno);
 			Emit(LogLevel::Error, "Read Com Log failed,err=%d,can't open file: %s", errno, szFile);
 			delete pComm;
@@ -337,7 +337,7 @@ bool UpgradeEngine::ReadComLog(STRUCT_RKDEVICE_DESC &dev, char *szFile)
 	BYTE pBuf[0x20000];
 	int iRet = pComm->RKU_ReadComData(pBuf, 0x80);
 	if (iRet != ERR_SUCCESS) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to read com log,err=%d", "read_com_log", iRet);
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to read com log,err=%d", "read_com_log", iRet);
 		Emit(LogLevel::Error, "Error:Read Com Log failed!");
 		delete pComm;
 		if (file)
@@ -356,7 +356,7 @@ bool UpgradeEngine::ReadComLog(STRUCT_RKDEVICE_DESC &dev, char *szFile)
 		return true;
 	}
 
-	if (m_pLog) m_pLog->Record("Error:%s->Log format is invalid", "read_com_log");
+	if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Log format is invalid", "read_com_log");
 	Emit(LogLevel::Error, "Error:Format of log is wrong!");
 	delete pComm;
 	if (file)
@@ -371,7 +371,7 @@ bool UpgradeEngine::ReadVendorSn(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read Sn quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Read Sn quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	BYTE sn[512];
@@ -387,7 +387,7 @@ bool UpgradeEngine::ReadVendorSn(STRUCT_RKDEVICE_DESC &dev)
 		m_lastResult.items.clear();
 		m_lastResult.items.push_back(ResultItem{"Vendor SN", m_lastResult.serial});
 	} else {
-		Emit(LogLevel::Info, "ERROR:failed to read sn,err=%d!\r\n", iRet);
+		Emit(LogLevel::Error, "failed to read sn,err=%d!\r\n", iRet);
 	}
 	delete pComm;
 	return bSuccess;
@@ -400,7 +400,7 @@ bool UpgradeEngine::WriteVendorSn(STRUCT_RKDEVICE_DESC &dev, char *szSn)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Write Sn quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Write Sn quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	BYTE sn[512];
@@ -413,7 +413,7 @@ bool UpgradeEngine::WriteVendorSn(STRUCT_RKDEVICE_DESC &dev, char *szSn)
 	if (bSuccess)
 		Emit(LogLevel::Info, "Write Sn succeeded.\r\n");
 	else
-		Emit(LogLevel::Info, "ERROR:failed to write sn,err=%d!\r\n", iRet);
+		Emit(LogLevel::Error, "failed to write sn,err=%d!\r\n", iRet);
 	delete pComm;
 	return bSuccess;
 }
@@ -425,29 +425,29 @@ bool UpgradeEngine::ReadSecureMode(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Read Secure Mode quit,Creating comm object failed!\r\n");
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to create comm object!", "read_secure_mode");
+		Emit(LogLevel::Error, "Read Secure Mode quit,Creating comm object failed!\r\n");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to create comm object!", "read_secure_mode");
 		return false;
 	}
 	BYTE capability[8];
 	int iRet = pComm->RKU_ReadCapability(capability);
 	if (iRet != ERR_SUCCESS) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to read capability,err=%d", "read_secure_mode", iRet);
-		Emit(LogLevel::Info, "Read Capability Fail!\r\n");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to read capability,err=%d", "read_secure_mode", iRet);
+		Emit(LogLevel::Error, "Read Capability Fail!\r\n");
 		delete pComm;
 		return false;
 	}
 	if (!(capability[0] & 0x80)) {
-		Emit(LogLevel::Info, "Device did not support to read secure mode!\r\n");
-		if (m_pLog) m_pLog->Record("Error:%s->can't support to read secure mode!", "read_secure_mode");
+		Emit(LogLevel::Error, "Device did not support to read secure mode!\r\n");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->can't support to read secure mode!", "read_secure_mode");
 		delete pComm;
 		return false;
 	}
 	BYTE bMode = 0;
 	iRet = pComm->RKU_ReadNewEfuse(0, 0, &bMode, 2);
 	if (iRet != ERR_SUCCESS) {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to read new efuse,err=%d", "read_secure_mode", iRet);
-		Emit(LogLevel::Info, "Read Secure Mode Fail!\r\n");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to read new efuse,err=%d", "read_secure_mode", iRet);
+		Emit(LogLevel::Error, "Read Secure Mode Fail!\r\n");
 		delete pComm;
 		return false;
 	}
@@ -471,7 +471,7 @@ bool UpgradeEngine::SwitchDevice(STRUCT_RKDEVICE_DESC &dev)
 	bool bRet = false;
 	CRKUsbComm *pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Switch Device quit,Creating comm object failed!\r\n");
+		Emit(LogLevel::Error, "Switch Device quit,Creating comm object failed!\r\n");
 		return false;
 	}
 	int iRet;
@@ -483,8 +483,8 @@ bool UpgradeEngine::SwitchDevice(STRUCT_RKDEVICE_DESC &dev)
 	if (bSuccess)
 		Emit(LogLevel::Info, "Switch Device OK.\r\n");
 	else {
-		if (m_pLog) m_pLog->Record("Error:%s->Fail to switch,err=%d!", "switch_device", iRet);
-		Emit(LogLevel::Info, "Switch Device Fail!\r\n");
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s->Fail to switch,err=%d!", "switch_device", iRet);
+		Emit(LogLevel::Error, "Switch Device Fail!\r\n");
 	}
 	delete pComm;
 	return bSuccess;
@@ -502,7 +502,7 @@ bool UpgradeEngine::ResetPipe(STRUCT_RKDEVICE_DESC &dev, BYTE ucPipe)
 	}
 	int iRet = pComm->RKU_ResetPipe(ucPipe);
 	bool bSuccess = (iRet == ERR_SUCCESS);
-	Emit(LogLevel::Info, bSuccess ? "Reset Pipe OK.\r\n" : "Reset Pipe failed!\r\n");
+	Emit(bSuccess ? LogLevel::Info : LogLevel::Error, bSuccess ? "Reset Pipe OK.\r\n" : "Reset Pipe failed!\r\n");
 	delete pComm;
 	return bSuccess;
 }

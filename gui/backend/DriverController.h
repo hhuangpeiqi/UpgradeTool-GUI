@@ -1,4 +1,5 @@
 #pragma once
+#include "domain/Message.h"
 #include "gui/WindowsUsbDriver.h"
 #include "gui/backend/Retranslatable.h"
 #include <QObject>
@@ -103,6 +104,7 @@ private:
     void finish(Outcome outcome, const QString &message);
     void setMessage(const QString &);
     void setPhase(DriverPhase);
+    core::Message phaseMessage() const;
     QString phaseText() const;
     void rememberPending();
     void savePending();

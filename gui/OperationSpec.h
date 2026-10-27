@@ -1,6 +1,7 @@
 #ifndef GUI_OPERATION_SPEC_H
 #define GUI_OPERATION_SPEC_H
 #include <QObject>
+#include "domain/Message.h"
 #include <QString>
 #include "domain/Operation.h"
 namespace gui {
@@ -59,6 +60,7 @@ public:
 	};
 	Q_ENUM(Id)
 };
+core::Message OperationMessage(core::Operation operation);
 QString OperationName(core::Operation operation);
 }
 #endif

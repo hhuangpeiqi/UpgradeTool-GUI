@@ -3,7 +3,7 @@
 #include <stop_token>
 #include "RKImage.h"
 #include "RKComm.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include "DefineHeader.h"
 #include "crc.h"
 
@@ -53,23 +53,23 @@ class CRKDevice
 public:
 	USHORT GetVendorID();
 	void SetVendorID(USHORT value);
- 	property<CRKDevice, USHORT, READ_WRITE> VendorID;
+	property<CRKDevice, USHORT, READ_WRITE> VendorID;
 
 	USHORT GetProductID();
 	void SetProductID(USHORT value);
- 	property<CRKDevice, USHORT, READ_WRITE> ProductID;
+	property<CRKDevice, USHORT, READ_WRITE> ProductID;
 
 	ENUM_RKDEVICE_TYPE GetDeviceType();
 	void SetDeviceType(ENUM_RKDEVICE_TYPE value);
- 	property<CRKDevice, ENUM_RKDEVICE_TYPE, READ_WRITE> DeviceType;
+	property<CRKDevice, ENUM_RKDEVICE_TYPE, READ_WRITE> DeviceType;
 
 	ENUM_RKUSB_TYPE GetUsbType();
 	void SetUsbType(ENUM_RKUSB_TYPE value);
- 	property<CRKDevice, ENUM_RKUSB_TYPE, READ_WRITE> UsbType;
+	property<CRKDevice, ENUM_RKUSB_TYPE, READ_WRITE> UsbType;
 
 	string GetLayerName();
 	void SetLayerName(string value);
- 	property<CRKDevice, string, READ_WRITE> LayerName;
+	property<CRKDevice, string, READ_WRITE> LayerName;
 
 	string GetLinkName();
 	void SetLinkName(string value);
@@ -79,24 +79,24 @@ public:
 
 	DWORD GetLocationID();
 	void SetLocationID(DWORD value);
- 	property<CRKDevice, DWORD, READ_WRITE> LocationID;
+	property<CRKDevice, DWORD, READ_WRITE> LocationID;
 
 	USHORT GetBcdUsb();
 	void SetBcdUsb(USHORT value);
- 	property<CRKDevice, USHORT, READ_WRITE> BcdUsb;
+	property<CRKDevice, USHORT, READ_WRITE> BcdUsb;
 
 	ENUM_OS_TYPE GetOsType();
 	void SetOsType(ENUM_OS_TYPE value);
- 	property<CRKDevice, ENUM_OS_TYPE, READ_WRITE> OsType;
+	property<CRKDevice, ENUM_OS_TYPE, READ_WRITE> OsType;
 
-	platform::FileLog *GetLogObjectPointer();
- 	property<CRKDevice, platform::FileLog *, READ_ONLY> LogObjectPointer;
+	platform::LogService *GetLogObjectPointer();
+	property<CRKDevice, platform::LogService *, READ_ONLY> LogObjectPointer;
 
 	CRKComm *GetCommObjectPointer();
- 	property<CRKDevice, CRKComm *, READ_ONLY> CommObjectPointer;
+	property<CRKDevice, CRKComm *, READ_ONLY> CommObjectPointer;
 
 	void SetCallBackPointer(ProgressPromptCB value);
- 	property<CRKDevice, ProgressPromptCB, WRITE_ONLY> CallBackPointer;
+	property<CRKDevice, ProgressPromptCB, WRITE_ONLY> CallBackPointer;
 
     void SetCancellation(std::stop_token token) { m_cancellation = token; }
     bool IsAborted() const { return m_cancellation.stop_requested(); }
@@ -174,8 +174,8 @@ public:
 	int  GetIDBData(UINT uiCount, PBYTE lpBuffer, UINT uiSectorNum);
 	int  GetWriteBackData(UINT uiCount, PBYTE lpBuffer);
 	char FindValidBlocks(char cStart, char cCount);
-	bool FormatDisk(char cDiskIndex, char *pName, platform::FileLog *pLog);
-	bool CopyData(char cSrc, char *pName, platform::FileLog *pLog);
+	bool FormatDisk(char cDiskIndex, char *pName, platform::LogService *pLog);
+	bool CopyData(char cSrc, char *pName, platform::LogService *pLog);
 
 	virtual int DownloadBoot();
 	bool TestDevice();
@@ -186,11 +186,11 @@ public:
 	bool ReadCapability();
 	bool LowerFormatDevice(bool &bRet);
 	bool SetResetFlag();
-	bool SendExtCommand(char cCommand, UINT uiCommand, platform::FileLog *pLog, PBYTE pData, UINT uiSize);
+	bool SendExtCommand(char cCommand, UINT uiCommand, platform::LogService *pLog, PBYTE pData, UINT uiSize);
 	bool EraseMutilBlock(UCHAR ucFlashCS, UINT uiPos, UINT uiCount, bool bForce);
 	bool EraseEmmcIDB();
 	int EraseAllBlocks(bool force_block_erase=false);
-	bool SetObject(CRKImage *pImage, CRKComm *pComm, platform::FileLog *pLog);
+	bool SetObject(CRKImage *pImage, CRKComm *pComm, platform::LogService *pLog);
 	// Rebuilds the comm object for a re-enumerated device (after a reset the
 	// USB address changes, so the previous handle is dead).
 	bool RefreshComm(STRUCT_RKDEVICE_DESC &deviceDesc);
@@ -205,7 +205,7 @@ protected:
 	PBYTE  m_chipData;
 	CRKImage *m_pImage;
 	CRKComm  *m_pComm;
-	platform::FileLog   *m_pLog;
+	platform::LogService   *m_pLog;
 	ProgressPromptCB m_callBackProc;
 	bool m_bEmmc;
 	bool m_bDirectLba;

@@ -1,5 +1,5 @@
 #include "AndroidDevice.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 
 #include <cstdio>
 #include <cstring>

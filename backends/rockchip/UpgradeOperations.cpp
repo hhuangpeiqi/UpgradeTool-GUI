@@ -60,7 +60,7 @@ bool UpgradeEngine::DownloadBoot(STRUCT_RKDEVICE_DESC &dev, char *szLoader)
 		bSuccess = true;
 		Emit(LogLevel::Info, "Download boot ok.\r\n");
 	} else {
-		Emit(LogLevel::Info, "Download boot failed!\r\n");
+		Emit(LogLevel::Error, "Download boot failed!\r\n");
 		std::string strNote = GetErrString(pDevice->GetError());
 		if (!strNote.empty())
 			Emit(LogLevel::Info, "%s\r\n", strNote.c_str());
@@ -134,7 +134,7 @@ bool UpgradeEngine::UpgradeLoader(STRUCT_RKDEVICE_DESC &dev, char *szLoader, boo
 		if (bSuccess)
 			Emit(LogLevel::Info, "Upgrade loader ok.\r\n");
 		else
-			Emit(LogLevel::Info, "Upgrade loader fail.\r\n");
+			Emit(LogLevel::Error, "Upgrade loader fail.\r\n");
 	}
 exit_ul:
 	if (pUpgrade) delete pUpgrade;
@@ -236,7 +236,7 @@ bool UpgradeEngine::UpgradeFirmware(STRUCT_RKDEVICE_DESC &dev, char *szFirmware,
 
 	pComm = new CRKUsbComm(dev, m_pLog, bRet);
 	if (!bRet) {
-		Emit(LogLevel::Info, "Create comm failed!\r\n");
+		Emit(LogLevel::Error, "Create comm failed!\r\n");
 		fclose(file); delete pImage;
 		return false;
 	}

@@ -39,11 +39,11 @@ public:
 }
 // Link the actual RK protocol implementation against a deterministic transport.
 namespace core::rockchip {
-std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &, bool, int &error, platform::FileLog *) {
+std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &, bool, int &error, platform::LogService *) {
     error = 0; return std::make_unique<FakeTransport>();
 }
 std::string UsbError(int error) { return std::to_string(error); }
-std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, platform::FileLog *) { return enumerated; }
+std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, platform::LogService *) { return enumerated; }
 }
 int main() {
     int failures = 0;

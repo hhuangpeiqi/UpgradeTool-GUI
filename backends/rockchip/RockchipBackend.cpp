@@ -13,7 +13,7 @@ public:
 #endif
     CRKScan scan;
     UpgradeEngine engine;
-    explicit RockchipRuntime(platform::FileLog *log) : scan(30,20,
+    explicit RockchipRuntime(platform::LogService *log) : scan(30,20,
 #ifdef _WIN32
         nullptr
 #else
@@ -23,7 +23,7 @@ public:
         scan.SetVidPid(); engine.SetLogObject(log); engine.SetScan(&scan);
     }
 };
-RockchipBackend::RockchipBackend(platform::FileLog *log) : runtime(std::make_unique<RockchipRuntime>(log)) {}
+RockchipBackend::RockchipBackend(platform::LogService *log) : runtime(std::make_unique<RockchipRuntime>(log)) {}
 RockchipBackend::~RockchipBackend() = default;
 
 void RockchipBackend::Configure(const ConfigSnapshot &config) { runtime->engine.SetCancellation({}); runtime->engine.SetConfig(config); runtime->engine.BeginTask(); }

@@ -172,12 +172,12 @@ bool UpgradeEngine::WriteParameter(STRUCT_RKDEVICE_DESC &dev, char *szParameter,
 		pComm = new CRKUsbComm(dev, m_pLog, bRet);
 		bOwn = true;
 		if (!bRet) {
-			Emit(LogLevel::Info, "Write parameter quit, creating comm object failed!\r\n");
+			Emit(LogLevel::Error, "Write parameter quit, creating comm object failed!\r\n");
 			return false;
 		}
 	}
 	if (!MakeParamBuffer(szParameter, pParamBuf)) {
-		Emit(LogLevel::Info, "Generating parameter failed!\r\n");
+		Emit(LogLevel::Error, "Generating parameter failed!\r\n");
 		if (bOwn) delete pComm;
 		return false;
 	}
@@ -195,7 +195,7 @@ bool UpgradeEngine::WriteParameter(STRUCT_RKDEVICE_DESC &dev, char *szParameter,
 	int iRet = pComm->RKU_WriteLBA(0x2000, nParamSec, writeBuf.data());
 	bool bSuccess = (iRet == ERR_SUCCESS);
 
-	Emit(LogLevel::Info, bSuccess ? "Writing parameter succeeded.\r\n" : "Writing parameter failed!\r\n");
+	Emit(bSuccess ? LogLevel::Info : LogLevel::Error, bSuccess ? "Writing parameter succeeded.\r\n" : "Writing parameter failed!\r\n");
 	delete []pParamBuf;
 	if (bOwn) delete pComm;
 	return bSuccess;
@@ -214,19 +214,19 @@ bool UpgradeEngine::WriteGpt(STRUCT_RKDEVICE_DESC &dev, char *szParameter, CRKCo
 		pComm = new CRKUsbComm(dev, m_pLog, bRet);
 		bOwn = true;
 		if (!bRet) {
-			Emit(LogLevel::Info, "Write gpt quit, creating comm object failed!\r\n");
+			Emit(LogLevel::Error, "Write gpt quit, creating comm object failed!\r\n");
 			return false;
 		}
 	}
 	if (pComm->RKU_ReadFlashInfo(flash_info) != ERR_SUCCESS) {
-		Emit(LogLevel::Info, "Reading Flash Info failed!\r\n");
+		Emit(LogLevel::Error, "Reading Flash Info failed!\r\n");
 		if (bOwn) delete pComm;
 		return false;
 	}
 	total_size_sector = *(u32 *)flash_info;
 	if (strstr(szParameter, ".img")) {
 		if (!load_gpt_buffer(szParameter, master_gpt, backup_gpt)) {
-			Emit(LogLevel::Info, "Loading partition image failed!\r\n");
+			Emit(LogLevel::Error, "Loading partition image failed!\r\n");
 			if (bOwn) delete pComm;
 			return false;
 		}
@@ -235,7 +235,7 @@ bool UpgradeEngine::WriteGpt(STRUCT_RKDEVICE_DESC &dev, char *szParameter, CRKCo
 		PARAM_ITEM_VECTOR vecItems;
 		CONFIG_ITEM_VECTOR vecUuid;
 		if (!parse_parameter_file(szParameter, vecItems, vecUuid)) {
-			Emit(LogLevel::Info, "Parsing parameter failed!\r\n");
+			Emit(LogLevel::Error, "Parsing parameter failed!\r\n");
 			if (bOwn) delete pComm;
 			return false;
 		}
@@ -245,12 +245,12 @@ bool UpgradeEngine::WriteGpt(STRUCT_RKDEVICE_DESC &dev, char *szParameter, CRKCo
 		prepare_gpt_backup(master_gpt, backup_gpt);
 	}
 	if (pComm->RKU_WriteLBA(0, 34, master_gpt) != ERR_SUCCESS) {
-		Emit(LogLevel::Info, "Writing master gpt failed!\r\n");
+		Emit(LogLevel::Error, "Writing master gpt failed!\r\n");
 		if (bOwn) delete pComm;
 		return false;
 	}
 	if (pComm->RKU_WriteLBA(total_size_sector - 33, 33, backup_gpt) != ERR_SUCCESS) {
-		Emit(LogLevel::Info, "Writing backup gpt failed!\r\n");
+		Emit(LogLevel::Error, "Writing backup gpt failed!\r\n");
 		if (bOwn) delete pComm;
 		return false;
 	}

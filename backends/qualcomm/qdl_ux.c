@@ -47,8 +47,8 @@ LOGGER(ux_err, 2, 0, 1)
 LOGGER(ux_warn, 1, 1, 1)
 LOGGER(ux_warnx, 1, 0, 1)
 LOGGER(ux_info, 0, 0, 1)
-LOGGER(ux_log, 0, 0, qdl_debug)
-LOGGER(ux_debug, 0, 0, qdl_debug)
+LOGGER(ux_log, 3, 0, qdl_debug)
+LOGGER(ux_debug, 3, 0, qdl_debug)
 void ux_progress(const char *fmt, unsigned int value, unsigned int total, ...)
 {
     char stage[256];

@@ -1,7 +1,7 @@
 #ifndef RKSCAN_HEADER
 #define RKSCAN_HEADER
 #include "DefineHeader.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 
 typedef struct {
 	USHORT usVid;
@@ -35,12 +35,12 @@ public:
 	bool MutexWait(UINT_VECTOR &vecExistedDevice, STRUCT_RKDEVICE_DESC &device, ENUM_RKUSB_TYPE usbType, USHORT usVid = 0, USHORT usPid = 0);
 	int GetPos(UINT locationID);
 	bool GetDevice(STRUCT_RKDEVICE_DESC &device, int pos);
-	bool SetLogObject(platform::FileLog *pLog);
+	bool SetLogObject(platform::LogService *pLog);
 	virtual ~CRKScan();
 private:
 	UINT   m_waitRKusbSecond;
 	UINT   m_waitMscSecond;
-	platform::FileLog *m_log;
+	platform::LogService *m_log;
 	RKDEVICE_DESC_SET m_list;
 	RKDEVICE_CONFIG_SET m_deviceConfigSet;
 	RKDEVICE_CONFIG_SET m_deviceMscConfigSet;

@@ -52,13 +52,13 @@ bool parse_config(char *pConfig, CONFIG_ITEM_VECTOR &vecItem)
 	return true;
 }
 
-bool parse_config_file(const char *pConfigFile, CONFIG_ITEM_VECTOR &vecItem, platform::FileLog *log)
+bool parse_config_file(const char *pConfigFile, CONFIG_ITEM_VECTOR &vecItem, platform::LogService *log)
 {
 	FILE *file = NULL;
 	file = platform::OpenFile(pConfigFile, "rb");
 	if (!file) {
 		if (log)
-			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pConfigFile);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pConfigFile);
 		return false;
 	}
 	int iFileSize;
@@ -74,7 +74,7 @@ bool parse_config_file(const char *pConfigFile, CONFIG_ITEM_VECTOR &vecItem, pla
 	int iRead = fread(pConfigBuf, 1, iFileSize, file);
 	if (iRead != iFileSize) {
 		if (log)
-			log->Record("%s failed, err=%d, read=%d, total=%d\r\n", __func__, errno, iRead, iFileSize);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, read=%d, total=%d\r\n", __func__, errno, iRead, iFileSize);
 		fclose(file);
 		delete []pConfigBuf;
 		return false;

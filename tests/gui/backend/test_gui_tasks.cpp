@@ -36,7 +36,8 @@ int TestTasks([[maybe_unused]] QGuiApplication &application) {
     }
 
 	{
-		gui::QtObserver observer;
+		platform::LogService log;
+        gui::QtObserver observer(log);
 		std::atomic<bool> done(false); int response = -1;
 		QObject::connect(&observer, &gui::QtObserver::storageSelectionRequested, &application, [&](const QStringList &, int) { observer.SetSelectResult(2); });
 		std::thread worker([&] { response = observer.OnSelectStorage({"FLASH", "EMMC"}, 0); done.store(true); });

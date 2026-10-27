@@ -1,5 +1,5 @@
 #include "UsbTransport.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include <libusb.h>
 
 namespace core::rockchip {
@@ -31,12 +31,12 @@ public:
     }
 };
 }
-std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *context, platform::FileLog *log) {
+std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *context, platform::LogService *log) {
     std::vector<std::shared_ptr<const UsbDevice>> result;
     libusb_device **list = nullptr;
     const auto count = libusb_get_device_list(context, &list);
     if (count < 0) {
-        if (log) log->Record("USB enumeration failed: %s", libusb_error_name(int(count)));
+        if (log) log->writef(core::LogLevel::Error, "Rockchip", "USB enumeration failed: %s", libusb_error_name(int(count)));
         return result;
     }
     for (ssize_t i = 0; i < count; ++i) {
@@ -54,7 +54,7 @@ std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *conte
     libusb_free_device_list(list, 1);
     return result;
 }
-std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &device, bool massStorage, int &error, platform::FileLog *log) {
+std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &device, bool massStorage, int &error, platform::LogService *log) {
     auto usb = std::make_unique<LibusbTransport>();
     error = libusb_open(static_cast<libusb_device *>(device.native.get()), &usb->handle);
     if (error) return {};
@@ -82,7 +82,7 @@ std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &device, bool massStorage,
     }
     libusb_free_config_descriptor(config);
     if (usb->interfaceNumber < 0) { if (!error) error = LIBUSB_ERROR_NOT_FOUND; return {}; }
-    if (log) log->Record("USB opened: transport=libusb vid=%04x pid=%04x interface=%d bulk_in=%02x bulk_out=%02x",
+    if (log) log->writef(core::LogLevel::Debug, "Rockchip", "USB opened: transport=libusb vid=%04x pid=%04x interface=%d bulk_in=%02x bulk_out=%02x",
                          device.vid, device.pid, usb->interfaceNumber, usb->bulkIn, usb->bulkOut);
     return usb;
 }

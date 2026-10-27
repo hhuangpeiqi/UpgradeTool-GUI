@@ -29,17 +29,6 @@ namespace core {
 
 static thread_local UpgradeEngine *g_pEngine = NULL;
 
-static void RecordRawToLog(platform::FileLog *pLog, const std::string &strText)
-{
-	if (!pLog)
-		return;
-	std::string str = strText;
-	while (!str.empty() && (str.back() == '\n' || str.back() == '\r'))
-		str.pop_back();
-	if (!str.empty())
-		pLog->Record("%s", str.c_str());
-}
-
 UpgradeEngine::UpgradeEngine()
 	: 	  m_pObserver(NULL),
 	  m_pLog(NULL),
@@ -82,12 +71,12 @@ bool UpgradeEngine::IsAborted() const
 	return (m_cancelled && m_cancelled->stop_requested()) || m_abort.stop_requested();
 }
 
-void UpgradeEngine::SetLogObject(platform::FileLog *pLog)
+void UpgradeEngine::SetLogObject(platform::LogService *pLog)
 {
 	m_pLog = pLog;
 }
 
-platform::FileLog *UpgradeEngine::GetLogObject() const
+platform::LogService *UpgradeEngine::GetLogObject() const
 {
 	return m_pLog;
 }
@@ -197,9 +186,10 @@ void UpgradeEngine::Emit(LogLevel emLevel, const std::string &strText)
 {
 	if (m_bCaptureResultText && m_lastResult.diagnostic.size() < 65536)
 		m_lastResult.diagnostic += strText;
-	RecordRawToLog(m_pLog, strText);
 	if (m_pObserver)
 		m_pObserver->OnOutput(emLevel, strText);
+    else if (m_pLog)
+        m_pLog->write(emLevel, "Rockchip", {{}, strText, {}});
 }
 
 void UpgradeEngine::EmitProgress(ENUM_PROGRESS_PROMPT emPrompt, long long llTotal,
@@ -226,7 +216,7 @@ DWORD UpgradeEngine::GetFileSize(char *szFile)
 {
 	FILE *file = platform::OpenFile(szFile, "rb");
 	if (!file) {
-		if (m_pLog) m_pLog->Record("%s failed,err=%d,can't open file: %s\r\n",
+		if (m_pLog) m_pLog->writef(core::LogLevel::Error, "Rockchip", "%s failed,err=%d,can't open file: %s\r\n",
 			               "get_file_size", errno, szFile);
 		return (DWORD)-1;
 	}
@@ -247,21 +237,25 @@ std::string UpgradeEngine::HexList(PBYTE pData, int nSize)
 	return str;
 }
 
-void UpgradeEngine::PrintData(PBYTE pData, int nSize)
+void UpgradeEngine::PrintData(PBYTE data, int size)
 {
-	char szPrint[17] = "\0";
-	int i;
-	for (i = 0; i < nSize; i++) {
-		if (i % 16 == 0) {
-			if (i / 16 > 0)
-				Emit(LogLevel::Info, "     %s\r\n", szPrint);
-			Emit(LogLevel::Info, "%08d ", i / 16);
-		}
-		Emit(LogLevel::Info, "%02X ", pData[i]);
-		szPrint[i % 16] = isprint(pData[i]) ? pData[i] : '.';
-	}
-	if (i / 16 > 0)
-		Emit(LogLevel::Info, "     %s\r\n", szPrint);
+    std::string text;
+    for (int offset = 0; offset < size; offset += 16) {
+        char header[32]; std::snprintf(header, sizeof(header), "%08X  ", offset);
+        text += header;
+        std::string ascii;
+        for (int i = 0; i < 16; ++i) {
+            char hex[4];
+            if (offset + i < size) {
+                const auto byte = data[offset + i];
+                std::snprintf(hex, sizeof(hex), "%02X ", byte);
+                ascii += std::isprint(byte) ? char(byte) : '.';
+            } else std::snprintf(hex, sizeof(hex), "   ");
+            text += hex;
+        }
+        text += " |" + ascii + "|\n";
+    }
+    Emit(LogLevel::Debug, text);
 }
 
 std::string UpgradeEngine::GetErrString(UINT uiErr)

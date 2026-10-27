@@ -1,13 +1,13 @@
 #ifndef ROCKCHIP_BACKEND_H
 #define ROCKCHIP_BACKEND_H
 #include "domain/Backend.h"
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 namespace core {
 class UpgradeEngine;
 class RockchipRuntime;
 class RockchipBackend : public IDeviceBackend {
 public:
-    explicit RockchipBackend(platform::FileLog *log=nullptr);
+    explicit RockchipBackend(platform::LogService *log=nullptr);
     ~RockchipBackend() override;
     Vendor vendor() const override { return Vendor::Rockchip; }
     void Configure(const ConfigSnapshot &) override;

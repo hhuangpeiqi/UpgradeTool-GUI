@@ -10,7 +10,7 @@
 #include "backends/qualcomm/QualcommBackend.h"
 #endif
 namespace core {
-std::vector<std::unique_ptr<IDeviceBackend>> CreateBackends(platform::FileLog *log) {
+std::vector<std::unique_ptr<IDeviceBackend>> CreateBackends(platform::LogService *log) {
     std::vector<std::unique_ptr<IDeviceBackend>> result;
 #if UPGRADE_TOOL_ROCKCHIP
     result.push_back(std::make_unique<RockchipBackend>(log));

@@ -2,7 +2,7 @@
 #include "platform/UsbLocation.h"
 #include "UsbTransport.h"
 #include "RockusbProtocol.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include <windows.h>
 #include <setupapi.h>
 #include <cfgmgr32.h>
@@ -86,7 +86,7 @@ bool descriptorAtHub(DEVINST child, USB_DEVICE_DESCRIPTOR &descriptor) {
 class RockusbTransport final : public UsbTransport {
 public:
     Handle device, input, output;
-    platform::FileLog *log = nullptr;
+    platform::LogService *log = nullptr;
     std::string serial;
     // A separate OVERLAPPED/event per operation remains alive through cancellation.
     int Transfer(HANDLE handle, DWORD code, unsigned char *data, DWORD size, unsigned timeout, int kind) {
@@ -114,7 +114,7 @@ public:
                 error = ok ? ERROR_SUCCESS : GetLastError();
             }
         }
-        if (log) log->Record("Rockusb I/O: kind=%d ioctl=%08lx requested=%lu completed=%lu elapsed_ms=%llu error=%lu",
+        if (log) log->writef(error ? core::LogLevel::Error : core::LogLevel::Debug, "Rockchip", "Rockusb I/O: kind=%d ioctl=%08lx requested=%lu completed=%lu elapsed_ms=%llu error=%lu",
                              kind, code, size, done, GetTickCount64() - start, error);
         return error ? -int(error) : int(done);
     }
@@ -137,11 +137,11 @@ public:
     std::string Serial() override { return serial; }
 };
 }
-std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, platform::FileLog *log) {
+std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, platform::LogService *log) {
     std::vector<std::shared_ptr<const UsbDevice>> result;
     HDEVINFO set = SetupDiGetClassDevsW(&usbDeviceGuid, nullptr, nullptr, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
     if (set == INVALID_HANDLE_VALUE) {
-        if (log) log->Record("Rockusb enumeration failed: error=%lu", GetLastError());
+        if (log) log->writef(core::LogLevel::Error, "Rockchip", "Rockusb enumeration failed: error=%lu", GetLastError());
         return result;
     }
     SP_DEVICE_INTERFACE_DATA iface{}; iface.cbSize = sizeof(iface);
@@ -156,7 +156,7 @@ std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, pla
             _wcsicmp(property(set, info, SPDRP_SERVICE).c_str(), L"rockusb")) continue;
         USB_DEVICE_DESCRIPTOR descriptor{};
         if (!descriptorAtHub(info.DevInst, descriptor)) {
-            if (log) log->Record("Rockusb device descriptor unavailable: path=%s", utf8(detail->DevicePath).c_str());
+            if (log) log->writef(core::LogLevel::Debug, "Rockchip", "Rockusb device descriptor unavailable: path=%s", utf8(detail->DevicePath).c_str());
             continue;
         }
         wchar_t instance[MAX_DEVICE_ID_LEN]{};
@@ -179,7 +179,7 @@ std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, pla
     SetupDiDestroyDeviceInfoList(set);
     return result;
 }
-std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &device, bool massStorage, int &error, platform::FileLog *log) {
+std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &device, bool massStorage, int &error, platform::LogService *log) {
     error = -ERROR_NOT_SUPPORTED;
     if (massStorage || device.path.empty()) return {};
     auto usb = std::make_unique<RockusbTransport>(); usb->log = log; usb->serial = device.serial;
@@ -202,7 +202,7 @@ std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &device, bool massStorage,
         FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
     if (usb->output.value == INVALID_HANDLE_VALUE) { error = -int(GetLastError()); return {}; }
     error = 0;
-    if (log) log->Record("USB opened: transport=Rockusb path=%s vid=%04x pid=%04x bcdUSB=%04x bulk_in=%02x bulk_out=%02x",
+    if (log) log->writef(core::LogLevel::Debug, "Rockchip", "USB opened: transport=Rockusb path=%s vid=%04x pid=%04x bcdUSB=%04x bulk_in=%02x bulk_out=%02x",
         device.path.c_str(), device.vid, device.pid, device.bcdUsb, usb->bulkIn, usb->bulkOut);
     return usb;
 }

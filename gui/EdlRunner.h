@@ -1,5 +1,6 @@
 #ifndef GUI_EDL_RUNNER_H
 #define GUI_EDL_RUNNER_H
+#include "platform/LogService.h"
 #include <QObject>
 #include "gui/ModeSwitchFailure.h"
 #include "backends/qualcomm/DevicePolicy.h"
@@ -60,7 +61,8 @@ public:
     enum State { Idle, Checking, Verifying, Sending, Waiting, Completed, Failed, Cancelled };
     Q_ENUM(State)
     explicit EdlRunner(QObject *parent = nullptr);
-    EdlRunner(EdlHooks hooks, int waitMs, QObject *parent = nullptr);
+    EdlRunner(EdlHooks hooks, int waitMs, QObject *parent = nullptr, platform::LogService *log = nullptr);
+    void setLogContext(core::LogContext context) { m_logContext = std::move(context); }
     ~EdlRunner() override;
     QVariantList targets() const { return m_targets; }
     bool discovering() const { return m_discovering; }
@@ -101,6 +103,8 @@ private:
     bool eligible(const EdlEndpoint &endpoint) const;
     QVector<EdlEndpoint> selectedEndpoints(const QString &targetId, const QString &endpointId) const;
     void reject(const QString &message);
+    platform::LogService *m_log;
+    core::LogContext m_logContext;
     EdlHooks m_hooks;
     int m_waitMs;
     QThread *m_thread = nullptr;

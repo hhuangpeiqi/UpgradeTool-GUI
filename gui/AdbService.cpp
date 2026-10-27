@@ -1,7 +1,6 @@
 #include "gui/AdbService.h"
 #include "gui/AdbExecutable.h"
 #include <QCoreApplication>
-#include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QThread>
@@ -75,10 +74,11 @@ void AdbService::UpdateDevices(const QByteArray &data) {
 }
 quint64 AdbService::execute(const QString &exe, const QStringList &args, core::Cancellation cancel, int timeoutMs) {
     const auto id = ++m_commandSequence;
-    Enqueue({id, exe, args, std::move(cancel), timeoutMs, {}});
+    Enqueue({{}, id, exe, args, std::move(cancel), timeoutMs, {}});
     return id;
 }
 void AdbService::Enqueue(Command command) {
+    command.logContext = m_commandLogContext;
     if (!command.cancel) command.cancel = std::make_shared<std::stop_source>();
     m_commands.push_back(std::move(command));
     // Always defer completion: callers must store the returned command ID first.
@@ -104,13 +104,16 @@ void AdbService::FinishCommand(AdbCommandResult result) {
         if (result.succeeded() && command->executable == AdbPath()) UpdateDevices(result.output);
         else if (!result.cancelled) PollFailed(result.error);
     }
-    emit traceMessage(QString::fromUtf8(QJsonDocument(QJsonObject{
+    emit traceRecord(QJsonObject{
+        {"log_task", qint64(command->logContext.task)}, {"log_device", QString::fromStdString(command->logContext.device)},
+        {"log_level", int(!result.succeeded() && !result.cancelled ? core::LogLevel::Warn : core::LogLevel::Debug)},
         {"event", "command_finished"}, {"command", command->args.join(' ')},
         {"started", result.started}, {"exit_code", result.exitCode},
         {"cancelled", result.cancelled}, {"timed_out", result.timedOut},
         {"elapsed_ms", m_commandElapsed.elapsed()}, {"gui_pid", QCoreApplication::applicationPid()},
         {"path", command->executable}, {"timeout_ms", command->timeoutMs},
-        {"output", QString::fromLocal8Bit(result.output.left(64 * 1024))}}).toJson(QJsonDocument::Compact)));
+        {"output_bytes", qint64(result.output.size())}, {"output_truncated", result.output.size() > 64 * 1024},
+        {"output", QString::fromLocal8Bit(result.output.left(64 * 1024))}});
     if (command->complete) command->complete(result);
     emit commandFinished(command->id, result);
     QTimer::singleShot(0, this, &AdbService::StartNextCommand);
@@ -135,7 +138,7 @@ AdbCommandResult AdbService::executeBlocking(const QString &exe, const QStringLi
     auto promise = std::make_shared<std::promise<AdbCommandResult>>();
     auto future = promise->get_future();
     QMetaObject::invokeMethod(this, [this, exe, args, cancel, timeoutMs, promise] {
-        Enqueue({++m_commandSequence, exe, args, cancel, timeoutMs,
+        Enqueue({{}, ++m_commandSequence, exe, args, cancel, timeoutMs,
                  [promise](AdbCommandResult result) { promise->set_value(std::move(result)); }});
     }, Qt::QueuedConnection);
     while (future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
@@ -263,11 +266,11 @@ void AdbService::PollFailed(const QString &message)
 	SchedulePoll(m_retryDelayMs);
 }
 
-void AdbService::TracePoll(const QString &event, const QByteArray &output, const QString &detail)
+void AdbService::TracePoll(core::LogLevel level, const QString &event, const QByteArray &output, const QString &detail)
 {
 	constexpr int outputLimit = 64 * 1024;
 	const QJsonObject record{
-	    {"event", event}, {"gui_pid", QCoreApplication::applicationPid()},
+	    {"log_level", int(level)}, {"event", event}, {"gui_pid", QCoreApplication::applicationPid()},
 	    {"attempt", qint64(m_pollSequence)}, {"path", m_pollPath}, {"source", m_pollSource},
 	    {"command", m_pollCommand == PollCommand::Version ? "version"
 	        : m_pollCommand == PollCommand::StartServer ? "start-server" : "devices"},
@@ -279,7 +282,7 @@ void AdbService::TracePoll(const QString &event, const QByteArray &output, const
 	    {"retry_ms", m_retryDelayMs}, {"failure_count", m_failureCount}, {"detail", detail},
 	    {"output_bytes", qint64(output.size())}, {"output_truncated", output.size() > outputLimit},
 	    {"output", QString::fromLocal8Bit(output.left(outputLimit))}};
-	emit traceMessage(QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact)));
+	emit traceRecord(record);
 }
 
 void AdbService::RunPoll()
@@ -308,7 +311,7 @@ void AdbService::RunPoll()
 		m_pollPath.clear();
 		m_pollSource.clear();
 		if (!m_bAvailabilityKnown || m_availabilityMessage != QCoreApplication::translate("gui::AdbRunner", "ADB executable not found; reinstall the application or install ADB and check PATH / ADB."))
-			TracePoll(QStringLiteral("executable_missing"));
+			TracePoll(core::LogLevel::Warn, QStringLiteral("executable_missing"));
 		PollFailed(QCoreApplication::translate("gui::AdbRunner", "ADB executable not found; reinstall the application or install ADB and check PATH / ADB."));
 		return;
 	}
@@ -327,7 +330,7 @@ void AdbService::RunPoll()
 	m_spawnElapsedMs = 0;
 	m_tracePoll = m_pollCommand != PollCommand::Devices || !m_bAvailabilityKnown || !m_bAvailable;
 	if (!m_serverReady) SetRecovery(true, m_failureCount == 0);
-	if (m_tracePoll) TracePoll(QStringLiteral("start"));
+	if (m_tracePoll) TracePoll(core::LogLevel::Debug, QStringLiteral("start"));
 	const QString command = m_pollCommand == PollCommand::Version ? QStringLiteral("version")
 	    : m_pollCommand == PollCommand::StartServer ? QStringLiteral("start-server") : QStringLiteral("devices");
 	m_pPollProc->start(m_pollPath, m_pollCommand == PollCommand::Devices ? QStringList{command, "-l"} : QStringList{command});
@@ -353,24 +356,24 @@ void AdbService::onPollFinished(int iExitCode, bool eStatus)
 	const auto output = m_pPollProc->readAll();
 	if (m_pollTimedOut) {
 		PollFailed(QCoreApplication::translate("gui::AdbRunner", "ADB command timed out."));
-		TracePoll(QStringLiteral("timeout"), output, QStringLiteral("client_exited=1"));
+		TracePoll(core::LogLevel::Warn, QStringLiteral("timeout"), output, QStringLiteral("client_exited=1"));
 		return;
 	}
 
 	if (eStatus != true || iExitCode != 0) {
 		PollFailed(QCoreApplication::translate("gui::AdbRunner", "ADB command failed (%1): %2").arg(iExitCode).arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
-		TracePoll(QStringLiteral("failed"), output,
+		TracePoll(core::LogLevel::Warn, QStringLiteral("failed"), output,
 		          QStringLiteral("exit_code=%1 normal_exit=%2").arg(iExitCode).arg(eStatus));
 		return;
 	}
 	if (m_pollCommand == PollCommand::Version) {
 		if (!output.contains("Android Debug Bridge version")) {
 			PollFailed(QCoreApplication::translate("gui::AdbRunner", "Invalid ADB version output: %1").arg(QString::fromLocal8Bit(output).trimmed().left(1024)));
-			TracePoll(QStringLiteral("invalid_version"), output);
+			TracePoll(core::LogLevel::Warn, QStringLiteral("invalid_version"), output);
 			return;
 		}
 		m_versionChecked.insert(m_pollPath);
-		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
+		TracePoll(core::LogLevel::Debug, QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
 		QStringList versionLines;
 		for (const auto &line : QString::fromLocal8Bit(output).split('\n')) {
 			const auto text = line.trimmed();
@@ -384,18 +387,18 @@ void AdbService::onPollFinished(int iExitCode, bool eStatus)
 	}
 	if (m_pollCommand == PollCommand::StartServer) {
 		m_serverReady = true;
-		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
+		TracePoll(core::LogLevel::Debug, QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
 		SchedulePoll(0);
 		return;
 	}
 
 	QStringList strDevices = AuthorizedDevices(ParseDevices(output));
 	if (m_tracePoll || strDevices != m_strDevices || m_pollElapsed.elapsed() >= m_pollTiming.pollIntervalMs)
-		TracePoll(QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
+		TracePoll(core::LogLevel::Debug, QStringLiteral("finished"), output, QStringLiteral("exit_code=0 normal_exit=1"));
 	UpdateDevices(output);
 	m_failureCount = 0;
 	m_retryDelayMs = 0;
-	if (m_recovering) TracePoll(QStringLiteral("recovered"));
+	if (m_recovering) TracePoll(core::LogLevel::Info, QStringLiteral("recovered"));
 	SetRecovery(false);
 	UpdateAvailability(true, QString());
 	SchedulePoll(m_pollTiming.pollIntervalMs);
@@ -409,7 +412,7 @@ void AdbService::onPollError(const QString &error)
 	if (m_stopped) return;
 	if (m_pollCancelled || FindAdbExecutable().path != m_pollPath) { SchedulePoll(0); return; }
 	PollFailed(QCoreApplication::translate("gui::AdbRunner", "Cannot start ADB process: %1").arg(error));
-	TracePoll(QStringLiteral("start_failed"), m_pPollProc->readAll(), error);
+	TracePoll(core::LogLevel::Warn, QStringLiteral("start_failed"), m_pPollProc->readAll(), error);
 }
 
 void AdbService::onPollKillTimeout()
@@ -421,12 +424,12 @@ void AdbService::onPollKillTimeout()
 		ClearPollDevices();
 		SetRecovery(true);
 		UpdateAvailability(false, {});
-		TracePoll(QStringLiteral("slow_query"));
+		TracePoll(core::LogLevel::Warn, QStringLiteral("slow_query"));
 		m_pPollKill->start(std::max(1, m_pollTiming.hardTimeoutMs - int(m_pollRuntime.elapsed())));
 		return;
 	}
 	m_pollTimedOut = true;
-	TracePoll(QStringLiteral("timeout_kill_requested"));
+	TracePoll(core::LogLevel::Warn, QStringLiteral("timeout_kill_requested"));
 	m_pPollProc->kill();
 }
 

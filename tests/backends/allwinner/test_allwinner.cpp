@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cstring>
 #include <stdexcept>
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 using namespace core;
 using namespace core::allwinner;
 static int failures=0;

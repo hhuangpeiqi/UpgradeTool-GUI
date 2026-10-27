@@ -53,25 +53,56 @@ Rectangle {
 
             ListView {
                 id: list
+                objectName: "logList"
+                property bool following: true
+                property bool followScheduled: false
+                function followTail() {
+                    if (!following || followScheduled) return
+                    followScheduled = true
+                    Qt.callLater(function() {
+                        followScheduled = false
+                        if (list.following) {
+                            list.forceLayout()
+                            list.positionViewAtEnd()
+                        }
+                    })
+                }
+                onMovementStarted: following = false
+                onMovementEnded: following = atYEnd
+                onAtYEndChanged: { if (atYEnd && !moving && !logScrollBar.pressed) following = true }
+                onContentHeightChanged: followTail()
+                onCountChanged: { if (count === 0) following = true }
                 anchors.fill: parent
                 anchors.margins: 10
                 model: root.logModel
                 clip: true
                 spacing: 4
                 boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                delegate: Text {
-                    width: list.width
-                    text: model.text
-                    color: model.error ? Theme.danger : Theme.textSecondary
-                    font.family: Qt.platform.os === "osx" ? "Menlo" : "DejaVu Sans Mono"
-                    font.pixelSize: 13
-                    wrapMode: Text.NoWrap
-                    elide: Text.ElideRight
+                ScrollBar.vertical: ScrollBar {
+                    id: logScrollBar
+                    policy: ScrollBar.AsNeeded
+                    onPressedChanged: list.following = pressed ? false : list.atYEnd
                 }
 
-                onCountChanged: Qt.callLater(list.positionViewAtEnd)
+                delegate: Text {
+                    objectName: "logEntry"
+                    width: list.width
+                    text: model.time + " [" + model.level + "] [" + model.source + "] "
+                          + (model.context ? "[" + model.context + "] " : "") + model.text
+                    textFormat: Text.PlainText
+                    color: model.error ? Theme.danger : model.level === "WARN" ? Theme.warning : Theme.textSecondary
+                    font.family: Qt.platform.os === "osx" ? "Menlo" : "DejaVu Sans Mono"
+                    font.pixelSize: 13
+                    wrapMode: Text.WrapAnywhere
+                }
+
+                onContentYChanged: {
+                    if (moving || dragging || flicking) following = atYEnd
+                }
+                Connections {
+                    target: root.logModel
+                    function onRowsInserted() { list.followTail() }
+                }
             }
         }
     }

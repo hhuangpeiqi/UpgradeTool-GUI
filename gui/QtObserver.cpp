@@ -1,7 +1,9 @@
 #include "gui/QtObserver.h"
 #include "gui/MessageDisplay.h"
+#include "gui/UpgradePromptMessage.h"
 
 #include <QMetaObject>
+#include <algorithm>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -10,8 +12,9 @@
 
 namespace gui {
 
-QtObserver::QtObserver(QObject *parent)
+QtObserver::QtObserver(platform::LogService &log, QObject *parent)
 	: QObject(parent),
+      m_log(log),
 	  m_iSelectResult(0),
 	  m_bSelectActive(false)
 {
@@ -34,17 +37,26 @@ void QtObserver::CancelSelection()
 }
 void QtObserver::BeginSelectionSession()
 {
+    m_loggedErrors.clear();
+    m_lastStage.clear();
 	QMutexLocker lock(&m_selectMutex);
 	m_selectionCancelled = false;
 }
 
 void QtObserver::OnOutput(core::LogLevel emLevel, const std::string &strText)
 {
-	emit outputReceived((int)emLevel, QString::fromStdString(strText));
+    if (emLevel == core::LogLevel::Error) m_loggedErrors.push_back(QString::fromStdString(strText).trimmed().toStdString());
+    m_log.write(emLevel, {}, {{}, strText, {}});
 }
 
-void QtObserver::OnMessage(core::LogLevel level,const core::Message &message) { emit outputReceived(static_cast<int>(level),Display(message)); }
-void QtObserver::OnStageMessage(const core::Message &message,uint64_t total,uint64_t done,int overall) { emit stageProgressReceived(Display(message),total,done,overall); }
+void QtObserver::OnMessage(core::LogLevel level, const core::Message &message) {
+    if (level == core::LogLevel::Error) m_loggedErrors.push_back(QString::fromStdString(message.English()).trimmed().toStdString());
+    m_log.write(level, {}, message);
+}
+void QtObserver::OnStageMessage(const core::Message &message,uint64_t total,uint64_t done,int overall) {
+    if (m_lastStage != message.English()) { m_lastStage = message.English(); OnMessage(core::LogLevel::Info, message); }
+    emit stageProgressReceived(Display(message),total,done,overall);
+}
 
 void QtObserver::OnProgress(core::ProgressPrompt emPrompt, long long llTotal,
                             long long llCurrent, core::CallStep emCall)
@@ -74,6 +86,9 @@ void QtObserver::OnTransferProgress(core::TransferStage stage, long long total, 
 
 void QtObserver::OnUpgradePrompt(core::UpgradePrompt prompt, unsigned int)
 {
+    bool failed = false;
+    const auto message = UpgradePromptMessage(static_cast<int>(prompt), failed);
+    if (!message.key.empty()) OnMessage(failed ? core::LogLevel::Error : core::LogLevel::Info, message);
 	emit upgradePromptReceived(static_cast<int>(prompt));
 }
 
@@ -92,11 +107,28 @@ int QtObserver::OnSelectStorage(const std::vector<std::string> &options, int cur
 
 void QtObserver::OnStageProgress(const std::string &stage, uint64_t total, uint64_t current, int overallPercent)
 {
+    if (m_lastStage != stage) { m_lastStage = stage; OnOutput(core::LogLevel::Info, stage); }
 	emit stageProgressReceived(QString::fromStdString(stage), total, current, overallPercent);
 }
 
 void QtObserver::OnResult(const core::OperationResult &result)
 {
+    const auto diagnostic = result.diagnosticMessage.key.empty()
+        ? core::Message{{}, result.diagnostic, {}} : result.diagnosticMessage;
+    const auto text = QString::fromStdString(diagnostic.English()).trimmed().toStdString();
+    const bool alreadyLogged = std::any_of(m_loggedErrors.begin(), m_loggedErrors.end(), [&](const auto &error) {
+        // Rockchip's diagnostic is a captured transcript, not a new error event.
+        return text == error || (core::activeLogContext.source == "Rockchip" && !error.empty() && text.find(error) != std::string::npos);
+    });
+    if (result.status == core::OperationStatus::Failed && !alreadyLogged && !text.empty())
+        OnMessage(core::LogLevel::Error, diagnostic);
+    m_log.writef(core::LogLevel::Debug, core::activeLogContext.source.c_str(),
+        "Result: operation=%d status=%d error=%d", int(result.operation), int(result.status), int(result.error));
+    m_log.write(result.status == core::OperationStatus::Failed ? core::LogLevel::Error : core::LogLevel::Info,
+                 {}, {"gui::AppController", result.status == core::OperationStatus::Cancelled ? "Cancelled" :
+                     result.ok() ? "Step succeeded" : "Step failed", {}});
+    m_loggedErrors.clear();
+    m_lastStage.clear();
 	emit resultReceived(result);
 }
 

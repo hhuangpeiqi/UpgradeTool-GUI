@@ -2,6 +2,7 @@
 #define GUI_ADB_RUNNER_H
 
 #include <QElapsedTimer>
+#include <QJsonObject>
 #include <QObject>
 #include "gui/AdbService.h"
 #include "gui/AdbTiming.h"
@@ -67,16 +68,16 @@ class AdbRunner : public QObject
 
 	void availabilityChanged(bool bAvailable, const QString &strMessage);
 	void recoveryStateChanged(bool recovering, const QString &message);
-	void switchProgress(const QString &message);
+	void switchProgress(const core::Message &message);
 	void diagnosticMessage(const QString &message);
-	void traceMessage(const QString &message);
+	void traceRecord(const QJsonObject &record);
 
   private:
     void CheckLoaderMode();
     void StartReboot(const QString &);
     void BeginSwitch();
     void StartCommand(const QStringList &);
-    void Complete(bool, const QString &, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
+    void Complete(bool ok, const core::Message &message, bool cancelled = false, ModeSwitchFailure failure = ModeSwitchFailure::Generic, const QString &displayText = {});
     void HandleSwitchCommand(int, bool, const QString &);
     AdbService *m_service;
     quint64 m_commandId = 0;

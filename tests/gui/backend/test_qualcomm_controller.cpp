@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <QElapsedTimer>
 #include <QThread>
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 static int failures;
 #define CHECK(x) do { if (!(x)) { std::fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x); ++failures; } } while (0)
 static void Write(const QString &path, const QByteArray &data) { QFile f(path); CHECK(f.open(QIODevice::WriteOnly)); CHECK(f.write(data) == data.size()); }

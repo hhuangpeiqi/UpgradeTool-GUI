@@ -1,4 +1,7 @@
 #include "gui/InspectionQueue.h"
+#include "gui/UpgradePromptMessage.h"
+#include "gui/DiagnosticLog.h"
+#include <QSysInfo>
 #include "gui/EdlDeviceSelection.h"
 #include "gui/backend/AppController.h"
 #include "gui/MessageDisplay.h"
@@ -12,7 +15,6 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QThread>
-#include <QTime>
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
@@ -39,7 +41,7 @@
 #include "application/Version.h"
 #include "backends/qualcomm/OperationPolicy.h"
 #include "platform/PlatformPath.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 
 namespace gui {
 
@@ -54,75 +56,20 @@ bool QualcommSimulation(const core::TaskJob &job)
     return core::IsSimulation(r);
 }
 
-
-QString PromptText(int prompt, bool &failed)
-{
-	failed = false;
-	switch (prompt) {
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_BOOT_START): return QObject::tr("Downloading Boot");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_BOOT_FAIL): failed = true; return QObject::tr("Download Boot failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_BOOT_SUCCESS): return QObject::tr("Download Boot succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_IDB_START): return QObject::tr("Downloading IDB");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_IDB_FAIL): failed = true; return QObject::tr("Download IDB failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_IDB_SUCCESS): return QObject::tr("Download IDB succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_FIRMWARE_START): return QObject::tr("Downloading firmware");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_FIRMWARE_FAIL): failed = true; return QObject::tr("Download firmware failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_DOWNLOAD_FIRMWARE_SUCCESS): return QObject::tr("Download firmware succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_TEST_DEVICE_START): return QObject::tr("Testing device");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_TEST_DEVICE_FAIL): failed = true; return QObject::tr("Test device failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_TEST_DEVICE_SUCCESS): return QObject::tr("Test device succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_RESET_DEVICE_START): return QObject::tr("Resetting device");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_RESET_DEVICE_FAIL): failed = true; return QObject::tr("Reset device failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_RESET_DEVICE_SUCCESS): return QObject::tr("Reset device succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MSC_START): return QObject::tr("Waiting for MSC mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MSC_FAIL): failed = true; return QObject::tr("Waiting for MSC mode failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MSC_SUCCESS): return QObject::tr("Entered MSC mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_LOADER_START): return QObject::tr("Waiting for Loader mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_LOADER_FAIL): failed = true; return QObject::tr("Waiting for Loader mode failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_LOADER_SUCCESS): return QObject::tr("Entered Loader mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MASKROM_START): return QObject::tr("Waiting for Maskrom mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MASKROM_FAIL): failed = true; return QObject::tr("Waiting for Maskrom mode failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MASKROM_SUCCESS): return QObject::tr("Entered Maskrom mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_ERASE_IDB_START): return QObject::tr("Erasing IDB");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_ERASE_IDB_FAIL): failed = true; return QObject::tr("Erase IDB failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_ERASE_IDB_SUCCESS): return QObject::tr("Erase IDB succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_SWITCH_MSC_START): return QObject::tr("Switching to MSC mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_SWITCH_MSC_FAIL): failed = true; return QObject::tr("Switch to MSC mode failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_SWITCH_MSC_SUCCESS): return QObject::tr("Switched to MSC mode");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_CHECK_CHIP_START): return QObject::tr("Checking chip");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_CHECK_CHIP_FAIL): failed = true; return QObject::tr("Check chip failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_CHECK_CHIP_SUCCESS): return QObject::tr("Check chip succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_PREPARE_IDB_START): return QObject::tr("Preparing IDB");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_PREPARE_IDB_FAIL): failed = true; return QObject::tr("Prepare IDB failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_PREPARE_IDB_SUCCESS): return QObject::tr("Prepare IDB done");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_ERASE_FLASH_START): return QObject::tr("Erasing Flash");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_ERASE_FLASH_FAIL): failed = true; return QObject::tr("Erase Flash failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_ERASE_FLASH_SUCCESS): return QObject::tr("Erase Flash succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_GET_BLOCK_STATE_START): return QObject::tr("Reading block state");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_GET_BLOCK_STATE_FAIL): failed = true; return QObject::tr("Read block state failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_GET_BLOCK_STATE_SUCCESS): return QObject::tr("Read block state succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_GET_FLASH_INFO_START): return QObject::tr("Reading Flash info");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_GET_FLASH_INFO_FAIL): failed = true; return QObject::tr("Read Flash info failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_GET_FLASH_INFO_SUCCESS): return QObject::tr("Read Flash info succeeded");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_LOWER_FORMAT_START): return QObject::tr("Low-level formatting");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_LOWER_FORMAT_FAIL): failed = true; return QObject::tr("Low-level format failed");
-	case static_cast<int>(core::UpgradePrompt::PROMPT_LOWER_FORMAT_SUCCESS): return QObject::tr("Low-level format succeeded");
-	default: return QString();
-	}
 }
 
-}
-
-AppController::AppController(platform::FileLog *pLog, QObject *parent)
+AppController::AppController(platform::LogService *pLog, QObject *parent)
     : AppController(pLog, {}, 45000, parent) {}
 
-AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent)
+AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent)
     : AppController(pLog, std::move(edlHooks), edlWaitMs, parent, DriverHooks{}, DriverController::hostAvailable()) {}
 
-AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent, DriverHooks driverHooks, bool driversAvailable)
+AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent, DriverHooks driverHooks, bool driversAvailable)
 	: QObject(parent),
-	  m_pWorker(new EngineWorker(pLog)),
-	  m_pObserver(new QtObserver(this)),
+      m_ownedLog(pLog ? nullptr : std::make_unique<platform::LogService>()),
+      m_logService(pLog ? pLog : m_ownedLog.get()),
+	  m_pWorker(new EngineWorker(m_logService)),
+	  m_pObserver(new QtObserver(*m_logService, this)),
 	  m_pThread(new QThread(this)),
 	  m_pAdb(new AdbRunner(this)),
 	  m_pConfig(new ConfigStore(this)),
@@ -137,8 +84,11 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	  m_bSwitching(false),
 	  m_bAdbAvailable(false)
 {
-	m_diskLog = pLog;
-    m_inspections = new InspectionQueue(this, pLog);
+    m_logService->setConsumer([model = m_pLog](const core::LogEntry &entry) {
+        if (QThread::currentThread() == model->thread()) model->append(entry);
+        else QMetaObject::invokeMethod(model, [model, entry] { model->append(entry); }, Qt::QueuedConnection);
+    });
+    m_inspections = new InspectionQueue(this, m_logService);
     m_deviceModel=new DeviceModel(this);
     m_tasks=new TaskController(this);
     m_drivers=new DriverController(std::move(driverHooks), driversAvailable, this);
@@ -181,9 +131,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         m_pendingFelKey=QString::fromStdString(target.key());
         onDevicesReady(m_deviceModel->allRows());
     });
-    connect(m_pWorker,&EngineWorker::traceMessage,this,[this](const QString &message) {
-        if(m_diskLog) m_diskLog->Record("[Allwinner] %s",message.toUtf8().constData());
-    });
+
 	connect(m_pWorker, &EngineWorker::taskFinished, this, &AppController::onTaskFinished);
 	connect(m_pWorker, &EngineWorker::stepStarted, this, &AppController::onStepStarted);
     m_qualcomm = new QualcommController(this, m_inspections);
@@ -191,7 +139,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         SetDeviceStatus();
         refreshEdl();
     });
-    m_edl = new EdlRunner(edlHooks.discover ? std::move(edlHooks) : DefaultEdlHooks(m_pAdb->service()), edlWaitMs, this);
+    m_edl = new EdlRunner(edlHooks.discover ? std::move(edlHooks) : DefaultEdlHooks(m_pAdb->service()), edlWaitMs, this, m_logService);
     m_edlHandoffTimer = new QTimer(this);
     m_edlHandoffTimer->setSingleShot(true);
     m_edlHandoffTimer->setInterval(std::clamp(edlWaitMs, 1, 15000));
@@ -216,7 +164,7 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
                         false, failure);
     });
     connect(m_edl, &EdlRunner::errorOccurred, this, [this](const QString &message) {
-        AppendLog(message, true); emit toastRequested(message, true);
+        m_logService->write(core::LogLevel::Error, "Qualcomm", {{}, "Device mode switch rejected", {}}, true, message.toStdString()); emit toastRequested(message, true);
     });
     connect(m_edl, &EdlRunner::started, this, [this] {
         if (m_shuttingDown || m_bSwitching) return;
@@ -238,6 +186,9 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         m_edlHandoff = endpoint;
         m_edlHandoffTimer->start();
         UpdateModeSwitch(tr("Waiting for the download device to become ready…"));
+        core::ScopedLogContext logContext(m_modeLogContext);
+        m_logService->write(core::LogLevel::Info, "Qualcomm",
+            {"gui::AppController", "Waiting for the download device to become ready…", {}});
         // Ignore pre-switch snapshots. Only a fresh backend scan can bind the
         // download target and complete the user-visible switch.
         onDevicesReady({});
@@ -248,7 +199,6 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
         core::TaskJob job; job.steps.push_back(request); StartJob(job);
     });
     connect(m_qualcomm, &QualcommController::errorRequested, this, [this](const QString &message) { emit toastRequested(message,true); });
-	connect(m_pObserver, &QtObserver::outputReceived, this, &AppController::onOutput);
     connect(m_pObserver,&QtObserver::stageProgressReceived,m_tasks,&TaskController::onStageProgress);
     connect(m_pObserver,&QtObserver::progressReceived,m_tasks,&TaskController::onProgress);
 	connect(m_pObserver, &QtObserver::upgradePromptReceived, this, &AppController::onUpgradePrompt);
@@ -256,7 +206,10 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 	connect(m_pObserver, &QtObserver::resultReceived, this, &AppController::onOperationResult);
 
 	connect(m_pAdb, &AdbRunner::finished, this, &AppController::onAdbFinished);
-	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const QString &message) {
+	connect(m_pAdb, &AdbRunner::switchProgress, this, [this](const core::Message &entry) {
+        const auto message = Display(entry);
+        core::ScopedLogContext logContext(m_modeLogContext);
+        m_logService->write(core::LogLevel::Info, "ADB", entry);
         if (!m_bSwitching) return;
         UpdateModeSwitch(message);
         if (m_switchingFel) {
@@ -275,18 +228,11 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
 		SetDeviceStatus();
 	});
 	connect(m_pAdb, &AdbRunner::diagnosticMessage, this, [this](const QString &message) {
-		AppendLog(message, false);
+		m_logService->write(core::LogLevel::Info, "ADB", {{}, message.toStdString(), {}});
 	});
-	connect(m_pAdb, &AdbRunner::traceMessage, this, [this](const QString &message) {
-		if (m_diskLog) m_diskLog->Record("[ADB] %s", message.toUtf8().constData());
-	});
-	if (m_diskLog) {
-		m_diskLog->Record("ADB monitoring: app_version=%s gui_pid=%lld", TOOL_VERSION,
-		                  static_cast<long long>(QCoreApplication::applicationPid()));
-#ifdef Q_OS_WIN
-		m_diskLog->Record("ADB server log: %s", QDir::temp().filePath("adb.log").toUtf8().constData());
-#endif
-	}
+    connect(m_pAdb, &AdbRunner::traceRecord, this, [this](const QJsonObject &record) {
+        WriteDiagnostic(*m_logService, "ADB", record);
+    });
 
 	connect(m_pConfig, &gui::ConfigStore::udevInstallFinished,
 	        this, [this](bool, const QString &) { retryPermission(); });
@@ -306,21 +252,22 @@ AppController::AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edl
     connect(m_drivers, &DriverController::busyChanged, this, &AppController::UpdateInteractionLock);
     connect(m_drivers, &DriverController::maintenanceRequested, this, &AppController::BeginDriverMaintenance);
     connect(m_drivers, &DriverController::diagnostic, this, [this](const QString &message) {
-        if (m_diskLog) m_diskLog->Record("[Driver installer]\n%s", message.toUtf8().constData());
+        m_logService->write(core::LogLevel::Debug, "Driver", {{}, message.toStdString(), {}}, false);
     });
     connect(m_drivers, &DriverController::finished, this, [this](gui::DriverController::Outcome outcome, const QString &message) {
         if (m_shuttingDown) return;
-        AppendLog(message, outcome == gui::DriverController::Outcome::Failed);
-        if (m_diskLog) m_diskLog->Record("Driver installation: %s", message.toUtf8().constData());
+        m_logService->write(outcome == DriverController::Outcome::Failed ? core::LogLevel::Error : core::LogLevel::Info,
+                            "Driver", {{}, outcome == DriverController::Outcome::Failed ? "Driver installation failed" :
+                                outcome == DriverController::Outcome::PendingReconnect ? "Driver installation awaiting reconnect" :
+                                "Driver installation succeeded", {}}, true, message.toStdString());
         m_pAdb->Resume(); refresh();
     });
 
-
-
-	{
-		QString strStamp = QTime::currentTime().toString("HH:mm:ss");
-		AppendLog(QString("[%1] %2").arg(strStamp).arg(tr("Application started")), false);
-	}
+    m_logService->write(core::LogLevel::Info, "Application",
+        {"gui::AppController", "Application started", {}});
+    m_logService->writef(core::LogLevel::Debug, "Application", "Environment: app_version=%s gui_pid=%lld os=%s architecture=%s",
+        TOOL_VERSION, static_cast<long long>(QCoreApplication::applicationPid()),
+        QSysInfo::prettyProductName().toUtf8().constData(), QSysInfo::currentCpuArchitecture().toUtf8().constData());
 
     if(!availableVendors().contains(m_vendor)) setVendor(availableVendors().first().toInt());
     m_rockchip->setActive(m_vendor==0);
@@ -354,6 +301,7 @@ AppController::~AppController()
 	m_pObserver->CancelSelection();
 	m_pThread->quit();
 	m_pThread->wait();
+    m_logService->setConsumer({});
 }
 
 void AppController::UpdateInteractionLock()
@@ -393,7 +341,7 @@ void AppController::TryDriverInstall()
 void AppController::requestQuit()
 {
 	if (m_shuttingDown || m_quitConfirmationPending) return;
-	if (m_diskLog) m_diskLog->Record("Application exit requested");
+	m_logService->write(core::LogLevel::Info, "Application", {{}, "Application exit requested", {}}, false);
 	if (interactionLocked() || m_bSwitching) {
 		m_quitConfirmationPending = true;
 		emit quitConfirmationRequested();
@@ -416,7 +364,7 @@ void AppController::BeginShutdown()
     m_edlHandoffTimer->stop();
 	emit shuttingDownChanged();
     UpdateInteractionLock();
-	if (m_diskLog) m_diskLog->Record("Stopping polling and cancelling outstanding work");
+	m_logService->write(core::LogLevel::Info, "Application", {{}, "Stopping polling and cancelling outstanding work", {}}, false);
 	m_scanTimer->stop();
 	m_rockchip->setLocked(true);
 	m_allwinner->setLocked(true);
@@ -442,11 +390,9 @@ void AppController::CheckShutdown()
 	if (m_shutdownReady || !m_inspections->stopped() || !m_pThread->isFinished() || !m_edl->stopped() || !m_drivers->stopped()) return;
 	m_shutdownReady = true;
 	m_shutdownTimer->stop();
-	if (m_diskLog) m_diskLog->Record("Worker threads stopped; application ready to exit");
+	m_logService->write(core::LogLevel::Info, "Application", {{}, "Worker threads stopped; application ready to exit", {}}, false);
 	emit shutdownReady();
 }
-
-
 
 QString AppController::toolVersion() const
 {
@@ -468,11 +414,6 @@ void AppController::openLogDir()
 	}
 	if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
 		emit toastRequested(tr("Cannot open log directory: %1").arg(QDir::toNativeSeparators(path)), true);
-}
-
-void AppController::logLine(const QString &strText)
-{
-	AppendLog(strText, false);
 }
 
 QString AppController::dirOf(const QString &strPath) const
@@ -597,7 +538,6 @@ QStringList AppController::deviceLabels() const
 	return list;
 }
 
-
 QVariantMap AppController::rockchipMaskromEligibility() const
 {
     QVariantList targets;
@@ -644,7 +584,6 @@ QVariantMap AppController::qualcommEligibility() const
     }
     return result;
 }
-
 
 bool AppController::hasFlashTarget() const {
     if(m_vendor==1 && m_bBatchMode) {
@@ -743,26 +682,6 @@ void AppController::SetDeviceStatus()
 	emit devicesChanged();
 }
 
-
-
-
-
-void AppController::AppendLog(const QString &strText, bool bError)
-{
-	if (m_pLog)
-		m_pLog->Append(strText, bError);
-}
-
-
-
-
-
-
-
-
-
-
-
 void AppController::retranslate()
 {
     m_edl->retranslate();
@@ -777,7 +696,6 @@ void AppController::retranslate()
 	emit felSwitchStateChanged();
 	emit standardPlacesChanged();
 }
-
 
 void AppController::onThreadStarted()
 {
@@ -891,7 +809,6 @@ void AppController::onDevicesReady(const QVariantList &incoming)
 		emit deviceIndexChanged();
 	}
 
-
 	if (m_bBatchMode && m_vendor != 2) {
 		QStringList strAlive;
 		for (int i = 0; i < m_batchKeys.size(); i++)
@@ -998,9 +915,9 @@ void AppController::cancel()
 	m_tasks->cancel(); m_rockchip->setCancelled(true);
 	m_tasks->job().cancelled->request_stop();
 	m_pObserver->CancelSelection();
-	AppendLog(tr("Cancelling…"), false);
+	core::ScopedLogContext logContext(m_bSwitching ? m_modeLogContext : m_taskLogContext);
+    m_logService->write(core::LogLevel::Info, {}, {"gui::AppController", "Cancelling…", {}});
 }
-
 
 QVariantList AppController::BatchTargets() const
 {
@@ -1062,12 +979,17 @@ void AppController::StartJob(core::TaskJob job)
 	}
     job.config=m_pConfig->snapshot();
 	job.continueOnError = m_bBatchMode && m_bBatchContinue;
+    job.logId = platform::LogService::nextTaskId();
+    m_taskLogContext = {job.steps.empty() ? "Application" : core::VendorLogSource(job.steps.front().vendor()), job.logId};
     m_tasks->start(job); m_rockchip->setCancelled(false);
 	m_pObserver->BeginSelectionSession();
 
-	AppendLog(tr("Start: %1").arg(OperationName(m_tasks->runningOperation())), false);
+    core::ScopedLogContext logContext(m_taskLogContext);
+    m_logService->write(core::LogLevel::Info, {},
+        {"gui::AppController", "Start: %1", {OperationMessage(m_tasks->runningOperation()).English()}}, true,
+        tr("Start: %1").arg(OperationName(m_tasks->runningOperation())).toStdString());
     if (QualcommSimulation(m_tasks->job())) {
-        AppendLog(tr("Simulation only; no device will be flashed"), false);
+        m_logService->write(core::LogLevel::Info, {}, {"gui::AppController", "Simulation only; no device will be flashed", {}});
         m_tasks->setProgress(-1, tr("Simulation"));
     }
 #ifdef Q_OS_WIN
@@ -1075,8 +997,6 @@ void AppController::StartJob(core::TaskJob job)
 #endif
     emit requestExecute(m_tasks->job());
 }
-
-
 
 void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnError)
 {
@@ -1138,7 +1058,9 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 	};
 	QString text = statusText();
     if (QualcommSimulation(m_tasks->job())) text = tr("Simulation: %1").arg(text);
-	AppendLog(text, !ok && !cancelled);
+    core::ScopedLogContext logContext(m_taskLogContext);
+    m_logService->write(!ok && !cancelled ? core::LogLevel::Error : core::LogLevel::Info, {},
+        {"gui::AppController", cancelled ? "Cancelled" : ok ? "Operation complete" : "Operation failed; see the log", {}}, true, text.toStdString());
     if(!m_tasks->job().steps.empty() && m_tasks->job().steps.front().vendor()==core::Vendor::Rockchip) m_rockchip->applyFinished(summary,m_tasks->job());
 	if (m_tasks->job().targets.size() > 1) {
 		const int succeededCount = summary.succeeded;
@@ -1147,7 +1069,9 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 			return tr("Batch finished: %1 succeeded, %2 failed").arg(succeededCount).arg(failedCount)
 			       + (cancelled ? tr(", remaining operations cancelled") : QString());
 		};
-		AppendLog(batchText(), summary.failed > 0);
+        m_logService->write(summary.failed > 0 ? core::LogLevel::Error : core::LogLevel::Info, {},
+            {"gui::AppController", "Batch finished: %1 succeeded, %2 failed",
+             {std::to_string(summary.succeeded), std::to_string(summary.failed)}}, true, batchText().toStdString());
 
 	}
 	if (m_tasks->runningOperation() >= core::Operation::AllwinnerFlash && m_tasks->runningOperation() <= core::Operation::AllwinnerReboot) {
@@ -1176,29 +1100,13 @@ void AppController::onStepStarted(int step, int target, int total, const QString
 			return text;
 		};
 		m_rockchip->applyStep(runText);
-		AppendLog(runText(), false);
 	}
 }
-
-void AppController::onOutput(int iLevel, const QString &strText)
-{
-	if(m_vendor != 0) {
-        AppendLog(strText, iLevel == static_cast<int>(core::LogLevel::Error));
-        if(m_diskLog) m_diskLog->Record("[%s] %s", m_vendor == 2 ? "Qualcomm" : "Allwinner", strText.toUtf8().constData());
-        return;
-    }
-    // Rockchip engine records its own detailed log.
-	if (iLevel == (int)core::LogLevel::Error)
-		AppendLog(strText, true);
-}
-
-
 
 void AppController::onUpgradePrompt(int prompt)
 {
 	bool failed = false;
-	QString text = PromptText(prompt, failed);
-	if (!text.isEmpty()) AppendLog(text, failed);
+	QString text = Display(UpgradePromptMessage(prompt, failed));
     if (prompt == static_cast<int>(core::UpgradePrompt::PROMPT_WAIT_MASKROM_START) &&
         m_tasks->busy() && m_tasks->runningOperation() == core::Operation::EnterMaskrom)
         m_tasks->setProgress(-1, text);
@@ -1215,16 +1123,9 @@ void AppController::answerStorage(int iIndex)
 	m_pObserver->SetSelectResult(iIndex);
 }
 
-
-
-
-
-
 void AppController::onOperationResult(const core::OperationResult &result)
 {
     if(result.operation >= core::Operation::QualcommFlash && result.operation <= core::Operation::QualcommProvision) {
-        if (result.status == core::OperationStatus::Failed && (!result.diagnostic.empty() || !result.diagnosticMessage.key.empty()))
-            onOutput(static_cast<int>(core::LogLevel::Error), DisplayDiagnostic(result));
         m_qualcomm->applyResult(result); return;
     }
     if(result.operation >= core::Operation::AllwinnerFlash && result.operation <= core::Operation::AllwinnerReboot) {
@@ -1232,23 +1133,6 @@ void AppController::onOperationResult(const core::OperationResult &result)
     }
     m_rockchip->applyResult(result);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void AppController::refreshEdl()
 {
@@ -1280,19 +1164,22 @@ void AppController::FinishEdlSwitch(bool ok, const QString &message, bool cancel
 
 void AppController::BeginModeSwitch(const QString &message)
 {
+    m_modeLogContext = {m_vendor == 2 ? "Qualcomm" : "ADB", platform::LogService::nextTaskId()};
+    m_pAdb->service()->setLogContext(m_modeLogContext);
+    m_edl->setLogContext(m_modeLogContext);
 	m_bSwitching = true;
 	m_tasks->resetProgress();
 	m_tasks->setProgress(-1, message);
 	m_tasks->setBusy(true);
 	emit switchingChanged();
-	AppendLog(message, false);
+    core::ScopedLogContext logContext(m_modeLogContext);
+    m_logService->write(core::LogLevel::Info, {}, {{}, "Device mode switch in progress", {}}, true, message.toStdString());
 }
 
 void AppController::UpdateModeSwitch(const QString &message)
 {
 	if (!m_bSwitching) return;
 	m_tasks->setProgress(-1, message);
-	AppendLog(message, false);
 }
 
 void AppController::FinishModeSwitch(bool ok, const QString &message, bool cancelled, ModeSwitchFailure failure)
@@ -1300,10 +1187,14 @@ void AppController::FinishModeSwitch(bool ok, const QString &message, bool cance
     if (!m_bSwitching) return;
 	m_tasks->setProgress(ok ? 100 : 0, message);
 	m_bSwitching = false;
+    m_pAdb->service()->setLogContext({});
 	emit switchingChanged();
 	m_tasks->setBusy(false);
     m_drivers->refresh(true);
-	AppendLog(message, !ok);
+    core::ScopedLogContext logContext(m_modeLogContext);
+    m_logService->write(!ok && !cancelled ? core::LogLevel::Error : core::LogLevel::Info, {},
+        {{}, cancelled ? "Device mode switch cancelled" : ok ? "Device mode switch succeeded" : "Device mode switch failed", {}},
+        true, message.toStdString());
 	emit toastRequested(message, !ok);
     if (!ok && !cancelled && !m_shuttingDown) {
         if (failure == ModeSwitchFailure::DeviceAccess) emit switchAccessRequested(message);
@@ -1357,11 +1248,11 @@ void AppController::onAdbDevicesChanged(const QStringList &strDevices)
 void AppController::onAdbAvailabilityChanged(bool bAvailable, const QString &strMessage)
 {
 	m_bAdbAvailable = bAvailable;
-	if (m_diskLog) m_diskLog->Record("ADB availability: available=%d message=%s", bAvailable, strMessage.toUtf8().constData());
+	m_logService->writef(core::LogLevel::Info, "ADB", "ADB availability: available=%d", bAvailable);
 	if (bAvailable) m_adbOutageNotified = false;
 	if (!bAvailable && !strMessage.isEmpty() && !m_adbOutageNotified) {
 		m_adbOutageNotified = true;
-		AppendLog(strMessage, true);
+        m_logService->write(core::LogLevel::Error, "ADB", {{}, "ADB is unavailable; check the executable, server and device connection", {}}, true, strMessage.toStdString());
 		emit toastRequested(strMessage, true);
 	}
 	SetDeviceStatus();
@@ -1395,12 +1286,6 @@ void AppController::onAdbFinished(bool bOk, const QString &strMessage, bool canc
 	FinishModeSwitch(bOk, strMessage, cancelled, failure);
 	emit requestScan();
 }
-
-
-
-
-
-
 
 QVariantList AppController::availableVendors() const {
     QVariantList vendors;
@@ -1439,18 +1324,5 @@ void AppController::setVendor(int vendor)
     if (m_deviceModel->rows().isEmpty()) SetDeviceStatus();
     refresh();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }

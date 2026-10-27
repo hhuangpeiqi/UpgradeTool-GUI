@@ -1,7 +1,7 @@
 #include "tests/support/TestFiles.h"
 #include "AndroidDevice.h"
 #include "Upgrade.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include "crc.h"
 #include "MD5Checksum.h"
 

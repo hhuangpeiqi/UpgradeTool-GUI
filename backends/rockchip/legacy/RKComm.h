@@ -116,7 +116,7 @@ typedef struct {
 #define ERR_BUFFER_NOT_ENOUGH   -13
 #define UFI_CHECK_SIGN(cbw, csw) ((CSW_SIGN == (csw).dwCSWSignature) && ((csw).dwCSWTag == (cbw).dwCBWTag))
 
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 class CRKComm
 {
 public:
@@ -148,11 +148,11 @@ public:
 	virtual int RKU_ResetPipe(BYTE ucPipe) = 0;
 	virtual int RKU_MscToRockusb() = 0;
 	virtual int RKU_UvcToRockusb() = 0;
-	CRKComm(platform::FileLog *pLog);
+	CRKComm(platform::LogService *pLog);
 	virtual ~CRKComm();
 protected:
 	STRUCT_RKDEVICE_DESC m_deviceDesc;
-	platform::FileLog *m_log;
+	platform::LogService *m_log;
 private:
 	virtual bool RKU_Write(BYTE *lpBuffer, DWORD dwSize) = 0;
 	virtual bool RKU_Read(BYTE *lpBuffer, DWORD dwSize) = 0;
@@ -173,7 +173,7 @@ public:
 	virtual int RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE);
 	virtual int RKU_WriteSector(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer);
     virtual int RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataSize);
-	CRKUsbComm(STRUCT_RKDEVICE_DESC devDesc, platform::FileLog *pLog, bool &bRet);
+	CRKUsbComm(STRUCT_RKDEVICE_DESC devDesc, platform::LogService *pLog, bool &bRet);
 	virtual ~CRKUsbComm();
     virtual bool Reset_Usb_Config(STRUCT_RKDEVICE_DESC devDesc);
 	virtual bool Reset_Usb_Device();

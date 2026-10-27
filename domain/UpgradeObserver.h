@@ -4,11 +4,11 @@
 #include <vector>
 #include "domain/Progress.h"
 #include "domain/Message.h"
+#include "domain/LogEntry.h"
 #include "domain/OperationResult.h"
 
 namespace core {
 
-enum class LogLevel { Info, Warn, Error };
 enum class TransferStage { Read, Write, Extract };
 
 class IUpgradeObserver

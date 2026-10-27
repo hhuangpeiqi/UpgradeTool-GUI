@@ -29,7 +29,7 @@
 
 class QThread;
 class QTimer;
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 
 namespace gui {
 
@@ -84,9 +84,9 @@ class AppController : public QObject, public Retranslatable
 	Q_PROPERTY(QVariantList standardPlaces READ standardPlaces NOTIFY standardPlacesChanged)
 
 public:
-	explicit AppController(platform::FileLog *pLog, QObject *parent = NULL);
-    AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent = nullptr);
-    AppController(platform::FileLog *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent, DriverHooks driverHooks, bool driversAvailable);
+	explicit AppController(platform::LogService *pLog, QObject *parent = NULL);
+    AppController(platform::LogService *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent = nullptr);
+    AppController(platform::LogService *pLog, EdlHooks edlHooks, int edlWaitMs, QObject *parent, DriverHooks driverHooks, bool driversAvailable);
 	~AppController();
 
 	// Rebuilds every cached translated string when the UI language changes.
@@ -148,7 +148,6 @@ public:
 	QVariantList standardPlaces() const { return m_standardPlaces.value(); }
 	Q_INVOKABLE void refreshStandardPlaces();
 	Q_INVOKABLE bool directoryAvailable(const QString &path) const { return m_fileLocations.directoryAvailable(path); }
-	Q_INVOKABLE void logLine(const QString &strText);
 	Q_INVOKABLE QString lastDir(const QString &strKey) const;
 	Q_INVOKABLE void rememberPath(const QString &strKey, const QString &strPath);
 	Q_INVOKABLE QString dirOf(const QString &strPath) const;
@@ -211,7 +210,6 @@ private:
     void FinishEdlSwitch(bool ok, const QString &message, bool cancelled = false, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
     int m_vendor = 0;
     QualcommController *m_qualcomm;
-    platform::FileLog *m_diskLog = nullptr;
     AllwinnerController *m_allwinner;
     RockchipController *m_rockchip;
     TaskController *m_tasks;
@@ -223,7 +221,6 @@ private:
 private slots:
 	void onThreadStarted();
 	void onDevicesReady(const QVariantList &devices);
-	void onOutput(int iLevel, const QString &strText);
 	void onUpgradePrompt(int prompt);
 	void onStorageSelection(const QStringList &strOptions, int iCurrent);
 	void onOperationResult(const core::OperationResult &result);
@@ -243,7 +240,6 @@ private:
 	bool m_shuttingDown = false;
 	bool m_shutdownReady = false;
 	void SetDeviceStatus();
-	void AppendLog(const QString &strText, bool bError);
 	void StartJob(core::TaskJob job);
 	void BeginModeSwitch(const QString &message);
 	void UpdateModeSwitch(const QString &message);
@@ -252,6 +248,9 @@ private:
 	QVariantList BatchTargets() const;
 	bool PermissionMissing() const;
 
+    std::unique_ptr<platform::LogService> m_ownedLog;
+    platform::LogService *m_logService;
+    core::LogContext m_taskLogContext, m_modeLogContext;
 	EngineWorker *m_pWorker;
 	QtObserver *m_pObserver;
 	QThread *m_pThread;

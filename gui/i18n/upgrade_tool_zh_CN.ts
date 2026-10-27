@@ -3366,6 +3366,14 @@
 <context>
     <name>gui::AppController</name>
     <message>
+        <source>Step succeeded</source>
+        <translation>步骤执行成功</translation>
+    </message>
+    <message>
+        <source>Step failed</source>
+        <translation>步骤执行失败</translation>
+    </message>
+    <message>
         <location filename="../backend/AppController.cpp" line="+307"/>
         <source>Cannot create or access log directory: %1</source>
         <translation>无法创建或访问日志目录：%1</translation>

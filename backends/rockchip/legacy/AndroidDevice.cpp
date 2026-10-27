@@ -489,7 +489,7 @@ bool CRKAndroidDevice::WriteEntry(UINT uiBegin, FW_ENTRY &entry)
 		return false;
 	if (IsUbiEntry(entry) || IsJffsEntry(entry)) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:WriteEntry--> %s is a UBI/JFFS image (SPI NAND/NOR), not supported", entry.szFile);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "WriteEntry--> %s is a UBI/JFFS image (SPI NAND/NOR), not supported", entry.szFile);
 		return false;
 	}
 	if (IsSparseEntry(entry)) {
@@ -619,7 +619,7 @@ bool CRKAndroidDevice::MakeSector2(PBYTE pSector)
 	if (!m_pComm || m_pComm->RKU_ReadChipInfo(chipInfo) != ERR_SUCCESS) {
 		m_iError = 0x65;
 		if (m_pLog)
-			m_pLog->Record("ERROR:MakeSector2-->RKU_ReadChipInfo failed,RetCode(%d)", m_iError);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "MakeSector2-->RKU_ReadChipInfo failed,RetCode(%d)", m_iError);
 		return false;
 	}
 	memcpy(pSec2->bChipInfo, chipInfo, CHIPINFO_LEN);
@@ -765,7 +765,7 @@ bool CRKAndroidDevice::FindIDBlock(char cStart, char &cBlock)
 		if (m_pComm->RKU_ReadSector(c * m_uiEraseSectorPerUnit, 4, sector) != ERR_SUCCESS) {
 			m_iError = 0x65;
 			if (m_pLog)
-				m_pLog->Record("ERROR:FindIDBlock-->RKU_ReadSector failed,RetCode(%d)", m_iError);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "FindIDBlock-->RKU_ReadSector failed,RetCode(%d)", m_iError);
 			return false;
 		}
 		P_RC4(sector, SECTOR_SIZE);
@@ -841,29 +841,29 @@ bool CRKAndroidDevice::CheckIDBData(PBYTE pIDB, bool bCheckCrc)
 	RK28_IDB_SEC2 *pSec2 = (RK28_IDB_SEC2 *)(pIDB + SECTOR_SIZE * 2);
 	if (pSec2->szVcTag[0] != 'V' || pSec2->szVcTag[1] != 'C' || pSec2->szVcTag[2] != 0) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:CheckIDBData-->Check sector0 data failed !");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "CheckIDBData-->Check sector0 data failed !");
 		return false;
 	}
 	if (CRC_16(pIDB, SECTOR_SIZE) != pSec2->usSec0Crc) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:CheckIDBData-->Check sector0 crc failed !");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "CheckIDBData-->Check sector0 crc failed !");
 		return false;
 	}
 	if (pSec2->szCrcTag[0] != 'C') {
 		if (m_pLog)
-			m_pLog->Record("ERROR:CheckIDBData-->Boot Offset is wrong !");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "CheckIDBData-->Boot Offset is wrong !");
 		return false;
 	}
 	if (*(USHORT *)(pIDB + 0xc) != 4 || *(USHORT *)(pIDB + 0xe) != 4) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:CheckIDBData-->Boot Offset is wrong !");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "CheckIDBData-->Boot Offset is wrong !");
 		return false;
 	}
 	if (bCheckCrc) {
 		UINT uiCrc = CRC_32(pIDB + SECTOR_SIZE * 4, (*(USHORT *)(pIDB + 0x1fc)) * SECTOR_SIZE);
 		if (uiCrc != *(UINT *)(pIDB + 0x1f2)) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:CheckIDBData-->Check sector2 crc failed !");
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "CheckIDBData-->Check sector2 crc failed !");
 			return false;
 		}
 	}
@@ -915,7 +915,7 @@ bool CRKAndroidDevice::FindBackupBuffer()
 		UINT uiSector = (UINT)i * m_uiEraseSectorPerUnit;
 		if (m_pComm->RKU_ReadSector(uiSector, 2, buf) != ERR_SUCCESS) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:FindBackupBuffer-->RKU_ReadSector failed,RetCode(%d)", m_iError);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "FindBackupBuffer-->RKU_ReadSector failed,RetCode(%d)", m_iError);
 			continue;
 		}
 		if (*(UINT *)buf == 0x38324b52)
@@ -924,7 +924,7 @@ bool CRKAndroidDevice::FindBackupBuffer()
 			return CheckCrc16(buf + 0x210, *(USHORT *)(buf + 4), 0x200);
 		}
 		if (m_pLog)
-			m_pLog->Record("ERROR:FindBackupBuffer-->Check IDB failed");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "FindBackupBuffer-->Check IDB failed");
 	}
 	return false;
 }
@@ -935,17 +935,17 @@ bool CRKAndroidDevice::FindBackupSector3()
 	memset(buf, 0, sizeof(buf));
 	if (m_pComm->RKU_ReadLBA(0x3c, 2, buf) != ERR_SUCCESS) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:FindBackupSector3-->RKU_ReadLBA failed,RetCode(%d)", m_iError);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "FindBackupSector3-->RKU_ReadLBA failed,RetCode(%d)", m_iError);
 		return false;
 	}
 	if (*(UINT *)buf != 0x435243) { // "CRC"
 		if (m_pLog)
-			m_pLog->Record("ERROR:FindBackupSector3-->no found sector3");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "FindBackupSector3-->no found sector3");
 		return true;
 	}
 	if (!CheckCrc16(buf + 0x200, *(USHORT *)(buf + 4), 0x200)) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:FindBackupSector3-->check crc failed");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "FindBackupSector3-->check crc failed");
 		*(USHORT *)(buf + 4) = CRC_16(buf + 0x200, 0x200);
 	}
 	if (!m_pOldSectorData) {
@@ -1001,7 +1001,7 @@ bool CRKAndroidDevice::GetReservedBlockByte()
 	unsigned char buf[0x210];
 	if (m_pComm->RKU_ReadSector(m_uiIDBBlock[0] * m_uiEraseSectorPerUnit, 1, buf) != ERR_SUCCESS) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:GetReservedBlockByte-->RKU_ReadSector failed,RetCode(%d)", m_iError);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "GetReservedBlockByte-->RKU_ReadSector failed,RetCode(%d)", m_iError);
 		return false;
 	}
 	USHORT usBlocks = *(USHORT *)(buf + 0x210 + 0);
@@ -1115,7 +1115,7 @@ bool CRKAndroidDevice::EraseSparseRegion(UINT uiOffset, UINT uiSize, UINT uiChun
 		if (iRet != ERR_SUCCESS && iRet != ERR_FOUND_BAD_BLOCK) {
 			m_iError = 0x65;
 			if (m_pLog)
-				m_pLog->Record("ERROR:ErasePartition-->erase partition failed,err=%d", iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "ErasePartition-->erase partition failed,err=%d", iRet);
 			return false;
 		}
 	}
@@ -1134,7 +1134,7 @@ bool CRKAndroidDevice::EraseUbiRegion(UINT uiOffset, UINT uiPartSize)
 	if (iRet != ERR_SUCCESS) {
 		m_iError = 0x65;
 		if (m_pLog)
-			m_pLog->Record("Error:EraseUbiRegion-->RKU_ReadFlashID failed,RetCode(%d)", iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseUbiRegion-->RKU_ReadFlashID failed,RetCode(%d)", iRet);
 		return false;
 	}
 	if (*(DWORD *)flashID == 0x434d4d45) // "EMMC"
@@ -1145,7 +1145,7 @@ bool CRKAndroidDevice::EraseUbiRegion(UINT uiOffset, UINT uiPartSize)
 	if (iRet != ERR_SUCCESS) {
 		m_iError = 0x65;
 		if (m_pLog)
-			m_pLog->Record("Error:EraseUbiRegion-->RKU_ReadFlashInfo err=%d", iRet);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseUbiRegion-->RKU_ReadFlashInfo err=%d", iRet);
 		return false;
 	}
 	UINT uiStartBlock = uiOffset / info.usBlockSize;
@@ -1164,7 +1164,7 @@ bool CRKAndroidDevice::EraseUbiRegion(UINT uiOffset, UINT uiPartSize)
 		if (iRet != ERR_SUCCESS && iRet != ERR_FOUND_BAD_BLOCK) {
 			m_iError = 0x65;
 			if (m_pLog)
-				m_pLog->Record("Error:EraseUbiRegion-->RKU_EraseBlock failed,RetCode(%d)", iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseUbiRegion-->RKU_EraseBlock failed,RetCode(%d)", iRet);
 			return false;
 		}
 		uiErasePos += uiCount;
@@ -1179,7 +1179,7 @@ bool CRKAndroidDevice::EraseUbiRegion(UINT uiOffset, UINT uiPartSize)
 // unexpected errors abort; ERR_DEVICE_UNREADY (-6) fires the intermediate
 // callback (once) and loops, resetting the retry budget; ERR_SUCCESS fires the
 // final CALL_LAST callback when an intermediate one was issued, then returns.
-static bool ErasePartByTestUnit(CRKComm *pComm, ProgressPromptCB cb, platform::FileLog *pLog,
+static bool ErasePartByTestUnit(CRKComm *pComm, ProgressPromptCB cb, platform::LogService *pLog,
                                 UINT uiPartSize, BYTE ucSubCode, ENUM_PROGRESS_PROMPT emPrompt,
                                 const char *szPart)
 {
@@ -1202,7 +1202,7 @@ static bool ErasePartByTestUnit(CRKComm *pComm, ProgressPromptCB cb, platform::F
 			return true;
 		}
 		if (pLog)
-			pLog->Record("ERROR:Erase%sPart-->RKU_TestDeviceReady failed,RetCode(%d)", szPart, iRet);
+			pLog->writef(core::LogLevel::Error, "Rockchip", "Erase%sPart-->RKU_TestDeviceReady failed,RetCode(%d)", szPart, iRet);
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 	return false;
@@ -1244,7 +1244,7 @@ bool CRKAndroidDevice::EraseDirectLBABlock(UINT uiOffset, UINT uiSize)
 			if (iRet != ERR_SUCCESS) {
 				m_iError = 0x65;
 				if (m_pLog)
-					m_pLog->Record("ERROR:EraseDirectLBABlock-->RKU_WriteLBA failed,RetCode(%d)", iRet);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseDirectLBABlock-->RKU_WriteLBA failed,RetCode(%d)", iRet);
 				return false;
 			}
 			uiPos += uiChunk;
@@ -1269,24 +1269,24 @@ int CRKAndroidDevice::DownloadBoot()
 		if (!pBoot->GetEntryProperty(ENTRY471, i, dwSize, dwDelay)) {
 			m_iError = 0x6f;
 			if (m_pLog)
-				m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry471Property failed,index(%d)", m_layerName.c_str(), i);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry471Property failed,index(%d)", m_layerName.c_str(), i);
 			return -2;
 		}
 		if (dwSize > 0) {
-			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0471 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+			if (m_pLog) m_pLog->writef(core::LogLevel::Debug, "Rockchip", "Maskrom boot entry: request=0x0471 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
 				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(pBoot->GetRc4DisableFlag()), int(pBoot->GetSignFlag()));
 			pBuffer = new BYTE[dwSize];
 			if (!pBoot->GetEntryData(ENTRY471, i, pBuffer)) {
 				m_iError = 0x6f;
 				if (m_pLog)
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry471Data failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry471Data failed,index(%d)", m_layerName.c_str(), i);
 				delete []pBuffer;
 				return -3;
 			}
 			if (!Boot_VendorRequest(0x0471, pBuffer, dwSize)) {
 				m_iError = 0x71;
 				if (m_pLog)
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->Boot_VendorRequest471 failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->Boot_VendorRequest471 failed,index(%d)", m_layerName.c_str(), i);
 				delete []pBuffer;
 				return -4;
 			}
@@ -1300,24 +1300,24 @@ int CRKAndroidDevice::DownloadBoot()
 		if (!pBoot->GetEntryProperty(ENTRY472, i, dwSize, dwDelay)) {
 			m_iError = 0x70;
 			if (m_pLog)
-				m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry472Property failed,index(%d)", m_layerName.c_str(), i);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry472Property failed,index(%d)", m_layerName.c_str(), i);
 			return -2;
 		}
 		if (dwSize > 0) {
-			if (m_pLog) m_pLog->Record("Maskrom boot entry: request=0x0472 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
+			if (m_pLog) m_pLog->writef(core::LogLevel::Debug, "Rockchip", "Maskrom boot entry: request=0x0472 entry=%u bytes=%u delay_ms=%u rc4_disabled=%d signed=%d",
 				unsigned(i), unsigned(dwSize), unsigned(dwDelay), int(pBoot->GetRc4DisableFlag()), int(pBoot->GetSignFlag()));
 			pBuffer = new BYTE[dwSize];
 			if (!pBoot->GetEntryData(ENTRY472, i, pBuffer)) {
 				m_iError = 0x70;
 				if (m_pLog)
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->GetEntry472Data failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->GetEntry472Data failed,index(%d)", m_layerName.c_str(), i);
 				delete []pBuffer;
 				return -3;
 			}
 			if (!Boot_VendorRequest(0x0472, pBuffer, dwSize)) {
 				m_iError = 0x72;
 				if (m_pLog)
-					m_pLog->Record("<LAYER %s> ERROR:DownloadBoot-->Boot_VendorRequest472 failed,index(%d)", m_layerName.c_str(), i);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "<LAYER %s> DownloadBoot-->Boot_VendorRequest472 failed,index(%d)", m_layerName.c_str(), i);
 				delete []pBuffer;
 				return -4;
 			}
@@ -1343,7 +1343,7 @@ bool CRKAndroidDevice::ReadCapability()
 	ret = m_pComm->RKU_ReadCapability(data);
 	if (ret != ERR_SUCCESS) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:ReadCapability-->RKU_ReadCapability failed,err(%d)", ret);
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "ReadCapability-->RKU_ReadCapability failed,err(%d)", ret);
 		return false;
 	}
 	m_bDirectLbaFlag = (data[0] & 0x1) != 0;
@@ -1598,7 +1598,7 @@ bool CRKAndroidDevice::WriteIDBWithDirect(PBYTE pIDB)
 		int iRet = m_pComm->RKU_WriteLBA(uiPos, uiSectorCount, pIDB);
 		if (iRet != ERR_SUCCESS) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:WriteIDBWithDirect-->RKU_WriteLBA failed,RetCode(%d)", iRet);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "WriteIDBWithDirect-->RKU_WriteLBA failed,RetCode(%d)", iRet);
 			return false;
 		}
 		uiPos += uiChunk;
@@ -1624,19 +1624,19 @@ bool CRKAndroidDevice::EraseIDB()
 		if (m_bDirectLbaFlag) {
 			if (!EraseDirectLBABlock(0, uiCount)) {
 				if (m_pLog)
-					m_pLog->Record("ERROR:EraseIDB-->EraseDirectLBABlock failed");
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseIDB-->EraseDirectLBABlock failed");
 				return false;
 			}
 			if (!EraseEmmcIDB()) {
 				if (m_pLog)
-					m_pLog->Record("ERROR:EraseIDB-->EraseEmmcIDB failed");
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseIDB-->EraseEmmcIDB failed");
 				return false;
 			}
 			return true;
 		}
 		if (EraseEmmcBlock(0, 0, uiCount) != ERR_SUCCESS) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:EraseIDB-->EraseEmmcBlock failed");
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseIDB-->EraseEmmcBlock failed");
 			return false;
 		}
 		return true;
@@ -1646,13 +1646,13 @@ bool CRKAndroidDevice::EraseIDB()
 	if (m_bDirectLbaFlag) {
 		if (!EraseEmmcIDB()) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:EraseIDB-->EraseEmmcIDB failed 2");
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseIDB-->EraseEmmcIDB failed 2");
 			return false;
 		}
 	}
 	if (!EraseMutilBlock(0, 0, uiCount, false)) {
 		if (m_pLog)
-			m_pLog->Record("ERROR:EraseIDB-->EraseMutilBlock failed");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "EraseIDB-->EraseMutilBlock failed");
 		return false;
 	}
 	return true;
@@ -1670,20 +1670,20 @@ bool CRKAndroidDevice::BufferWriteBack()
 		GetOldIDBData();
 		if (m_ucIDBCount > 0) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:BufferWriteBack-->Found IDB");
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "BufferWriteBack-->Found IDB");
 			return true;
 		}
 	} else {
 		GetOldSectorData();
 		if (m_ucIDBCount > 0) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:BufferWriteBack-->Found IDB");
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "BufferWriteBack-->Found IDB");
 			return true;
 		}
 	}
 	if (m_uiIDBend == 0) {
 		if (m_pLog)
-			m_pLog->Record("INFO:BufferWriteBack-->Crc is zero");
+			m_pLog->writef(core::LogLevel::Error, "Rockchip", "BufferWriteBack-->Crc is zero");
 		return true;
 	}
 	return bRet;
@@ -1720,7 +1720,7 @@ int CRKAndroidDevice::DownloadImage()
 		int iReady = m_pComm->RKU_TestDeviceReady(&dwTotal, &dwCurrent);
 		if (iReady != ERR_SUCCESS) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:DownloadImage-->RKU_TestDeviceReady failed,Err=%d", iReady);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "DownloadImage-->RKU_TestDeviceReady failed,Err=%d", iReady);
 			return -1;
 		}
 		if (dwCurrent > 16)		// clamp the shift; WriteLBACore caps the block
@@ -1729,7 +1729,7 @@ int CRKAndroidDevice::DownloadImage()
 			m_uiBand <<= dwCurrent;
 	}
 	if (m_pLog)
-		m_pLog->Record("INFO:Start download image,total=%lld,band=%d",
+		m_pLog->writef(core::LogLevel::Debug, "Rockchip", "Start download image,total=%lld,band=%d",
 		               (long long)m_uiFwTotal, m_uiBand);
 
 	bool bOk = true;
@@ -1742,7 +1742,7 @@ int CRKAndroidDevice::DownloadImage()
 			auto textPath = temporary.filePath("parameter.txt");
 			if (!ExtractEntry(entry, rawPath.c_str())) {
 				if (m_pLog)
-					m_pLog->Record("ERROR:DownloadImage-->extract %s failed", entry.szFile);
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "DownloadImage-->extract %s failed", entry.szFile);
 				bOk = false;
 				continue;
 			}
@@ -1779,7 +1779,7 @@ int CRKAndroidDevice::DownloadImage()
 			                : WriteParameter(textPath.data());
 			if (!bParamOk) {
 				if (m_pLog)
-					m_pLog->Record("ERROR:DownloadImage-->write parameter/GPT failed");
+					m_pLog->writef(core::LogLevel::Error, "Rockchip", "DownloadImage-->write parameter/GPT failed");
 				bOk = false;
 			}
 			m_uiFwDone += entry.uiSize;
@@ -1797,14 +1797,14 @@ int CRKAndroidDevice::DownloadImage()
 		// vs. the entry's "rootfs").
 		if (entry.uiPartLba == (UINT)-1) {
 			if (m_pLog)
-				m_pLog->Record("WARNING:DownloadImage-->entry %s is not mapped, skipped", entry.szFile);
+				m_pLog->writef(core::LogLevel::Debug, "Rockchip", "WARNING:DownloadImage-->entry %s is not mapped, skipped", entry.szFile);
 			m_uiFwDone += entry.uiSize;
 			NotifyProgress(m_uiFwTotal, m_uiFwDone);
 			continue;
 		}
 		if (!WriteEntry(entry.uiPartLba, entry)) {
 			if (m_pLog)
-				m_pLog->Record("ERROR:DownloadImage-->write %s failed", entry.szFile);
+				m_pLog->writef(core::LogLevel::Error, "Rockchip", "DownloadImage-->write %s failed", entry.szFile);
 			bOk = false;
 		}
 	}

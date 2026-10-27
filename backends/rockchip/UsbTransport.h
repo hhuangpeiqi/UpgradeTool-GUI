@@ -5,7 +5,7 @@
 #include <vector>
 
 struct libusb_context;
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 namespace core::rockchip {
 // A snapshot owns its enumeration reference, never an open USB handle.
 struct UsbDevice {
@@ -24,8 +24,8 @@ public:
     virtual int Reset() = 0;
     virtual std::string Serial() = 0;
 };
-std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, platform::FileLog * = nullptr);
-std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &, bool massStorage, int &error, platform::FileLog * = nullptr);
+std::vector<std::shared_ptr<const UsbDevice>> EnumerateUsb(libusb_context *, platform::LogService * = nullptr);
+std::unique_ptr<UsbTransport> OpenUsb(const UsbDevice &, bool massStorage, int &error, platform::LogService * = nullptr);
 std::string UsbError(int error);
 #ifdef _WIN32
 // Non-destructive open/configuration check, shared by the driver UI and task preflight.

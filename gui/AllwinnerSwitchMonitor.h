@@ -4,6 +4,7 @@
 #include <QElapsedTimer>
 #include <QObject>
 #include "gui/ModeSwitchFailure.h"
+#include "domain/LogEntry.h"
 #include <QTimer>
 #include <functional>
 
@@ -15,6 +16,7 @@ struct FelSwitchRequest {
     platform::UsbLocation target;
     core::Cancellation cancelled;
     int timeoutMs = 45000;
+    uint64_t logId = 0;
 };
 // Lives on the USB worker. The hooks use the same backend/session owner as tasks.
 class AllwinnerSwitchMonitor : public QObject {
@@ -33,16 +35,17 @@ class AllwinnerSwitchMonitor : public QObject {
   signals:
     void ready(quint64 id);
     void completed(quint64 id, bool ok, const QString &message, const core::DeviceRef &target, gui::ModeSwitchFailure failure = gui::ModeSwitchFailure::Generic);
-    void trace(const QString &message);
+    void trace(const core::LogEntry &entry);
 
   private:
     void poll();
-    void finish(bool, const QString &, const core::DeviceRef & = {}, ModeSwitchFailure = ModeSwitchFailure::Generic);
+    void finish(bool, const core::Message &, const core::DeviceRef & = {}, ModeSwitchFailure = ModeSwitchFailure::Generic);
     Hooks m_hooks;
     QTimer m_timer;
     QElapsedTimer m_elapsed;
     FelSwitchRequest m_request;
-    QString m_lastError;
+    void traceEvent(core::LogLevel, const std::string &);
+    core::Message m_lastError;
     bool m_seen = false, m_present = false, m_accessBlocked = false;
     quint64 m_retainedId = 0;
     core::DeviceRef m_retained;

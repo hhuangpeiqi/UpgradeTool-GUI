@@ -9,10 +9,10 @@
 #include <thread>
 
 #include "RKComm.h"
-#include "platform/FileLog.h"
+#include "platform/LogService.h"
 #include "Endian.h"
 extern unsigned short CRC_CCITT(unsigned char* p, UINT CalculateNumber);
-CRKComm::CRKComm(platform::FileLog *pLog)
+CRKComm::CRKComm(platform::LogService *pLog)
 {
 	m_deviceDesc = {};
 	m_log = pLog;
@@ -21,7 +21,7 @@ CRKComm::~CRKComm()
 {
 }
 
-CRKUsbComm::CRKUsbComm(STRUCT_RKDEVICE_DESC devDesc, platform::FileLog *pLog, bool &bRet):CRKComm(pLog)
+CRKUsbComm::CRKUsbComm(STRUCT_RKDEVICE_DESC devDesc, platform::LogService *pLog, bool &bRet):CRKComm(pLog)
 {
 	bRet = InitializeUsb(devDesc);
 }
@@ -38,7 +38,7 @@ bool CRKUsbComm::InitializeUsb(STRUCT_RKDEVICE_DESC devDesc)
     int error = 0;
     m_usb = core::rockchip::OpenUsb(*m_deviceDesc.usbDevice, m_deviceDesc.emUsbType == RKUSB_MSC, error, m_log);
     if (!m_usb) {
-        if (m_log) m_log->Record("Error:InitializeUsb: %s", core::rockchip::UsbError(error).c_str());
+        if (m_log) m_log->writef(core::LogLevel::Error, "Rockchip", "InitializeUsb: %s", core::rockchip::UsbError(error).c_str());
         return false;
     }
     m_pipeBulkIn = m_usb->bulkIn; m_pipeBulkOut = m_usb->bulkOut;
@@ -69,13 +69,13 @@ bool CRKUsbComm::RKU_Read(BYTE* lpBuffer, DWORD dwSize)
 	iRet = m_usb->Bulk(m_pipeBulkIn, lpBuffer, dwSize, nRead, 5000);
 	if (iRet!=0) {
 	    if (m_log) {
-	        m_log->Record("Error:RKU_Read failed,err=%d", iRet);
+	        m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_Read failed,err=%d", iRet);
 	    }
 	    return false;
 	}
 	if (nRead != (int)dwSize) {
        	if (m_log) {
-            m_log->Record("Error:RKU_Read failed, size=%d, read=%d", dwSize, nRead);
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_Read failed, size=%d, read=%d", dwSize, nRead);
         }
         return false;
     }
@@ -89,13 +89,13 @@ bool CRKUsbComm::RKU_Write(BYTE* lpBuffer, DWORD dwSize)
 	iRet = m_usb->Bulk(m_pipeBulkOut, lpBuffer, dwSize, nWrite, 5000);
 	if (iRet != 0) {
 	    if (m_log) {
-	        m_log->Record("Error:RKU_Write failed, err=%d", iRet);
+	        m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_Write failed, err=%d", iRet);
 	    }
 	    return false;
 	}
     if (nWrite != (int)dwSize) {
        	if (m_log) {
-        	m_log->Record("Error:RKU_Write failed, size=%d, read=%d", dwSize, nWrite);
+		m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_Write failed, size=%d, read=%d", dwSize, nWrite);
     	}
         return false;
     }
@@ -211,7 +211,7 @@ DWORD CRKUsbComm::RKU_Read_EX(BYTE* lpBuffer, DWORD dwSize)
 	iRet = m_usb->Bulk(m_pipeBulkIn, lpBuffer, dwSize, nRead, 5000);
 	if (iRet != 0) {
 	    if (m_log) {
-	        m_log->Record("Error:RKU_Read_EX failed, err=%d", iRet);
+	        m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_Read_EX failed, err=%d", iRet);
 	    }
 	    return 0;
 	}
@@ -222,7 +222,7 @@ int CRKUsbComm::RKU_EraseBlock(BYTE ucFlashCS, DWORD dwPos, DWORD dwCount, BYTE 
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_EraseBlock failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_EraseBlock failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -260,7 +260,7 @@ int CRKUsbComm::RKU_ReadChipInfo(BYTE* lpBuffer)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ReadChipInfo failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadChipInfo failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -295,7 +295,7 @@ int CRKUsbComm::RKU_ReadFlashID(BYTE* lpBuffer)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ReadChipInfo failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadChipInfo failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -330,7 +330,7 @@ int CRKUsbComm::RKU_ReadFlashInfo(BYTE* lpBuffer, UINT *puiRead)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ReadFlashInfo failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadFlashInfo failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -375,7 +375,7 @@ int CRKUsbComm::RKU_ReadCapability(BYTE* lpBuffer)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ReadCapability failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadCapability failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -415,7 +415,7 @@ int CRKUsbComm::RKU_ReadLBA(DWORD dwPos, DWORD dwCount, BYTE* lpBuffer, BYTE byS
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ReadLBA failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadLBA failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -462,7 +462,7 @@ int CRKUsbComm::RKU_ResetDevice(BYTE bySubCode)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ResetDevice failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ResetDevice failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -501,7 +501,7 @@ int CRKUsbComm::RKU_ChangeStorage(BYTE storage)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ChangeStorage failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ChangeStorage failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -541,7 +541,7 @@ int CRKUsbComm::RKU_ReadStorage(BYTE* storage)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_ReadCapability failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadCapability failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -590,7 +590,7 @@ int CRKUsbComm::RKU_TestDeviceReady(DWORD *dwTotal, DWORD *dwCurrent, BYTE bySub
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_TestDeviceReady failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_TestDeviceReady failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -633,7 +633,7 @@ int CRKUsbComm::RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE* lpBuffer, BYTE by
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_WriteLBA failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_WriteLBA failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -674,7 +674,7 @@ int CRKUsbComm::RKU_EraseLBA(DWORD dwPos, DWORD dwCount)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_WriteLBA failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_WriteLBA failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -709,7 +709,7 @@ int CRKUsbComm::RKU_WriteSector(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer)
 {
     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
         if (m_log) {
-            m_log->Record("Error:RKU_WriteSector failed,device not support");
+            m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_WriteSector failed,device not support");
         }
         return ERR_DEVICE_NOT_SUPPORT;
     }
@@ -753,13 +753,13 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 {
 	if (m_deviceDesc.emUsbType != RKUSB_MASKROM) {
 	    if (m_log) {
-	        m_log->Record("Error:RKU_DeviceRequest failed,device not support");
+	        m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_DeviceRequest failed,device not support");
 	    }
 	    return ERR_DEVICE_NOT_SUPPORT;
 	}
 	if ((dwRequest != 0x0471) && (dwRequest != 0x0472)) {
 		if (m_log) {
-	        m_log->Record("Error:RKU_DeviceRequest failed,request not support");
+	        m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_DeviceRequest failed,request not support");
 	    }
 	    return ERR_REQUEST_NOT_SUPPORT;
 	}
@@ -792,7 +792,7 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 	UINT nSendBytes = 0;
 	DWORD dwTotalSended = 0;
 	int iRet;
-	if (m_log) m_log->Record("Maskrom payload: index=0x%04x payload_bytes=%u wire_bytes=%u crc=0x%04x pending=%d",
+	if (m_log) m_log->writef(core::LogLevel::Debug, "Rockchip", "Maskrom payload: index=0x%04x payload_bytes=%u wire_bytes=%u crc=0x%04x pending=%d",
 		unsigned(dwRequest), unsigned(payloadSize), unsigned(dwDataSize), unsigned(crcValue), int(bSendPendPacket));
 
 	while(dwTotalSended < dwDataSize) {
@@ -800,7 +800,7 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 		iRet = m_usb->Control(0x40, 0xC, 0, dwRequest, pData + dwTotalSended, nSendBytes, 5000);
 		if (iRet != (int)nSendBytes) {
 			if (m_log) {
-				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=%u pending=0 failed, err=%d (%s)",
+				m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=%u pending=0 failed, err=%d (%s)",
 					dwRequest, unsigned(dwTotalSended), nSendBytes, iRet, iRet < 0 ? core::rockchip::UsbError(iRet).c_str() : "short-transfer");
 			}
 			delete []pData;
@@ -814,7 +814,7 @@ int CRKUsbComm::RKU_DeviceRequest(DWORD dwRequest, BYTE *lpBuffer, DWORD dwDataS
 		iRet = m_usb->Control(0x40, 0xC, 0, dwRequest, &ucFillByte, 1, 5000);
 		if (iRet != 0) {
 			if (m_log) {
-				m_log->Record("Error:RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=1 pending=1 failed, err=%d (%s)",
+				m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_DeviceRequest-->DeviceRequest vendor=0x%x offset=%u requested=1 pending=1 failed, err=%d (%s)",
 					dwRequest, unsigned(dwTotalSended), iRet, iRet < 0 ? core::rockchip::UsbError(iRet).c_str() : "unexpected-length");
 			}
 			delete []pData;
@@ -836,7 +836,7 @@ int CRKUsbComm::RKU_SwitchStorage(BYTE storage)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_SwitchStorage failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_SwitchStorage failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -861,7 +861,7 @@ int CRKUsbComm::RKU_ReadStorageList(BYTE *lpBuffer)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_ReadStorageList failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadStorageList failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -884,7 +884,7 @@ int CRKUsbComm::RKU_ReadOtpChip(BYTE *lpBuffer)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_ReadOtpChip failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadOtpChip failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -907,7 +907,7 @@ int CRKUsbComm::RKU_ReadComData(BYTE *lpBuffer, DWORD dwSize)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_ReadComData failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadComData failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -933,7 +933,7 @@ int CRKUsbComm::RKU_ReadSector(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_ReadSector failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadSector failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	if (dwCount > 32)
@@ -967,7 +967,7 @@ int CRKUsbComm::RKU_TestBadBlock(BYTE ucFlashCS, DWORD dwPos, DWORD dwCount, BYT
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_TestBadBlock failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_TestBadBlock failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	if (dwCount > 0xFFFF)
@@ -998,7 +998,7 @@ int CRKUsbComm::RKU_ReadNewEfuse(USHORT usAddr, USHORT usLen, BYTE *lpBuffer, BY
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_ReadNewEfuse failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ReadNewEfuse failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -1049,7 +1049,7 @@ int CRKUsbComm::RKU_WriteNewEfuse(USHORT usAddr, USHORT usLen, BYTE *lpBuffer, B
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_WriteNewEfuse failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_WriteNewEfuse failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -1077,7 +1077,7 @@ int CRKUsbComm::RKU_WriteSDRam(DWORD dwSize, BYTE *lpBuffer)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_WriteSDRam failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_WriteSDRam failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -1104,7 +1104,7 @@ int CRKUsbComm::RKU_RunSDRam()
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_RunSDRam failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_RunSDRam failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;
@@ -1127,7 +1127,7 @@ int CRKUsbComm::RKU_ResetPipe(BYTE ucPipe)
 {
 	if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
 		if (m_log)
-			m_log->Record("Error:RKU_ResetPipe failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_ResetPipe failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	int iRet;
@@ -1153,7 +1153,7 @@ int CRKUsbComm::RKU_MscToRockusb()
 {
 	if (m_deviceDesc.emUsbType != RKUSB_MSC) {
 		if (m_log)
-			m_log->Record("Error:RKU_MscToRockusb failed,device not support");
+			m_log->writef(core::LogLevel::Error, "Rockchip", "RKU_MscToRockusb failed,device not support");
 		return ERR_DEVICE_NOT_SUPPORT;
 	}
 	CBW cbw;

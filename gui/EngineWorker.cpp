@@ -1,4 +1,6 @@
 #include "gui/EngineWorker.h"
+#include "platform/LogService.h"
+#include "gui/OperationSpec.h"
 #include "application/BuildFeatures.h"
 #if UPGRADE_TOOL_ALLWINNER
 #include "backends/allwinner/AllwinnerBackend.h"
@@ -14,11 +16,11 @@ namespace gui {
 struct EngineWorker::Runtime {
     std::vector<std::unique_ptr<core::IDeviceBackend>> backends;
     core::BackendRegistry registry;
-    explicit Runtime(platform::FileLog *log) : backends(core::CreateBackends(log)) {
+    explicit Runtime(platform::LogService *log) : backends(core::CreateBackends(log)) {
         for(auto &backend:backends) registry.Add(*backend);
     }
 };
-EngineWorker::EngineWorker(platform::FileLog *log,QObject *parent) : QObject(parent),m_runtime(std::make_unique<Runtime>(log)) {}
+EngineWorker::EngineWorker(platform::LogService *log,QObject *parent) : QObject(parent),m_log(log),m_runtime(std::make_unique<Runtime>(log)) {}
 EngineWorker::~EngineWorker() = default;
 void EngineWorker::SetObserver(core::IUpgradeObserver *observer) { m_observer=observer; }
 void EngineWorker::prepareFelSwitch(const FelSwitchRequest &request) {
@@ -41,7 +43,9 @@ void EngineWorker::prepareFelSwitch(const FelSwitchRequest &request) {
         hooks.release=[backend](const core::DeviceRef &target) { backend->ReleaseSession(target); };
         m_felMonitor=new AllwinnerSwitchMonitor(std::move(hooks),this);
         connect(m_felMonitor,&AllwinnerSwitchMonitor::ready,this,&EngineWorker::felMonitorReady);
-        connect(m_felMonitor,&AllwinnerSwitchMonitor::trace,this,&EngineWorker::traceMessage);
+        connect(m_felMonitor, &AllwinnerSwitchMonitor::trace, this, [this](const core::LogEntry &entry) {
+            if (m_log) m_log->write(entry);
+        });
         connect(m_felMonitor,&AllwinnerSwitchMonitor::completed,this,
             [this,backend](quint64 id,bool ok,const QString &message,const core::DeviceRef &target, ModeSwitchFailure failure) {
                 // The queued snapshot reaches the GUI before it unlocks the switch.
@@ -71,6 +75,9 @@ void EngineWorker::scanDevices()
 #endif
 	QVariantList list;
     for (auto &backend : m_runtime->backends) {
+        const auto source = backend->Supports(core::Operation::TestDevice) ? "Rockchip" :
+            backend->Supports(core::Operation::AllwinnerDeviceInfo) ? "Allwinner" : "Qualcomm";
+        core::ScopedLogContext logContext({source});
         try {
             for (const auto &dev : backend->Scan()) {
                 QVariantMap map;
@@ -106,6 +113,7 @@ void EngineWorker::scanDevices()
 }
 void EngineWorker::execute(const core::TaskJob &job)
 {
+    core::ScopedLogContext logContext({job.steps.empty() ? "Application" : core::VendorLogSource(job.steps.front().vendor()), job.logId});
 #ifdef Q_OS_WIN
     std::lock_guard<std::recursive_mutex> accessLock(UsbProbeMutex());
     const bool simulation = !job.steps.empty() && core::IsSimulation(job.steps.front());
@@ -127,6 +135,20 @@ void EngineWorker::execute(const core::TaskJob &job)
 #endif
     core::TaskService service(m_runtime->registry);
     auto summary=service.Run(job,m_observer,[this,&job](size_t step,size_t target,const core::DeviceRef &device) {
+        core::activeLogContext.step = static_cast<int>(step + 1);
+        core::activeLogContext.device = device ? device.key() : std::string();
+        if (m_log && step < job.steps.size()) {
+            const auto operation = job.steps[step].operation();
+            const auto &request = job.steps[step];
+            const auto partition = request.vendor() == core::Vendor::Rockchip ? request.rockchip().partition : std::string();
+            const auto label = partition.empty() ? OperationMessage(operation).English() : partition;
+            const auto displayLabel = partition.empty() ? OperationName(operation) : QString::fromStdString(partition);
+            const auto text = QCoreApplication::translate("gui::AppController", "Running %1/%2: %3")
+                .arg(step + 1).arg(job.steps.size()).arg(displayLabel);
+            m_log->write(core::LogLevel::Info, {},
+                {"gui::AppController", "Running %1/%2: %3", {std::to_string(step + 1), std::to_string(job.steps.size()), label}},
+                true, text.toStdString());
+        }
         emit stepStarted(static_cast<int>(step),static_cast<int>(target),
                          static_cast<int>(job.targets.size()),QString::fromStdString(device.serial()));
     });
@@ -135,6 +157,7 @@ void EngineWorker::execute(const core::TaskJob &job)
     emit taskFinished(summary);
 }
 core::OperationResult EngineWorker::inspectResult(const core::InspectionRequest &inspection) {
+    core::ScopedLogContext logContext({core::VendorLogSource(inspection.request.vendor()), platform::LogService::nextTaskId()});
     core::OperationResult result; result.operation=inspection.request.operation();
     if (inspection.cancelled->stop_requested()) return result;
     try {

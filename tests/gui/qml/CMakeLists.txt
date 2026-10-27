@@ -25,3 +25,8 @@ upgrade_test(test_maskrom_ui LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui qml rockchip)
 upgrade_attach_gui_test_resources(test_maskrom_ui)
 upgrade_attach_test_translations(test_maskrom_ui)
+
+upgrade_test(test_logging_ui LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui qml logging)
+upgrade_attach_gui_test_resources(test_logging_ui)
+upgrade_attach_test_translations(test_logging_ui)

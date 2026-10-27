@@ -4,7 +4,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 #include <cstdio>
-namespace platform { class FileLog; }
+namespace platform { class LogService; }
 using namespace gui;
 static int failures=0;
 #define CHECK(x) do { if(!(x)) { std::fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x); ++failures; } } while(0)

@@ -147,12 +147,12 @@ bool parse_parameter(char *pParameter, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_V
 	return bFind;
 }
 
-bool parse_parameter_file(char *pParamFile, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_VECTOR &vecUuidItem, platform::FileLog *log)
+bool parse_parameter_file(char *pParamFile, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_VECTOR &vecUuidItem, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
 		if (log)
-			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pParamFile);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pParamFile);
 		return false;
 	}
 	fseek(file, 0, SEEK_END);
@@ -169,7 +169,7 @@ bool parse_parameter_file(char *pParamFile, PARAM_ITEM_VECTOR &vecItem, CONFIG_I
 	int iRead = fread(pParamBuf, 1, iFileSize, file);
 	if (iRead != iFileSize) {
 		if (log)
-			log->Record("%s failed, err=%d, read=%d, total=%d\r\n", __func__, errno, iRead, iFileSize);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, read=%d, total=%d\r\n", __func__, errno, iRead, iFileSize);
 		fclose(file);
 		delete []pParamBuf;
 		return false;
@@ -220,12 +220,12 @@ void gen_rand_uuid(unsigned char *uuid_bin)
 	memcpy(uuid_bin, id.raw, sizeof(id));
 }
 
-bool MakeParamBuffer(char *pParamFile, char *&pParamData, platform::FileLog *log)
+bool MakeParamBuffer(char *pParamFile, char *&pParamData, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
 		if (log)
-			log->Record("MakeParamBuffer failed,err=%d,can't open file: %s\r\n", errno, pParamFile);
+			log->writef(core::LogLevel::Error, "Rockchip", "MakeParamBuffer failed,err=%d,can't open file: %s\r\n", errno, pParamFile);
 		return false;
 	}
 	fseek(file, 0, SEEK_END);
@@ -241,7 +241,7 @@ bool MakeParamBuffer(char *pParamFile, char *&pParamData, platform::FileLog *log
 	int iRead = fread(pParamBuf + 8, 1, iFileSize, file);
 	if (iRead != iFileSize) {
 		if (log)
-			log->Record("MakeParamBuffer failed,err=%d,read=%d,total=%d\r\n", errno, iRead, iFileSize);
+			log->writef(core::LogLevel::Error, "Rockchip", "MakeParamBuffer failed,err=%d,read=%d,total=%d\r\n", errno, iRead, iFileSize);
 		fclose(file);
 		delete []pParamBuf;
 		return false;
@@ -253,19 +253,19 @@ bool MakeParamBuffer(char *pParamFile, char *&pParamData, platform::FileLog *log
 	return true;
 }
 
-bool is_sparse_image(char *szImage, platform::FileLog *log)
+bool is_sparse_image(char *szImage, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(szImage, "rb");
 	if (!file) {
 		if (log)
-			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, szImage);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, can't open file: %s\r\n", __func__, errno, szImage);
 		return false;
 	}
 	sparse_header head;
 	u32 uiRead = fread(&head, 1, sizeof(head), file);
 	if (uiRead != sizeof(head)) {
 		if (log)
-			log->Record("%s failed, err=%d, read=%d, total=%d\r\n", __func__, errno, uiRead, (int)sizeof(head));
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, read=%d, total=%d\r\n", __func__, errno, uiRead, (int)sizeof(head));
 		fclose(file);
 		return false;
 	}
@@ -273,12 +273,12 @@ bool is_sparse_image(char *szImage, platform::FileLog *log)
 	return head.magic == SPARSE_HEADER_MAGIC;
 }
 
-bool is_ubifs_image(char *szImage, platform::FileLog *log)
+bool is_ubifs_image(char *szImage, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(szImage, "rb");
 	if (!file) {
 		if (log)
-			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, szImage);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, can't open file: %s\r\n", __func__, errno, szImage);
 		return false;
 	}
 	u32 magic;
@@ -390,12 +390,12 @@ void update_gpt_disksize(u8 *master, u8 *backup, u32 total_sector)
 	prepare_gpt_backup(master, backup);
 }
 
-bool load_gpt_buffer(char *pParamFile, u8 *master, u8 *backup, platform::FileLog *log)
+bool load_gpt_buffer(char *pParamFile, u8 *master, u8 *backup, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
 		if (log)
-			log->Record("%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pParamFile);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, err=%d, can't open file: %s\r\n", __func__, errno, pParamFile);
 		return false;
 	}
 	fseek(file, 0, SEEK_END);
@@ -403,7 +403,7 @@ bool load_gpt_buffer(char *pParamFile, u8 *master, u8 *backup, platform::FileLog
 	fseek(file, 0, SEEK_SET);
 	if (iFileSize != 67 * SECTOR_SIZE) {
 		if (log)
-			log->Record("%s failed, wrong size file: %s\r\n", __func__, pParamFile);
+			log->writef(core::LogLevel::Error, "Rockchip", "%s failed, wrong size file: %s\r\n", __func__, pParamFile);
 		fclose(file);
 		return false;
 	}

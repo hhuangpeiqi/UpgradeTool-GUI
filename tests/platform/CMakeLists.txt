@@ -1,3 +1,4 @@
+upgrade_test(test_logging LIBRARIES upgrade_platform LABELS platform)
 upgrade_test(test_platform_io LIBRARIES upgrade_platform LABELS platform)
 find_package(Python3 3.10 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
