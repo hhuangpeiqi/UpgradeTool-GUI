@@ -1,5 +1,6 @@
 #include "backends/allwinner/UsbWire.h"
 #include <libusb.h>
+#include <cstdio>
 #include <stdexcept>
 
 namespace core::allwinner {
@@ -12,6 +13,18 @@ DeviceIdentity Identity(libusb_device *dev) {
     return d;
 }
 struct TransferResult { bool finished = false; libusb_transfer_status status = LIBUSB_TRANSFER_ERROR; int count = 0; };
+const char *TransferStatusName(libusb_transfer_status status) {
+    switch (status) {
+    case LIBUSB_TRANSFER_COMPLETED: return "COMPLETED";
+    case LIBUSB_TRANSFER_ERROR: return "ERROR";
+    case LIBUSB_TRANSFER_TIMED_OUT: return "TIMED_OUT";
+    case LIBUSB_TRANSFER_CANCELLED: return "CANCELLED";
+    case LIBUSB_TRANSFER_STALL: return "STALL";
+    case LIBUSB_TRANSFER_NO_DEVICE: return "NO_DEVICE";
+    case LIBUSB_TRANSFER_OVERFLOW: return "OVERFLOW";
+    default: return "UNKNOWN";
+    }
+}
 void LIBUSB_CALL Completed(libusb_transfer *transfer) {
     auto &result = *static_cast<TransferResult *>(transfer->user_data);
     result.status = transfer->status; result.count = transfer->actual_length; result.finished = true;
@@ -71,12 +84,25 @@ public:
         if (rc) throw std::runtime_error(libusb_error_name(rc));
     }
     int Transfer(int ep, char *data, int size) override {
+        const auto started = std::chrono::steady_clock::now();
+        const auto timeoutMs = TimeoutMs();
+        error.clear();
+        const auto describeError = [&](const char *status, int actual) {
+            char endpoint[8];
+            std::snprintf(endpoint, sizeof(endpoint), "0x%02x", unsigned(uint8_t(ep)));
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - started).count();
+            error = std::string("USB bulk ") + ((ep & LIBUSB_ENDPOINT_IN) ? "IN" : "OUT") +
+                " endpoint=" + endpoint + " requested=" + std::to_string(size) +
+                " actual=" + std::to_string(actual) + " status=" + status +
+                " elapsed_ms=" + std::to_string(elapsed) + " timeout_ms=" + std::to_string(timeoutMs);
+        };
         auto *transfer = libusb_alloc_transfer(0);
-        if (!transfer) { error = "Cannot allocate USB transfer"; return -1; }
+        if (!transfer) { describeError("ALLOCATION_FAILED", 0); return -1; }
         TransferResult result;
-        libusb_fill_bulk_transfer(transfer, handle, uint8_t(ep), reinterpret_cast<unsigned char *>(data), size, Completed, &result, TimeoutMs());
+        libusb_fill_bulk_transfer(transfer, handle, uint8_t(ep), reinterpret_cast<unsigned char *>(data), size, Completed, &result, timeoutMs);
         const int rc = libusb_submit_transfer(transfer);
-        if (rc) { error = libusb_error_name(rc); libusb_free_transfer(transfer); return -1; }
+        if (rc) { describeError(libusb_error_name(rc), 0); libusb_free_transfer(transfer); return -1; }
         bool cancelled = false;
         while (!result.finished) {
             if (!cancelled && Stopped()) { libusb_cancel_transfer(transfer); cancelled = true; }
@@ -84,8 +110,9 @@ public:
         }
         libusb_free_transfer(transfer);
         if (result.status != LIBUSB_TRANSFER_COMPLETED) {
-            error = "USB transfer status=" + std::to_string(result.status); return -1;
+            describeError(TransferStatusName(result.status), result.count); return -1;
         }
+        if (size > 0 && result.count == 0) describeError("ZERO_LENGTH", 0);
         return result.count;
     }
 };

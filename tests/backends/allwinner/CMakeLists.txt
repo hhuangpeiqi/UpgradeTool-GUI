@@ -1,5 +1,6 @@
 upgrade_test(test_allwinner LIBRARIES upgrade_allwinner upgrade_application upgrade_platform LABELS backend allwinner)
 upgrade_test(test_allwinner_wire LIBRARIES upgrade_allwinner efex LABELS backend allwinner drivers)
+upgrade_test(test_allwinner_protocol LIBRARIES upgrade_domain efex LABELS backend allwinner drivers)
 if(WIN32)
   upgrade_test(test_windows_allwinner_io LIBRARIES upgrade_domain efex upgrade_platform setupapi cfgmgr32 LABELS backend allwinner drivers)
 endif()

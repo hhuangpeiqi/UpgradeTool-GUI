@@ -24,7 +24,8 @@ int sunxi_send_usb_request(const struct sunxi_efex_ctx_t *ctx, const enum sunxi_
 			.cmd_length = SUNXI_EFEX_CMD_LEN,
 			.cmd_package[0] = type,
 	};
-	req.cmd_length = (uint8_t) req.data_length;
+	// The USB command carries the payload length again after its 16-bit opcode.
+	memcpy(&req.cmd_package[2], &req.data_length, sizeof(req.data_length));
 
 	const int ret = sunxi_usb_bulk_send(ctx->hdl, ctx->epout, (const char *) &req, sizeof(struct sunxi_usb_request_t));
 	if (ret != 0) {
