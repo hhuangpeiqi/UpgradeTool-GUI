@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QSettings>
 #include <QTest>
+#include <QColor>
 #include <libusb.h>
 
 static int failures = 0;
@@ -212,7 +213,26 @@ int main(int argc, char **argv) {
                 CHECK(!controller.switching() && !controller.tasks()->busy());
             }
             auto *driverButton = window->findChild<QQuickItem *>("switchRecoveryDriverButton");
+            auto *secondaryDriverButton = window->findChild<QQuickItem *>("switchRecoverySecondaryDriverButton");
             auto *driverDialog = window->findChild<QObject *>("driverDialog");
+            CHECK(secondaryDriverButton);
+            if (!secondaryDriverButton) continue;
+            auto checkActions = [&](bool drivers, bool acknowledgement) {
+                CHECK(driverButton->isVisible() == (drivers && !acknowledgement));
+                CHECK(secondaryDriverButton->isVisible() == (drivers && acknowledgement));
+                CHECK(closeButton->isVisible() == acknowledgement);
+                auto color = [](QQuickItem *button) {
+                    return button->property("background").value<QObject *>()->property("color").value<QColor>();
+                };
+                // Only one visible action uses the acknowledgement button's accent color.
+                const QColor accent = color(closeButton);
+                CHECK(color(driverButton) == accent);
+                CHECK(color(secondaryDriverButton) != accent);
+                int primaryCount = 0;
+                for (auto *button : {driverButton, secondaryDriverButton, closeButton})
+                    if (button->isVisible() && color(button) == accent) ++primaryCount;
+                CHECK(primaryCount == 1);
+            };
             CHECK(driverButton && driverDialog);
             if (driverButton && driverDialog) for (int vendor : {0, 1, 2}) {
                 controller.setVendor(vendor);
@@ -224,6 +244,7 @@ int main(int argc, char **argv) {
                                                QString(), QString(" \n\t"), missingDriver}) {
                     controller.switchAccessRequested({diagnostic, {}, gui::SwitchAccessPrompt::Action::ViewDriversAndAcknowledge});
                     CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                    checkActions(true, true);
                     CHECK(instructions->property("text").toString() ==
                           (diagnostic.trimmed().isEmpty() ? fallback : diagnostic));
                     CHECK(recoveryDialog->property("height").toReal() <= window->height() - 24);
@@ -233,8 +254,7 @@ int main(int argc, char **argv) {
                 controller.switchAccessRequested({missingDriver, "target-device", gui::SwitchAccessPrompt::Action::InstallDriver});
 
                 CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
-                CHECK(driverButton->isVisible());
-                CHECK(!closeButton->isVisible());
+                checkActions(true, false);
                 CHECK(recoveryDialog->property("titleText").toString() == QString::fromUtf8(
                     QString(language) == "zh" ? "设备暂不可访问" : "Device access unavailable"));
                 CHECK(instructions->property("text").toString() == missingDriver);
@@ -249,8 +269,7 @@ int main(int argc, char **argv) {
                 for (bool reboot : {false, true}) {
                     controller.switchAccessRequested({"diagnostic", "target-device", reboot ? gui::SwitchAccessPrompt::Action::Acknowledge : gui::SwitchAccessPrompt::Action::ViewDrivers});
                     CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
-                    CHECK(driverButton->isVisible() == !reboot);
-                    CHECK(closeButton->isVisible() == reboot);
+                    checkActions(!reboot, reboot);
                     CHECK(QMetaObject::invokeMethod(reboot ? closeButton : driverButton, "clicked"));
                     CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
                     if (!reboot) {
@@ -267,14 +286,17 @@ int main(int argc, char **argv) {
                     controller.switchAccessRequested({felAccess.arg("5"), {}, gui::SwitchAccessPrompt::Action::ViewDriversAndAcknowledge});
                     CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
                     CHECK(instructions->property("text").toString() == felAccess.arg("5"));
-                    CHECK(driverButton->isVisible());
+                    checkActions(true, true);
                     CHECK(recoveryDialog->property("height").toReal() <= window->height() - 24);
-                    CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));
-                    CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
+                    CHECK(QMetaObject::invokeMethod(secondaryDriverButton, "clicked"));
+                    CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool()
+                        && driverDialog->property("visible").toBool(); }));
+                    CHECK(QMetaObject::invokeMethod(driverDialog, "close"));
+                    CHECK(AwaitUi([&] { return !driverDialog->property("visible").toBool(); }));
                 }
                 controller.switchRecoveryRequested();
                 CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
-                CHECK(!driverButton->isVisible());
+                checkActions(false, true);
                 CHECK(instructions->property("text").toString() == QString::fromUtf8(QString(language) == "zh"
                     ? "请手动进入刷机模式" : "Please enter flash mode manually."));
                 CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));

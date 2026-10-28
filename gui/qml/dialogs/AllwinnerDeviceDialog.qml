@@ -27,7 +27,7 @@ AppDialog {
     ]
 
     footerContent: [
-        SecondaryButton {
+        PrimaryButton {
             focusPolicy: Qt.StrongFocus
             text: qsTr("Close")
             onClicked: dialog.close()

@@ -28,7 +28,7 @@ AppDialog {
     }
 
     footerContent: [
-        SecondaryButton {
+        PrimaryButton {
             text: qsTr("Close")
             onClicked: dlg.close()
         }

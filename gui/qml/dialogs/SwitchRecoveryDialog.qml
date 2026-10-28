@@ -33,8 +33,18 @@ AppDialog {
     }
     footerContent: [
         SecondaryButton {
+            objectName: "switchRecoverySecondaryDriverButton"
+            visible: dialog.prompt !== null && dialog.prompt.offersDrivers && dialog.prompt.offersAcknowledgement
+            text: qsTr("View USB Drivers")
+            onClicked: {
+                dialog.close();
+                dialog.driversRequested();
+            }
+        },
+        PrimaryButton {
             objectName: "switchRecoveryDriverButton"
-            visible: dialog.prompt !== null && dialog.prompt.offersDrivers
+            visible: dialog.prompt !== null && dialog.prompt.offersDrivers && !dialog.prompt.offersAcknowledgement
+            focusPolicy: Qt.StrongFocus
             text: dialog.prompt && dialog.prompt.installsDriver ? qsTr("Go to driver installation") : qsTr("View USB Drivers")
             onClicked: {
                 dialog.close();
