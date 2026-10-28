@@ -4,13 +4,6 @@
 #include <QDir>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <cstdio>
-#ifdef Q_OS_WIN
-#include <windows.h>
-#else
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
 
 namespace gui {
 SingleInstanceGuard::SingleInstanceGuard(const QString &directory)
@@ -29,19 +22,6 @@ int ShowStartupNotice(bool alreadyRunning) {
         ? QCoreApplication::translate("StartupNotice", "UpgradeTool-GUI is already running. Please do not start it again.")
         : QCoreApplication::translate("StartupNotice", "Cannot check whether UpgradeTool-GUI is running. Please check your user directory permissions.");
     const int result = alreadyRunning ? 0 : 1;
-#ifdef Q_OS_WIN
-    const DWORD type = GetFileType(GetStdHandle(STD_ERROR_HANDLE));
-    const bool redirected = type == FILE_TYPE_DISK || type == FILE_TYPE_PIPE;
-#else
-    struct stat status{};
-    const bool redirected = fstat(STDERR_FILENO, &status) == 0 &&
-        (S_ISREG(status.st_mode) || S_ISFIFO(status.st_mode) || S_ISSOCK(status.st_mode));
-#endif
-    if (redirected) {
-        const auto bytes = message.toUtf8();
-        std::fprintf(stderr, "%s\n", bytes.constData());
-        return result;
-    }
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("startupMessage", message);
     engine.loadData(R"(
