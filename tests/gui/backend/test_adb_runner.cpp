@@ -209,7 +209,8 @@ int main(int argc, char **argv)
 		CHECK(traces.join('\n').contains("\"event\":\"timeout_kill_requested\""));
 		CHECK(traces.last().contains("\"event\":\"timeout\""));
 		CHECK(traces.last().contains("daemon startup still waiting"));
-		const auto diskFiles = QDir(diskDir).entryList(QDir::Files);
+		// Windows lists dot-prefixed lock files as ordinary files.
+		const auto diskFiles = QDir(diskDir).entryList({"adb-*.txt"}, QDir::Files);
 		CHECK(diskFiles.size() == 1);
 		CHECK(Read(QDir(diskDir).filePath(diskFiles.value(0))).contains("daemon startup still waiting"));
 		qputenv("AW_TEST_MODE", "poll-ok");

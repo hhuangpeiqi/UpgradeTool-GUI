@@ -36,9 +36,14 @@ int main(int argc, char **argv) {
         CHECK(guard.acquire() == Guard::Result::Acquired);
         CHECK(probe() == 2);
         QFile lockFile(lockDirectory + "/instance.lock");
+#ifdef Q_OS_WIN
+        // QLockFile denies write access while the Windows owner is alive.
+        CHECK(!lockFile.open(QIODevice::ReadWrite));
+#else
         CHECK(lockFile.open(QIODevice::ReadWrite));
         CHECK(lockFile.setFileTime(QDateTime::currentDateTime().addSecs(-3600), QFileDevice::FileModificationTime));
         lockFile.close();
+#endif
         CHECK(probe() == 2); // A live owner must not expire by lock age.
     }
     CHECK(probe() == 0);
