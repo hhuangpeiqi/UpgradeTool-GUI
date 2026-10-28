@@ -67,6 +67,11 @@ ConfigStore::ConfigStore(QObject *parent)
 {
 	QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
 	m_uiLogDetails = settings.value(kLogDetailsKey, false).toBool();
+    m_logFileMiB = settings.value("logging/fileMiB", 5).toInt();
+    m_logTotalMiB = settings.value("logging/totalMiB", 50).toInt();
+    if (m_logFileMiB < 1 || m_logFileMiB > 100 || m_logTotalMiB < m_logFileMiB || m_logTotalMiB > 10240) {
+        m_logFileMiB = 5; m_logTotalMiB = 50;
+    }
 }
 
 void ConfigStore::SetStatus(TranslatableText::Factory factory)
@@ -87,7 +92,7 @@ QVariantMap ConfigStore::load()
 	settings.sync();
 	if (settings.status() != QSettings::NoError) {
 		SetStatus([] { return tr("Load failed: cannot read user settings."); });
-		return {{"ui_log_details", m_uiLogDetails}};
+		return {{"ui_log_details", m_uiLogDetails}, {"log_file_mib", m_logFileMiB}, {"log_total_mib", m_logTotalMiB}};
 	}
 	const bool details = settings.value(kLogDetailsKey, false).toBool();
 	if (m_uiLogDetails != details) {
@@ -95,18 +100,31 @@ QVariantMap ConfigStore::load()
 		emit uiLogDetailsChanged();
 	}
 	SetStatus([] { return tr("Settings loaded."); });
-	return {{"ui_log_details", m_uiLogDetails}};
+	return {{"ui_log_details", m_uiLogDetails}, {"log_file_mib", m_logFileMiB}, {"log_total_mib", m_logTotalMiB}};
 }
 
 bool ConfigStore::save(const QVariantMap &values)
 {
-	const bool details = values.value("ui_log_details").toBool();
+	if (m_logBusy) return false;
+    const int file = values.value("log_file_mib", m_logFileMiB).toInt();
+    const int total = values.value("log_total_mib", m_logTotalMiB).toInt();
+    if (file < 1 || file > 100 || total < file || total > 10240) {
+        SetStatus([] { return tr("Invalid log limits: file 1–100 MiB, total at least file size and at most 10240 MiB."); });
+        return false;
+    }
+    const bool details = values.value("ui_log_details").toBool();
 	QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
-	const QVariant previous = settings.value(kLogDetailsKey);
+	const QVariant previousFile = settings.value("logging/fileMiB");
+    const QVariant previousTotal = settings.value("logging/totalMiB");
+    const QVariant previous = settings.value(kLogDetailsKey);
+    settings.setValue("logging/fileMiB", file);
+    settings.setValue("logging/totalMiB", total);
 	settings.setValue(kLogDetailsKey, details);
 	settings.sync();
 	if (settings.status() != QSettings::NoError) {
-		// Roll back Qt's shared cache as well, so a failed save cannot look persisted.
+		if (previousFile.isValid()) settings.setValue("logging/fileMiB", previousFile); else settings.remove("logging/fileMiB");
+        if (previousTotal.isValid()) settings.setValue("logging/totalMiB", previousTotal); else settings.remove("logging/totalMiB");
+        // Roll back Qt's shared cache as well, so a failed save cannot look persisted.
 		if (previous.isValid()) settings.setValue(kLogDetailsKey, previous);
 		else settings.remove(kLogDetailsKey);
 		SetStatus([] { return tr("Save failed: cannot write user settings."); });
@@ -116,8 +134,39 @@ bool ConfigStore::save(const QVariantMap &values)
 		m_uiLogDetails = details;
 		emit uiLogDetailsChanged();
 	}
-	SetStatus([] { return tr("Settings saved."); });
+	m_logFileMiB = file; m_logTotalMiB = total;
+    if (m_logService) runLogOperation(false, true);
+    SetStatus([] { return tr("Settings saved."); });
 	return true;
+}
+
+platform::LogLimits ConfigStore::limits() const {
+    return {uint64_t(m_logFileMiB) * 1024 * 1024, uint64_t(m_logTotalMiB) * 1024 * 1024};
+}
+void ConfigStore::attachLog(platform::LogService *log) {
+    m_logService = log;
+    const auto result = log->setLimits(limits());
+    m_logBytes = result.bytes;
+    m_logError = QString::fromStdString(result.error);
+}
+void ConfigStore::refreshLogStorage() { runLogOperation(false); }
+void ConfigStore::clearLogFiles() { runLogOperation(true); }
+void ConfigStore::runLogOperation(bool clear, bool apply) {
+    if (!m_logService || m_logBusy) return;
+    m_logBusy = true;
+    emit logStorageChanged();
+    const auto policy = limits();
+    m_logFuture = std::async(std::launch::async, [this, clear, apply, policy] {
+        const auto operation = clear ? m_logService->clearFiles(policy) : (apply ? m_logService->setLimits(policy) : m_logService->storage());
+        auto result = m_logService->storage();
+        if (!operation.error.empty()) result.error = operation.error;
+        QMetaObject::invokeMethod(this, [this, result] {
+            m_logBytes = result.bytes;
+            m_logError = QString::fromStdString(result.error);
+            m_logBusy = false;
+            emit logStorageChanged();
+        }, Qt::QueuedConnection);
+    });
 }
 
 void ConfigStore::installUdev()

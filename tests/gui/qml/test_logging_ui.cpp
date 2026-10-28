@@ -96,8 +96,16 @@ static void TestRouting() {
     log.write(core::LogLevel::Warn, "Rockchip", {{}, "visible only", {}});
     CHECK(controller.log()->count() == count + 1);
     CHECK(Logs(dir.path()) == finalDisk);
+    controller.config()->refreshLogStorage();
+    CHECK(AwaitUi([&] { return !controller.config()->logBusy(); }));
+    CHECK(controller.config()->logBytes() > 0);
+    controller.config()->clearLogFiles();
+    CHECK(AwaitUi([&] { return !controller.config()->logBusy(); }));
+    CHECK(controller.config()->logError().isEmpty());
+    CHECK(controller.config()->logBytes() == 0);
+    CHECK(controller.log()->count() == count + 1);
     controller.log()->clear();
-    CHECK(controller.log()->count() == 0 && Logs(dir.path()) == finalDisk);
+    CHECK(controller.log()->count() == 0 && Logs(dir.path()).isEmpty());
     controller.language()->setMode("en");
 }
 static void TestPanel(QQmlEngine &engine) {
@@ -180,15 +188,21 @@ Window {
     CHECK(QMetaObject::invokeMethod(settings, "openDialog"));
     CHECK(!details->property("checked").toBool());
     details->setProperty("checked", true);
+    CHECK(AwaitUi([&] { return !controller.config()->logBusy(); }));
     CHECK(QMetaObject::invokeMethod(save, "clicked"));
     CHECK(controller.config()->uiLogDetails() && detailChanges == 1);
     CHECK(AwaitUi([&] { return sampleRow->property("text").toString() == detailed; }));
     CHECK(sampleRow->property("color").value<QColor>() == object->property("errorColor").value<QColor>());
     gui::ConfigStore restored;
     CHECK(restored.uiLogDetails()); // A new store reads the saved preference at startup.
+    CHECK(restored.load().value("log_file_mib").toInt() == 5);
+    CHECK(restored.load().value("log_total_mib").toInt() == 50);
+    CHECK(!restored.save({{"log_file_mib", 10}, {"log_total_mib", 5}}));
+    CHECK(restored.load().value("log_file_mib").toInt() == 5);
     QSettings preferences(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
     CHECK(preferences.value("ui/logDetails").toBool());
     CHECK(preferences.value("ui/language").toString() == "en");
+    CHECK(AwaitUi([&] { return !controller.config()->logBusy(); }));
     CHECK(controller.config()->save({{"ui_log_details", true}}));
     CHECK(detailChanges == 1); // Saving an unchanged preference emits no notification.
     CHECK(controller.rockchip()->firmwarePath().isEmpty());
@@ -198,6 +212,7 @@ Window {
     CHECK(QMetaObject::invokeMethod(settings, "openDialog"));
     CHECK(details->property("checked").toBool());
     details->setProperty("checked", false);
+    CHECK(AwaitUi([&] { return !controller.config()->logBusy(); }));
     CHECK(QMetaObject::invokeMethod(save, "clicked"));
     CHECK(!controller.config()->uiLogDetails() && detailChanges == 2);
     CHECK(AwaitUi([&] { return sampleRow->property("text").toString() == compact; }));

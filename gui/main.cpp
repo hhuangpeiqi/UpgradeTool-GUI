@@ -17,6 +17,7 @@
 #include <libusb.h>
 
 #include "platform/LogService.h"
+#include "gui/backend/ConfigStore.h"
 #include "platform/PlatformPath.h"
 #include "gui/backend/AppController.h"
 #include "gui/backend/DirModel.h"
@@ -46,6 +47,8 @@ int main(int argc, char *argv[])
 
 	platform::EnsureDirRecursive(strLogDir);
 	platform::LogService *pLog = new platform::LogService(strLogDir.c_str(), "log", true);
+        gui::ConfigStore initialLogConfig;
+        initialLogConfig.attachLog(pLog);
 
 
 	if (libusb_init(NULL) < 0) {

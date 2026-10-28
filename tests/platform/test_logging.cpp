@@ -7,11 +7,21 @@
 #include <sstream>
 #include <thread>
 #include <vector>
+#ifndef _WIN32
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 static int failures = 0;
 static std::string Read(const std::filesystem::path &path) {
     std::ifstream file(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(file), {}};
+}
+static std::filesystem::path FirstLog(const std::filesystem::path &directory) {
+    for (const auto &entry : std::filesystem::directory_iterator(directory))
+        if (entry.path().extension() == ".txt") return entry.path();
+    return directory / "missing.txt";
 }
 static void TestBlocks() {
     TemporaryDirectory dir;
@@ -35,7 +45,7 @@ static void TestBlocks() {
     log.writef(core::LogLevel::Error, "Driver", "raw details");
     log.write(core::LogLevel::Info, "Application", {{}, "\r\n \t\n", {}});
     CHECK(visible == 1);
-    const auto path = std::filesystem::directory_iterator(dir.path)->path();
+    const auto path = FirstLog(dir.path);
     auto text = Read(path);
     CHECK(text.find(" task=12 step=2 device=usb:1-5.3] Hello board\n") != std::string::npos);
     CHECK(text.find("|     second\n") != std::string::npos);
@@ -61,7 +71,7 @@ static void TestConcurrentBlocks() {
         });
     }
     for (auto &producer : producers) producer.join();
-    std::istringstream stream(Read(std::filesystem::directory_iterator(dir.path)->path()));
+    std::istringstream stream(Read(FirstLog(dir.path)));
     std::string first, second;
     int count = 0;
     while (std::getline(stream, first)) {
@@ -97,7 +107,58 @@ static void TestDailyFiles() {
     CHECK(Read(dir.path / "log2026-10-27.txt").find("before midnight") != std::string::npos);
     CHECK(Read(dir.path / "log2026-10-28.txt").find("after midnight") != std::string::npos);
 }
+static void TestStorageLimits() {
+    TemporaryDirectory dir;
+    platform::LogService log(platform::Utf8(dir.path), "log", true);
+    CHECK(log.setLimits({512, 1536}).error.empty());
+    for (int i = 0; i < 30; ++i) {
+        log.write(core::LogLevel::Info, "Test", {{}, std::string(140, 'a'), {}});
+        CHECK(log.storage().bytes <= 1536);
+    }
+    int files = 0;
+    for (const auto &entry : std::filesystem::directory_iterator(dir.path)) {
+        if (entry.path().extension() != ".txt") continue;
+        ++files;
+        CHECK(entry.file_size() <= 512);
+    }
+    CHECK(files >= 2);
+    log.write(core::LogLevel::Info, "Test", {{}, std::string(2000, 'x'), {}});
+    bool truncated = false;
+    for (const auto &entry : std::filesystem::directory_iterator(dir.path))
+        if (entry.path().extension() == ".txt") truncated |= Read(entry.path()).find("[truncated]") != std::string::npos;
+    CHECK(truncated);
+    std::ofstream(dir.path / "unrelated.txt") << "keep";
+    CHECK(log.setLimits({256, 512}).error.empty());
+    CHECK(log.storage().bytes <= 512);
+    CHECK(log.clearFiles({256, 512}).error.empty());
+    CHECK(log.storage().bytes == 0);
+    CHECK(Read(dir.path / "unrelated.txt") == "keep");
+    log.write(core::LogLevel::Info, "Test", {{}, "after clear", {}});
+    CHECK(log.storage().bytes > 0);
+    CHECK(!log.setLimits({512, 256}).error.empty());
+    std::error_code error;
+    std::filesystem::create_symlink(dir.path / "unrelated.txt", dir.path / "log2000-01-01.txt", error);
+    CHECK(log.clearFiles({256, 512}).error.empty());
+    CHECK(Read(dir.path / "unrelated.txt") == "keep");
+    if (!error) CHECK(std::filesystem::is_symlink(dir.path / "log2000-01-01.txt"));
+    std::thread producer([&] {
+        for (int i = 0; i < 100; ++i) log.write(core::LogLevel::Info, "Worker", {{}, "concurrent", {}});
+    });
+    for (int i = 0; i < 10; ++i) CHECK(log.clearFiles({256, 512}).error.empty());
+    producer.join();
+    CHECK(log.storage().bytes <= 512);
+#ifndef _WIN32
+    const int lock = open((dir.path / ".log.lock").c_str(), O_RDWR);
+    CHECK(lock >= 0);
+    CHECK(flock(lock, LOCK_EX | LOCK_NB) == 0);
+    log.write(core::LogLevel::Info, "Test", {{}, "locked", {}});
+    CHECK(!log.storage().error.empty());
+    CHECK(!log.clearFiles({256, 512}).error.empty());
+    close(lock);
+    CHECK(log.clearFiles({256, 512}).error.empty());
+#endif
+}
 int main() {
-    TestBlocks(); TestConcurrentBlocks(); TestDailyFiles();
+    TestBlocks(); TestConcurrentBlocks(); TestDailyFiles(); TestStorageLimits();
     return failures ? 1 : 0;
 }

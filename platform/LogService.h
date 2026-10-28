@@ -17,6 +17,9 @@ public:
     // Formatted low-level diagnostics stay on disk; user-facing events use write().
     void writef(core::LogLevel level, const char *source, const char *format, ...);
     static uint64_t nextTaskId();
+    LogStorage setLimits(LogLimits limits) { return m_file.manage(limits); }
+    LogStorage storage() { return m_file.storage(); }
+    LogStorage clearFiles(LogLimits limits) { return m_file.manage(limits, true); }
 private:
     FileLog m_file;
     std::string m_session;

@@ -84,6 +84,7 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
 	  m_bSwitching(false),
 	  m_bAdbAvailable(false)
 {
+    m_pConfig->attachLog(m_logService);
     m_logService->setConsumer([model = m_pLog](const core::LogEntry &entry) {
         if (QThread::currentThread() == model->thread()) model->append(entry);
         else QMetaObject::invokeMethod(model, [model, entry] { model->append(entry); }, Qt::QueuedConnection);
@@ -301,6 +302,7 @@ AppController::~AppController()
 	m_pObserver->CancelSelection();
 	m_pThread->quit();
 	m_pThread->wait();
+    m_pConfig->waitForLogOperations();
     m_logService->setConsumer({});
 }
 

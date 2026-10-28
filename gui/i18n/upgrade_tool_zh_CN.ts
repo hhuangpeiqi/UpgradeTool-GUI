@@ -2933,6 +2933,42 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Confirm</source>
+        <translation>确认</translation>
+    </message>
+    <message>
+        <source>Single file limit (MiB)</source>
+        <translation>单文件上限（MiB）</translation>
+    </message>
+    <message>
+        <source>Total limit (MiB)</source>
+        <translation>总容量上限（MiB）</translation>
+    </message>
+    <message>
+        <source>Used: %1 MiB / %2 MiB</source>
+        <translation>已使用 %1 MiB / %2 MiB</translation>
+    </message>
+    <message>
+        <source>Open log folder</source>
+        <translation>打开日志目录</translation>
+    </message>
+    <message>
+        <source>Working…</source>
+        <translation>正在处理…</translation>
+    </message>
+    <message>
+        <source>Clear log files</source>
+        <translation>清除日志文件</translation>
+    </message>
+    <message>
+        <source>Clear log files?</source>
+        <translation>清除日志文件？</translation>
+    </message>
+    <message>
+        <source>Delete all saved log files?</source>
+        <translation>删除所有已保存的日志文件？</translation>
+    </message>
+    <message>
         <source>Logging</source>
         <translation>日志</translation>
     </message>
@@ -3889,6 +3925,10 @@
 </context>
 <context>
     <name>gui::ConfigStore</name>
+    <message>
+        <source>Invalid log limits: file 1–100 MiB, total at least file size and at most 10240 MiB.</source>
+        <translation>日志容量无效：单文件须为 1～100 MiB，总容量不得小于单文件上限且不超过 10240 MiB。</translation>
+    </message>
     <message>
         <source>Settings loaded.</source>
         <translation>已加载设置。</translation>
