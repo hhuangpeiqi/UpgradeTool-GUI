@@ -98,8 +98,8 @@ int main(int argc, char **argv) {
     auto *confirmation = window->findChild<QObject *>("driverConfirmationDialog");
     CHECK(window && dialog && confirmation);
     if (!window || !dialog || !confirmation) return 1;
-    CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    CHECK(QMetaObject::invokeMethod(dialog, "openDialog", Q_ARG(QVariant, QVariant(QString()))));
+    CHECK(AwaitUi([&] { return dialog->property("visible").toBool() && !controller.drivers()->checking(); }));
     CHECK(!FindVisualItem(window->contentItem(), "driverResumeButton"));
     CHECK(!FindVisualItem(window->contentItem(), "driverForgetButton"));
     CHECK(QMetaObject::invokeMethod(dialog, "close"));
@@ -237,8 +237,8 @@ int main(int argc, char **argv) {
     }
     if (argc > 1) {
         scanMode = 4;
-        CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-        CHECK(AwaitUi([&] { return !controller.drivers()->checking() && controller.drivers()->devices().size() == 8; }));
+        CHECK(QMetaObject::invokeMethod(dialog, "openDialog", Q_ARG(QVariant, QVariant(QString()))));
+        CHECK(AwaitUi([&] { return dialog->property("visible").toBool() && !controller.drivers()->checking() && controller.drivers()->devices().size() == 8; }));
         for (const auto &theme : {"light", "dark"}) {
             controller.theme()->setMode(theme);
             QTest::qWait(40);
@@ -250,8 +250,8 @@ int main(int argc, char **argv) {
     }
     controller.setVendor(1);
     CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
-    CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    CHECK(QMetaObject::invokeMethod(dialog, "openDialog", Q_ARG(QVariant, QVariant(QString()))));
+    CHECK(AwaitUi([&] { return dialog->property("visible").toBool() && !controller.drivers()->checking(); }));
     for (const auto &language : {"en", "zh"}) {
         controller.language()->setMode(language);
         auto *awInstall = FindVisualItem(window->contentItem(), "driverInstallButton");
@@ -272,8 +272,8 @@ int main(int argc, char **argv) {
     CHECK(QMetaObject::invokeMethod(dialog, "close"));
     controller.setVendor(2);
     CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
-    CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    CHECK(QMetaObject::invokeMethod(dialog, "openDialog", Q_ARG(QVariant, QVariant(QString()))));
+    CHECK(AwaitUi([&] { return dialog->property("visible").toBool() && !controller.drivers()->checking(); }));
     auto *uninstall = FindVisualItem(window->contentItem(), "qualcommUninstallButton");
     CHECK(uninstall && uninstall->isVisible() && uninstall->isEnabled());
     for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) {
@@ -325,7 +325,8 @@ int main(int argc, char **argv) {
         }
     }
     CHECK(reconnectLogged);
-    CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
+    CHECK(QMetaObject::invokeMethod(dialog, "openDialog", Q_ARG(QVariant, QVariant(QString()))));
+    CHECK(AwaitUi([&] { return dialog->property("visible").toBool() && !controller.drivers()->checking(); }));
     for (const auto &language : {"en", "zh"}) {
         controller.language()->setMode(language);
         CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
@@ -373,8 +374,8 @@ int main(int argc, char **argv) {
     CHECK(FindVisualItem(window->contentItem(), "statusDriverElapsed")->isVisible());
     for (const auto &language : {"en", "zh"}) {
         controller.language()->setMode(language);
-        CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-        CHECK(AwaitUi([&] { return dialog->property("visible").toBool(); }));
+        CHECK(QMetaObject::invokeMethod(dialog, "openDialog", Q_ARG(QVariant, QVariant(QString()))));
+        CHECK(AwaitUi([&] { return dialog->property("visible").toBool() && !controller.drivers()->checking(); }));
         auto *background = FindVisualItem(window->contentItem(), "driverCloseButton");
         CHECK(background && background->isEnabled());
         if (!background) { holdInstall = false; return 1; }
