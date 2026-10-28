@@ -3898,6 +3898,34 @@
         <source>Switch cancelled. A reboot request already sent may not be reversible.</source>
         <translation>切换已取消。已发送的重启请求可能无法撤销。</translation>
     </message>
+    <message>
+        <source>The target interface driver is missing. Open USB Drivers to install it.</source>
+        <translation>目标接口未安装驱动，请前往 USB 驱动页面安装。</translation>
+    </message>
+    <message>
+        <source>The target interface driver is missing. Install the device manufacturer's driver.</source>
+        <translation>目标接口未安装驱动，请安装设备厂商提供的驱动。</translation>
+    </message>
+    <message>
+        <source>The target interface driver is incompatible. Open USB Drivers for details.</source>
+        <translation>目标接口的驱动不兼容，请查看 USB 驱动详情。</translation>
+    </message>
+    <message>
+        <source>The target interface requires Windows to restart. Restart Windows to finish driver setup.</source>
+        <translation>目标接口需要重启 Windows，请重启以完成驱动配置。</translation>
+    </message>
+    <message>
+        <source>The target device reports a system error. Open USB Drivers for details.</source>
+        <translation>目标设备报告系统错误，请查看 USB 驱动详情。</translation>
+    </message>
+    <message>
+        <source>The target interface is unavailable. Check access permissions, other device tools, and the USB connection.</source>
+        <translation>目标接口无法访问，请检查访问权限、其他设备工具占用及 USB 连接。</translation>
+    </message>
+    <message>
+        <source>The source interface cannot be accessed; the switch request was not sent.</source>
+        <translation>无法访问切换前的源接口，尚未发送切换请求。</translation>
+    </message>
 </context>
 <context>
     <name>gui::ConfigStore</name>
@@ -4675,6 +4703,10 @@
     <message>
         <source>View USB Drivers</source>
         <translation>查看 USB 驱动</translation>
+    </message>
+    <message>
+        <source>Go to driver installation</source>
+        <translation>前往安装驱动</translation>
     </message>
 </context>
 <context>

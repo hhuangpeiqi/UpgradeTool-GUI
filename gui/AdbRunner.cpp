@@ -6,6 +6,7 @@
 #endif
 #include "gui/AdbRunner.h"
 #include "gui/MessageDisplay.h"
+#include "gui/UsbAccess.h"
 #ifdef Q_OS_WIN
 #include "gui/WindowsUsbDriver.h"
 #endif
@@ -325,7 +326,7 @@ void AdbRunner::Complete(bool ok, const core::Message &message, bool cancelled, 
 
     emit traceRecord(QJsonObject{{"log_level", int(!ok && !cancelled ? core::LogLevel::Warn : core::LogLevel::Info)},
         {"event", "switch_finished"}, {"ok", ok}, {"cancelled", cancelled},
-        {"log_task", qint64(m_service->logContext().task)}, {"failure", int(failure)},
+        {"log_task", qint64(m_service->logContext().task)}, {"failure", int(failure.kind)},
         {"message", QString::fromStdString(message.English())}});
 	emit finished(ok, displayText.isEmpty() ? Display(message) : displayText, cancelled, failure);
 }
@@ -524,7 +525,7 @@ void AdbRunner::CheckLoaderMode()
     }
 	if (m_loaderElapsed.elapsed() >= m_modeTimeoutMs) {
         if (!accessReason.isEmpty()) {
-            Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The target USB interface is not accessible. Check its USB driver, permissions, and whether another tool is using it.")), false, ModeSwitchFailure::DeviceAccess, accessReason);
+            Complete(false, Text(QT_TRANSLATE_NOOP("gui::AdbRunner", "The target USB interface is not accessible. Check its USB driver, permissions, and whether another tool is using it.")), false, ScanSwitchAccess(0, {}, QString::fromStdString(m_target.native)), accessReason);
             return;
         }
         Complete(false, m_target.known()

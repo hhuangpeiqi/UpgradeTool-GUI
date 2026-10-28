@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
             }
         });
         QObject::connect(&controller, &gui::AppController::switchRecoveryRequested, [&] { ++recoveries; });
-        QObject::connect(&controller, &gui::AppController::switchAccessRequested, [&](const QString &) { ++accessPrompts; });
+        QObject::connect(&controller, &gui::AppController::switchAccessRequested, [&](const gui::SwitchAccessPrompt &) { ++accessPrompts; });
         QObject::connect(&controller, &gui::AppController::requestScan, [&] { ++scans; });
         auto update = [&](const QVariantList &devices) {
             CHECK(QMetaObject::invokeMethod(&controller, "onDevicesReady", Qt::DirectConnection,

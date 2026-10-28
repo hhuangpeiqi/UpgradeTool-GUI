@@ -9,7 +9,10 @@ AppDialog {
     titleText: qsTr("USB Drivers")
     width: Math.min(600, Overlay.overlay ? Overlay.overlay.width - 32 : 600)
 
-    function openDialog() {
+    property string targetInstance: ""
+
+    function openDialog(instance) {
+        targetInstance = instance || "";
         open();
         app.drivers.refresh();
     }
@@ -24,16 +27,24 @@ AppDialog {
     }
 
     Repeater {
-        model: app.drivers.devices
+        model: {
+            var devices = app.drivers.devices.slice();
+            if (dialog.targetInstance !== "") {
+                devices.sort(function(a, b) {
+                    return Number(b.instance === dialog.targetInstance) - Number(a.instance === dialog.targetInstance);
+                });
+            }
+            return devices;
+        }
         delegate: Rectangle {
             id: deviceCard
             required property var modelData
-            property bool expanded: false
+            property bool expanded: dialog.targetInstance !== "" && modelData.instance === dialog.targetInstance
             width: parent.width
             implicitHeight: deviceContent.implicitHeight + 24
             radius: Theme.controlRadius
             color: Theme.pageBg
-            border.color: Theme.border
+            border.color: dialog.targetInstance !== "" && modelData.instance === dialog.targetInstance ? Theme.primary : Theme.border
 
             ColumnLayout {
                 id: deviceContent

@@ -1,6 +1,7 @@
 #include "gui/AllwinnerSwitchMonitor.h"
 #include "backends/DeviceIdentity.h"
 #include "gui/MessageDisplay.h"
+#include "gui/UsbAccess.h"
 #include <algorithm>
 
 namespace gui {
@@ -81,14 +82,9 @@ void AllwinnerSwitchMonitor::poll() {
     const bool timedOut = m_elapsed.elapsed() >= m_request.timeoutMs;
     auto timeout = [this] {
         if (m_present && m_accessBlocked) {
-#ifdef Q_OS_WIN
-            const auto message = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "FEL/FES device detected but unavailable. "
-                                    "Check or install its USB driver. (%1)"), {m_lastError.English()});
-#else
             const auto message = Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "FEL/FES device detected but unavailable. "
                                     "Check its driver, permissions, or use by another tool. (%1)"), {m_lastError.English()});
-#endif
-            finish(false, message, {}, ModeSwitchFailure::DeviceAccess);
+            finish(false, message, {}, ScanSwitchAccess(1, {}, QString::fromStdString(m_request.target.native)));
             return;
         }
         finish(false, !m_seen ? Text(QT_TRANSLATE_NOOP("gui::AllwinnerSwitchMonitor", "No FEL/FES device appeared at the target USB port."))

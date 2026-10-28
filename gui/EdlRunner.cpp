@@ -1,5 +1,6 @@
 #include "platform/UsbLocation.h"
 #include "gui/EdlRunner.h"
+#include "gui/UsbAccess.h"
 #include "gui/MessageDisplay.h"
 #include <QElapsedTimer>
 #include <QThread>
@@ -247,7 +248,8 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         }
         if (!found) { result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "The selected switch endpoint is no longer available. Refresh and select it again.")); return; }
         if (target.accessError) {
-            result->failure = ModeSwitchFailure::DeviceAccess;
+            result->failure = ScanSwitchAccess(2, target.instance, target.location, target.interfaceNumber);
+            result->failure.sourceInterface = true;
             result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Cannot access the selected interface; check its USB driver and close other device tools."));
             result->displayOverride = target.accessReason;
             return;
@@ -281,6 +283,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         session.reset();
         progress(Waiting, Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Request sent; waiting for the target device in 9008 mode…")));
         QElapsedTimer timer; timer.start();
+        EdlEndpoint inaccessible;
         do {
             QVector<EdlEndpoint> matches;
             for (const auto &e : m_hooks.scan())
@@ -300,6 +303,7 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
                     result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Target device detected in 9008 mode.")); return;
                 }
                 result->failure = ModeSwitchFailure::DeviceAccess;
+                inaccessible = endpoint;
                 result->message = Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Cannot access the selected interface; check its USB driver and close other device tools."));
                 result->displayOverride = endpoint.accessReason;
             }
@@ -307,7 +311,10 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
             if (timer.elapsed() >= m_waitMs) break;
             QThread::msleep(100);
         } while (true);
-        if (result->failure == ModeSwitchFailure::DeviceAccess) return;
+        if (result->failure == ModeSwitchFailure::DeviceAccess) {
+            result->failure = ScanSwitchAccess(2, inaccessible.instance, inaccessible.location, inaccessible.interfaceNumber);
+            return;
+        }
         result->message = target.location.isEmpty() && target.ports.isEmpty()
             ? Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "Request sent, but the target USB location could not be identified; success cannot be confirmed."))
             : Text(QT_TRANSLATE_NOOP("gui::EdlRunner", "The target device did not appear in 9008 mode before the timeout."));

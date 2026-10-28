@@ -1,4 +1,5 @@
 #include "gui/backend/DriverController.h"
+#include "gui/UsbAccess_p.h"
 #include "tests/support/Checks.h"
 #include "tests/support/qt/Await.h"
 #include <QCoreApplication>
@@ -18,6 +19,35 @@ int main(int argc, char **argv) {
     QTemporaryDir settingsDirectory;
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDirectory.path());
     int failures = 0;
+    {
+        using Failure = gui::ModeSwitchFailure;
+        gui::DriverDevice target;
+        target.vendor = 1; target.verifiedInterface = true;
+        target.instance = "target"; target.location = "usb:1-2";
+        target.state = gui::DriverState::Missing;
+        auto other = target; other.instance = "other";
+        other.state = gui::DriverState::Ready;
+        auto diagnosis = gui::DiagnoseWindowsSwitchAccess({other, other, target}, 1, "target", target.location);
+        CHECK(diagnosis.reason == Failure::Reason::Missing);
+        CHECK(diagnosis.canInstall && diagnosis.instance == "target");
+        for (int vendor : {0, 1, 2}) {
+            auto candidate = target; candidate.vendor = vendor; candidate.vid = 0x05c6;
+            const auto missing = gui::DiagnoseWindowsSwitchAccess({candidate}, vendor, {}, candidate.location);
+            CHECK(missing.reason == Failure::Reason::Missing && missing.canInstall);
+            candidate.verifiedInterface = false;
+            CHECK(gui::DiagnoseWindowsSwitchAccess({candidate}, vendor, {}, candidate.location).reason == Failure::Reason::Unknown);
+        }
+        CHECK(gui::DiagnoseWindowsSwitchAccess({other, target}, 1, {}, target.location).reason == Failure::Reason::Unknown);
+        CHECK(gui::DiagnoseWindowsSwitchAccess({target}, 0, {}, target.location).reason == Failure::Reason::Unknown);
+        CHECK(gui::DiagnoseWindowsSwitchAccess({}, 1, "target", target.location).reason == Failure::Reason::Unknown);
+        for (auto state : {gui::DriverState::Incompatible, gui::DriverState::RebootRequired,
+                           gui::DriverState::DeviceError, gui::DriverState::AccessFailed}) {
+            target.state = state;
+            diagnosis = gui::DiagnoseWindowsSwitchAccess({target}, 1, {}, target.location);
+            CHECK(!diagnosis.canInstall);
+            CHECK((diagnosis.reason == Failure::Reason::Unknown) == (state == gui::DriverState::AccessFailed));
+        }
+    }
 #ifdef Q_OS_WIN
     CHECK(!gui::QualcommDriverPackageError(settingsDirectory.filePath("missing.exe")).isEmpty());
     QFile corruptPackage(settingsDirectory.filePath("corrupt.exe"));

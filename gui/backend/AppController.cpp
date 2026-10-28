@@ -1,4 +1,5 @@
 #include "gui/InspectionQueue.h"
+#include "gui/UsbAccess.h"
 #include "gui/UpgradePromptMessage.h"
 #include "gui/DiagnosticLog.h"
 #include <QSysInfo>
@@ -160,7 +161,8 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
             }
         }
         const auto failure = matches == 1 && accessBlocked
-            ? ModeSwitchFailure::DeviceAccess : ModeSwitchFailure::Generic;
+            ? ScanSwitchAccess(2, m_edlHandoff->instance, m_edlHandoff->location, m_edlHandoff->interfaceNumber)
+            : ModeSwitchFailure::Generic;
         FinishEdlSwitch(false, tr("Device entered 9008 mode, but its download interface is not ready. Check the USB driver and refresh."),
                         false, failure);
     });
@@ -1199,7 +1201,26 @@ void AppController::FinishModeSwitch(bool ok, const QString &message, bool cance
         {{}, cancelled ? "Device mode switch cancelled" : ok ? "Device mode switch succeeded" : "Device mode switch failed", {}},
         true, message.toStdString());
     if (!ok && !cancelled && !m_shuttingDown) {
-        if (failure == ModeSwitchFailure::DeviceAccess) emit switchAccessRequested(message);
+        if (failure == ModeSwitchFailure::DeviceAccess) {
+            QString explanation;
+            using Reason = ModeSwitchFailure::Reason;
+            switch (failure.reason) {
+            case Reason::Missing:
+                explanation = failure.canInstall
+                    ? tr("The target interface driver is missing. Open USB Drivers to install it.")
+                    : tr("The target interface driver is missing. Install the device manufacturer's driver."); break;
+            case Reason::Incompatible: explanation = tr("The target interface driver is incompatible. Open USB Drivers for details."); break;
+            case Reason::RebootRequired: explanation = tr("The target interface requires Windows to restart. Restart Windows to finish driver setup."); break;
+            case Reason::DeviceError: explanation = tr("The target device reports a system error. Open USB Drivers for details."); break;
+            case Reason::Unknown: explanation = tr("The target interface is unavailable. Check access permissions, other device tools, and the USB connection."); break;
+            }
+            if (failure.sourceInterface)
+                explanation = tr("The source interface cannot be accessed; the switch request was not sent.") + "\n" + explanation;
+            if (explanation.isEmpty()) explanation = message;
+            else if (!message.isEmpty()) explanation += "\n" + message;
+            if (!failure.detail.isEmpty()) explanation += "\n" + failure.detail;
+            emit switchAccessRequested(MakeSwitchAccessPrompt(explanation, failure, m_drivers->available()));
+        }
         else emit switchRecoveryRequested();
     }
 }

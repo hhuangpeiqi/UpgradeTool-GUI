@@ -2,6 +2,7 @@
 #define GUI_APP_CONTROLLER_H
 
 #include <QElapsedTimer>
+#include "gui/SwitchAccessPrompt.h"
 #include <map>
 #include <optional>
 #include "gui/backend/QualcommController.h"
@@ -196,7 +197,7 @@ signals:
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
     void switchRecoveryRequested();
-    void switchAccessRequested(const QString &message);
+    void switchAccessRequested(const gui::SwitchAccessPrompt &prompt);
 
 private:
     void LogError(const QString &message, const char *source = "Application");

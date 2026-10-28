@@ -222,7 +222,7 @@ int main(int argc, char **argv) {
                     "Check the USB driver, access permissions, and whether another tool is using the device.");
                 for (const auto &diagnostic : {QString("Original diagnostic <preserved>\n") + QString(2000, 'x'),
                                                QString(), QString(" \n\t"), missingDriver}) {
-                    controller.switchAccessRequested(diagnostic);
+                    controller.switchAccessRequested({diagnostic, {}, gui::SwitchAccessPrompt::Action::ViewDriversAndAcknowledge});
                     CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
                     CHECK(instructions->property("text").toString() ==
                           (diagnostic.trimmed().isEmpty() ? fallback : diagnostic));
@@ -230,13 +230,11 @@ int main(int argc, char **argv) {
                     CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));
                     CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
                 }
-                controller.switchAccessRequested(missingDriver);
+                controller.switchAccessRequested({missingDriver, "target-device", gui::SwitchAccessPrompt::Action::InstallDriver});
+
                 CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
                 CHECK(driverButton->isVisible());
-                CHECK(AwaitUi([&] {
-                    const auto driverRight = driverButton->mapToScene(QPointF(driverButton->width(), 0)).x();
-                    return qAbs(closeButton->mapToScene(QPointF()).x() - driverRight - 10) < 0.5;
-                }));
+                CHECK(!closeButton->isVisible());
                 CHECK(recoveryDialog->property("titleText").toString() == QString::fromUtf8(
                     QString(language) == "zh" ? "设备暂不可访问" : "Device access unavailable"));
                 CHECK(instructions->property("text").toString() == missingDriver);
@@ -247,17 +245,26 @@ int main(int argc, char **argv) {
                 CHECK(!controller.drivers()->busy() && !controller.tasks()->busy());
                 CHECK(QMetaObject::invokeMethod(driverDialog, "close"));
                 CHECK(AwaitUi([&] { return !driverDialog->property("visible").toBool(); }));
+                // Driver incompatibility offers only driver details; reboot offers only acknowledgement.
+                for (bool reboot : {false, true}) {
+                    controller.switchAccessRequested({"diagnostic", "target-device", reboot ? gui::SwitchAccessPrompt::Action::Acknowledge : gui::SwitchAccessPrompt::Action::ViewDrivers});
+                    CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                    CHECK(driverButton->isVisible() == !reboot);
+                    CHECK(closeButton->isVisible() == reboot);
+                    CHECK(QMetaObject::invokeMethod(reboot ? closeButton : driverButton, "clicked"));
+                    CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
+                    if (!reboot) {
+                        CHECK(AwaitUi([&] { return driverDialog->property("visible").toBool(); }));
+                        CHECK(QMetaObject::invokeMethod(driverDialog, "close"));
+                        CHECK(AwaitUi([&] { return !driverDialog->property("visible").toBool(); }));
+                    }
+                }
                 if (vendor == 1) {
-#ifdef Q_OS_WIN
-                    const auto felAccess = QCoreApplication::translate("gui::AllwinnerSwitchMonitor",
-                        "FEL/FES device detected but unavailable. Check or install its USB driver. (%1)");
-#else
                     const auto felAccess = QCoreApplication::translate("gui::AllwinnerSwitchMonitor",
                         "FEL/FES device detected but unavailable. Check its driver, permissions, or use by another tool. (%1)");
-#endif
                     CHECK(felAccess.contains(QString::fromUtf8(QString(language) == "zh"
                         ? "检测到 FEL/FES 设备" : "FEL/FES device detected")));
-                    controller.switchAccessRequested(felAccess.arg("5"));
+                    controller.switchAccessRequested({felAccess.arg("5"), {}, gui::SwitchAccessPrompt::Action::ViewDriversAndAcknowledge});
                     CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
                     CHECK(instructions->property("text").toString() == felAccess.arg("5"));
                     CHECK(driverButton->isVisible());

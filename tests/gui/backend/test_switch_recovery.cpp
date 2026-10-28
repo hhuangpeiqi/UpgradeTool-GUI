@@ -29,6 +29,26 @@ int main(int argc, char **argv) {
     if (libusb_init(nullptr) < 0) return 2;
     int failures = 0;
     {
+        using Reason = gui::ModeSwitchFailure::Reason;
+        using Action = gui::SwitchAccessPrompt::Action;
+        for (const auto reason : {Reason::Missing, Reason::Incompatible, Reason::RebootRequired,
+                                  Reason::DeviceError, Reason::Unknown}) {
+            for (bool installable : {false, true}) {
+                auto failure = gui::ModeSwitchFailure::DeviceAccess;
+                failure.reason = reason; failure.canInstall = installable; failure.instance = "target";
+                const auto prompt = gui::MakeSwitchAccessPrompt("diagnostic", failure, true);
+                const auto expected = reason == Reason::RebootRequired ? Action::Acknowledge
+                    : reason == Reason::Incompatible ? Action::ViewDrivers
+                    : reason == Reason::Missing && installable ? Action::InstallDriver
+                    : Action::ViewDriversAndAcknowledge;
+                CHECK(prompt.action == expected);
+                CHECK(prompt.message == "diagnostic" && prompt.instance == "target");
+                CHECK(gui::MakeSwitchAccessPrompt("diagnostic", failure, false).action == Action::Acknowledge);
+            }
+        }
+    }
+
+    {
         enum Scenario { CommandFailure, Timeout, Success, DriverMissing, Cancel, Shutdown };
         std::atomic<Scenario> scenario{CommandFailure};
         gui::EdlEndpoint source;
@@ -70,9 +90,12 @@ int main(int argc, char **argv) {
         auto *adb = controller.findChild<gui::AdbRunner *>();
         CHECK(adb);
         int recoveries = 0, choices = 0, accessPrompts = 0;
-        QObject::connect(&controller, &gui::AppController::switchAccessRequested, [&](const QString &message) {
+        QObject::connect(&controller, &gui::AppController::switchAccessRequested, [&](const gui::SwitchAccessPrompt &prompt) {
             ++accessPrompts;
-            CHECK(!message.isEmpty());
+            using Action = gui::SwitchAccessPrompt::Action;
+            // Driver maintenance is disabled in this fixture: all cases acknowledge only.
+            CHECK(prompt.action == Action::Acknowledge);
+            CHECK(!prompt.message.isEmpty());
             CHECK(!controller.switching() && !controller.tasks()->busy());
             CHECK(controller.tasks()->progressValue() == 0);
         });
@@ -85,7 +108,7 @@ int main(int argc, char **argv) {
                          [&](const QStringList &) { ++choices; });
         if (adb) for (int vendor : {0, 1}) {
             controller.setVendor(vendor);
-            for (int outcome : {0, 1, 2, 3}) {
+            for (int outcome : {0, 1, 2, 3, 4, 5, 6}) {
                 const auto before = recoveries;
                 const auto beforeAccess = accessPrompts;
                 const auto previousChoices = choices;
@@ -96,17 +119,21 @@ int main(int argc, char **argv) {
                 if (outcome == 2) controller.cancel();
                 else {
                     // Failure classification must not depend on diagnostic wording.
-                    adb->finished(outcome == 1, "Original diagnostic: cancelled USB transfer", false,
-                                  outcome == 3 ? gui::ModeSwitchFailure::DeviceAccess : gui::ModeSwitchFailure::Generic);
+                    auto failure = outcome >= 3 ? gui::ModeSwitchFailure::DeviceAccess : gui::ModeSwitchFailure::Generic;
+                    using Reason = gui::ModeSwitchFailure::Reason;
+                    if (outcome == 4) { failure.reason = Reason::Missing; failure.canInstall = true; }
+                    if (outcome == 5) failure.reason = Reason::Incompatible;
+                    if (outcome == 6) failure.reason = Reason::RebootRequired;
+                    adb->finished(outcome == 1, "Original diagnostic: cancelled USB transfer", false, failure);
                     CHECK(controller.tasks()->progressText() == "Original diagnostic: cancelled USB transfer");
                     adb->CancelSwitch();
                 }
                 CHECK(!controller.switching() && !controller.tasks()->busy());
                 CHECK(recoveries == before + (outcome == 0 ? 1 : 0));
-                CHECK(accessPrompts == beforeAccess + (outcome == 3 ? 1 : 0));
+                CHECK(accessPrompts == beforeAccess + (outcome >= 3 ? 1 : 0));
                 adb->finished(false, "late failure");
                 CHECK(recoveries == before + (outcome == 0 ? 1 : 0));
-                CHECK(accessPrompts == beforeAccess + (outcome == 3 ? 1 : 0));
+                CHECK(accessPrompts == beforeAccess + (outcome >= 3 ? 1 : 0));
             }
         }
         const auto beforeValidation = recoveries;

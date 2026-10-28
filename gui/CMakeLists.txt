@@ -7,6 +7,8 @@ add_library(upgrade_gui_backend STATIC
   DriverRecovery.h
   UsbAccess.cpp
   UsbAccess.h
+  SwitchAccessPrompt.h
+  UsbAccess_p.h
   backend/DriverController.cpp
   backend/DriverController.h
   SingleInstanceGuard.cpp

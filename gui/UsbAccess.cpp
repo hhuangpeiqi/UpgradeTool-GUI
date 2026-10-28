@@ -1,5 +1,7 @@
 #include "gui/UsbAccess.h"
-#include "gui/WindowsUsbDriver.h"
+#include "gui/UsbAccess_p.h"
+#include "platform/UsbLocation.h"
+#include <algorithm>
 #include "backends/DeviceIdentity.h"
 #include "application/BuildFeatures.h"
 #if UPGRADE_TOOL_ROCKCHIP
@@ -11,6 +13,55 @@
 #include <libusb.h>
 
 namespace gui {
+ModeSwitchFailure DiagnoseWindowsSwitchAccess(const QVector<DriverDevice> &devices, int vendor,
+    const QString &instance, const QString &location, int interfaceNumber) {
+    auto result = ModeSwitchFailure::DeviceAccess;
+    const DriverDevice *found = nullptr;
+    const bool exact = !instance.isEmpty() && std::any_of(devices.begin(), devices.end(), [&](const auto &d) {
+        return d.vendor == vendor && d.verifiedInterface &&
+            (interfaceNumber < 0 || d.interfaceNumber == interfaceNumber) &&
+            !d.instance.compare(instance, Qt::CaseInsensitive);
+    });
+    for (const auto &d : devices) {
+        if (d.vendor != vendor || !d.verifiedInterface ||
+            (interfaceNumber >= 0 && d.interfaceNumber != interfaceNumber)) continue;
+        const bool sameInstance = !instance.isEmpty() && !d.instance.compare(instance, Qt::CaseInsensitive);
+        const bool sameLocation = !location.isEmpty() && !d.location.isEmpty() &&
+            platform::NormalizeUsbLocation(location.toStdString()) == platform::NormalizeUsbLocation(d.location.toStdString());
+        if (!sameInstance && !sameLocation) continue;
+        if (exact && !sameInstance) continue;
+        if (found) return result;
+        found = &d;
+    }
+    if (!found) return result;
+    result.instance = found->instance;
+    result.detail = found->diagnostic;
+    result.canInstall = found->canInstall();
+    using Reason = ModeSwitchFailure::Reason;
+    switch (found->state) {
+    case DriverState::Missing: result.reason = Reason::Missing; break;
+    case DriverState::Incompatible: result.reason = Reason::Incompatible; break;
+    case DriverState::RebootRequired: result.reason = Reason::RebootRequired; break;
+    case DriverState::DeviceError:
+        result.reason = Reason::DeviceError;
+        result.detail = QString::number(found->problem); break;
+    default: break;
+    }
+    return result;
+}
+ModeSwitchFailure ScanSwitchAccess(int vendor, const QString &instance, const QString &location, int interfaceNumber) {
+#ifdef Q_OS_WIN
+    const auto scan = ScanWindowsUsbDrivers(false);
+    if (scan.error.isEmpty()) return DiagnoseWindowsSwitchAccess(scan.devices, vendor, instance, location, interfaceNumber);
+    auto failure = ModeSwitchFailure::DeviceAccess;
+    failure.detail = scan.error;
+    return failure;
+#else
+    Q_UNUSED(vendor); Q_UNUSED(instance); Q_UNUSED(location); Q_UNUSED(interfaceNumber);
+#endif
+    return ModeSwitchFailure::DeviceAccess;
+}
+
 QString CheckUsbAccess(const core::DeviceRef &reference) {
 #ifdef Q_OS_WIN
     std::lock_guard<std::recursive_mutex> lock(UsbProbeMutex());
