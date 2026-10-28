@@ -15,34 +15,6 @@ AppDialog {
         app.drivers.refresh();
     }
 
-    ColumnLayout {
-        width: parent.width
-        visible: app.drivers.hasPending && !app.drivers.busy
-        spacing: 8
-        Text {
-            Layout.fillWidth: true
-            text: app.drivers.pendingText
-            wrapMode: Text.WrapAnywhere
-            color: Theme.textSecondary
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontNormal
-        }
-        RowLayout {
-            SecondaryButton {
-                objectName: "driverResumeButton"
-                text: app.drivers.waitingForReconnect ? qsTr("Reopen driver assistant…") : qsTr("Continue setup…")
-                enabled: app.drivers.canResume
-                onClicked: app.drivers.resumePending()
-            }
-            SecondaryButton {
-                objectName: "driverForgetButton"
-                text: qsTr("Dismiss")
-                enabled: !app.interactionLocked
-                onClicked: app.drivers.forgetPending()
-            }
-        }
-    }
-
     Text {
         width: parent.width
         visible: app.drivers.devices.length === 0

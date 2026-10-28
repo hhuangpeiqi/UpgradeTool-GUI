@@ -2,8 +2,6 @@
 #include "gui/MessageDisplay.h"
 #include <QCoreApplication>
 #include <QThread>
-#include <QSettings>
-#include <QJsonDocument>
 #include <QDateTime>
 #include <memory>
 #ifdef Q_OS_WIN
@@ -28,15 +26,6 @@ DriverController::DriverController(QObject *parent) : DriverController(DriverHoo
     parent) {}
 DriverController::DriverController(DriverHooks hooks, bool available, QObject *parent)
     : QObject(parent), m_hooks(std::move(hooks)), m_available(available) {
-    if (m_available) {
-        QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
-        const auto saved = QJsonDocument::fromJson(settings.value("drivers/pending").toByteArray()).object();
-        if (saved["schema"].toInt() == 1) {
-            m_pending = DriverDevice::fromJson(saved["device"].toObject());
-            m_waitingForReconnect = hasPending() && saved["stage"].toString() == "waiting-reconnect";
-            if (m_waitingForReconnect) m_message = reconnectText();
-        }
-    }
     m_debounce.setSingleShot(true); m_debounce.setInterval(500);
     connect(&m_debounce, &QTimer::timeout, this, [this] { refresh(false); });
     m_verifyTimer.setSingleShot(true); m_verifyTimer.setInterval(500);
@@ -65,8 +54,8 @@ QVariantMap DriverController::describe(const DriverDevice &d) const {
     case DriverState::RebootRequired: state = tr("Restart Windows required"); break;
     }
     const bool installing = m_busy && d.bindingId() == m_target.bindingId();
-    const auto *pending = m_waitingForReconnect ? FindDriverDevice(m_devices, m_pending) : nullptr;
-    const bool waiting = pending && pending->instance == d.instance && d.state != DriverState::RebootRequired;
+    const auto *reconnecting = m_waitingForReconnect ? FindDriverDevice(m_devices, m_reconnectTarget) : nullptr;
+    const bool waiting = reconnecting && reconnecting->instance == d.instance && d.state != DriverState::RebootRequired;
     if (installing) state = phaseText();
     else if (waiting) state = tr("Waiting for USB reconnection");
     QString diagnostic = d.diagnostic;
@@ -118,19 +107,18 @@ bool DriverController::canConfirm() const {
 QString DriverController::summaryLevel() const {
     if (!m_available) return QStringLiteral("neutral");
     if (m_busy) return QStringLiteral("busy");
-    return m_detectionFailed || attentionCount() > 0 || hasPending() ? QStringLiteral("warning") : QStringLiteral("neutral");
+    return m_detectionFailed || attentionCount() > 0 || (m_waitingForReconnect && m_reconnectTarget.vendor == m_vendor) ? QStringLiteral("warning") : QStringLiteral("neutral");
 }
 QString DriverController::summaryText() const {
     if (!m_available) return {};
     if (m_busy) return phaseText();
     if (m_detectionFailed) return tr("Driver detection failed");
-    if (m_waitingForReconnect && (m_vendor == 0 || m_vendor == 1)) return tr("Waiting for USB reconnection");
+    if (m_waitingForReconnect && m_reconnectTarget.vendor == m_vendor) return tr("Waiting for USB reconnection");
     const int count = attentionCount();
     if (count > 1) return tr("Drivers need attention (%1)").arg(count);
     for (const auto &device : m_devices)
         if (device.vendor == m_vendor && device.needsAttention())
             return describe(device).value("stateText").toString();
-    if (hasPending()) return tr("Driver setup needs attention");
     return {};
 }
 core::Message DriverController::phaseMessage() const {
@@ -185,7 +173,7 @@ void DriverController::poll(bool probe) {
 }
 void DriverController::refresh(bool probe) {
     if (!m_available || m_stopping || m_suspended || m_busy) return;
-    scan(probe || hasPending());
+    scan(probe || m_waitingForReconnect);
 }
 void DriverController::scan(bool probe) {
     if (m_stopping) return;
@@ -241,7 +229,7 @@ void DriverController::scan(bool probe) {
             }
             if (m_verifyElapsed.elapsed() >= m_hooks.verificationTimeoutMs) {
                 if (!m_detectionFailed && (m_operation == DriverOperation::RockusbAssistant || m_operation == DriverOperation::AllwinnerInstall)) {
-                    m_waitingForReconnect = true; savePending();
+                    m_reconnectTarget = m_target; m_waitingForReconnect = true;
                     finish(Outcome::PendingReconnect, reconnectText()); return;
                 }
                 QString message = tr("Device is not ready. Close other device tools, reconnect it, and refresh.");
@@ -255,17 +243,16 @@ void DriverController::scan(bool probe) {
             }
             m_verifyTimer.start(); return;
         }
-        if (fresh && hasPending() && !m_busy && !m_rebootRequired) {
-            const auto *device = FindDriverDevice(result->devices, m_pending);
+        if (fresh && m_waitingForReconnect && !m_busy && !m_rebootRequired) {
+            const auto *device = FindDriverDevice(result->devices, m_reconnectTarget);
             if (device && (device->state == DriverState::Ready ||
                 (device->vendor == 2 && device->state == DriverState::Bound && !device->port.isEmpty() && device->problem == 0))) {
-                const bool reconnecting = m_waitingForReconnect;
                 const QString message = device->vendor == 0 ? tr("Driver ready") : tr("Driver installed");
-                forgetPending(); setMessage(message);
-                if (reconnecting) emit finished(Outcome::Succeeded, message);
-            } else if (m_waitingForReconnect) {
+                clearReconnect(); setMessage(message);
+                emit finished(Outcome::Succeeded, message);
+            } else {
                 if (device && device->state == DriverState::RebootRequired) {
-                    m_rebootRequired = true; m_waitingForReconnect = false; savePending();
+                    m_rebootRequired = true; m_waitingForReconnect = false; m_reconnectTarget = {};
                     setMessage(tr("Restart Windows, then open this tool to check the driver."));
                     emit devicesChanged();
                 } else setMessage(reconnectText());
@@ -296,6 +283,8 @@ void DriverController::prepareQualcommUninstall() {
 }
 void DriverController::confirmInstall() {
     if (!canConfirm()) return;
+    clearReconnect();
+    m_rebootRequired = false;
     m_busy = true; ++m_generation; m_scanAgain = m_probeAgain = false;
     m_installElapsed.start(); m_elapsedSeconds = 0; m_phase = DriverPhase::Preparing;
     m_progressTimer.start(); setMessage(phaseText());
@@ -307,7 +296,6 @@ void DriverController::beginInstall() {
     if (!m_busy || m_installThread || m_verifying || m_stopping) return;
     if (m_scanThread) { m_installPending = true; return; }
     m_installPending = false;
-    if (m_operation != DriverOperation::QualcommUninstall) rememberPending();
     const auto result = std::make_shared<DriverInstallResult>();
     const auto installer = m_hooks.install;
     const auto installerWithProgress = m_hooks.installWithProgress;
@@ -349,12 +337,10 @@ void DriverController::beginInstall() {
             finish(Outcome::Failed, tr("Restart Windows, then open this tool to check the driver.")); return;
         }
         if (!result->ok) {
-            if (result->cancelled && m_operation != DriverOperation::QualcommUninstall) forgetPending();
             finish(Outcome::Failed, result->cancelled ? tr("Driver setup cancelled") : tr("Driver setup failed: %1").arg(result->error)); return;
         }
         if (m_operation == DriverOperation::QualcommUninstall) {
             m_qualcommInstalled = m_hooks.qualcommInstalled();
-            if (m_pending.hardwareId.contains("VID_05C6", Qt::CaseInsensitive)) forgetPending();
             finish(Outcome::Succeeded, tr("Qualcomm drivers uninstalled"));
             refresh(true); return;
         }
@@ -368,59 +354,17 @@ void DriverController::finish(Outcome outcome, const QString &message) {
     emit diagnostic(QStringLiteral("Installation finished [%1 ms]: outcome=%2 reboot=%3")
         .arg(m_installElapsed.elapsed()).arg(int(outcome)).arg(m_rebootRequired));
     m_verifyTimer.stop(); m_verifying = m_installPending = false; m_busy = false;
-    if (outcome == Outcome::Succeeded && !m_stopping && m_operation != DriverOperation::QualcommUninstall) forgetPending();
+    if (outcome == Outcome::Succeeded && !m_stopping && m_operation != DriverOperation::QualcommUninstall) clearReconnect();
     m_affected.clear(); setMessage(message); emit busyChanged(); emit devicesChanged(); emit confirmationChanged(); emit finished(outcome, message);
 }
-void DriverController::rememberPending() {
-    m_pending = m_target;
-    m_waitingForReconnect = false; m_rebootRequired = false;
-    savePending();
-    emit changed();
-}
-void DriverController::savePending() {
-    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
-    QJsonObject saved{{"schema", 1}, {"device", m_pending.toJson()}};
-    if (m_waitingForReconnect) saved["stage"] = "waiting-reconnect";
-    settings.setValue("drivers/pending", QJsonDocument(saved).toJson(QJsonDocument::Compact));
-    settings.sync();
-}
-void DriverController::forgetPending() {
+void DriverController::clearReconnect() {
     if (m_waitingForReconnect) setMessage({});
     m_waitingForReconnect = false;
-    m_pending = {}; m_rebootRequired = false;
-    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
-    settings.remove("drivers/pending"); settings.sync(); emit devicesChanged(); emit changed();
-}
-bool DriverController::canResume() const {
-    if (!hasPending() || locked() || checking() || m_detectionFailed || m_rebootRequired) return false;
-    const auto *device = FindDriverDevice(m_devices, m_pending);
-    return device && device->canInstall();
-}
-QString DriverController::pendingText() const {
-    if (!hasPending()) return {};
-    const auto *device = FindDriverDevice(m_devices, m_pending);
-    QString text;
-    if (checking()) text = tr("Checking driver…");
-    else if (m_detectionFailed) text = tr("Driver detection failed");
-    else if (m_rebootRequired || (device && device->state == DriverState::RebootRequired))
-        text = tr("Restart Windows, then open this tool to check the driver.");
-    else if (m_waitingForReconnect) text = reconnectText();
-    else if (!device) text = tr("Connect the original device and refresh. If its identity changed, select it again.");
-    else if (device->canInstall()) text = tr("Driver setup is unfinished. Continue to review driver setup.");
-    else text = tr("Device is not ready. Close other device tools, reconnect it, and refresh.");
-    return m_pending.hardwareId + '\n' + text;
+    m_reconnectTarget = {};
+    emit devicesChanged(); emit changed();
 }
 QString DriverController::reconnectText() const {
     return tr("Device is not ready. Reconnect the USB cable; the driver will be checked automatically.");
-}
-void DriverController::resumePending() {
-    if (!canResume()) return;
-    const auto *device = FindDriverDevice(m_devices, m_pending);
-    // Resumption may concern a different vendor than the currently selected workspace.
-    m_affected.clear(); m_target = *device;
-    m_operation = operationForDevice(*device);
-    for (const auto &d : m_devices) if (d.bindingId() == m_target.bindingId()) m_affected.append(d);
-    emit confirmationChanged(); emit confirmationRequested();
 }
 void DriverController::setMessage(const QString &message) {
     if (message == m_message) return;

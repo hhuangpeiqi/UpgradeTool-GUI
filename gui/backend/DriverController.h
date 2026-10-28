@@ -34,10 +34,7 @@ class DriverController : public QObject, public Retranslatable, public QAbstract
     Q_PROPERTY(QString summaryText READ summaryText NOTIFY changed)
     Q_PROPERTY(QString summaryLevel READ summaryLevel NOTIFY changed)
     Q_PROPERTY(QVariantList confirmation READ confirmation NOTIFY confirmationChanged)
-    Q_PROPERTY(bool hasPending READ hasPending NOTIFY changed)
     Q_PROPERTY(bool waitingForReconnect READ waitingForReconnect NOTIFY changed)
-    Q_PROPERTY(bool canResume READ canResume NOTIFY changed)
-    Q_PROPERTY(QString pendingText READ pendingText NOTIFY changed)
     Q_PROPERTY(bool canUninstallQualcomm READ canUninstallQualcomm NOTIFY changed)
     Q_PROPERTY(QString confirmationTitle READ confirmationTitle NOTIFY confirmationChanged)
     Q_PROPERTY(QString confirmationText READ confirmationText NOTIFY confirmationChanged)
@@ -67,10 +64,7 @@ public:
     QString summaryText() const;
     QString summaryLevel() const;
     QVariantList confirmation() const;
-    bool hasPending() const { return !m_pending.instance.isEmpty(); }
     bool waitingForReconnect() const { return m_waitingForReconnect; }
-    bool canResume() const;
-    QString pendingText() const;
     bool canUninstallQualcomm() const;
     QString confirmationTitle() const;
     QString confirmationText() const;
@@ -85,8 +79,6 @@ public:
     Q_INVOKABLE void refresh(bool probe = true);
     Q_INVOKABLE void prepareInstall(const QString &instance);
     Q_INVOKABLE void confirmInstall();
-    Q_INVOKABLE void resumePending();
-    Q_INVOKABLE void forgetPending();
     Q_INVOKABLE void prepareQualcommUninstall();
     bool nativeEventFilter(const QByteArray &, void *, qintptr *) override;
 signals:
@@ -106,8 +98,7 @@ private:
     void setPhase(DriverPhase);
     core::Message phaseMessage() const;
     QString phaseText() const;
-    void rememberPending();
-    void savePending();
+    void clearReconnect();
     QString reconnectText() const;
     DriverHooks m_hooks;
     bool m_available = false, m_suspended = false, m_stopping = false, m_busy = false;
@@ -124,7 +115,7 @@ private:
     int m_elapsedSeconds = 0;
     DriverPhase m_phase = DriverPhase::Preparing;
     QVector<DriverDevice> m_devices, m_affected;
-    DriverDevice m_target, m_pending;
+    DriverDevice m_target, m_reconnectTarget;
     bool m_rebootRequired = false;
     bool m_waitingForReconnect = false;
     QString m_message;

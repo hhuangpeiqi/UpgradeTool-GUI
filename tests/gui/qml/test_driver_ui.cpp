@@ -11,7 +11,6 @@
 #include <QTemporaryDir>
 #include <QDir>
 #include <QImage>
-#include <QJsonDocument>
 #include <QtTest/QTest>
 #include <atomic>
 
@@ -39,10 +38,6 @@ int main(int argc, char **argv) {
     board.hardwareId = "USB\\VID_2207&PID_350B";
     board.label = "Rockchip USB Device";
     board.verifiedInterface = true; board.state = gui::DriverState::Missing;
-    {
-        QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
-        settings.setValue("drivers/pending", QJsonDocument(QJsonObject{{"schema", 1}, {"device", board.toJson()}}).toJson());
-    }
     auto aw = board; aw.vendor = 1; aw.label = "Allwinner FEL"; aw.instance += "-AW";
     auto qc = board; qc.vendor = 2; qc.label = "Qualcomm HS-USB QDLoader 9008"; qc.instance += "-QC";
     qc.vid = 0x05c6; qc.pid = 0x9008; qc.hardwareId = "USB\\VID_05C6&PID_9008";
@@ -104,26 +99,9 @@ int main(int argc, char **argv) {
     CHECK(window && dialog && confirmation);
     if (!window || !dialog || !confirmation) return 1;
     CHECK(QMetaObject::invokeMethod(dialog, "openDialog"));
-    CHECK(AwaitUi([&] { return !controller.drivers()->checking() && controller.drivers()->canResume(); }));
-    auto *resume = FindVisualItem(window->contentItem(), "driverResumeButton");
-    auto *forget = FindVisualItem(window->contentItem(), "driverForgetButton");
-    CHECK(resume && forget && resume->isVisible() && resume->isEnabled());
-    if (!resume || !forget) return 1;
-    for (const auto &language : {"en", "zh"}) {
-        controller.language()->setMode(language);
-        window->setWidth(1024); window->setHeight(640);
-        CHECK(resume->property("text").toString() == QString::fromUtf8(QByteArray(language) == "zh" ? "继续安装…" : "Continue setup…"));
-        if (argc > 1) {
-            QDir().mkpath(QString::fromLocal8Bit(argv[1])); QTest::qWait(80);
-            CHECK(window->grabWindow().save(QString::fromLocal8Bit(argv[1]) + QString("/driver-pending-%1.png").arg(language)));
-        }
-    }
-    CHECK(QMetaObject::invokeMethod(resume, "clicked"));
-    CHECK(AwaitUi([&] { return confirmation->property("visible").toBool(); }));
-    CHECK(installs == 0);
-    CHECK(QMetaObject::invokeMethod(confirmation, "close"));
-    CHECK(QMetaObject::invokeMethod(forget, "clicked"));
-    CHECK(!controller.drivers()->hasPending());
+    CHECK(AwaitUi([&] { return !controller.drivers()->checking(); }));
+    CHECK(!FindVisualItem(window->contentItem(), "driverResumeButton"));
+    CHECK(!FindVisualItem(window->contentItem(), "driverForgetButton"));
     CHECK(QMetaObject::invokeMethod(dialog, "close"));
     for (const auto &language : {"en", "zh"}) for (const auto &theme : {"light", "dark"}) for (int width : {1024, 1300}) {
         controller.language()->setMode(language); controller.theme()->setMode(theme);
@@ -337,7 +315,7 @@ int main(int argc, char **argv) {
     CHECK(QMetaObject::invokeMethod(confirmation, "close"));
     controller.drivers()->confirmInstall();
     CHECK(AwaitUi([&] { return controller.drivers()->waitingForReconnect() && !controller.interactionLocked(); }));
-    CHECK(installs == 1 && controller.drivers()->hasPending());
+    CHECK(installs == 1 && controller.drivers()->waitingForReconnect());
     bool reconnectLogged = false;
     for (int i = 0; i < controller.log()->count(); ++i) {
         const auto index = controller.log()->index(i);
@@ -354,10 +332,8 @@ int main(int argc, char **argv) {
         auto *reopen = FindVisualItem(window->contentItem(), "driverResumeButton");
         auto *refreshButton = FindVisualItem(window->contentItem(), "driverRefreshButton");
         auto *closeButton = FindVisualItem(window->contentItem(), "driverCloseButton");
-        CHECK(reopen && reopen->isEnabled() && refreshButton && refreshButton->isEnabled());
+        CHECK(!reopen && refreshButton && refreshButton->isEnabled());
         CHECK(closeButton && closeButton->isEnabled());
-        if (reopen) CHECK(reopen->property("text").toString() == QString::fromUtf8(
-            QByteArray(language) == "zh" ? "重新打开驱动助手…" : "Reopen driver assistant…"));
         CHECK(controller.drivers()->message() == QString::fromUtf8(QByteArray(language) == "zh"
             ? "设备尚未就绪，请重新插拔 USB，连接后将自动检测驱动。"
             : "Device is not ready. Reconnect the USB cable; the driver will be checked automatically."));
@@ -369,7 +345,7 @@ int main(int argc, char **argv) {
         }
     }
     scanMode = 1; controller.drivers()->refresh(false);
-    CHECK(AwaitUi([&] { return !controller.drivers()->hasPending() && !controller.drivers()->checking(); }));
+    CHECK(AwaitUi([&] { return !controller.drivers()->waitingForReconnect() && !controller.drivers()->checking(); }));
     CHECK(!controller.drivers()->waitingForReconnect() && !controller.interactionLocked() && installs == 1);
     CHECK(QMetaObject::invokeMethod(dialog, "close"));
     completeInstall = false; installs = 0; installerEntered = false;

@@ -1220,21 +1220,6 @@
         <translation>安装</translation>
     </message>
     <message>
-        <location line="-183"/>
-        <source>Continue setup…</source>
-        <translation>继续安装…</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Reopen driver assistant…</source>
-        <translation>重新打开驱动助手…</translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Dismiss</source>
-        <translation>放弃任务</translation>
-    </message>
-    <message>
         <location line="+11"/>
         <source>Installation is available when the connected Qualcomm device&apos;s driver is missing.</source>
         <translation>连接的高通设备驱动缺失后可安装。</translation>
@@ -4123,11 +4108,6 @@
         <translation>需要重启 Windows</translation>
     </message>
     <message>
-        <location line="+68"/>
-        <source>Driver setup needs attention</source>
-        <translation>驱动安装需处理</translation>
-    </message>
-    <message>
         <location line="+16"/>
         <source>Recovering device…</source>
         <translation>正在恢复设备…</translation>
@@ -4145,16 +4125,6 @@
         <location line="+163"/>
         <source>Device is not ready. Close other device tools, reconnect it, and refresh.</source>
         <translation>设备尚不可用。请关闭其他设备工具，重新连接设备后刷新。</translation>
-    </message>
-    <message>
-        <location line="-2"/>
-        <source>Connect the original device and refresh. If its identity changed, select it again.</source>
-        <translation>请连接原设备并刷新。如果设备标识已变化，请重新选择。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Driver setup is unfinished. Continue to review driver setup.</source>
-        <translation>驱动安装尚未完成，请继续确认并重新安装驱动。</translation>
     </message>
     <message>
         <source>Install WinUSB?</source>

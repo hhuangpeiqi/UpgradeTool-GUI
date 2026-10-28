@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
         controller.setVendor(1); CHECK(Await([&] { return !controller.checking(); }));
         controller.prepareInstall(allwinner.instance); controller.confirmInstall(); controller.beginInstall();
         CHECK(Await([&] { return controller.message().contains("Waiting for Windows"); }));
-        CHECK(controller.busy() && controller.locked() && controller.hasPending());
+        CHECK(controller.busy() && controller.locked());
         CHECK(controller.progressText().contains("elapsed"));
         CHECK(!controller.devices().first().toMap()["canInstall"].toBool());
         controller.confirmInstall(); controller.beginInstall();
@@ -281,7 +281,7 @@ int main(int argc, char **argv) {
         CHECK(controller.busy() && controller.locked() && controller.message() == "Checking driver…");
         verificationHeld = false;
         CHECK(Await([&] { return !controller.busy(); }));
-        CHECK(!controller.hasPending() && controller.message() == "Driver installed");
+        CHECK(!controller.waitingForReconnect() && controller.message() == "Driver installed");
         CHECK(controller.progressText() == controller.message() && calls == 1);
     }
     {
@@ -340,30 +340,16 @@ int main(int argc, char **argv) {
             controller.setVendor(1); CHECK(Await([&] { return !controller.checking(); }));
             controller.prepareInstall(device.instance); controller.confirmInstall(); controller.beginInstall();
             CHECK(Await([&] { return !controller.busy(); }));
-            CHECK(controller.hasPending() && !controller.canResume());
+            CHECK(!controller.waitingForReconnect());
             CHECK(controller.message().contains("Restart Windows"));
             // A later scan in this session must not erase Windows' restart requirement.
             device.state = gui::DriverState::Ready;
             controller.refresh(); CHECK(Await([&] { return !controller.checking(); }));
-            CHECK(controller.hasPending());
+            CHECK(controller.message().contains("Restart Windows"));
         }
-        device.state = gui::DriverState::Missing;
         {
-            gui::DriverController controller(pendingHooks, true);
-            CHECK(controller.hasPending());
-            CHECK(!controller.waitingForReconnect()); // Legacy records have no stage.
-            controller.refresh(false); CHECK(Await([&] { return !controller.checking(); }));
-            CHECK(controller.canResume());
-            int confirmations = 0;
-            QObject::connect(&controller, &gui::DriverController::confirmationRequested, [&] { ++confirmations; });
-            controller.resumePending();
-            CHECK(confirmations == 1 && controller.confirmation().size() == 1 && !controller.busy());
-            scanFailed = true;
-            controller.refresh(); CHECK(Await([&] { return !controller.checking(); }));
-            CHECK(controller.hasPending() && !controller.canResume());
-            scanFailed = false; device.state = gui::DriverState::Ready;
-            controller.refresh(false); CHECK(Await([&] { return !controller.checking(); }));
-            CHECK(!controller.hasPending());
+            gui::DriverController fresh(pendingHooks, true);
+            CHECK(!fresh.waitingForReconnect() && fresh.message().isEmpty());
         }
         // Verification failures cannot use a cached Ready snapshot to report success.
         device.state = gui::DriverState::Missing;
@@ -375,12 +361,11 @@ int main(int argc, char **argv) {
             controller.setVendor(1); CHECK(Await([&] { return !controller.checking(); }));
             controller.prepareInstall(device.instance); controller.confirmInstall(); controller.beginInstall();
             CHECK(Await([&] { return !controller.busy(); }));
-            CHECK(controller.hasPending() && controller.message().contains("detection failed"));
+            CHECK(!controller.waitingForReconnect() && controller.message().contains("detection failed"));
             scanFailed = false;
             device.instance += "-changed"; device.location.clear();
             controller.refresh(); CHECK(Await([&] { return !controller.checking(); }));
-            CHECK(controller.hasPending() && !controller.canResume());
-            controller.forgetPending(); CHECK(!controller.hasPending());
+            CHECK(!controller.waitingForReconnect());
         }
     }
     // The official RK GUI can close successfully without installing anything.
@@ -428,13 +413,12 @@ int main(int argc, char **argv) {
         CHECK(controller.devices().size() == 1 && controller.devices().first().toMap()["canInstall"].toBool());
         for (auto next : {NoAction, Cancelled, Failed, Disconnected, Inaccessible, Reboot, ScanFailed, Installed}) {
             scenario = next; outcome = {{rk}, {}};
-            controller.forgetPending(); refresh();
+            refresh();
             controller.prepareInstall(rk.instance);
             CHECK(controller.confirmationTitle() == "Install Rockchip drivers?");
             CHECK(controller.confirmationText() == "Install the driver in the Rockchip driver assistant.");
             controller.confirmInstall(); controller.beginInstall();
             CHECK(Await([&] { return !controller.busy(); }));
-            CHECK(controller.hasPending() == (next != Cancelled && next != Installed));
             const bool waiting = next == NoAction || next == Disconnected || next == Inaccessible;
             CHECK(controller.waitingForReconnect() == waiting);
             CHECK(!controller.locked());
@@ -443,47 +427,56 @@ int main(int argc, char **argv) {
             if (waiting) CHECK(controller.message().contains("checked automatically"));
         }
         CHECK(calls == 8 && completions == 8);
-        // A reconnect can complete setup in a later session without relaunching
-        // the assistant. Other devices, failed scans and cached binding cannot.
+        // Reconnection is tracked only in this session. Other devices, failed
+        // scans and cached bindings cannot establish readiness.
         scenario = NoAction; outcome = {{rk}, {}}; refresh();
         controller.prepareInstall(rk.instance); controller.confirmInstall(); controller.beginInstall();
         CHECK(Await([&] { return !controller.busy(); }));
         CHECK(controller.waitingForReconnect());
+        controller.setVendor(2);
+        CHECK(Await([&] { return !controller.checking(); }));
+        CHECK(controller.summaryLevel() == "neutral" && controller.summaryText().isEmpty());
+        controller.setVendor(0);
+        CHECK(Await([&] { return !controller.checking(); }));
+        CHECK(controller.summaryLevel() == "warning" && controller.summaryText() == "Waiting for USB reconnection");
         {
             gui::DriverController restored(rkHooks, true);
-            CHECK(restored.hasPending() && restored.waitingForReconnect());
+            CHECK(!restored.waitingForReconnect() && restored.message().isEmpty());
+        }
+        {
+            auto &restored = controller;
             auto rescan = [&] { restored.refresh(false); CHECK(Await([&] { return !restored.checking(); })); };
             auto ready = rk; ready.service = "Rockusb"; ready.state = gui::DriverState::Ready;
             auto other = ready; other.instance += "-other"; other.location += "-other";
             outcome = {{other}, {}}; rescan();
-            CHECK(restored.waitingForReconnect() && restored.hasPending());
+            CHECK(restored.waitingForReconnect());
             auto ambiguous = ready; ambiguous.instance += "-duplicate";
             outcome = {{ready, ambiguous}, {}}; rescan();
-            CHECK(restored.hasPending());
+            CHECK(restored.waitingForReconnect());
             outcome = {{ready}, "scan failed"}; rescan();
-            CHECK(restored.hasPending() && restored.message().contains("detection failed"));
+            CHECK(restored.waitingForReconnect() && restored.message().contains("detection failed"));
             auto bound = ready; bound.state = gui::DriverState::Bound;
             outcome = {{bound}, {}}; rescan();
-            CHECK(lastProbe); // Pending setup forces an actual probe on refresh(false).
-            CHECK(restored.hasPending() && restored.message().contains("checked automatically"));
+            CHECK(lastProbe); // Waiting for reconnection forces an actual probe on refresh(false).
+            CHECK(restored.waitingForReconnect() && restored.message().contains("checked automatically"));
             int readySignals = 0;
-            QObject::connect(&restored, &gui::DriverController::finished, [&](auto result, const QString &) {
+            const auto readyConnection = QObject::connect(&restored, &gui::DriverController::finished, [&](auto result, const QString &) {
                 CHECK(result == Outcome::Succeeded); ++readySignals;
             });
             outcome = {{ready}, {}};
 #ifdef Q_OS_WIN
             MSG message = {}; message.message = WM_DEVICECHANGE; message.wParam = DBT_DEVICEARRIVAL;
             restored.nativeEventFilter({}, &message, nullptr);
-            CHECK(Await([&] { return !restored.hasPending(); }));
+            CHECK(Await([&] { return !restored.waitingForReconnect(); }));
 #else
             rescan();
 #endif
             CHECK(!restored.waitingForReconnect() && !restored.locked());
             CHECK(restored.message() == "Driver ready" && readySignals == 1);
             rescan(); CHECK(readySignals == 1);
+            QObject::disconnect(readyConnection);
         }
-        controller.forgetPending();
-        CHECK(!controller.waitingForReconnect() && controller.message().isEmpty());
+
         for (const auto state : {gui::DriverState::Incompatible, gui::DriverState::Bound, gui::DriverState::Ready,
                                 gui::DriverState::AccessFailed, gui::DriverState::DeviceError}) {
             auto changed = rk; changed.state = state;
@@ -560,16 +553,16 @@ int main(int argc, char **argv) {
         // Unplugging after confirmation must not invoke the official tool.
         outcome = {}; run(); CHECK(calls == 0 && controller.message().contains("changed"));
         outcome = {{qc}, {}}; refresh(); controller.prepareInstall(qc.instance);
-        cancelOperation = true; run(); CHECK(calls == 1 && !controller.hasPending());
+        cancelOperation = true; run(); CHECK(calls == 1 && !controller.waitingForReconnect());
         cancelOperation = false; failOperation = true;
         refresh(); controller.prepareInstall(qc.instance); run();
-        CHECK(calls == 2 && controller.message().contains("exit code 7") && controller.hasPending());
+        CHECK(calls == 2 && controller.message().contains("exit code 7") && !controller.waitingForReconnect());
         failOperation = false; holdOperation = true;
         refresh(); controller.prepareInstall(qc.instance); run();
         CHECK(calls == 3 && controller.message().contains("still missing"));
         holdOperation = false;
         refresh(); controller.prepareInstall(qc.instance); run();
-        CHECK(calls == 4 && controller.message() == "Driver installed" && !controller.hasPending());
+        CHECK(calls == 4 && controller.message() == "Driver installed" && !controller.waitingForReconnect());
         CHECK(controller.canUninstallQualcomm());
         CHECK(controller.attentionCount() == 0);
         // Package removal is possible without a connected device.
@@ -577,7 +570,7 @@ int main(int argc, char **argv) {
         CHECK(controller.canConfirm() && controller.confirmation().isEmpty());
         CHECK(controller.confirmationTitle() == "Uninstall Qualcomm drivers?");
         run(); CHECK(calls == 5 && controller.message() == "Qualcomm drivers uninstalled");
-        CHECK(!controller.canUninstallQualcomm() && !controller.hasPending());
+        CHECK(!controller.canUninstallQualcomm() && !controller.waitingForReconnect());
         controller.prepareInstall(qc.instance); CHECK(!controller.canConfirm());
     }
     {
@@ -608,14 +601,14 @@ int main(int argc, char **argv) {
         controller.confirmInstall(); controller.beginInstall();
         CHECK(Await([&] { return !controller.busy(); }));
         CHECK(installingReported);
-        CHECK(calls == 1 && controller.waitingForReconnect() && controller.hasPending());
+        CHECK(calls == 1 && controller.waitingForReconnect());
         // Original installer closing successfully cannot establish readiness.
         auto ready = aw; ready.service = "usbUDisc"; ready.state = gui::DriverState::Ready;
         auto other = ready; other.instance += "-other"; other.location += "-other";
         snapshot = {{other}, {}}; controller.refresh(true);
-        CHECK(Await([&] { return !controller.checking(); })); CHECK(controller.hasPending());
+        CHECK(Await([&] { return !controller.checking(); })); CHECK(controller.waitingForReconnect());
         snapshot = {{ready}, {}}; controller.refresh(true);
-        CHECK(Await([&] { return !controller.checking(); })); CHECK(!controller.hasPending());
+        CHECK(Await([&] { return !controller.checking(); })); CHECK(!controller.waitingForReconnect());
         // Revalidate before launching an elevated operation.
         snapshot = {{aw}, {}}; controller.refresh(true);
         CHECK(Await([&] { return !controller.checking(); }));
@@ -623,7 +616,6 @@ int main(int argc, char **argv) {
         snapshot.devices[0].service = "WinUSB";
         controller.beginInstall(); CHECK(Await([&] { return !controller.busy(); }));
         CHECK(calls == 1 && controller.message().contains("changed"));
-        controller.forgetPending();
     }
     return failures ? 1 : 0;
 }
