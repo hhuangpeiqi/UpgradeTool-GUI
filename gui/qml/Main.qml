@@ -229,7 +229,6 @@ ApplicationWindow {
     AppMenu {
         id: configMenu
         AppMenuItem { text: qsTr("Preferences…"); onTriggered: settingsDialog.openDialog() }
-        AppMenuItem { text: qsTr("Generate GPT…"); visible: app.vendor === 0; onTriggered: gptDialog.open() }
     }
 
     AppMenu {
@@ -238,12 +237,6 @@ ApplicationWindow {
             text: qsTr("USB Drivers…")
             visible: app.drivers.available
             onTriggered: driverDialog.openDialog()
-        }
-        AppMenuItem {
-            text: qsTr("Device Info…")
-            visible: app.vendor === 1
-            enabled: !app.interactionLocked && app.hasDevice
-            onTriggered: allwinnerDeviceDialog.open()
         }
         AppMenuItem {
             text: qsTr("Refresh")
@@ -266,7 +259,6 @@ ApplicationWindow {
         AppMenuItem { text: qsTr("About"); onTriggered: aboutDialog.open() }
     }
 
-    AllwinnerDeviceDialog { id: allwinnerDeviceDialog }
     SwitchRecoveryDialog {
         id: switchRecoveryDialog
         onDriversRequested: driverDialog.openDialog()
@@ -365,7 +357,6 @@ ApplicationWindow {
     }
     BatchSelectDialog { id: batchDialog }
     StorageSelectDialog { id: storageDialog }
-    GptDialog { id: gptDialog }
     AboutDialog { id: aboutDialog }
     AdbDeviceDialog { id: adbDialog }
     PermissionDialog {

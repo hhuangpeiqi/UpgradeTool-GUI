@@ -8,6 +8,8 @@ AllwinnerWorkspace {
     context: 2
     title: qsTr("Advanced")
 
+    AllwinnerDeviceDialog { id: deviceDialog }
+
     AppCheckBox {
         id: showFiles
         focusPolicy: Qt.StrongFocus
@@ -50,6 +52,13 @@ AllwinnerWorkspace {
     RowLayout {
         Layout.fillWidth: true
         Text { text: qsTr("Device Operations"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium; Layout.fillWidth: true }
+        SecondaryButton {
+            objectName: "awDeviceInfo"
+            focusPolicy: Qt.StrongFocus
+            text: qsTr("Device Info…")
+            enabled: !app.interactionLocked && app.vendor === 1 && app.hasFlashTarget
+            onClicked: deviceDialog.open()
+        }
         SecondaryButton {
             focusPolicy: Qt.StrongFocus
             objectName: "awReboot"

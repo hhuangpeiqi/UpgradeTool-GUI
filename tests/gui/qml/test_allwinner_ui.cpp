@@ -67,24 +67,55 @@ int main(int argc, char **argv) {
             return item;
         };
         auto *flash=find("awFlashStart"), *raw=find("awRawStart"), *convert=find("awConvertStart");
-        auto *reboot=find("awReboot");
+        auto *reboot=find("awReboot"), *deviceInfo=find("awDeviceInfo");
         CHECK(!flash->isEnabled() && !raw->isEnabled() && !convert->isEnabled());
-        CHECK(!reboot->isEnabled()); // No device yet.
+        CHECK(!reboot->isEnabled() && !deviceInfo->isEnabled()); // No device yet.
+        auto *tools=find("AllwinnerToolsPage");
+        CHECK(visualFind(tools, "awDeviceInfo") == deviceInfo);
+        CHECK(tools->findChild<QObject *>("AllwinnerDeviceDialog"));
+        auto *gpt=find("rkGenerateGpt");
+        controller.setVendor(0);
+        window->setProperty("currentPage", 2);
+        CHECK(!controller.hasDevice() && gpt->isEnabled());
+        window->resize(1024, 640);
+        CHECK(Await([&] {
+            return gpt->width()>0 && gpt->x()>=0
+                && gpt->x()+gpt->width()<=gpt->parentItem()->width();
+        }));
+        window->resize(1300, 780);
+        CHECK(QMetaObject::invokeMethod(gpt, "clicked"));
+        auto *gptDialog=window->findChild<QObject *>("rkGptDialog");
+        CHECK(gptDialog && gptDialog->property("visible").toBool());
+        if (gptDialog) CHECK(QMetaObject::invokeMethod(gptDialog, "close"));
+        controller.tasks()->setBusy(true);
+        CHECK(!gpt->isEnabled());
+        controller.tasks()->setBusy(false);
+        controller.setVendor(1);
+        window->setProperty("currentPage", 1);
         find("awConvertOutput")->setProperty("text",temporary.filePath("programmer.img"));
         CHECK(convert->isEnabled()); // Offline conversion does not need USB.
         find("awRawImage")->setProperty("text","disk.img");
         CHECK(!raw->isEnabled());
         QVariantMap device{{"vendor",1},{"index",1},{"key","allwinner:250-254"},{"bus",250},{"ports",QVariantList{254}}};
         CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList, SnapshotDevices(QVariantList{device}))));
-        CHECK(flash->isEnabled() && raw->isEnabled() && reboot->isEnabled());
+        CHECK(flash->isEnabled() && raw->isEnabled() && reboot->isEnabled() && deviceInfo->isEnabled());
         device["accessError"]=5;
         CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList, SnapshotDevices(QVariantList{device}))));
         CHECK(controller.hasDevice() && !controller.hasFlashTarget());
-        CHECK(!flash->isEnabled() && !raw->isEnabled() && !reboot->isEnabled());
+        CHECK(!flash->isEnabled() && !raw->isEnabled() && !reboot->isEnabled() && !deviceInfo->isEnabled());
         CHECK(convert->isEnabled());
         device["accessError"]=0;
         CHECK(QMetaObject::invokeMethod(&controller,"onDevicesReady",Qt::DirectConnection,Q_ARG(QVariantList, SnapshotDevices(QVariantList{device}))));
-        CHECK(flash->isEnabled() && raw->isEnabled() && reboot->isEnabled());
+        CHECK(flash->isEnabled() && raw->isEnabled() && reboot->isEnabled() && deviceInfo->isEnabled());
+
+        controller.allwinner()->setContextFirmware(2, QString());
+        CHECK(!controller.allwinner()->states()[2].toMap()["valid"].toBool());
+        CHECK(deviceInfo->isEnabled()); // Device info is independent of firmware.
+        controller.tasks()->setBusy(true);
+        CHECK(!deviceInfo->isEnabled());
+        controller.tasks()->setBusy(false);
+        controller.allwinner()->setContextFirmware(2, QString::fromLocal8Bit(argv[1]));
+        CHECK(Await([&] { return controller.allwinner()->states()[2].toMap()["valid"].toBool(); }));
 
         find("awFlashMode")->setProperty("currentIndex",0);
         CHECK(!flash->isEnabled());

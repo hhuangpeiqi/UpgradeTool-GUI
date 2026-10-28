@@ -26,6 +26,8 @@ Item {
         qsTr("Switch USB3")
     ]
 
+    GptDialog { id: gptDialog; objectName: "rkGptDialog" }
+
     readonly property bool canRun: !app.interactionLocked && app.hasDevice
 
     Card {
@@ -71,7 +73,7 @@ Item {
                     SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
                 }
 
-                RowLayout {
+                Flow {
                     Layout.fillWidth: true
                     spacing: 12
 
@@ -86,11 +88,17 @@ Item {
                         onClicked: { folderPicker.pending = "extract"; folderPicker.open(); }
                     }
                     SecondaryButton {
+                        objectName: "rkGenerateGpt"
+                        focusPolicy: Qt.StrongFocus
+                        text: qsTr("Generate GPT…")
+                        enabled: !app.interactionLocked
+                        onClicked: gptDialog.open()
+                    }
+                    SecondaryButton {
                         text: qsTr("Erase All")
                         enabled: page.canRun
                         onClicked: app.rockchip.runOperation(Operations.EraseFlash, {path: bootField.text})
                     }
-                    Item { Layout.fillWidth: true }
                 }
 
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }

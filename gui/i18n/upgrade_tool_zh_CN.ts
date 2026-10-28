@@ -347,6 +347,10 @@
         <source>Select Save File</source>
         <translation>选择保存文件</translation>
     </message>
+    <message>
+        <source>Generate GPT…</source>
+        <translation>生成 GPT…</translation>
+    </message>
 </context>
 <context>
     <name>Allwinner</name>
@@ -848,6 +852,10 @@
         <location line="+10"/>
         <source>Select Extract Output Directory</source>
         <translation>选择解包输出目录</translation>
+    </message>
+    <message>
+        <source>Device Info…</source>
+        <translation>设备信息…</translation>
     </message>
 </context>
 <context>
@@ -1571,16 +1579,6 @@
         <location line="-103"/>
         <source>Preferences…</source>
         <translation>首选项…</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Generate GPT…</source>
-        <translation>生成 GPT…</translation>
-    </message>
-    <message>
-        <location line="+11"/>
-        <source>Device Info…</source>
-        <translation>设备信息…</translation>
     </message>
     <message>
         <location line="+6"/>
