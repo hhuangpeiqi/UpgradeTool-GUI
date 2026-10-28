@@ -96,6 +96,8 @@ The **Load XML** dialog opens in the programmer's folder and the loaded list is 
 | `allwinner` | Raw Image Flash | Flash Firmware | Advanced |
 | `qualcomm` | Partition Tools | Download | Tools |
 
+Only one instance can run per user. Starting another instance displays an already-running notice; its startup arguments are not applied.
+
 `--firmware` loads a firmware package into the selected page. `--lang` defaults to `auto` (follow the system) and also accepts `zh` or `en`.
 
 ## Device permissions

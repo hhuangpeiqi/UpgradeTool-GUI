@@ -23,6 +23,7 @@
 #include "gui/backend/DirModel.h"
 #include "gui/OperationSpec.h"
 #include "gui/ApplicationLifecycle.h"
+#include "gui/SingleInstanceGuard.h"
 
 
 int main(int argc, char *argv[])
@@ -38,6 +39,13 @@ int main(int argc, char *argv[])
 	app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/UpgradeTool/icons/upgrade_tool.svg")));
 #endif
 	QQuickStyle::setStyle("Basic");
+
+    // Keep this guard alive until controllers, logging and libusb are torn down.
+    gui::SingleInstanceGuard instance;
+    const auto instanceResult = instance.acquire();
+    if (instanceResult != gui::SingleInstanceGuard::Result::Acquired) {
+        return gui::ShowStartupNotice(instanceResult == gui::SingleInstanceGuard::Result::AlreadyRunning);
+    }
 
 	qmlRegisterUncreatableMetaObject(gui::Operations::staticMetaObject, "UpgradeTool", 1, 0, "Operations", "Business operation identifiers");
 

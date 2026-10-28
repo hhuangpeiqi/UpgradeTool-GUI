@@ -4716,4 +4716,15 @@
         <translation>查看 USB 驱动</translation>
     </message>
 </context>
+<context>
+    <name>StartupNotice</name>
+    <message>
+        <source>UpgradeTool-GUI is already running. Please do not start it again.</source>
+        <translation>UpgradeTool-GUI 已在运行，请勿重复启动。</translation>
+    </message>
+    <message>
+        <source>Cannot check whether UpgradeTool-GUI is running. Please check your user directory permissions.</source>
+        <translation>无法完成启动检查，请检查用户目录权限。</translation>
+    </message>
+</context>
 </TS>

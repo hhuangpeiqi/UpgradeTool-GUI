@@ -31,3 +31,5 @@ upgrade_test(test_allwinner_handoff LIBRARIES upgrade_gui_backend TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui controller allwinner drivers)
 upgrade_test(test_switch_recovery LIBRARIES upgrade_gui_backend TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui controller rockchip allwinner qualcomm)
+
+upgrade_test(test_single_instance LIBRARIES upgrade_gui_backend TIMEOUT 30 LABELS gui controller)

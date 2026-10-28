@@ -14,7 +14,7 @@ foreach(vendor rockchip allwinner qualcomm)
       -DQPA_PLATFORM=${UPGRADE_TOOL_TEST_QPA_PLATFORM}
       ${firmware_argument} -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/${vendor}-${tab}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/gui_smoke.cmake)
-    set_tests_properties(${prefix}_${tab} PROPERTIES TIMEOUT 30 LABELS "gui;smoke;${vendor}"
+    set_tests_properties(${prefix}_${tab} PROPERTIES RESOURCE_LOCK upgrade_tool_instance TIMEOUT 30 LABELS "gui;smoke;${vendor}"
       ENVIRONMENT "${test_gui_environment}")
     if(vendor STREQUAL "allwinner")
       set_tests_properties(${prefix}_${tab} PROPERTIES FIXTURES_REQUIRED allwinner_firmware)

@@ -9,6 +9,8 @@ add_library(upgrade_gui_backend STATIC
   UsbAccess.h
   backend/DriverController.cpp
   backend/DriverController.h
+  SingleInstanceGuard.cpp
+  SingleInstanceGuard.h
   ApplicationLifecycle.cpp
   ApplicationLifecycle.h
   ProcessAdapter.cpp
@@ -282,6 +284,7 @@ set(_tr_sources
   ${CMAKE_CURRENT_SOURCE_DIR}/EdlTransport.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/UsbAccess.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/EngineWorker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/SingleInstanceGuard.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AllwinnerSwitchMonitor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbRunner.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/AdbService.cpp
