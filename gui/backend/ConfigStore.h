@@ -37,7 +37,6 @@ public:
     Q_INVOKABLE void clearLogFiles();
 	void retranslate() override;
 
-    void setUsbVendor(const QString &vendor) { m_usbVendor = vendor; }
 	Q_INVOKABLE QVariantMap load();
 	Q_INVOKABLE bool save(const QVariantMap &values);
 	Q_INVOKABLE void installUdev();
@@ -63,7 +62,6 @@ private:
 	void SetStatus(TranslatableText::Factory factory);
 
     bool m_uiLogDetails = false;
-    QString m_usbVendor = "2207";
 	TranslatableText m_status;
 };
 

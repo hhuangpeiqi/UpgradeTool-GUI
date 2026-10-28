@@ -35,3 +35,5 @@ upgrade_test(test_switch_recovery LIBRARIES upgrade_gui_backend TIMEOUT 30
 upgrade_test(test_single_instance LIBRARIES upgrade_gui_backend TIMEOUT 30 LABELS gui controller)
 upgrade_test(test_startup_notice LIBRARIES upgrade_gui_backend TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui controller qml)
+upgrade_test(test_udev_permission LIBRARIES upgrade_gui_backend TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui controller)

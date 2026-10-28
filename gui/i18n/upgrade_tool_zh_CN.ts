@@ -1856,19 +1856,8 @@
         <translation>需要 USB 设备访问权限</translation>
     </message>
     <message>
-        <location line="+25"/>
-        <source>The current user (non-root) has not installed the Rockchip udev rules; the device may be inaccessible.</source>
-        <translation>当前用户（非 root）没有安装 Rockchip udev 规则，设备可能无法访问。</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>The current user (non-root) has not installed the Allwinner FEL/FES udev rules; the device may be inaccessible.</source>
-        <translation>当前用户（非 root）没有安装全志 FEL/FES udev 规则，设备可能无法访问。</translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Qualcomm USB access requires udev rules.</source>
-        <translation>访问高通 USB 设备需要安装 udev 规则。</translation>
+        <source>USB access rules are missing for one or more supported vendors. Install all rules to allow device access.</source>
+        <translation>部分受支持厂商的 USB 访问规则尚未安装。请统一安装全部规则，以便访问设备。</translation>
     </message>
     <message>
         <location line="+9"/>

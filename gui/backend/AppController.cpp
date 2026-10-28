@@ -887,7 +887,8 @@ void AppController::refresh()
 
 void AppController::retryPermission()
 {
-	m_bPermissionIgnored = false;
+    // Rechecks may close the startup prompt, but never reopen it.
+	if (!permissionBlocked()) return;
 	m_bPermissionBlocked = PermissionMissing();
 	emit permissionChanged();
 	emit requestScan();
@@ -1314,8 +1315,7 @@ void AppController::setVendor(int vendor)
     m_pendingFelLocation.reset();
     m_felSwitchLocation.reset();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
-    m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0); m_pConfig->setUsbVendor(vendor == 2 ? "05c6" : vendor == 1 ? "1f3a" : "2207");
-    m_bPermissionIgnored = false; m_bPermissionBlocked = PermissionMissing(); emit permissionChanged();
+    m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0);
     m_deviceModel->setRows({}); m_iDeviceIndex=-1;
     m_batchKeys=m_vendorBatch[m_vendor]; m_bBatchContinue=m_vendorContinue[m_vendor]; m_bBatchMode=m_batchKeys.size()>1;
     emit vendorChanged(); emit deviceIndexChanged(); emit batchModeChanged();
