@@ -7,7 +7,7 @@ AppDialog {
     id: dlg
 
     titleText: qsTr("Generate GPT")
-    width: 520
+    width: Math.min(520, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
     property bool validationFailed: false
     onOpened: validationFailed = false
     hintText: validationFailed ? qsTr("Enter the input parameter and output GPT") : ""
@@ -15,11 +15,11 @@ AppDialog {
 
     Column {
         width: parent.width
-        spacing: 10
+        spacing: Theme.dialogControlSpacing
 
         Row {
             width: parent.width
-            spacing: 10
+            spacing: Theme.dialogControlSpacing
 
             Text {
                 text: qsTr("Input parameter")
@@ -41,7 +41,9 @@ AppDialog {
             SecondaryButton {
                 text: qsTr("Choose…")
                 onClicked: {
-                    picker.onPicked = function (p) { inputField.text = p; };
+                    picker.onPicked = function (p) {
+                        inputField.text = p;
+                    };
                     picker.open();
                 }
             }
@@ -49,7 +51,7 @@ AppDialog {
 
         Row {
             width: parent.width
-            spacing: 10
+            spacing: Theme.dialogControlSpacing
 
             Text {
                 text: qsTr("Output GPT")
@@ -71,35 +73,32 @@ AppDialog {
             SecondaryButton {
                 text: qsTr("Choose…")
                 onClicked: {
-                    savePicker.onPicked = function (p) { outputField.text = p; };
+                    savePicker.onPicked = function (p) {
+                        outputField.text = p;
+                    };
                     savePicker.open();
                 }
             }
         }
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
-        Item { Layout.fillWidth: true }
-
+    footerContent: [
         SecondaryButton {
             text: qsTr("Cancel")
             onClicked: dlg.close()
-        }
-
+        },
         PrimaryButton {
             objectName: "gptGenerateButton"
             text: qsTr("Generate")
             onClicked: {
                 dlg.validationFailed = !inputField.text.trim() || !outputField.text.trim();
-                if (dlg.validationFailed) return;
+                if (dlg.validationFailed)
+                    return;
                 app.rockchip.createGpt(inputField.text, outputField.text);
                 dlg.close();
             }
         }
-    }
+    ]
 
     AppFilePicker {
         id: picker

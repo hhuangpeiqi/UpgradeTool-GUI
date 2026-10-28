@@ -8,7 +8,7 @@ AppDialog {
     objectName: "adbDeviceDialog"
 
     titleText: qsTr("Select Device")
-    width: 460
+    width: Math.min(460, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
 
     property var options: []
     property bool handled: false
@@ -26,8 +26,7 @@ AppDialog {
 
     Text {
         width: parent.width
-        text: app.vendor === 1 ? qsTr("Multiple ADB devices detected. Select the one to switch to FEL:")
-                              : qsTr("Multiple ADB devices detected. Select the one to switch to Loader:")
+        text: app.vendor === 1 ? qsTr("Multiple ADB devices detected. Select the one to switch to FEL:") : qsTr("Multiple ADB devices detected. Select the one to switch to Loader:")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -71,15 +70,10 @@ AppDialog {
         }
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
-        Item { Layout.fillWidth: true }
-
+    footerContent: [
         SecondaryButton {
             text: qsTr("Cancel")
             onClicked: dlg.close()
         }
-    }
+    ]
 }

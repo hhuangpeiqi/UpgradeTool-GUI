@@ -7,7 +7,7 @@ AppDialog {
     id: dlg
 
     titleText: qsTr("USB device access permission required")
-    width: 540
+    width: Math.min(540, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
     closePolicy: Popup.NoAutoClose
 
     property bool installing: false
@@ -23,7 +23,7 @@ AppDialog {
 
     Column {
         width: parent.width
-        spacing: 12
+        spacing: Theme.dialogBodySpacing
 
         Text {
             width: parent.width
@@ -45,7 +45,7 @@ AppDialog {
 
         Row {
             width: parent.width
-            spacing: 8
+            spacing: Theme.dialogControlSpacing
 
             Rectangle {
                 width: parent.width - copyBtn.width - 8
@@ -101,23 +101,16 @@ AppDialog {
         }
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
+    footerContent: [
         SecondaryButton {
             text: qsTr("Ignore for now")
             onClicked: dlg.close()
-        }
-
-        Item { Layout.fillWidth: true }
-
+        },
         SecondaryButton {
             text: qsTr("Retry")
             enabled: !dlg.installing
             onClicked: app.retryPermission()
-        }
-
+        },
         PrimaryButton {
             text: dlg.installing ? qsTr("Installing…") : qsTr("Install udev rules")
             reserveText: dlg.installing ? qsTr("Install udev rules") : qsTr("Installing…")
@@ -127,5 +120,5 @@ AppDialog {
                 app.config.installUdev();
             }
         }
-    }
+    ]
 }

@@ -70,7 +70,7 @@ AppDialog {
     readonly property int rowHeight: 34
     readonly property int maxCrumbWidth: 220
 
-    width: 720
+    width: Math.min(720, Overlay.overlay ? Overlay.overlay.width - 32 : 720)
 
     onAboutToShow: reset()
     onOpened: openPendingError()
@@ -878,10 +878,12 @@ AppDialog {
         }
     }
 
-    footerContent: RowLayout {
+    footerFormContent: GridLayout {
+        visible: !root.folderMode
         width: parent.width
-        spacing: 8
-
+        columns: width < 600 ? 2 : 4
+        columnSpacing: Theme.dialogControlSpacing
+        rowSpacing: Theme.dialogControlSpacing
         Text {
             visible: !root.folderMode
             Layout.preferredWidth: 56
@@ -916,39 +918,36 @@ AppDialog {
             id: filterCombo
             visible: !root.folderMode && root.filterLabels().length > 1
             Layout.preferredWidth: 180
+            Layout.fillWidth: true
             Layout.preferredHeight: root.rowHeight
             model: root.filterLabels()
-            onActivated: (index) => {
+            onActivated: index => {
                 root.activeFilter = index;
                 root.applyFilter();
             }
         }
+    }
 
-        Item {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 1
-        }
-
+    footerContent: [
         SecondaryButton {
             Layout.alignment: Qt.AlignVCenter
             text: qsTr("Cancel")
             onClicked: root.close()
-        }
-
+        },
         SecondaryButton {
             visible: root.skipText !== ""
             text: root.skipText
-            onClicked: { root.skipped(); root.close(); }
-        }
-
+            onClicked: {
+                root.skipped();
+                root.close();
+            }
+        },
         PrimaryButton {
             Layout.alignment: Qt.AlignVCenter
-            text: root.folderMode
-                  ? (root.selectedIsDir ? qsTr("Select this directory") : qsTr("Select this directory"))
-                  : (root.saveMode ? qsTr("Save") : qsTr("Select"))
+            text: root.folderMode ? (root.selectedIsDir ? qsTr("Select this directory") : qsTr("Select this directory")) : (root.saveMode ? qsTr("Save") : qsTr("Select"))
             onClicked: root.confirmAccept()
         }
-    }
+    ]
 
     DirModel {
         id: dirModel

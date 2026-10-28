@@ -7,7 +7,7 @@ AppDialog {
     id: dlg
 
     titleText: qsTr("About")
-    width: 480
+    width: Math.min(480, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
 
     Text {
         width: parent.width
@@ -27,15 +27,10 @@ AppDialog {
         wrapMode: Text.WordWrap
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
-        Item { Layout.fillWidth: true }
-
-        PrimaryButton {
+    footerContent: [
+        SecondaryButton {
             text: qsTr("Close")
             onClicked: dlg.close()
         }
-    }
+    ]
 }

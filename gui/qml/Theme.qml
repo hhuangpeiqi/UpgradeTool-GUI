@@ -59,6 +59,12 @@ QtObject {
     // Chosen to fit the longest label ("Programmer input") on one line.
     readonly property int formLabelWidth: 132
 
+    readonly property int dialogPadding: 20
+    readonly property int dialogSectionSpacing: 16
+    readonly property int dialogBodySpacing: 12
+    readonly property int dialogControlSpacing: 8
+    readonly property int dialogButtonSpacing: 10
+
     readonly property int radius: 8
     readonly property int controlRadius: 6
     readonly property int windowRadius: 10

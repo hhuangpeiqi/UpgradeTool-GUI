@@ -138,6 +138,63 @@ Window {
     CHECK(disclosure->property("expanded").toBool() != expanded);
 }
 
+static void TestDialogLayout(QQmlEngine &engine) {
+    QQmlComponent component(&engine);
+    component.setData(R"QML(
+import QtQuick
+import QtQuick.Controls
+import UpgradeTool
+Window {
+    width: 700; height: 500; visible: true
+    property alias dialog: dialog
+    property bool showAuxiliary: true
+    property bool showActions: true
+    AppDialog {
+        id: dialog
+        width: Math.min(440, parent.width - 32)
+        titleText: "Layout test"
+        hintText: "Status"
+        Text { width: parent.width; text: "Long content\n".repeat(80) }
+        footerLeadingContent: SecondaryButton {
+            objectName: "layoutAuxiliary"; text: "Refresh"; visible: showAuxiliary
+        }
+        footerContent: [
+            SecondaryButton { objectName: "layoutCancel"; text: "Cancel"; visible: showActions },
+            PrimaryButton { objectName: "layoutConfirm"; text: "Confirm"; visible: showActions }
+        ]
+    }
+    Component.onCompleted: dialog.open()
+}
+)QML", QUrl());
+    CHECK(AwaitUi([&] { return component.status() != QQmlComponent::Loading; }));
+    std::unique_ptr<QObject> instance(component.create());
+    CHECK(instance);
+    if (!instance) {
+        std::fprintf(stderr, "%s", component.errorString().toUtf8().constData());
+        return;
+    }
+    auto *dialog = instance->property("dialog").value<QObject *>();
+    auto *cancel = instance->findChild<QQuickItem *>("layoutCancel");
+    auto *confirm = instance->findChild<QQuickItem *>("layoutConfirm");
+    auto *actions = instance->findChild<QQuickItem *>("dialogActions");
+    CHECK(dialog && cancel && confirm && actions);
+    if (!dialog || !cancel || !confirm || !actions) return;
+    CHECK(AwaitUi([&] { return dialog->property("opened").toBool() && confirm->width() > 0; }));
+    CHECK(AwaitUi([&] { return cancel->mapToScene(QPointF()).x() < confirm->mapToScene(QPointF()).x(); }));
+    CHECK(confirm->mapToScene(QPointF(confirm->width(), confirm->height())).y() <= 500);
+    instance->setProperty("showAuxiliary", false);
+    CHECK(AwaitUi([&] { return !instance->findChild<QQuickItem *>("layoutAuxiliary")->isVisible(); }));
+    auto *window = qobject_cast<QQuickWindow *>(instance.get());
+    window->setWidth(210);
+    CHECK(AwaitUi([&] { return actions->property("columns").toInt() == 1; }));
+    CHECK(cancel->mapToScene(QPointF()).y() < confirm->mapToScene(QPointF()).y());
+    CHECK(AwaitUi([&] { return confirm->mapToScene(QPointF(confirm->width(), 0)).x() <= window->width(); }));
+    instance->setProperty("showActions", false);
+    CHECK(AwaitUi([&] { return actions->property("visibleCount").toInt() == 0; }));
+    instance->setProperty("showActions", true);
+    CHECK(AwaitUi([&] { return confirm->isVisible() && actions->property("visibleCount").toInt() == 2; }));
+}
+
 int main(int argc, char **argv) {
     QGuiApplication application(argc, argv);
     QQuickStyle::setStyle("Basic");
@@ -156,6 +213,7 @@ int main(int argc, char **argv) {
     for (bool dark : {false, true}) {
         palette->setProperty("dark", dark);
         TestFocusBorders(engine);
+        TestDialogLayout(engine);
     }
     return failures ? 1 : 0;
 }

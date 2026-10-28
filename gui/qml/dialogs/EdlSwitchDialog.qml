@@ -6,14 +6,15 @@ import QtQuick.Layouts
 AppDialog {
     id: root
     objectName: "qcEdlDialog"
-    width: Math.min(680, parent ? parent.width - 24 : 680)
+    width: Math.min(Math.min(680, parent ? parent.width - 24 : 680), Overlay.overlay ? Overlay.overlay.width - 32 : 800)
     titleText: qsTr("Select switch target")
     property string selectedTargetId: ""
     property string selectedEndpointId: ""
     readonly property var candidates: app.edl.targets
     readonly property var target: {
         for (var i = 0; i < candidates.length; ++i)
-            if (candidates[i].id === selectedTargetId) return candidates[i];
+            if (candidates[i].id === selectedTargetId)
+                return candidates[i];
         return null;
     }
     readonly property var endpoints: target ? target.endpoints : []
@@ -22,17 +23,21 @@ AppDialog {
         return app.edl.ready && !app.interactionLocked && app.edl.canStart(selectedTargetId, selectedEndpointId);
     }
     function syncSelection() {
-        if (!device || !port) return;
+        if (!device || !port)
+            return;
         var targets = root.candidates || [];
         var index = -1;
         for (var i = 0; i < targets.length; ++i)
-            if (targets[i].id === selectedTargetId) index = i;
-        if (index < 0) selectedTargetId = "";
+            if (targets[i].id === selectedTargetId)
+                index = i;
+        if (index < 0)
+            selectedTargetId = "";
         device.currentIndex = index;
         var ports = root.endpoints || [];
         var portIndex = 0;
         for (var j = 0; j < ports.length; ++j)
-            if (ports[j].id === selectedEndpointId) portIndex = j + 1;
+            if (ports[j].id === selectedEndpointId)
+                portIndex = j + 1;
         if (portIndex === 0 && selectedEndpointId !== "") {
             // Losing an explicitly chosen interface must not fall back to an
             // automatic interface on the same device.
@@ -49,21 +54,32 @@ AppDialog {
         open();
     }
     onCandidatesChanged: syncSelection()
-    onClosed: { selectedTargetId = ""; selectedEndpointId = ""; }
+    onClosed: {
+        selectedTargetId = "";
+        selectedEndpointId = "";
+    }
     Connections {
         target: app
-        function onVendorChanged() { root.close(); }
+        function onVendorChanged() {
+            root.close();
+        }
     }
     ColumnLayout {
         width: parent.width
-        spacing: 12
+        spacing: Theme.dialogBodySpacing
         enabled: !app.interactionLocked
-        Text { text: qsTr("Device"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+        Text {
+            text: qsTr("Device")
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+        }
         AppComboBox {
             id: device
             objectName: "qcEdlDevice"
             Layout.fillWidth: true
-            model: root.candidates.map(function(t) { return t.label; })
+            model: root.candidates.map(function (t) {
+                return t.label;
+            })
             currentIndex: -1
             onActivated: {
                 root.selectedEndpointId = "";
@@ -82,20 +98,25 @@ AppDialog {
             objectName: "qcEdlPort"
             visible: app.edl.method === 1
             Layout.fillWidth: true
-            model: [qsTr("Automatic (recognized interfaces)")].concat(root.endpoints.map(function(e) { return e.label; }))
+            model: [qsTr("Automatic (recognized interfaces)")].concat(root.endpoints.map(function (e) {
+                return e.label;
+            }))
             onActivated: root.selectedEndpointId = currentIndex > 0 ? root.endpoints[currentIndex - 1].id : ""
         }
     }
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
+    footerLeadingContent: [
         SecondaryButton {
             text: qsTr("Refresh")
             enabled: !app.interactionLocked && !app.edl.discovering
             onClicked: app.refreshEdl()
         }
-        Item { Layout.fillWidth: true }
-        SecondaryButton { text: qsTr("Cancel"); onClicked: root.close() }
+    ]
+
+    footerContent: [
+        SecondaryButton {
+            text: qsTr("Cancel")
+            onClicked: root.close()
+        },
         Item {
             implicitWidth: startButton.implicitWidth
             implicitHeight: startButton.implicitHeight
@@ -114,17 +135,20 @@ AppDialog {
                     app.switchToEdl(target, method, endpoint);
                 }
             }
-            HoverHandler { id: startHover }
+            HoverHandler {
+                id: startHover
+            }
             ToolTip {
                 objectName: "qcEdlStartTooltip"
                 visible: startHover.hovered && !startButton.enabled && !app.interactionLocked
                 text: {
-                    if (!app.edl.ready) return app.edl.unavailableReason +
-                        (app.edl.discoveryError !== "" ? "\n" + app.edl.discoveryError : "");
-                    if (root.target === null) return qsTr("Select a device first");
+                    if (!app.edl.ready)
+                        return app.edl.unavailableReason + (app.edl.discoveryError !== "" ? "\n" + app.edl.discoveryError : "");
+                    if (root.target === null)
+                        return qsTr("Select a device first");
                     return qsTr("Select one diagnostic interface before switching.");
                 }
             }
         }
-    }
+    ]
 }

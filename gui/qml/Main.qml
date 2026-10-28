@@ -314,12 +314,7 @@ ApplicationWindow {
             font.pixelSize: Theme.fontNormal
             wrapMode: Text.WordWrap
         }
-        footerContent: RowLayout {
-            width: parent.width
-            spacing: 10
-
-            Item { Layout.fillWidth: true }
-
+        footerContent: [
             SecondaryButton {
                 objectName: "confirmQuitButton"
                 text: app.drivers.busy ? qsTr("Wait and quit") : qsTr("Cancel task and quit")
@@ -327,13 +322,14 @@ ApplicationWindow {
                     app.confirmQuit(true);
                     quitDialog.close();
                 }
-            }
+            },
             PrimaryButton {
                 objectName: "continueRunningButton"
                 text: qsTr("Continue running")
                 onClicked: quitDialog.close()
             }
-        }
+
+        ]
     }
     Connections {
         target: app

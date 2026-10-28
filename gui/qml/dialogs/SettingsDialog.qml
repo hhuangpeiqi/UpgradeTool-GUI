@@ -7,7 +7,7 @@ AppDialog {
     id: dlg
 
     titleText: qsTr("Settings")
-    width: 560
+    width: Math.min(560, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
 
     function openDialog() {
         var v = app.config.load();
@@ -57,13 +57,21 @@ AppDialog {
 
     Row {
         width: parent.width
-        spacing: 10
-        Text { text: qsTr("Theme"); width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+        spacing: Theme.dialogControlSpacing
+        Text {
+            text: qsTr("Theme")
+            width: 180
+            height: 38
+            verticalAlignment: Text.AlignVCenter
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+        }
         AppComboBox {
             id: themeBox
             width: 180
             model: [qsTr("Follow system"), qsTr("Light"), qsTr("Dark")]
-            onActivated: (index) => app.theme.mode = index === 2 ? "dark" : (index === 1 ? "light" : "auto")
+            onActivated: index => app.theme.mode = index === 2 ? "dark" : (index === 1 ? "light" : "auto")
         }
     }
 
@@ -78,13 +86,21 @@ AppDialog {
 
     Row {
         width: parent.width
-        spacing: 10
-        Text { text: qsTr("Interface language"); width: 140; height: 38; verticalAlignment: Text.AlignVCenter; color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+        spacing: Theme.dialogControlSpacing
+        Text {
+            text: qsTr("Interface language")
+            width: 180
+            height: 38
+            verticalAlignment: Text.AlignVCenter
+            color: Theme.textSecondary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+        }
         AppComboBox {
             id: languageBox
             width: 180
             model: [qsTr("Follow system"), qsTr("Chinese"), qsTr("English")]
-            onActivated: (index) => app.language.mode = index === 2 ? "en" : (index === 1 ? "zh_CN" : "auto")
+            onActivated: index => app.language.mode = index === 2 ? "en" : (index === 1 ? "zh_CN" : "auto")
         }
     }
 
@@ -99,9 +115,13 @@ AppDialog {
 
     Column {
         width: parent.width
-        spacing: 8
+        spacing: Theme.dialogControlSpacing
 
-        AppCheckBox { id: logDetailsBox; objectName: "logDetailsBox"; text: qsTr("Show detailed logs") }
+        AppCheckBox {
+            id: logDetailsBox
+            objectName: "logDetailsBox"
+            text: qsTr("Show detailed logs")
+        }
     }
 
     Timer {
@@ -111,12 +131,38 @@ AppDialog {
         onTriggered: app.config.refreshLogStorage()
     }
     RowLayout {
-        Text { text: qsTr("Single file limit (MiB)"); color: Theme.textSecondary }
-        SpinBox { id: fileLimit; objectName: "logFileLimit"; from: 1; to: 100; value: 5; editable: true }
+        width: parent.width
+        spacing: Theme.dialogControlSpacing
+        Text {
+            text: qsTr("Single file limit (MiB)")
+            Layout.preferredWidth: 180
+            color: Theme.textSecondary
+        }
+        SpinBox {
+            id: fileLimit
+            objectName: "logFileLimit"
+            from: 1
+            to: 100
+            value: 5
+            editable: true
+        }
     }
     RowLayout {
-        Text { text: qsTr("Total limit (MiB)"); color: Theme.textSecondary }
-        SpinBox { id: totalLimit; objectName: "logTotalLimit"; from: 1; to: 10240; value: 50; editable: true }
+        width: parent.width
+        spacing: Theme.dialogControlSpacing
+        Text {
+            text: qsTr("Total limit (MiB)")
+            Layout.preferredWidth: 180
+            color: Theme.textSecondary
+        }
+        SpinBox {
+            id: totalLimit
+            objectName: "logTotalLimit"
+            from: 1
+            to: 10240
+            value: 50
+            editable: true
+        }
     }
     Text {
         width: parent.width
@@ -131,8 +177,11 @@ AppDialog {
         wrapMode: Text.WordWrap
     }
     Row {
-        spacing: 10
-        SecondaryButton { text: qsTr("Open log folder"); onClicked: app.openLogDir() }
+        spacing: Theme.dialogControlSpacing
+        SecondaryButton {
+            text: qsTr("Open log folder")
+            onClicked: app.openLogDir()
+        }
         SecondaryButton {
             objectName: "clearLogFilesButton"
             text: app.config.logBusy ? qsTr("Working…") : qsTr("Clear log files")
@@ -149,33 +198,35 @@ AppDialog {
             color: Theme.textPrimary
             wrapMode: Text.WordWrap
         }
-        footerContent: RowLayout {
-            width: parent.width
-            spacing: 10
-            Item { Layout.fillWidth: true }
-            SecondaryButton { text: qsTr("Cancel"); onClicked: clearConfirmation.close() }
-            PrimaryButton { text: qsTr("Confirm"); onClicked: { app.config.clearLogFiles(); clearConfirmation.close(); } }
-        }
+        footerContent: [
+            SecondaryButton {
+                text: qsTr("Cancel")
+                onClicked: clearConfirmation.close()
+            },
+            PrimaryButton {
+                text: qsTr("Confirm")
+                onClicked: {
+                    app.config.clearLogFiles();
+                    clearConfirmation.close();
+                }
+            }
+        ]
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
+    footerLeadingContent: [
         SecondaryButton {
             visible: Qt.platform.os === "linux"
             text: qsTr("Install udev rules")
             onClicked: app.config.installUdev()
         }
+    ]
 
-        Item { Layout.fillWidth: true }
-
+    footerContent: [
         SecondaryButton {
             objectName: "cancelSettingsButton"
             text: qsTr("Cancel")
             onClicked: dlg.close()
-        }
-
+        },
         PrimaryButton {
             objectName: "saveSettingsButton"
             enabled: !app.config.logBusy
@@ -190,10 +241,11 @@ AppDialog {
                     dlg.close();
             }
         }
-    }
+    ]
 
     Text {
         width: parent.width
+        visible: text.length > 0
         text: app.config.status
         color: Theme.textSecondary
         font.family: Theme.fontFamily

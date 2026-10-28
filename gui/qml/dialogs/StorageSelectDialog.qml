@@ -7,7 +7,7 @@ AppDialog {
     id: dlg
 
     titleText: qsTr("Select Storage")
-    width: 440
+    width: Math.min(440, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
 
     property var options: []
     property bool handled: false
@@ -68,15 +68,10 @@ AppDialog {
         }
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
-        Item { Layout.fillWidth: true }
-
+    footerContent: [
         SecondaryButton {
             text: qsTr("Cancel")
             onClicked: dlg.close()
         }
-    }
+    ]
 }

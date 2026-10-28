@@ -165,6 +165,7 @@ set(_qml_files
   components/DeviceComboBox.qml
   components/StatusBar.qml
   components/LogPanel.qml
+  components/DialogActions.qml
   components/AppDialog.qml
   components/AppFilePicker.qml
   components/EdgeRoundedRect.qml

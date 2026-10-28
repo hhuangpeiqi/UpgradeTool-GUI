@@ -8,24 +8,35 @@ Popup {
     property string titleText: ""
     property string hintText: ""
     property bool hintError: false
-    property real bodyRightInset: 14
+    property real bodyRightInset: 0
 
     default property alias dialogContent: body.data
-    property alias footerContent: footerRow.data
+    property alias footerContent: actions.data
+    property alias footerLeadingContent: leadingActions.data
+    property alias footerFormContent: footerForm.data
+
+    // Settle positioners before callers focus or click a newly opened dialog.
+    onOpened: {
+        leadingActions.forceLayout();
+        actions.forceLayout();
+        footerForm.forceLayout();
+        footerRow.forceLayout();
+        body.forceLayout();
+        contentColumn.forceLayout();
+    }
 
     modal: true
     focus: true
     closePolicy: Popup.CloseOnEscape
     anchors.centerIn: Overlay.overlay
-    padding: 20
+    padding: Theme.dialogPadding
     implicitWidth: 440
-    readonly property real _maxHeight:
-        Math.max(240, (Overlay.overlay && Overlay.overlay.height > 0
-                       ? Overlay.overlay.height : 800) - 24)
+    width: Math.min(implicitWidth, Overlay.overlay ? Overlay.overlay.width - 32 : implicitWidth)
+    readonly property real _maxHeight: Math.max(240, (Overlay.overlay && Overlay.overlay.height > 0 ? Overlay.overlay.height : 800) - 24)
     readonly property real _chromeHeight: {
         var iGaps = 1;
         var iHeight = titleRow.implicitHeight;
-        if (footerRow.visible) {
+        if (footerRow.implicitHeight > 0) {
             iHeight += footerRow.implicitHeight;
             ++iGaps;
         }
@@ -35,12 +46,15 @@ Popup {
         }
         return iHeight + contentColumn.spacing * iGaps;
     }
-    implicitHeight: Math.min(contentColumn.implicitHeight + 40, _maxHeight)
+    implicitHeight: Math.min(contentColumn.implicitHeight + topPadding + bottomPadding, _maxHeight)
 
-    Overlay.modal: Rectangle { color: Theme.scrim; radius: Theme.windowRadius }
+    Overlay.modal: Rectangle {
+        color: Theme.scrim
+        radius: Theme.windowRadius
+    }
 
     background: Rectangle {
-        radius: 10
+        radius: Theme.windowRadius
         color: Theme.card
         border.width: 1
         border.color: Theme.border
@@ -48,7 +62,7 @@ Popup {
 
     contentItem: Column {
         id: contentColumn
-        spacing: 16
+        spacing: Theme.dialogSectionSpacing
 
         Row {
             id: titleRow
@@ -84,17 +98,22 @@ Popup {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             contentHeight: body.implicitHeight
-            implicitHeight: Math.min(body.implicitHeight,
-                                     Math.max(100, root._maxHeight - 40 - root._chromeHeight))
+            implicitHeight: Math.min(body.implicitHeight, Math.max(0, root._maxHeight - root.topPadding - root.bottomPadding - root._chromeHeight))
 
             ScrollBar.vertical: ScrollBar {
                 id: vbar
+                parent: root.background
+                x: root.leftPadding + bodyFlick.width + Theme.dialogControlSpacing
+                y: root.topPadding + bodyFlick.y
+                height: bodyFlick.height
                 policy: ScrollBar.AsNeeded
                 // Only grab the mouse when there is actually something to scroll,
                 // so the overlay bar does not swallow clicks meant for controls
                 // (e.g. nested list scroll bars) at the content's right edge.
                 interactive: vbar.size < 1.0
-                background: Rectangle { color: "transparent" }
+                background: Rectangle {
+                    color: "transparent"
+                }
 
                 contentItem: Rectangle {
                     implicitWidth: 6
@@ -106,19 +125,42 @@ Popup {
 
             Column {
                 id: body
-                // Reserve a fixed scroll bar gutter to avoid a binding loop
-                // with body.implicitHeight -> vbar.size. Content with its own
-                // right padding can opt out of the extra gutter.
+                // The scrollbar lives in the outer padding, so body width stays
+                // stable and aligns with the title and footer.
                 width: bodyFlick.width - root.bodyRightInset
-                spacing: 12
+                spacing: Theme.dialogBodySpacing
             }
         }
 
-        Row {
+        Column {
             id: footerRow
             width: parent.width
-            spacing: 10
-            visible: children.length > 0
+            spacing: Theme.dialogBodySpacing
+
+            Column {
+                id: footerForm
+                width: parent.width
+                spacing: Theme.dialogControlSpacing
+                visible: children.length > 0
+            }
+
+            Item {
+                width: parent.width
+                readonly property bool stacked: leadingActions.naturalWidth + actions.naturalWidth + Theme.dialogSectionSpacing > width
+                implicitHeight: stacked ? ((leadingActions.visibleCount > 0) ? leadingActions.implicitHeight : 0) + ((leadingActions.visibleCount > 0) && (actions.visibleCount > 0) ? Theme.dialogBodySpacing : 0) + ((actions.visibleCount > 0) ? actions.implicitHeight : 0) : Math.max((leadingActions.visibleCount > 0) ? leadingActions.implicitHeight : 0, (actions.visibleCount > 0) ? actions.implicitHeight : 0)
+
+                DialogActions {
+                    id: leadingActions
+                    objectName: "dialogLeadingActions"
+                }
+                DialogActions {
+                    id: actions
+                    objectName: "dialogActions"
+                    alignRight: true
+                    x: parent.width - width
+                    y: parent.stacked && (leadingActions.visibleCount > 0) ? leadingActions.implicitHeight + Theme.dialogBodySpacing : 0
+                }
+            }
         }
 
         Text {

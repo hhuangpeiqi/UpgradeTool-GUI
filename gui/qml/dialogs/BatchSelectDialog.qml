@@ -7,7 +7,7 @@ AppDialog {
     id: dlg
 
     titleText: qsTr("Batch Select Devices")
-    width: 480
+    width: Math.min(480, Overlay.overlay ? Overlay.overlay.width - 32 : 800)
 
     property var checkedKeys: []
 
@@ -35,7 +35,7 @@ AppDialog {
                 id: deviceRow
                 width: parent.width
                 height: 34
-                spacing: 10
+                spacing: Theme.dialogControlSpacing
 
                 readonly property string deviceKey: modelData.key
                 readonly property string label: "#" + modelData.index + " [" + modelData.mode + "] " + modelData.serial
@@ -43,7 +43,7 @@ AppDialog {
                 CheckSquare {
                     anchors.verticalCenter: parent.verticalCenter
                     checked: dlg.checkedKeys.indexOf(deviceRow.deviceKey) >= 0
-                    onToggled: (value) => {
+                    onToggled: value => {
                         var list = dlg.checkedKeys.slice();
                         var i = list.indexOf(deviceRow.deviceKey);
                         if (value && i < 0)
@@ -71,17 +71,11 @@ AppDialog {
         checked: true
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-
-        Item { Layout.fillWidth: true }
-
+    footerContent: [
         SecondaryButton {
             text: qsTr("Cancel")
             onClicked: dlg.close()
-        }
-
+        },
         PrimaryButton {
             text: qsTr("OK")
             onClicked: {
@@ -89,5 +83,5 @@ AppDialog {
                 dlg.close();
             }
         }
-    }
+    ]
 }

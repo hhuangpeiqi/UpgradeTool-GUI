@@ -8,7 +8,7 @@ AppDialog {
     objectName: "switchRecoveryDialog"
     property bool accessProblem: false
     property string accessMessage: ""
-    signal driversRequested()
+    signal driversRequested
 
     function openFailure() {
         accessProblem = false;
@@ -27,31 +27,28 @@ AppDialog {
     Text {
         objectName: "switchRecoveryInstructions"
         width: parent.width
-        text: dialog.accessProblem
-            ? (dialog.accessMessage.trim() !== "" ? dialog.accessMessage
-                : qsTr("Check the USB driver, access permissions, and whether another tool is using the device."))
-            : qsTr("Please enter flash mode manually.")
+        text: dialog.accessProblem ? (dialog.accessMessage.trim() !== "" ? dialog.accessMessage : qsTr("Check the USB driver, access permissions, and whether another tool is using the device.")) : qsTr("Please enter flash mode manually.")
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
         color: Theme.textPrimary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
     }
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
-        Item { Layout.fillWidth: true }
-        PrimaryButton {
+    footerContent: [
+        SecondaryButton {
             objectName: "switchRecoveryDriverButton"
             visible: dialog.accessProblem && app.drivers.available
             text: qsTr("View USB Drivers")
-            onClicked: { dialog.close(); dialog.driversRequested(); }
-        }
+            onClicked: {
+                dialog.close();
+                dialog.driversRequested();
+            }
+        },
         PrimaryButton {
             objectName: "switchRecoveryCloseButton"
             focusPolicy: Qt.StrongFocus
             text: qsTr("Got it")
             onClicked: dialog.close()
         }
-    }
+    ]
 }

@@ -8,7 +8,6 @@ AppDialog {
     objectName: "driverDialog"
     titleText: qsTr("USB Drivers")
     width: Math.min(600, Overlay.overlay ? Overlay.overlay.width - 32 : 600)
-    bodyRightInset: 0
 
     function openDialog() {
         open();
@@ -18,9 +17,7 @@ AppDialog {
     Text {
         width: parent.width
         visible: app.drivers.devices.length === 0
-        text: app.drivers.checking ? qsTr("Checking…") : app.vendor === 2
-            ? qsTr("Installation is available when the connected Qualcomm device's driver is missing.")
-            : qsTr("No flashing device found")
+        text: app.drivers.checking ? qsTr("Checking…") : app.vendor === 2 ? qsTr("Installation is available when the connected Qualcomm device's driver is missing.") : qsTr("No flashing device found")
         color: Theme.textSecondary
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontNormal
@@ -42,11 +39,11 @@ AppDialog {
                 id: deviceContent
                 anchors.fill: parent
                 anchors.margins: 12
-                spacing: 8
+                spacing: Theme.dialogControlSpacing
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 12
+                    spacing: Theme.dialogBodySpacing
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
@@ -92,7 +89,9 @@ AppDialog {
                 Text {
                     Layout.fillWidth: true
                     visible: deviceCard.expanded
-                    text: [deviceCard.modelData.instance, deviceCard.modelData.location, deviceCard.modelData.diagnostic].filter(function(value) { return value !== ""; }).join("\n")
+                    text: [deviceCard.modelData.instance, deviceCard.modelData.location, deviceCard.modelData.diagnostic].filter(function (value) {
+                        return value !== "";
+                    }).join("\n")
                     wrapMode: Text.WrapAnywhere
                     color: Theme.textSecondary
                     font.family: Theme.fontFamily
@@ -105,8 +104,13 @@ AppDialog {
     RowLayout {
         width: parent.width
         visible: app.drivers.message !== ""
-        spacing: 10
-        Spinner { visible: app.drivers.busy; running: visible; Layout.preferredWidth: 16; Layout.preferredHeight: 16 }
+        spacing: Theme.dialogControlSpacing
+        Spinner {
+            visible: app.drivers.busy
+            running: visible
+            Layout.preferredWidth: 16
+            Layout.preferredHeight: 16
+        }
         Text {
             Layout.fillWidth: true
             objectName: "driverProgressText"
@@ -118,16 +122,21 @@ AppDialog {
         }
     }
 
-    footerContent: RowLayout {
-        width: parent.width
-        spacing: 10
+    footerLeadingContent: [
         SecondaryButton {
             objectName: "driverRefreshButton"
             text: qsTr("Refresh")
             enabled: !app.interactionLocked && !app.drivers.checking
             onClicked: app.drivers.refresh()
         }
-        Item { Layout.fillWidth: true }
+    ]
+
+    footerContent: [
+        SecondaryButton {
+            objectName: "driverCloseButton"
+            text: app.drivers.busy ? qsTr("Run in background") : qsTr("Close")
+            onClicked: dialog.close()
+        },
         PrimaryButton {
             objectName: "qualcommUninstallButton"
             visible: app.vendor === 2
@@ -137,16 +146,13 @@ AppDialog {
             ToolTip.visible: hovered
             ToolTip.text: qsTr("Remove the installed Qualcomm driver package")
         }
-        SecondaryButton {
-            objectName: "driverCloseButton"
-            text: app.drivers.busy ? qsTr("Run in background") : qsTr("Close")
-            onClicked: dialog.close()
-        }
-    }
+    ]
 
     Connections {
         target: app.drivers
-        function onConfirmationRequested() { confirmation.open(); }
+        function onConfirmationRequested() {
+            confirmation.open();
+        }
     }
 
     AppDialog {
@@ -178,17 +184,20 @@ AppDialog {
                 font.pixelSize: Theme.fontNormal
             }
         }
-        footerContent: RowLayout {
-            width: parent.width
-            spacing: 10
-            Item { Layout.fillWidth: true }
-            SecondaryButton { text: qsTr("Cancel"); onClicked: confirmation.close() }
+        footerContent: [
+            SecondaryButton {
+                text: qsTr("Cancel")
+                onClicked: confirmation.close()
+            },
             PrimaryButton {
                 objectName: "driverConfirmButton"
                 text: app.drivers.confirmation.length > 0 ? qsTr("Install") : qsTr("Uninstall")
                 enabled: !app.interactionLocked && !app.drivers.checking && app.drivers.canConfirm
-                onClicked: { confirmation.close(); app.drivers.confirmInstall(); }
+                onClicked: {
+                    confirmation.close();
+                    app.drivers.confirmInstall();
+                }
             }
-        }
+        ]
     }
 }
