@@ -151,7 +151,7 @@ void RockchipController::runOperation(int operation, const QVariantMap &paramete
 	r.rockchip().system.uboot = parameters.value("uboot").toString().toStdString();
 	r.rockchip().system.trust = parameters.value("trust").toString().toStdString();
 	r.rockchip().system.boot = parameters.value("boot").toString().toStdString();
-	if (!valid) { SetAdvancedHint([] { return AppTr("Numeric parameter invalid or out of range"); }, true); emit toastRequested(AppTr("Numeric parameter invalid or out of range"), true); return; }
+	if (!valid) { SetAdvancedHint([] { return AppTr("Numeric parameter invalid or out of range"); }, true); emit errorRequested(AppTr("Numeric parameter invalid or out of range"), true); return; }
 	core::TaskJob job; job.steps.push_back(r); emit executeRequested(job);
 }
 
@@ -302,7 +302,7 @@ void RockchipController::exportImage(const QString &strBegin, const QString &str
 void RockchipController::createGpt(const QString &strInput, const QString &strOutput)
 {
 	if (strInput.trimmed().isEmpty() || strOutput.trimmed().isEmpty()) {
-		emit toastRequested(AppTr("Enter the input parameter and output GPT"), true);
+		emit errorRequested(AppTr("Enter the input parameter and output GPT"), true);
 		return;
 	}
 

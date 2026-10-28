@@ -193,13 +193,13 @@ signals:
 	void standardPlacesChanged();
 	void storageVolumesChanged();
 
-	void toastRequested(const QString &strText, bool bError);
 	void storageSelectionRequested(const QStringList &strOptions, int iCurrent);
 	void adbDeviceChoiceRequested(const QStringList &strDevices);
     void switchRecoveryRequested();
     void switchAccessRequested(const QString &message);
 
 private:
+    void LogError(const QString &message, const char *source = "Application");
     void UpdateInteractionLock();
     void BeginDriverMaintenance();
     void TryDriverInstall();

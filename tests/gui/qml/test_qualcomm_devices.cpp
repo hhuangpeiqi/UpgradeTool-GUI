@@ -91,8 +91,13 @@ bool QualcommUiTests::TestDevices() {
     refreshSwitch();
     CHECK(!controller.edl()->ready());
     QString switchError;
-    auto switchErrorConnection = QObject::connect(&controller, &gui::AppController::toastRequested, &application,
-        [&](const QString &text, bool error) { if (error) switchError = text; });
+    auto switchErrorConnection = QObject::connect(controller.log(), &QAbstractItemModel::rowsInserted, &application,
+        [&](const QModelIndex &, int, int last) {
+            const auto row = controller.log()->index(last, 0);
+            const QString text = controller.log()->data(row, gui::LogModel::TextRole).toString();
+            const bool error = controller.log()->data(row, gui::LogModel::ErrorRole).toBool();
+            if (error) switchError = text;
+        });
     controller.requestEdlSwitch();
     CHECK(!controller.tasks()->busy() && !switchError.isEmpty());
     QObject::disconnect(switchErrorConnection);

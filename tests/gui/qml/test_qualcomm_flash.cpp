@@ -93,13 +93,18 @@ bool QualcommUiTests::TestFlash() {
     qc->setValue("images","13:/missing/stale.mbn"); CHECK(download->isEnabled());
     {
         // Invalid input disables the primary action; the backend still
-        // refuses it and surfaces the reason as a toast.
-        QString toastText; bool toastError=false;
-        auto connection=QObject::connect(&controller,&gui::AppController::toastRequested,&application,
-            [&](const QString &text,bool error){toastText=text;toastError=error;});
+        // refuses it and records the reason in the log.
+        QString loggedText; bool loggedError=false;
+        auto connection=QObject::connect(controller.log(),&QAbstractItemModel::rowsInserted,&application,
+            [&](const QModelIndex &, int, int last) {
+            const auto row = controller.log()->index(last, 0);
+            const QString text = controller.log()->data(row, gui::LogModel::TextRole).toString();
+            const bool error = controller.log()->data(row, gui::LogModel::ErrorRole).toBool();
+            loggedText = text; loggedError = error;
+        });
         qc->setValue("useImages",true); CHECK(!download->isEnabled());
         QMetaObject::invokeMethod(download,"clicked");
-        CHECK(toastError && !toastText.isEmpty() && !controller.tasks()->busy());
+        CHECK(loggedError && !loggedText.isEmpty() && !controller.tasks()->busy());
         QObject::disconnect(connection);
         qc->setValue("useImages",false); CHECK(download->isEnabled());
     }

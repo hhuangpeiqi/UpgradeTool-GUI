@@ -68,10 +68,10 @@ EdgeRoundedRect {
             implicitHeight: 34
             implicitWidth: statusLabel.implicitWidth + 48
             radius: Theme.controlRadius
-            color: root.hasDevice ? Theme.toastOkBg
+            color: root.hasDevice ? Theme.successSoft
                                   : root.hasAdbDevice ? Theme.primarySoft : Theme.fieldDisabled
             border.width: 1
-            border.color: root.hasDevice ? Theme.toastOkBorder
+            border.color: root.hasDevice ? Theme.successBorder
                                          : root.hasAdbDevice ? Theme.primary : Theme.borderStrong
             Layout.preferredWidth: 220
             Layout.minimumWidth: 220

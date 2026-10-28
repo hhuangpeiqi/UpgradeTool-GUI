@@ -52,10 +52,8 @@ QtObject {
     property color scrim: dark ? "#99000000" : "#66000000"
     property color closeHover: "#E81123"
     property color closeGlyphHover: "#FFFFFF"
-    property color toastErrorBg: dark ? "#3A2527" : "#FDECEC"
-    property color toastErrorBorder: dark ? "#6E3B3D" : "#F3B8B8"
-    property color toastOkBg: dark ? "#22332A" : "#EAF6EE"
-    property color toastOkBorder: dark ? "#33543F" : "#B9E0C6"
+    property color successSoft: dark ? "#22332A" : "#EAF6EE"
+    property color successBorder: dark ? "#33543F" : "#B9E0C6"
 
     // Shared label column width so every form row in a workspace lines up.
     // Chosen to fit the longest label ("Programmer input") on one line.

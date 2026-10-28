@@ -64,7 +64,10 @@ int main(int argc, char **argv) {
         controller.setVendor(2);
         controller.ignorePermission();
         int successes = 0, recoveries = 0, scans = 0, accessPrompts = 0;
-        QObject::connect(&controller, &gui::AppController::toastRequested, [&](const QString &message, bool error) {
+        QObject::connect(controller.log(), &QAbstractItemModel::rowsInserted, [&](const QModelIndex &, int, int last) {
+            const auto row = controller.log()->index(last, 0);
+            const QString message = controller.log()->data(row, gui::LogModel::TextRole).toString();
+            const bool error = controller.log()->data(row, gui::LogModel::ErrorRole).toBool();
             if (!error && message == gui::AppController::tr("Download device ready.")) {
                 ++successes;
                 CHECK(controller.hasFlashTarget());

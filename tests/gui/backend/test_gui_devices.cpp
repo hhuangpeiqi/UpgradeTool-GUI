@@ -157,7 +157,7 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		controller.language()->setMode("auto");
 	}
 	{
-		// Startup/recovery is a status, not an error toast. Translate it on demand.
+		// Startup/recovery is a status, not an error notification. Translate it on demand.
 		gui::AppController controller(nullptr);
 		controller.language()->setMode("en");
 		controller.setVendor(0);
@@ -166,8 +166,10 @@ int TestDeviceStatus([[maybe_unused]] QGuiApplication &application) {
 		CHECK(controller.deviceStatusText() == QStringLiteral("正在启动 ADB…"));
 		controller.language()->setMode("en");
 		int errors = 0;
-		QObject::connect(&controller, &gui::AppController::toastRequested,
-		                 [&](const QString &, bool error) { if (error) ++errors; });
+		QObject::connect(controller.log(), &QAbstractItemModel::rowsInserted,
+		                 [&](const QModelIndex &, int, int last) {
+                         if (controller.log()->data(controller.log()->index(last, 0), gui::LogModel::ErrorRole).toBool()) ++errors;
+                     });
 		CHECK(Await([&] { return errors == 1; }));
 		CHECK(controller.deviceStatusText() == QStringLiteral("ADB connection interrupted; retrying automatically…"));
 		controller.language()->setMode("zh_CN");

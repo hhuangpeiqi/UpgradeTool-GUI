@@ -203,11 +203,11 @@ void AllwinnerController::run(int operation,const QVariantMap &p)
     if(r.operation()!=core::Operation::AllwinnerDeviceInfo && r.operation()!=core::Operation::AllwinnerReboot && r.file().path.empty()) valid=false;
     if(!valid) {
         SetHint(context, [] { return AppTr("Check the file paths and parameters for this operation; numbers must be in range"); }, true);
-        emit toastRequested(state.hint.value(), true); return;
+        emit errorRequested(state.hint.value(), true); return;
     }
     if(!core::IsLocalOperation(r.operation()) && !m_hasDevice) {
         SetHint(context, [] { return AppTr("Connect and select an Allwinner device first"); }, true);
-        emit toastRequested(state.hint.value(), true); return;
+        emit errorRequested(state.hint.value(), true); return;
     }
     m_context=context;
     if(r.operation()==core::Operation::AllwinnerInspect) {

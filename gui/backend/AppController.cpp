@@ -98,13 +98,13 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
     });
     m_rockchip=new RockchipController(this);
     connect(m_rockchip,&RockchipController::executeRequested,this,[this](const core::TaskJob &job) { StartJob(job); });
-    connect(m_rockchip,&RockchipController::toastRequested,this,&AppController::toastRequested);
+    connect(m_rockchip, &RockchipController::errorRequested, this, [this](const QString &message) { LogError(message, "Rockchip"); });
     connect(m_rockchip,&RockchipController::inspectRequested,this,[this](const core::InspectionRequest &request) { m_inspections->inspect(m_rockchip, request); });
     connect(m_inspections,&InspectionQueue::inspectionFinished,m_rockchip,&RockchipController::applyInspection);
     m_pLanguage->registerRetranslatable(m_rockchip);
     m_allwinner=new AllwinnerController(this);
     connect(m_allwinner,&AllwinnerController::executeRequested,this,[this](const core::TaskJob &job) { StartJob(job); });
-    connect(m_allwinner,&AllwinnerController::toastRequested,this,&AppController::toastRequested);
+    connect(m_allwinner, &AllwinnerController::errorRequested, this, [this](const QString &message) { LogError(message, "Allwinner"); });
     connect(m_allwinner,&AllwinnerController::inspectRequested,this,[this](const core::InspectionRequest &request) { m_inspections->inspect(m_allwinner, request); });
     connect(m_inspections,&InspectionQueue::inspectionFinished,m_allwinner,&AllwinnerController::applyInspection);
     m_pLanguage->registerRetranslatable(m_allwinner);
@@ -165,7 +165,7 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
                         false, failure);
     });
     connect(m_edl, &EdlRunner::errorOccurred, this, [this](const QString &message) {
-        m_logService->write(core::LogLevel::Error, "Qualcomm", {{}, "Device mode switch rejected", {}}, true, message.toStdString()); emit toastRequested(message, true);
+        m_logService->write(core::LogLevel::Error, "Qualcomm", {{}, "Device mode switch rejected", {}}, true, message.toStdString());
     });
     connect(m_edl, &EdlRunner::started, this, [this] {
         if (m_shuttingDown || m_bSwitching) return;
@@ -199,7 +199,7 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
         if(m_vendor != 2 || interactionLocked()) return;
         core::TaskJob job; job.steps.push_back(request); StartJob(job);
     });
-    connect(m_qualcomm, &QualcommController::errorRequested, this, [this](const QString &message) { emit toastRequested(message,true); });
+    connect(m_qualcomm, &QualcommController::errorRequested, this, [this](const QString &message) { LogError(message, "Qualcomm"); });
     connect(m_pObserver,&QtObserver::stageProgressReceived,m_tasks,&TaskController::onStageProgress);
     connect(m_pObserver,&QtObserver::progressReceived,m_tasks,&TaskController::onProgress);
 	connect(m_pObserver, &QtObserver::upgradePromptReceived, this, &AppController::onUpgradePrompt);
@@ -407,15 +407,21 @@ QString AppController::logDir() const
 	return QString::fromStdString(platform::GetUserLogDir());
 }
 
+void AppController::LogError(const QString &message, const char *source)
+{
+    m_logService->write(core::LogLevel::Error, source,
+        {{}, "Operation rejected: %1", {message.toStdString()}}, true, message.toStdString());
+}
+
 void AppController::openLogDir()
 {
 	const QString path = QDir(logDir()).absolutePath();
 	if (!QDir().mkpath(path) || !QFileInfo(path).isDir()) {
-		emit toastRequested(tr("Cannot create or access log directory: %1").arg(QDir::toNativeSeparators(path)), true);
+		LogError(tr("Cannot create or access log directory: %1").arg(QDir::toNativeSeparators(path)));
 		return;
 	}
 	if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
-		emit toastRequested(tr("Cannot open log directory: %1").arg(QDir::toNativeSeparators(path)), true);
+		LogError(tr("Cannot open log directory: %1").arg(QDir::toNativeSeparators(path)));
 }
 
 QString AppController::dirOf(const QString &strPath) const
@@ -941,7 +947,7 @@ void AppController::StartJob(core::TaskJob job)
         if (step.operation() == core::Operation::EnterMaskrom) {
             const auto eligibility = rockchipMaskromEligibility();
             if (!eligibility.value("allowed").toBool()) {
-                emit toastRequested(eligibility.value("reason").toString(), true);
+                LogError(eligibility.value("reason").toString());
                 return;
             }
         }
@@ -951,17 +957,17 @@ void AppController::StartJob(core::TaskJob job)
 		QVariantList targets;
 		if (m_bBatchMode) targets = BatchTargets();
 		else if (m_iDeviceIndex >= 0 && m_iDeviceIndex < m_deviceModel->rows().size()) targets.append(m_deviceModel->rows()[m_iDeviceIndex]);
-		if (targets.isEmpty()) { emit toastRequested(tr("Select a device first"), true); return; }
+		if (targets.isEmpty()) { LogError(tr("Select a device first")); return; }
         if(job.steps.front().vendor()==core::Vendor::Qualcomm) {
             if(m_bBatchMode && targets.size()!=m_batchKeys.size()) {
-                emit toastRequested(tr("A selected device is no longer available; refresh and select the targets again"),true); return;
+                LogError(tr("A selected device is no longer available; refresh and select the targets again")); return;
             }
             for(const auto &value:targets) {
                 const auto map=value.toMap();
                 for(const auto &step:job.steps) {
                     const auto reason=core::qualcomm::EligibilityReason(step.operation(),
                         static_cast<qtq_mode>(map.value("qualcommMode",QTQ_UNKNOWN).toInt()),map.value("accessError").toInt());
-                    if(!reason.empty()) { emit toastRequested(QCoreApplication::translate("QualcommBackend",reason.c_str()),true); return; }
+                    if(!reason.empty()) { LogError(QCoreApplication::translate("QualcommBackend",reason.c_str())); return; }
                 }
             }
         }
@@ -969,14 +975,14 @@ void AppController::StartJob(core::TaskJob job)
             for(const auto &value:targets) {
                 const auto row=value.toMap();
                 if(row.value("accessError").toInt()) {
-                    emit toastRequested(tr("The selected Allwinner device is not accessible; check its driver or USB permissions (%1).")
-                        .arg(row.value("accessError").toInt()),true); return;
+                    LogError(tr("The selected Allwinner device is not accessible; check its driver or USB permissions (%1).")
+                        .arg(row.value("accessError").toInt())); return;
                 }
             }
         }
         for(const auto &value:targets) {
             const auto reference=value.toMap().value("reference").value<core::DeviceRef>();
-            if(!reference) { emit toastRequested(tr("A selected device is no longer available; refresh and select the targets again"),true); return; }
+            if(!reference) { LogError(tr("A selected device is no longer available; refresh and select the targets again")); return; }
             job.targets.push_back(reference);
         }
 	}
@@ -1019,7 +1025,6 @@ void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnErr
 
 		emit batchModeChanged();
 		SetDeviceStatus();
-		emit toastRequested(tr("Batch mode: %1 selected").arg(strAlive.size()), false);
 		return;
 	}
 
@@ -1032,9 +1037,6 @@ void AppController::setBatchTargets(const QStringList &keys, bool bContinueOnErr
 
 		}
 		SetDeviceStatus();
-		emit toastRequested(tr("Single device selected"), false);
-	} else {
-		emit toastRequested(tr("No device selected"), false);
 	}
 }
 
@@ -1083,7 +1085,6 @@ void AppController::onTaskFinished(const core::TaskSummary &summary)
 	m_tasks->setProgress(ok ? 100 : qMax(0, m_tasks->progressValue()), text);
     m_tasks->finish(); m_rockchip->setCancelled(false);
     m_drivers->refresh(true);
-	emit toastRequested(text, !ok && !cancelled);
     if (!m_tasks->job().steps.empty() && m_tasks->job().steps.front().operation() == core::Operation::EnterMaskrom)
         refresh();
 }
@@ -1197,7 +1198,6 @@ void AppController::FinishModeSwitch(bool ok, const QString &message, bool cance
     m_logService->write(!ok && !cancelled ? core::LogLevel::Error : core::LogLevel::Info, {},
         {{}, cancelled ? "Device mode switch cancelled" : ok ? "Device mode switch succeeded" : "Device mode switch failed", {}},
         true, message.toStdString());
-	emit toastRequested(message, !ok);
     if (!ok && !cancelled && !m_shuttingDown) {
         if (failure == ModeSwitchFailure::DeviceAccess) emit switchAccessRequested(message);
         else emit switchRecoveryRequested();
@@ -1209,7 +1209,7 @@ void AppController::switchToLoader()
 	if (interactionLocked() || m_bSwitching)
 		return;
 	if (!adbReady()) {
-		emit toastRequested(tr("No ADB device detected; cannot switch."), true);
+		LogError(tr("No ADB device detected; cannot switch."));
 		return;
 	}
 	m_switchingFel = false;
@@ -1221,7 +1221,7 @@ void AppController::switchToFel(int mode)
 {
 	if (interactionLocked() || m_vendor != 1 || m_bSwitching) return;
 	if (mode < 0 || mode > 1 || !adbReady()) {
-		emit toastRequested(tr("No ADB device detected or the switch method is invalid."), true);
+		LogError(tr("No ADB device detected or the switch method is invalid."));
 		return;
 	}
     m_pendingFelKey.clear();
@@ -1255,7 +1255,6 @@ void AppController::onAdbAvailabilityChanged(bool bAvailable, const QString &str
 	if (!bAvailable && !strMessage.isEmpty() && !m_adbOutageNotified) {
 		m_adbOutageNotified = true;
         m_logService->write(core::LogLevel::Error, "ADB", {{}, "ADB is unavailable; check the executable, server and device connection", {}}, true, strMessage.toStdString());
-		emit toastRequested(strMessage, true);
 	}
 	SetDeviceStatus();
 	emit adbStateChanged();

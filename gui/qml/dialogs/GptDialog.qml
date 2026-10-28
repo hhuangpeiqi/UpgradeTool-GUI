@@ -8,6 +8,10 @@ AppDialog {
 
     titleText: qsTr("Generate GPT")
     width: 520
+    property bool validationFailed: false
+    onOpened: validationFailed = false
+    hintText: validationFailed ? qsTr("Enter the input parameter and output GPT") : ""
+    hintError: true
 
     Column {
         width: parent.width
@@ -29,6 +33,7 @@ AppDialog {
 
             AppTextField {
                 id: inputField
+                objectName: "gptInputField"
                 width: parent.width - 220
                 placeholderText: qsTr("parameter.txt path")
             }
@@ -58,6 +63,7 @@ AppDialog {
 
             AppTextField {
                 id: outputField
+                objectName: "gptOutputField"
                 width: parent.width - 220
                 placeholderText: qsTr("Output gpt file path")
             }
@@ -84,8 +90,11 @@ AppDialog {
         }
 
         PrimaryButton {
+            objectName: "gptGenerateButton"
             text: qsTr("Generate")
             onClicked: {
+                dlg.validationFailed = !inputField.text.trim() || !outputField.text.trim();
+                if (dlg.validationFailed) return;
                 app.rockchip.createGpt(inputField.text, outputField.text);
                 dlg.close();
             }

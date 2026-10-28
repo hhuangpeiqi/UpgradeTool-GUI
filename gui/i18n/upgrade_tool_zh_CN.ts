@@ -1423,6 +1423,10 @@
 <context>
     <name>GptDialog</name>
     <message>
+        <source>Enter the input parameter and output GPT</source>
+        <translation>请输入 parameter 输入路径和 GPT 输出路径</translation>
+    </message>
+    <message>
         <location filename="../qml/dialogs/GptDialog.qml" line="+9"/>
         <source>Generate GPT</source>
         <translation>生成 GPT</translation>

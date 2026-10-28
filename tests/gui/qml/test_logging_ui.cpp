@@ -1,4 +1,5 @@
 #include "gui/backend/AppController.h"
+#include "gui/backend/DirModel.h"
 #include "gui/AdbRunner.h"
 #include "gui/QtObserver.h"
 #include "gui/OperationSpec.h"
@@ -37,6 +38,27 @@ static void TestRouting() {
     platform::LogService log(dir.path().toStdString(), "log", true);
     gui::AppController controller(&log);
     controller.findChild<gui::AdbRunner *>()->Stop();
+    controller.language()->setMode("en");
+    log.setEnabled(false);
+    controller.log()->clear();
+    auto expectError = [&](const QString &text, const QString &source) {
+        CHECK(controller.log()->count() == 1);
+        const auto row = controller.log()->index(0);
+        CHECK(controller.log()->data(row, gui::LogModel::ErrorRole).toBool());
+        CHECK(controller.log()->data(row, gui::LogModel::TextRole).toString().contains(text));
+        CHECK(controller.log()->data(row, gui::LogModel::SourceRole).toString() == source);
+        CHECK(!controller.tasks()->busy());
+        controller.log()->clear();
+    };
+    controller.rockchip()->createGpt({}, {});
+    expectError("Enter the input parameter", "Rockchip");
+    controller.rockchip()->runOperation(static_cast<int>(core::Operation::ReadLba), {{"begin", "-1"}});
+    expectError("Numeric parameter", "Rockchip");
+    controller.rockchip()->runOperation(static_cast<int>(core::Operation::ReadLba), {});
+    expectError("Select a device first", "Application");
+    controller.qualcomm()->replaceFlashXml({}, {});
+    expectError("rawprogram XML", "Qualcomm");
+    log.setEnabled(true);
     controller.language()->setMode("zh_CN");
     controller.log()->clear();
     log.write(core::LogLevel::Info, "Application", {"gui::AppController", "Application started", {}});
@@ -142,6 +164,7 @@ Window {
         showDetails: app.config.uiLogDetails
     }
     SettingsDialog { objectName: "testSettingsDialog" }
+    GptDialog { objectName: "testGptDialog" }
 }
 )QML", QUrl());
     CHECK(AwaitUi([&] { return component.status() != QQmlComponent::Loading; }));
@@ -155,6 +178,16 @@ Window {
     auto *settings = object->findChild<QObject *>("testSettingsDialog");
     CHECK(panel && settings);
     if (!panel || !settings) return;
+
+    auto *gpt = object->findChild<QObject *>("testGptDialog");
+    CHECK(gpt && QMetaObject::invokeMethod(gpt, "open"));
+    CHECK(AwaitUi([&] { return FindVisualItem(window->contentItem(), "gptGenerateButton") != nullptr; }));
+    auto *generate = FindVisualItem(window->contentItem(), "gptGenerateButton");
+    CHECK(generate && QMetaObject::invokeMethod(generate, "clicked"));
+    CHECK(gpt->property("visible").toBool());
+    CHECK(gpt->property("validationFailed").toBool());
+    CHECK(!controller.tasks()->busy());
+    CHECK(QMetaObject::invokeMethod(gpt, "close"));
 
     core::LogEntry sample;
     sample.time = std::chrono::system_clock::time_point(std::chrono::milliseconds(1770000000123LL));
@@ -293,6 +326,7 @@ static void TestSaveFailure() {
 int main(int argc, char **argv) {
     QGuiApplication application(argc, argv);
     QQuickStyle::setStyle("Basic");
+    qmlRegisterType<gui::DirModel>("UpgradeTool", 1, 0, "DirModel");
     TestRouting();
     QQmlEngine engine;
     engine.addImportPath("qrc:/qt/qml");

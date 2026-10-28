@@ -34,8 +34,6 @@ bool QualcommUiTests::TestTools() {
     CHECK(toolSelector && !toolSelector->isVisible());
     CHECK(toolsPage->property("selectedTool").toInt() == 0);
     if (argc>2) {
-        // Let earlier validation toasts close before capturing the tool forms.
-        QElapsedTimer toast; toast.start(); AwaitUi([&]{return toast.elapsed()>2800;});
         controller.log()->clear();
     }
     auto *resetNavigation=FindVisualItem(toolsPage, "qcToolSelect-reset");

@@ -275,14 +275,6 @@ ApplicationWindow {
         function onBusyChanged() { if (!app.interactionLocked) storageDialog.close(); }
     }
 
-    Toast {
-        id: toast
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: (window.nativeWindow ? 0 : Theme.titleBarHeight) + Theme.navBarHeight + 12
-        z: 2000
-    }
-
     Connections {
         target: app
 
@@ -290,9 +282,6 @@ ApplicationWindow {
             window.vendorPages[window.previousVendor] = window.currentPage;
             window.previousVendor = app.vendor;
             window.currentPage = window.vendorPages[app.vendor];
-        }
-        function onToastRequested(text, error) {
-            toast.show(text, error);
         }
 
         function onStorageSelectionRequested(options, current) {

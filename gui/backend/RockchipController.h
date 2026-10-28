@@ -79,7 +79,7 @@ signals:
     void advancedStateChanged();
     void executeRequested(const core::TaskJob &);
     void inspectRequested(const core::InspectionRequest &);
-    void toastRequested(const QString &,bool);
+    void errorRequested(const QString &,bool);
 private:
     void SetImageHint(TranslatableText::Factory,bool);
     void SetFirmwareHint(TranslatableText::Factory,bool);
