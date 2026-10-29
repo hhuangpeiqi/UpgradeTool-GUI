@@ -68,7 +68,7 @@ void AllwinnerSwitchMonitor::finish(bool ok, const core::Message &message, const
                    .arg(id)
                    .arg(ok)
                    .arg(m_elapsed.isValid() ? m_elapsed.elapsed() : 0)
-                   .arg(QString::fromStdString(message.English()))).toStdString());
+                   .arg(failure == ModeSwitchFailure::DeviceAccess ? QString() : QString::fromStdString(message.English()))).toStdString());
     m_request.id = 0;
     emit completed(id, ok, Display(message), target, failure);
 }

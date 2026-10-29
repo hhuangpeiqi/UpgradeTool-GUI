@@ -7,6 +7,8 @@
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QFile>
+#include <QDir>
 #include <atomic>
 #include <cstdio>
 #include <libusb.h>
@@ -36,14 +38,27 @@ int main(int argc, char **argv) {
             for (bool installable : {false, true}) {
                 auto failure = gui::ModeSwitchFailure::DeviceAccess;
                 failure.reason = reason; failure.canInstall = installable; failure.instance = "target";
-                const auto prompt = gui::MakeSwitchAccessPrompt("diagnostic", failure, true);
+                const auto prompt = gui::MakeSwitchAccessPrompt(failure, true);
                 const auto expected = reason == Reason::RebootRequired ? Action::Acknowledge
                     : reason == Reason::Incompatible ? Action::ViewDrivers
                     : reason == Reason::Missing && installable ? Action::InstallDriver
                     : Action::ViewDriversAndAcknowledge;
                 CHECK(prompt.action == expected);
-                CHECK(prompt.message == "diagnostic" && prompt.instance == "target");
-                CHECK(gui::MakeSwitchAccessPrompt("diagnostic", failure, false).action == Action::Acknowledge);
+                CHECK(!prompt.message.isEmpty() && prompt.instance == "target");
+                for (bool source : {false, true}) for (bool drivers : {false, true}) {
+                    failure.sourceInterface = source;
+                    const auto shown = gui::MakeSwitchAccessPrompt(failure, drivers);
+                    CHECK(shown.title == (source ? "Switch request not sent" : "Device access unavailable"));
+                    CHECK(!shown.message.contains("\n"));
+                    CHECK(!shown.message.contains("interface cannot"));
+                    CHECK(shown.message.contains("USB Drivers") ==
+                        (drivers && reason != Reason::Unknown && reason != Reason::RebootRequired &&
+                         (reason != Reason::Missing || installable)));
+                    if (reason == Reason::RebootRequired) CHECK(shown.message.contains("Restart Windows"));
+                    if (reason == Reason::Missing) CHECK(shown.message.contains("driver"));
+                    if (reason == Reason::Incompatible) CHECK(shown.message.contains("incompatible"));
+                }
+                CHECK(gui::MakeSwitchAccessPrompt(failure, false).action == Action::Acknowledge);
             }
         }
     }
@@ -77,7 +92,17 @@ int main(int argc, char **argv) {
             }
             return scenario == Success ? QVector<gui::EdlEndpoint>{target} : QVector<gui::EdlEndpoint>{};
         };
-        gui::AppController controller(nullptr, std::move(hooks), 15, nullptr, gui::DriverHooks{}, false);
+        QTemporaryDir logDirectory;
+        platform::LogService disk(logDirectory.path().toStdString(), "switch-", true);
+        auto logs = [&] {
+            QByteArray content;
+            for (const auto &name : QDir(logDirectory.path()).entryList({"*.txt"}, QDir::Files)) {
+                QFile file(logDirectory.filePath(name));
+                if (file.open(QIODevice::ReadOnly)) content += file.readAll();
+            }
+            return content;
+        };
+        gui::AppController controller(&disk, std::move(hooks), 15, nullptr, gui::DriverHooks{}, false);
         controller.ignorePermission();
         QObject::connect(&controller, &gui::AppController::requestScan, &controller, [&] {
             if (scenario != Success || !controller.switching() || controller.edl()->running()) return;
@@ -96,6 +121,8 @@ int main(int argc, char **argv) {
             // Driver maintenance is disabled in this fixture: all cases acknowledge only.
             CHECK(prompt.action == Action::Acknowledge);
             CHECK(!prompt.message.isEmpty());
+            CHECK(!prompt.message.contains("Original diagnostic"));
+            CHECK(!prompt.message.contains("driver diagnostic"));
             CHECK(!controller.switching() && !controller.tasks()->busy());
             CHECK(controller.tasks()->progressValue() == 0);
         });
@@ -124,7 +151,18 @@ int main(int argc, char **argv) {
                     if (outcome == 4) { failure.reason = Reason::Missing; failure.canInstall = true; }
                     if (outcome == 5) failure.reason = Reason::Incompatible;
                     if (outcome == 6) failure.reason = Reason::RebootRequired;
+                    failure.detail = "driver diagnostic";
+                    const auto beforeDisk = logs();
+                    const auto beforeUi = controller.log()->count();
                     adb->finished(outcome == 1, "Original diagnostic: cancelled USB transfer", false, failure);
+                    const auto added = logs().mid(beforeDisk.size());
+                    CHECK(added.count("switch_access_failed") == (outcome >= 3 ? 1 : 0));
+                    CHECK(controller.log()->count() == beforeUi + 1);
+                    if (outcome >= 3) {
+                        CHECK(added.count("Original diagnostic: cancelled USB transfer") == 1);
+                        CHECK(added.count("driver diagnostic") == 1);
+                        CHECK(added.contains("task="));
+                    }
                     CHECK(controller.tasks()->progressText() == "Original diagnostic: cancelled USB transfer");
                     adb->CancelSwitch();
                 }
@@ -157,6 +195,7 @@ int main(int argc, char **argv) {
             CHECK(Await([&] { return controller.edl()->ready(); }));
             const auto before = recoveries;
             const auto beforeAccess = accessPrompts;
+            const auto beforeDisk = logs();
             controller.requestEdlSwitch();
             CHECK(controller.switching() && controller.tasks()->busy());
             if (value == Cancel) controller.cancel();
@@ -164,13 +203,23 @@ int main(int argc, char **argv) {
                 controller.requestQuit();
                 controller.confirmQuit(true);
                 CHECK(controller.shuttingDown());
+                // A failure already queued when shutdown begins must still reach disk.
+                auto access = gui::ModeSwitchFailure::DeviceAccess;
+                access.detail = "shutdown driver detail";
+                controller.edl()->finished(false, "shutdown access diagnostic", {}, access);
+                const auto added = logs().mid(beforeDisk.size());
+                CHECK(added.count("shutdown access diagnostic") == 1);
+                CHECK(added.count("shutdown driver detail") == 1);
             }
             CHECK(Await([&] { return !controller.edl()->running() && (value == Shutdown || !controller.switching()); }));
+            CHECK(logs().mid(beforeDisk.size()).count("switch_access_failed") == (value == DriverMissing || value == Shutdown ? 1 : 0));
             CHECK(recoveries == before + (value == CommandFailure || value == Timeout ? 1 : 0));
             CHECK(accessPrompts == beforeAccess + (value == DriverMissing ? 1 : 0));
             if (value != Shutdown) {
                 CHECK(!controller.switching() && !controller.tasks()->busy());
+                const auto finishedDisk = logs();
                 controller.edl()->finished(false, "late failure", {});
+                CHECK(logs() == finishedDisk);
                 CHECK(recoveries == before + (value == CommandFailure || value == Timeout ? 1 : 0));
                 CHECK(accessPrompts == beforeAccess + (value == DriverMissing ? 1 : 0));
             }

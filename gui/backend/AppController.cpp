@@ -181,11 +181,12 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
         }
     });
     connect(m_edl, &EdlRunner::finished, this, [this](bool ok, const QString &message, const EdlEndpoint &endpoint, ModeSwitchFailure failure) {
-        if (m_shuttingDown || m_vendor != 2 || !m_bSwitching || m_edlHandoff) return;
+        if (m_vendor != 2 || !m_bSwitching || m_edlHandoff) return;
         if (!ok) {
             FinishEdlSwitch(false, message, m_edl->state() == EdlRunner::Cancelled, failure);
             return;
         }
+        if (m_shuttingDown) return;
         m_edlHandoff = endpoint;
         m_edlHandoffTimer->start();
         UpdateModeSwitch(tr("Waiting for the download device to become ready…"));
@@ -1200,26 +1201,16 @@ void AppController::FinishModeSwitch(bool ok, const QString &message, bool cance
     m_logService->write(!ok && !cancelled ? core::LogLevel::Error : core::LogLevel::Info, {},
         {{}, cancelled ? "Device mode switch cancelled" : ok ? "Device mode switch succeeded" : "Device mode switch failed", {}},
         true, message.toStdString());
+    // Access diagnostics belong to the switch result, independent of popup visibility.
+    if (!ok && !cancelled && failure == ModeSwitchFailure::DeviceAccess) {
+        WriteDiagnostic(*m_logService, m_modeLogContext.source.c_str(), QJsonObject{
+            {"event", "switch_access_failed"}, {"log_task", qint64(m_modeLogContext.task)},
+            {"reason", int(failure.reason)}, {"source_interface", failure.sourceInterface},
+            {"instance", failure.instance}, {"message", message}, {"detail", failure.detail}});
+    }
     if (!ok && !cancelled && !m_shuttingDown) {
         if (failure == ModeSwitchFailure::DeviceAccess) {
-            QString explanation;
-            using Reason = ModeSwitchFailure::Reason;
-            switch (failure.reason) {
-            case Reason::Missing:
-                explanation = failure.canInstall
-                    ? tr("The target interface driver is missing. Open USB Drivers to install it.")
-                    : tr("The target interface driver is missing. Install the device manufacturer's driver."); break;
-            case Reason::Incompatible: explanation = tr("The target interface driver is incompatible. Open USB Drivers for details."); break;
-            case Reason::RebootRequired: explanation = tr("The target interface requires Windows to restart. Restart Windows to finish driver setup."); break;
-            case Reason::DeviceError: explanation = tr("The target device reports a system error. Open USB Drivers for details."); break;
-            case Reason::Unknown: explanation = tr("The target interface is unavailable. Check access permissions, other device tools, and the USB connection."); break;
-            }
-            if (failure.sourceInterface)
-                explanation = tr("The source interface cannot be accessed; the switch request was not sent.") + "\n" + explanation;
-            if (explanation.isEmpty()) explanation = message;
-            else if (!message.isEmpty()) explanation += "\n" + message;
-            if (!failure.detail.isEmpty()) explanation += "\n" + failure.detail;
-            emit switchAccessRequested(MakeSwitchAccessPrompt(explanation, failure, m_drivers->available()));
+            emit switchAccessRequested(MakeSwitchAccessPrompt(failure, m_drivers->available()));
         }
         else emit switchRecoveryRequested();
     }

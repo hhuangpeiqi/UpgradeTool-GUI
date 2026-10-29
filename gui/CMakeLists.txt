@@ -278,6 +278,7 @@ qt_add_qml_module(upgrade_tool_gui
 find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
 set(_tr_sources
   ${CMAKE_CURRENT_SOURCE_DIR}/MessageCatalog.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/SwitchAccessPrompt.h
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/DriverController.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/RockchipController.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend/AllwinnerController.cpp

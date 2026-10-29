@@ -66,6 +66,13 @@ static void TestRouting() {
     CHECK(controller.log()->data(controller.log()->index(0), gui::LogModel::TextRole).toString() == QString::fromUtf8("应用已启动"));
     CHECK(Logs(dir.path()).contains("Application started"));
     CHECK(!Logs(dir.path()).contains(QString::fromUtf8("应用已启动").toUtf8()));
+    auto access = gui::ModeSwitchFailure::DeviceAccess;
+    access.sourceInterface = true;
+    access.reason = gui::ModeSwitchFailure::Reason::RebootRequired;
+    const auto prompt = gui::MakeSwitchAccessPrompt(access, true);
+    CHECK(prompt.title == QString::fromUtf8("切换请求未发送"));
+    CHECK(prompt.message.contains(QString::fromUtf8("请重启 Windows")));
+    CHECK(!prompt.message.contains("Restart Windows"));
 
     gui::QtObserver observer(log);
     std::thread producer([&] {

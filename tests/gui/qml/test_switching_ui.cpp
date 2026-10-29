@@ -234,6 +234,21 @@ int main(int argc, char **argv) {
                 CHECK(primaryCount == 1);
             };
             CHECK(driverButton && driverDialog);
+            for (bool source : {false, true}) {
+                auto failure = gui::ModeSwitchFailure::DeviceAccess;
+                failure.sourceInterface = source;
+                failure.reason = gui::ModeSwitchFailure::Reason::RebootRequired;
+                const auto prompt = gui::MakeSwitchAccessPrompt(failure, true);
+                controller.switchAccessRequested(prompt);
+                CHECK(AwaitUi([&] { return recoveryDialog->property("visible").toBool(); }));
+                CHECK(recoveryDialog->property("titleText").toString() == prompt.title);
+                CHECK(instructions->property("text").toString() == prompt.message);
+                CHECK(!prompt.message.contains('\n'));
+                checkActions(false, true);
+                CHECK(QMetaObject::invokeMethod(closeButton, "clicked"));
+                CHECK(AwaitUi([&] { return !recoveryDialog->property("visible").toBool(); }));
+            }
+
             if (driverButton && driverDialog) for (int vendor : {0, 1, 2}) {
                 controller.setVendor(vendor);
                 const auto missingDriver = QCoreApplication::translate("gui::AdbRunner",

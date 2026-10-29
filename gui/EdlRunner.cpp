@@ -329,7 +329,8 @@ void EdlRunner::start(const QString &targetId, int method, const QString &endpoi
         core::ScopedLogContext logContext(context);
         if (m_log) {
             m_log->write(result->ok || cancel->stop_requested() ? core::LogLevel::Info : core::LogLevel::Error,
-                         "Qualcomm", result->message, false);
+                         "Qualcomm", result->failure == ModeSwitchFailure::DeviceAccess
+                             ? Text("EDL switch finished with an interface access failure") : result->message, false);
             if (!result->detail.isEmpty()) m_log->write(core::LogLevel::Debug, "Qualcomm", {{}, result->detail.toStdString(), {}}, false);
         }
         const auto message = (result->displayOverride.isEmpty() ? Display(result->message) : result->displayOverride)

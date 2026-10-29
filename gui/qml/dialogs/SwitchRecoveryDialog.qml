@@ -18,7 +18,7 @@ AppDialog {
         open();
     }
 
-    titleText: prompt ? qsTr("Device access unavailable") : qsTr("Flash mode switch incomplete")
+    titleText: prompt ? (prompt.title || qsTr("Device access unavailable")) : qsTr("Flash mode switch incomplete")
     width: Math.min(440, Overlay.overlay ? Overlay.overlay.width - 32 : 440)
 
     Text {

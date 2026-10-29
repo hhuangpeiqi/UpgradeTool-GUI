@@ -327,7 +327,7 @@ void AdbRunner::Complete(bool ok, const core::Message &message, bool cancelled, 
     emit traceRecord(QJsonObject{{"log_level", int(!ok && !cancelled ? core::LogLevel::Warn : core::LogLevel::Info)},
         {"event", "switch_finished"}, {"ok", ok}, {"cancelled", cancelled},
         {"log_task", qint64(m_service->logContext().task)}, {"failure", int(failure.kind)},
-        {"message", QString::fromStdString(message.English())}});
+        {"message", failure == ModeSwitchFailure::DeviceAccess ? QString() : QString::fromStdString(message.English())}});
 	emit finished(ok, displayText.isEmpty() ? Display(message) : displayText, cancelled, failure);
 }
 
