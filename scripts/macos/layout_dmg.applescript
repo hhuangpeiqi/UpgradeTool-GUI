@@ -8,7 +8,7 @@ on run argv
             set toolbar visible of container window to false
             set statusbar visible of container window to false
             set sidebar width of container window to 0
-            set bounds of container window to {120, 120, 760, 572}
+            set bounds of container window to {120, 120, 760, 412}
             set viewOptions to icon view options of container window
             set arrangement of viewOptions to not arranged
             set icon size of viewOptions to 80

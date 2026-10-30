@@ -10,7 +10,7 @@ int main(int argc, char **argv)
     if (argc != 3)
         return 1;
     if (QString::fromLocal8Bit(argv[1]) == "--dmg-background") {
-        QImage image(640, 420, QImage::Format_ARGB32_Premultiplied);
+        QImage image(640, 260, QImage::Format_ARGB32_Premultiplied);
         // Finder sizes background pictures in points using their PNG resolution.
         // Use 72 DPI so one pixel occupies one point, including on Retina displays.
         image.setDotsPerMeterX(2835);
@@ -23,8 +23,6 @@ int main(int argc, char **argv)
         painter.drawLine(QPointF(282, 130), QPointF(358, 130));
         painter.drawLine(QPointF(340, 112), QPointF(358, 130));
         painter.drawLine(QPointF(340, 148), QPointF(358, 130));
-        painter.setPen(QPen(QColor("#e0e0e5"), 1));
-        painter.drawLine(QPointF(64, 238), QPointF(576, 238));
         painter.end();
         return image.save(QString::fromLocal8Bit(argv[2])) ? 0 : 1;
     }
