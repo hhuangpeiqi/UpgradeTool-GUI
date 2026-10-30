@@ -53,6 +53,7 @@ Item {
             spacing: 12
             SectionTitle { text: workspace.title; Layout.fillWidth: true }
             FilePathRow {
+                nameFilters: [qsTr("Firmware (*.img)"), qsTr("All files (*)")]
                 id: firmwareRow
                 Layout.fillWidth: true
                 caption: workspace.fileCaption

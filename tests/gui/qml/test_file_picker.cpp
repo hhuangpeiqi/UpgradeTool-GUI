@@ -139,6 +139,31 @@ Window {
         CHECK(picker->property("visible").toBool());
     };
 
+    // Type filters keep folders navigable, match uppercase extensions, and
+    // reset to the specific type when the dialog is reopened.
+    const QString filterDir = app.homeDir() + "/filters";
+    CHECK(QDir().mkpath(filterDir + "/subfolder"));
+    for (const auto &name : {"firmware.img", "UPPER.IMG", "other.txt"}) {
+        QFile sample(filterDir + "/" + name);
+        CHECK(sample.open(QIODevice::WriteOnly));
+    }
+    picker->setProperty("nameFilters", QStringList{"Images (*.img)", "All files (*)"});
+    picker->setProperty("initialFolder", QUrl::fromLocalFile(filterDir));
+    open();
+    CHECK(model->rowCount() == 3);
+    CHECK(model->isDirAt(0));
+    picker->setProperty("activeFilter", 1);
+    invoke("applyFilter");
+    CHECK(model->rowCount() == 4);
+    close();
+    open();
+    CHECK(picker->property("activeFilter").toInt() == 0);
+    CHECK(model->rowCount() == 3);
+    close();
+    picker->setProperty("nameFilters", QStringList{});
+    picker->setProperty("initialFolder", QUrl{});
+    app.remembered.clear();
+
     open();
     for (int mode : {0, 1}) {
         picker->setProperty("mode", mode);

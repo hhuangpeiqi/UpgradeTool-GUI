@@ -34,7 +34,7 @@ ColumnLayout {
     QualcommPathRow {
         secondaryBrowse: root.secondaryBrowse
         context: root.context; visible: !root.settings.useImages; settingKey: "programmer"; caption: qsTr("Programmer")
-        nameFilters: [qsTr("FireHose Programmer (*firehose*.mbn *firehose*.elf)"), qsTr("All files (*)")]
+        nameFilters: [qsTr("FireHose Programmer (*firehose*.mbn *firehose*.elf)"), qsTr("Programmer files (*.mbn *.elf *.bin)"), qsTr("All files (*)")]
         placeholder: qsTr("Firehose programmer (*firehose*.mbn or *firehose*.elf)")
     }
     RowLayout {

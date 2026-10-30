@@ -74,7 +74,7 @@ FormSection {
             secondaryBrowse: true
             context: page.context; visible: page.packageBuild; settingKey: "package"
             caption: page.toolIndex === 6 ? qsTranslate("QualcommToolsPage", "Build package") : "contents.xml"
-            nameFilters: page.toolIndex === 6 ? [qsTranslate("QualcommToolsPage", "Build (*.zip *.json *.xml)")] : ["XML (*.xml)"]
+            nameFilters: page.toolIndex === 6 ? [qsTranslate("QualcommToolsPage", "Build (*.zip *.json *.xml)"), qsTr("All files (*)")] : ["XML (*.xml)", qsTr("All files (*)")]
             placeholder: page.toolIndex === 6 ? qsTranslate("QualcommToolsPage", "Build package (*.zip, *.json or *.xml)") : qsTranslate("QualcommToolsPage", "Path to the contents.xml")
         }
         GridLayout {
@@ -103,6 +103,7 @@ FormSection {
             context: page.context; visible: page.showOutput
             settingKey: "output"; caption: qsTranslate("QualcommToolsPage", "Output")
             pickerMode: page.toolIndex === 2 ? AppFilePicker.OpenFolder : AppFilePicker.SaveFile
+            nameFilters: page.toolIndex === 2 ? [] : [page.toolIndex === 4 ? qsTr("ZIP archives (*.zip)") : qsTr("Sahara archives (*.bin)"), qsTr("All files (*)")]
             placeholder: page.toolIndex === 2 ? qsTranslate("QualcommToolsPage", "Output directory for the RAM dump")
                          : page.toolIndex === 4 ? qsTranslate("QualcommToolsPage", "Output ZIP file")
                          : qsTranslate("QualcommToolsPage", "Output Sahara archive file")

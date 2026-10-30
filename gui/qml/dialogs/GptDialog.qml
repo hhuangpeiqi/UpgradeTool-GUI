@@ -105,6 +105,7 @@ AppDialog {
         mode: AppFilePicker.OpenFile
         property var onPicked: null
         titleText: qsTr("Select Input Parameter")
+        nameFilters: [qsTr("Parameter files (parameter* *.txt)"), qsTr("All files (*)")]
         persistKey: "parameter"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());
@@ -118,6 +119,7 @@ AppDialog {
         mode: AppFilePicker.SaveFile
         property var onPicked: null
         titleText: qsTr("Select Output GPT")
+        nameFilters: [qsTr("GPT files (*.bin)"), qsTr("All files (*)")]
         persistKey: "gpt_output"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());

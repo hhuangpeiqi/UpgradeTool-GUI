@@ -53,6 +53,7 @@ QualcommWorkspace {
         QualcommPathRow {
             context: page.context; visible: page.selectedAction < 2; settingKey: "rawFile"; caption: qsTr("Binary file")
             pickerMode: page.selectedAction === 0 ? AppFilePicker.SaveFile : AppFilePicker.OpenFile
+            nameFilters: [qsTr("Image files (*.img *.bin)"), qsTr("All files (*)")]
             placeholder: page.selectedAction === 0 ? qsTr("Output file for the read data") : qsTr("Binary image to write")
         }
         RowLayout {

@@ -99,7 +99,7 @@ ColumnLayout {
         objectName: "qcProgramPicker"
         titleText: qsTr("Select rawprogram XML")
         multiple: true
-        nameFilters: ["rawprogram (rawprogram*.xml)", "XML (*.xml)"]
+        nameFilters: ["rawprogram (rawprogram*.xml)", "XML (*.xml)", qsTr("All files (*)")]
         persistKey: "qualcomm/flash/rawprogram"
         validateSelection: function(paths) { return app.qualcomm.validateXmlSelection(paths, false); }
         onAccepted: {
@@ -118,7 +118,7 @@ ColumnLayout {
         objectName: "qcPatchPicker"
         titleText: qsTr("Select patch XML")
         multiple: true
-        nameFilters: ["patch (patch*.xml)", "XML (*.xml)"]
+        nameFilters: ["patch (patch*.xml)", "XML (*.xml)", qsTr("All files (*)")]
         persistKey: "qualcomm/flash/patch"
         skipText: qsTr("Skip patch")
         validateSelection: function(paths) {
@@ -135,7 +135,7 @@ ColumnLayout {
         // Bind the request context instead of snapshotting it on visibleChanged;
         // see QualcommPathRow.qml.
         property string requestContext: root.context
-        titleText: qsTr("Load XML"); nameFilters: ["XML (*.xml)"]; persistKey: "qualcomm/" + root.context + "/xml"
+        titleText: qsTr("Load XML"); nameFilters: ["XML (*.xml)", qsTr("All files (*)")]; persistKey: "qualcomm/" + root.context + "/xml"
         onAccepted: app.qualcomm.addXml(app.toLocalPath(selectedFile), requestContext)
     }
 }

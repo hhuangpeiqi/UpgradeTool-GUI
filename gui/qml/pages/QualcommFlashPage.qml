@@ -48,7 +48,7 @@ QualcommWorkspace {
             context: page.context
             settingKey: "package"
             caption: qsTr("Package file")
-            nameFilters: [qsTr("Build (*.zip *.json *.xml)")]
+            nameFilters: [qsTr("Build (*.zip *.json *.xml)"), qsTr("All files (*)")]
             placeholder: qsTr("Build package (*.zip, *.json or *.xml)")
         }
         GridLayout {

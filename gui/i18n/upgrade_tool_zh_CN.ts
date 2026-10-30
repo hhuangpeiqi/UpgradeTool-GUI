@@ -351,6 +351,26 @@
         <source>Generate GPT…</source>
         <translation>生成 GPT…</translation>
     </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>Firmware (*.img)</source>
+        <translation>固件 (*.img)</translation>
+    </message>
+    <message>
+        <source>Image files (*.img *.bin)</source>
+        <translation>镜像文件 (*.img *.bin)</translation>
+    </message>
+    <message>
+        <source>Loader files (*.bin)</source>
+        <translation>Loader 文件 (*.bin)</translation>
+    </message>
+    <message>
+        <source>Log files (*.log *.txt)</source>
+        <translation>日志文件 (*.log *.txt)</translation>
+    </message>
 </context>
 <context>
     <name>Allwinner</name>
@@ -720,6 +740,14 @@
         <source>Start Flashing</source>
         <translation>开始刷写</translation>
     </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>Image files (*.img *.bin)</source>
+        <translation>镜像文件 (*.img *.bin)</translation>
+    </message>
 </context>
 <context>
     <name>AllwinnerToolsPage</name>
@@ -857,6 +885,14 @@
         <source>Device Info…</source>
         <translation>设备信息…</translation>
     </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>Firmware (*.img)</source>
+        <translation>固件 (*.img)</translation>
+    </message>
 </context>
 <context>
     <name>AllwinnerWorkspace</name>
@@ -894,6 +930,14 @@
         <location line="+5"/>
         <source>Switch</source>
         <translation>切换</translation>
+    </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>Firmware (*.img)</source>
+        <translation>固件 (*.img)</translation>
     </message>
 </context>
 <context>
@@ -1476,6 +1520,18 @@
         <location line="+13"/>
         <source>Select Output GPT</source>
         <translation>选择输出 GPT</translation>
+    </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>GPT files (*.bin)</source>
+        <translation>GPT 文件 (*.bin)</translation>
+    </message>
+    <message>
+        <source>Parameter files (parameter* *.txt)</source>
+        <translation>参数文件 (parameter* *.txt)</translation>
     </message>
 </context>
 <context>
@@ -2395,6 +2451,10 @@
         <source>Select a valid programmer and XML set first</source>
         <translation>请先选择有效的引导程序和 XML 文件</translation>
     </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
 </context>
 <context>
     <name>QualcommOptions</name>
@@ -2584,6 +2644,14 @@
         <source>Add a valid programmer and at least one operation first</source>
         <translation>请先添加有效的引导程序和至少一项操作</translation>
     </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>Image files (*.img *.bin)</source>
+        <translation>镜像文件 (*.img *.bin)</translation>
+    </message>
 </context>
 <context>
     <name>QualcommPathRow</name>
@@ -2652,6 +2720,10 @@
         <source>Sahara images (ID:path)</source>
         <translation>Sahara 镜像（ID:路径）</translation>
     </message>
+    <message>
+        <source>Programmer files (*.mbn *.elf *.bin)</source>
+        <translation>引导程序文件 (*.mbn *.elf *.bin)</translation>
+    </message>
 </context>
 <context>
     <name>QualcommToolPanel</name>
@@ -2659,6 +2731,18 @@
         <location filename="../qml/pages/QualcommToolsPage.qml" line="+125"/>
         <source>Simulate UFS provisioning</source>
         <translation>模拟 UFS 配置</translation>
+    </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
+    </message>
+    <message>
+        <source>Sahara archives (*.bin)</source>
+        <translation>Sahara 归档 (*.bin)</translation>
+    </message>
+    <message>
+        <source>ZIP archives (*.zip)</source>
+        <translation>ZIP 归档 (*.zip)</translation>
     </message>
 </context>
 <context>
@@ -2904,6 +2988,10 @@
         <location line="+23"/>
         <source>Skip patch</source>
         <translation>跳过 patch</translation>
+    </message>
+    <message>
+        <source>All files (*)</source>
+        <translation>所有文件 (*)</translation>
     </message>
 </context>
 <context>

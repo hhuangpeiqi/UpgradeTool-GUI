@@ -10,6 +10,7 @@ AllwinnerWorkspace {
     fileCaption: qsTr("Boot package")
 
     FilePathRow {
+        nameFilters: [qsTr("Image files (*.img *.bin)"), qsTr("All files (*)")]
         id: rawImage
         objectName: "awRawImage"
         Layout.fillWidth: true

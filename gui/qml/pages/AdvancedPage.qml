@@ -66,11 +66,11 @@ Item {
 
                     Text { text: qsTr("Boot:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
                     AppTextField { id: bootField; Layout.fillWidth: true; placeholderText: qsTr("Loader / boot file path") }
-                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "loader"; picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
 
                     Text { text: qsTr("Firmware:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
                     AppTextField { id: fwField; Layout.fillWidth: true; placeholderText: qsTr("Firmware file path") }
-                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
+                    SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "firmware"; picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
                 }
 
                 Flow {
@@ -247,7 +247,7 @@ Item {
                             Text { text: qsTr("Write LBA"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 130 }
                             AppTextField { id: wlBegin; Layout.preferredWidth: 140; placeholderText: qsTr("Start sector") }
                             AppTextField { id: wlFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "image"; picker.onPicked = function (p) { wlFile.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && wlBegin.text !== "" && wlFile.text !== ""
@@ -263,7 +263,7 @@ Item {
                             AppTextField { id: wsPage; Layout.preferredWidth: 100; placeholderText: qsTr("Page KB") }
                             AppTextField { id: wsSpare; Layout.preferredWidth: 100; placeholderText: qsTr("spare") }
                             AppTextField { id: wsFile; Layout.fillWidth: true; placeholderText: qsTr("File") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "image"; picker.onPicked = function (p) { wsFile.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && wsBegin.text !== "" && wsPage.text !== "" && wsSpare.text !== "" && wsFile.text !== ""
@@ -301,11 +301,11 @@ Item {
                             spacing: 10
                             Item { Layout.preferredWidth: 130 }
                             AppTextField { id: runUboot; Layout.fillWidth: true; placeholderText: qsTr("U-Boot file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "image"; picker.onPicked = function (p) { runUboot.text = p; }; picker.open(); } }
                             AppTextField { id: runTrust; Layout.fillWidth: true; placeholderText: qsTr("Trust file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "image"; picker.onPicked = function (p) { runTrust.text = p; }; picker.open(); } }
                             AppTextField { id: runBoot; Layout.fillWidth: true; placeholderText: qsTr("Boot file") }
-                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
+                            SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "image"; picker.onPicked = function (p) { runBoot.text = p; }; picker.open(); } }
                             SecondaryButton {
                                 text: qsTr("Execute")
                                 enabled: page.canRun && runUbootAddr.text !== "" && runTrustAddr.text !== "" && runBootAddr.text !== ""
@@ -336,6 +336,10 @@ Item {
 
     AppFilePicker {
         id: picker
+        property string fileKind: "image"
+        nameFilters: [fileKind === "loader" ? qsTr("Loader files (*.bin)")
+                      : fileKind === "firmware" ? qsTr("Firmware (*.img)")
+                      : qsTr("Image files (*.img *.bin)"), qsTr("All files (*)")]
         mode: AppFilePicker.OpenFile
         property var onPicked: null
         titleText: qsTr("Select File")
@@ -360,6 +364,8 @@ Item {
 
     AppFilePicker {
         id: savePicker
+        nameFilters: [pending === "comlog" ? qsTr("Log files (*.log *.txt)")
+                      : qsTr("Image files (*.img *.bin)"), qsTr("All files (*)")]
         mode: AppFilePicker.SaveFile
         titleText: qsTr("Select Save File")
         persistKey: "export_file"

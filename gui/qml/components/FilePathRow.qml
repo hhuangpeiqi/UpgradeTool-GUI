@@ -9,6 +9,7 @@ RowLayout {
     property string placeholder: ""
     property string persistKey: "allwinner"
     property int pickerMode: AppFilePicker.OpenFile
+    property var nameFilters: []
     signal edited(string path)
     spacing: 10
     Text {
@@ -31,6 +32,7 @@ RowLayout {
         id: picker
         titleText: root.caption
         mode: root.pickerMode
+        nameFilters: root.nameFilters
         persistKey: root.persistKey
         onAccepted: {
             field.text = app.toLocalPath(root.pickerMode === AppFilePicker.OpenFolder ? selectedFolder : selectedFile);

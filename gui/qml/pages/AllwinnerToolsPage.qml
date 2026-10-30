@@ -71,6 +71,7 @@ AllwinnerWorkspace {
     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
     Text { text: qsTr("Programmer Image Convert"); color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontMedium }
     FilePathRow {
+        nameFilters: [qsTr("Firmware (*.img)"), qsTr("All files (*)")]
         id: output
         objectName: "awConvertOutput"
         Layout.fillWidth: true
