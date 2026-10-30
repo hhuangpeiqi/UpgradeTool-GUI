@@ -98,6 +98,8 @@ int main(int argc, char **argv) {
     CHECK(qtq_path_unlink(renamed.c_str()) == 0);
     CHECK(!std::filesystem::exists(platform::Path(renamed)));
     CHECK(qtq_path_open(nullptr, O_RDONLY, 0) == -1 && errno == EINVAL);
+    CHECK(qtq_path_fopen(nullptr, "rb") == nullptr && errno == EINVAL);
+    CHECK(qtq_path_fopen(loader.c_str(), nullptr) == nullptr && errno == EINVAL);
 #ifdef _WIN32
     CHECK(qtq_path_open("\xff", O_RDONLY, 0) == -1 && errno == EINVAL);
 #endif

@@ -30,11 +30,14 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 		const QByteArray originalAdb = qgetenv("ADB");
 		const QString fakeAdb = temporary.filePath("fake-adb");
 		QFile file(fakeAdb); CHECK(file.open(QIODevice::WriteOnly));
-		file.write("#!/bin/sh\nif [ \"$1\" = version ]; then printf 'Android Debug Bridge version 1.0.41\\n'; elif [ \"$1\" = devices ]; then printf 'List of devices attached\\nboard device usb:1-5.4\\n'; else printf 'AW_ANDROID=\\nAW_BUILDROOT=1\\nAW_SOC=sun50i\\nAW_UID=0\\nAW_DEVMEM=1\\nAW_REBOOT=/sbin/reboot\\nAW_REBOOT_LINK=reboot -> busybox\\n'; fi\n");
+		file.write("#!/bin/sh\nif [ \"$1\" = version ]; then printf 'Android Debug Bridge version 1.0.41\\n'; elif [ \"$1\" = devices ]; then printf 'List of devices attached\\nboard device\\nsecond device\\n'; elif [ \"$1\" != start-server ]; then exit 42; fi\n");
 		file.close(); CHECK(file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
 		qputenv("ADB", fakeAdb.toUtf8());
 		{
 			gui::AppController controller(nullptr); controller.setVendor(1); controller.ignorePermission();
+            auto *adb = controller.findChild<gui::AdbRunner *>();
+            CHECK(adb != nullptr);
+            controller.language()->setMode("en");
             int recoveries = 0;
             QObject::connect(&controller, &gui::AppController::switchRecoveryRequested,
                              [&] {
@@ -52,6 +55,12 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 			CHECK(controller.tasks()->progressValue() == -1 && controller.tasks()->progressSpeed().isEmpty());
 			CHECK(!controller.tasks()->progressText().isEmpty());
 			controller.setVendor(0); CHECK(controller.vendor() == 1);
+            // Two fake devices keep ADB at device choice on every platform.
+            // Probe diagnostics and USB mapping are covered by test_adb_runner.
+            if (adb) {
+                adb->finished(false, QStringLiteral("No supported FEL switch entry was found in this BusyBox environment; enter flash mode manually."));
+                adb->CancelSwitch();
+            }
 			CHECK(Await([&] { return !controller.tasks()->busy(); }));
 			CHECK(!controller.switching());
 			CHECK(controller.felSwitchError() && controller.felSwitchHint().contains("BusyBox"));
@@ -78,8 +87,6 @@ int TestAllwinnerSwitching([[maybe_unused]] QGuiApplication &application) {
 			// and Loader re-enumeration are covered by test_adb_runner.
 			controller.switchToLoader();
 			CHECK(controller.switching() && controller.tasks()->busy());
-			auto *adb = controller.findChild<gui::AdbRunner *>();
-			CHECK(adb != nullptr);
 			if (adb) adb->finished(true, QStringLiteral("Loader device detected on the target USB port."));
 			CHECK(!controller.switching() && !controller.tasks()->busy());
 			CHECK(controller.tasks()->progressValue() == 100);

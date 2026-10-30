@@ -76,7 +76,9 @@ printf '%s\n' "$ADB_DEPENDENCIES" | tail -n +2 | awk '{print $1}' | while IFS= r
     esac
 done
 "$ADB_DIR/adb" version
-mkdir -p "$APP/Contents/Resources/licenses"
+# Helpers contains code; keep ADB's non-code files in Resources before signing.
+mkdir -p "$APP/Contents/Resources/licenses/adb"
+mv "$ADB_DIR/NOTICE.txt" "$ADB_DIR/source.properties" "$APP/Contents/Resources/licenses/adb/"
 cp "$ROOT/backends/rockchip/legacy/license.txt" "$APP/Contents/Resources/licenses/upgrade-tool-GPL-2.0.txt"
 cp "$ROOT/third_party/libusb/COPYING" "$APP/Contents/Resources/licenses/libusb-LGPL-2.1.txt"
 cp "$ROOT/third_party/libefex/LICENSE" "$APP/Contents/Resources/licenses/libefex-MIT.txt"

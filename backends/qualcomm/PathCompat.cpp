@@ -38,12 +38,15 @@ fs::path Path(const char *path) {
 }
 template<class Result, class Function>
 Result Guard(Result failure, Function function) noexcept {
+    int errorNumber;
     try { return function(); }
-    catch (const std::bad_alloc &) { errno = ENOMEM; }
+    catch (const std::bad_alloc &) { errorNumber = ENOMEM; }
     catch (const fs::filesystem_error &error) {
-        errno = error.code().default_error_condition().value();
+        errorNumber = error.code().default_error_condition().value();
     }
-    catch (const std::exception &) { errno = EINVAL; }
+    catch (const std::exception &) { errorNumber = EINVAL; }
+    // Exception destruction can change errno on macOS. Set it after cleanup.
+    errno = errorNumber;
     return failure;
 }
 bool EqualAsciiCase(std::string a, std::string b) {
