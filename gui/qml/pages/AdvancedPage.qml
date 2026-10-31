@@ -69,7 +69,7 @@ Item {
                     SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "loader"; picker.onPicked = function (p) { bootField.text = p; }; picker.open(); } }
 
                     Text { text: qsTr("Firmware:"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.preferredWidth: 64 }
-                    AppTextField { id: fwField; Layout.fillWidth: true; placeholderText: qsTr("Firmware file path") }
+                    AppTextField { id: fwField; objectName: "rkAdvancedFirmwarePath"; Layout.fillWidth: true; enabled: !app.interactionLocked; placeholderText: qsTr("Firmware file path"); onTextChanged: app.rockchip.inspectAdvancedFirmware("") }
                     SecondaryButton { text: qsTr("Choose…"); enabled: !app.interactionLocked; onClicked: { picker.fileKind = "firmware"; picker.onPicked = function (p) { fwField.text = p; }; picker.open(); } }
                 }
 
@@ -81,6 +81,12 @@ Item {
                         text: qsTr("Download Boot")
                         enabled: page.canRun && bootField.text !== ""
                         onClicked: app.rockchip.runOperation(Operations.DownloadBoot, {path: bootField.text})
+                    }
+                    SecondaryButton {
+                        objectName: "rkAdvancedFirmwareInfo"
+                        text: qsTr("View Firmware Info")
+                        enabled: !app.interactionLocked && fwField.text.trim() !== ""
+                        onClicked: app.rockchip.inspectAdvancedFirmware(fwField.text)
                     }
                     SecondaryButton {
                         text: qsTr("Extract Firmware")
@@ -99,6 +105,14 @@ Item {
                         enabled: page.canRun
                         onClicked: app.rockchip.runOperation(Operations.EraseFlash, {path: bootField.text})
                     }
+                }
+
+                KeyValueTable {
+                    objectName: "rkAdvancedFirmwareDetails"
+                    visible: app.rockchip.firmwareEntries.count > 0
+                    Layout.fillWidth: true
+                    implicitHeight: Math.min(320, Math.max(120, app.rockchip.firmwareEntries.count * 38 + 44))
+                    model: app.rockchip.firmwareEntries
                 }
 
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }

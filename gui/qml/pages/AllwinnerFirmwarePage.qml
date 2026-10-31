@@ -8,7 +8,6 @@ AllwinnerWorkspace {
     context: 1
     title: qsTr("Flash Firmware")
     property var selectedPartitions: []
-    signal toolsRequested(string path)
     onFirmwareChanged: selectedPartitions = []
 
     GridLayout {
@@ -45,6 +44,8 @@ AllwinnerWorkspace {
         onToggled: page.saveSetting("verify", checked)
     }
     AllwinnerPartitions {
+        objectName: "awFlashPartitions"
+        visible: mode.currentIndex === 0
         Layout.fillWidth: true
         partitions: page.contextState.partitions
         selected: page.selectedPartitions

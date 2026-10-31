@@ -7,13 +7,11 @@ Item {
 
     property int currentIndex: 0
 
-    // Icons follow each page ID and its meaning for the selected vendor.
+    // Use the same page icons for every vendor.
     readonly property url partitionIcon: root.currentIndex === 0
-        ? (app.vendor === 2 ? Icons.chipBlue : Icons.downloadBlue)
-        : (app.vendor === 2 ? Icons.chipGray : Icons.downloadGray)
+        ? Icons.chipBlue : Icons.chipGray
     readonly property url downloadIcon: root.currentIndex === 1
-        ? (app.vendor === 2 ? Icons.downloadBlue : Icons.chipBlue)
-        : (app.vendor === 2 ? Icons.downloadGray : Icons.chipGray)
+        ? Icons.downloadBlue : Icons.downloadGray
 
     signal tabRequested(int index)
     signal configClicked(Item source)

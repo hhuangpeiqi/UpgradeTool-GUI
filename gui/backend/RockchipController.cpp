@@ -29,7 +29,7 @@ RockchipController::RockchipController(QObject *parent) : QObject(parent),m_pIma
     SetAdvancedHint([] { return AppTr("Ready"); },false);
 }
 RockchipController::~RockchipController() { cancelInspections(); }
-void RockchipController::cancelInspections() { if(m_folderInspection) m_folderInspection->request_stop(); if(m_firmwareInspection) m_firmwareInspection->request_stop(); }
+void RockchipController::cancelInspections() { if(m_advancedFirmwareInspection) m_advancedFirmwareInspection->request_stop(); if(m_folderInspection) m_folderInspection->request_stop(); if(m_firmwareInspection) m_firmwareInspection->request_stop(); }
 void RockchipController::restore() {
 	{
 		QSettings settings(QSettings::IniFormat, QSettings::UserScope,
@@ -50,7 +50,9 @@ void RockchipController::retranslate() {
     emit imageStateChanged(); emit firmwareStateChanged(); emit advancedStateChanged();
 }
 void RockchipController::applyInspection(int context,quint64 generation,const core::OperationResult &result) {
-    if(context==4 && generation==m_folderGeneration) {
+    if(context==6 && generation==m_advancedFirmwareGeneration) {
+        applyResult(result);
+    } else if(context==4 && generation==m_folderGeneration) {
         if(!result.ok() || !result.firmware.valid) { SetImageHint([this] { return AppTr("parameter.txt not found or failed to parse: %1").arg(m_strImageDir); },true); return; }
         const auto &entries=result.firmware.entries;
 	QDir dir(m_strImageDir);
@@ -207,6 +209,27 @@ void RockchipController::executeImageDownload(bool reboot)
 	if (m_locked) { m_bQueueActive = true; emit imageStateChanged(); }
 }
 
+void RockchipController::inspectAdvancedFirmware(const QString &path)
+{
+    if (m_locked) return;
+    if (m_advancedFirmwareInspection) m_advancedFirmwareInspection->request_stop();
+    ++m_advancedFirmwareGeneration;
+    m_pFirmwareEntries->Clear();
+    m_firmwareInfo.Clear();
+    if (path.trimmed().isEmpty()) {
+        SetAdvancedHint([] { return AppTr("Ready"); }, false);
+        return;
+    }
+    SetAdvancedHint([] { return AppTr("Reading firmware info…"); }, false);
+    core::InspectionRequest inspection;
+    inspection.context = 6;
+    inspection.generation = m_advancedFirmwareGeneration;
+    inspection.request = core::OperationRequest(core::Operation::FirmwareInfo);
+    inspection.request.file().path = path.trimmed().toStdString();
+    m_advancedFirmwareInspection = inspection.cancelled;
+    emit inspectRequested(inspection);
+}
+
 void RockchipController::setFirmware(const QString &strPath)
 {
 	if (m_locked) return;
@@ -218,8 +241,6 @@ void RockchipController::setFirmware(const QString &strPath)
 		                   "upgrade_tool", "upgrade_tool");
 		settings.setValue(kLastFirmwareKey, m_strFirmware);
 	}
-	m_pFirmwareEntries->Clear();
-	m_firmwareInfo.Clear();
 	m_bFirmwareValid = false;
 	m_strFwVersion = m_strFwLoader = m_strFwChip = m_strFwBuild = m_strFwSign = QString("-");
 	emit firmwareStateChanged();
@@ -386,12 +407,20 @@ void RockchipController::applyResult(const core::OperationResult &result)
 		m_pFirmwareEntries->Clear();
 		m_firmwareInfo.Clear();
 		if (!bOk) {
-			SetFirmwareHint([] { return AppTr("Failed to read firmware info."); }, true);
+			SetAdvancedHint([] { return AppTr("Failed to read firmware info."); }, true);
 
 			return;
 		}
-		m_firmwareInfo.Set([items, infoRows] {
+		m_firmwareInfo.Set([items, infoRows, meta = result.firmware] {
 			QVariantList rows = items;
+            const auto add = [&rows](const char *label, const std::string &value) {
+                rows.append(QVariantMap{{"label", AppTr(label)}, {"value", QString::fromStdString(value)}});
+            };
+            add("Firmware version", meta.version);
+            add("Loader version", meta.loaderVersion);
+            add("Chip info", meta.chip);
+            add("Build time", meta.buildTime);
+            add("Signature", meta.sign);
 			for (const QVariant &value : infoRows) {
 				const QVariantMap row = value.toMap();
 				QVariantMap item;
@@ -405,13 +434,7 @@ void RockchipController::applyResult(const core::OperationResult &result)
 			return rows;
 		});
 		m_pFirmwareEntries->SetItems(m_firmwareInfo.value());
-		m_strFwChip = QString::fromStdString(result.firmware.chip);
-		m_strFwVersion = QString::fromStdString(result.firmware.version);
-		m_strFwLoader = QString::fromStdString(result.firmware.loaderVersion);
-		m_strFwBuild = QString::fromStdString(result.firmware.buildTime);
-		m_strFwSign = QString::fromStdString(result.firmware.sign);
-		SetFirmwareHint([] { return AppTr("Firmware info read successfully."); }, false);
-		emit firmwareStateChanged();
+        SetAdvancedHint([] { return AppTr("Firmware info read successfully."); }, false);
 
 		return;
 	}

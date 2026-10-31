@@ -38,6 +38,7 @@ public:
     void cancelInspections();
     void retranslate() override;
     void applyResult(const core::OperationResult &);
+    Q_INVOKABLE void inspectAdvancedFirmware(const QString &path);
     void applyInspection(int context,quint64 generation,const core::OperationResult &);
     void applyFinished(const core::TaskSummary &,const core::TaskJob &);
     void applyStep(TranslatableText::Factory text) { if(m_bQueueActive) SetImageHint(std::move(text),false); }
@@ -88,8 +89,8 @@ private:
     KeyValueModel *m_pFirmwareEntries,*m_pResults;
     Translatable<QVariantList> m_firmwareInfo;
     bool m_locked=false,m_active=true,m_bCancelRequested=false;
-    quint64 m_folderGeneration=0,m_firmwareGeneration=0;
-    core::Cancellation m_folderInspection,m_firmwareInspection;
+    quint64 m_folderGeneration=0,m_firmwareGeneration=0,m_advancedFirmwareGeneration=0;
+    core::Cancellation m_folderInspection,m_firmwareInspection,m_advancedFirmwareInspection;
 	QString m_strImageDir;
 	TranslatableText m_imageHint;
 	bool m_bImageHintError=false;

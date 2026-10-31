@@ -163,12 +163,7 @@ ApplicationWindow {
                         FirmwarePage {}
                         AdvancedPage {}
                         AllwinnerRawPage {}
-                        AllwinnerFirmwarePage {
-                            onToolsRequested: (path) => {
-                                app.allwinner.setContextFirmware(2, path);
-                                window.currentPage = 2;
-                            }
-                        }
+                        AllwinnerFirmwarePage {}
                         AllwinnerToolsPage {}
                         QualcommPartitionsPage {}
                         QualcommFlashPage {}

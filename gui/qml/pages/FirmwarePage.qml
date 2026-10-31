@@ -102,20 +102,7 @@ Item {
                 }
             }
 
-            Text {
-                Layout.fillWidth: true
-                text: qsTr("Firmware entries")
-                color: Theme.textPrimary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontMedium
-                font.bold: true
-            }
-
-            KeyValueTable {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                model: app.rockchip.firmwareEntries
-            }
+            Item { Layout.fillHeight: true }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -129,18 +116,6 @@ Item {
                 }
 
                 Item { Layout.fillWidth: true }
-
-                SecondaryButton {
-                    text: qsTr("View Firmware Info")
-                    enabled: !app.interactionLocked && app.rockchip.firmwarePath !== ""
-                    onClicked: app.rockchip.showFirmwareInfo()
-                }
-
-                SecondaryButton {
-                    text: qsTr("Extract Firmware…")
-                    enabled: !app.interactionLocked && app.rockchip.firmwarePath !== ""
-                    onClicked: extractDialog.open()
-                }
 
                 PrimaryButton {
                     text: qsTr("Upgrade")
@@ -168,14 +143,4 @@ Item {
         }
     }
 
-    AppFilePicker {
-        id: extractDialog
-        mode: AppFilePicker.OpenFolder
-        titleText: qsTr("Select Extract Output Directory")
-        persistKey: "extract_dir"
-        onAccepted: {
-            var dir = app.toLocalPath(selectedFolder.toString());
-            app.rockchip.extractFirmware(dir);
-        }
-    }
 }

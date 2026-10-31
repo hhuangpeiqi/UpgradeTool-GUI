@@ -77,6 +77,11 @@ int main(int argc, char **argv) {
         controller.setVendor(0);
         window->setProperty("currentPage", 2);
         CHECK(!controller.hasDevice() && gpt->isEnabled());
+        auto *firmwareInfo = find("rkAdvancedFirmwareInfo");
+        CHECK(!firmwareInfo->isEnabled());
+        find("rkAdvancedFirmwarePath")->setProperty("text", QString::fromLocal8Bit(argv[1]));
+        CHECK(firmwareInfo->isEnabled()); // Firmware tools work without a device.
+
         window->resize(1024, 640);
         CHECK(Await([&] {
             return gpt->width()>0 && gpt->x()>=0
@@ -88,7 +93,7 @@ int main(int argc, char **argv) {
         CHECK(gptDialog && gptDialog->property("visible").toBool());
         if (gptDialog) CHECK(QMetaObject::invokeMethod(gptDialog, "close"));
         controller.tasks()->setBusy(true);
-        CHECK(!gpt->isEnabled());
+        CHECK(!gpt->isEnabled() && !firmwareInfo->isEnabled());
         controller.tasks()->setBusy(false);
         controller.setVendor(1);
         window->setProperty("currentPage", 1);
@@ -117,13 +122,16 @@ int main(int argc, char **argv) {
         controller.allwinner()->setContextFirmware(2, QString::fromLocal8Bit(argv[1]));
         CHECK(Await([&] { return controller.allwinner()->states()[2].toMap()["valid"].toBool(); }));
 
+        CHECK(!find("awFlashPartitions")->isVisible());
         find("awFlashMode")->setProperty("currentIndex",0);
+        CHECK(find("awFlashPartitions")->isVisible());
         CHECK(!flash->isEnabled());
         auto *partition=find("awPartition_rootfs");
         partition->setProperty("checked",true);
         CHECK(QMetaObject::invokeMethod(partition,"toggled",Qt::DirectConnection));
         CHECK(flash->isEnabled());
         find("awFlashMode")->setProperty("currentIndex",3);
+        CHECK(!find("awFlashPartitions")->isVisible());
         auto *verify=find("awVerify");
         verify->forceActiveFocus(Qt::TabFocusReason);
         CHECK(verify->hasActiveFocus());
@@ -136,13 +144,6 @@ int main(int argc, char **argv) {
         CHECK(window->activeFocusItem() && window->activeFocusItem()!=verify);
         CHECK(!find("awRawAdvanced")->property("expanded").toBool());
         CHECK(!find("awConvertAdvanced")->property("expanded").toBool());
-        // The handoff keeps the raw boot package independent and selects tools.
-        const auto rawFirmware=controller.allwinner()->states()[0].toMap()["firmware"];
-        auto *firmwarePage=find("AllwinnerFirmwarePage");
-        CHECK(QMetaObject::invokeMethod(firmwarePage,"toolsRequested",Q_ARG(QString,QString::fromLocal8Bit(argv[1]))));
-        CHECK(window->property("currentPage").toInt()==2);
-        CHECK(controller.allwinner()->states()[0].toMap()["firmware"]==rawFirmware);
-
         CHECK(QMetaObject::invokeMethod(&controller,"onAdbAvailabilityChanged",Qt::DirectConnection,
             Q_ARG(bool,true),Q_ARG(QString,QString())));
         CHECK(QMetaObject::invokeMethod(&controller,"onAdbDevicesChanged",Qt::DirectConnection,

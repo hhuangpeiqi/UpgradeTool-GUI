@@ -371,6 +371,10 @@
         <source>Log files (*.log *.txt)</source>
         <translation>日志文件 (*.log *.txt)</translation>
     </message>
+    <message>
+        <source>View Firmware Info</source>
+        <translation>查看固件信息</translation>
+    </message>
 </context>
 <context>
     <name>Allwinner</name>
@@ -3985,6 +3989,26 @@
     <message>
         <source>Switch cancelled. A reboot request already sent may not be reversible.</source>
         <translation>切换已取消。已发送的重启请求可能无法撤销。</translation>
+    </message>
+    <message>
+        <source>Firmware version</source>
+        <translation>固件版本</translation>
+    </message>
+    <message>
+        <source>Loader version</source>
+        <translation>Loader 版本</translation>
+    </message>
+    <message>
+        <source>Chip info</source>
+        <translation>芯片信息</translation>
+    </message>
+    <message>
+        <source>Build time</source>
+        <translation>构建时间</translation>
+    </message>
+    <message>
+        <source>Signature</source>
+        <translation>签名</translation>
     </message>
 </context>
 <context>
