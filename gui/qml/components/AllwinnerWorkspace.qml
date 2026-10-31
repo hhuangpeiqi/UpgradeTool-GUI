@@ -14,7 +14,7 @@ Item {
     readonly property string prefix: "page" + context + "/"
     property var saved: app.allwinner.settings()
     default property alias workspaceContent: body.data
-    property alias actions: actionRow.data
+    property alias actions: pageActions.data
 
     function setting(key, fallback) { return saved[prefix + key] === undefined ? fallback : saved[prefix + key]; }
     function saveSetting(key, value) {
@@ -70,11 +70,13 @@ Item {
                 id: scroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                contentHeight: scrollBody.implicitHeight
                 contentWidth: availableWidth
                 clip: true
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 ColumnLayout {
-                    width: scroll.availableWidth
+                    id: scrollBody
+                    width: scroll.availableWidth - 14
                     spacing: 14
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -119,14 +121,15 @@ Item {
                     ColumnLayout { id: body; Layout.fillWidth: true; spacing: 14 }
                 }
             }
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: Theme.border
+            }
             RowLayout {
                 id: actionRow
                 Layout.fillWidth: true
                 spacing: 10
-                Item {
-                    visible: workspace.context === 0 || workspace.context === 1
-                    Layout.fillWidth: true
-                }
                 RowLayout {
                     visible: workspace.context === 0 || workspace.context === 1
                     Text {
@@ -150,6 +153,11 @@ Item {
                         enabled: !app.interactionLocked && app.adbReady
                         onClicked: app.switchToFel(switchMethod.currentIndex)
                     }
+                }
+                Item { Layout.fillWidth: true }
+                RowLayout {
+                    id: pageActions
+                    spacing: 10
                 }
             }
         }

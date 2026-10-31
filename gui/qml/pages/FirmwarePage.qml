@@ -5,6 +5,7 @@ import QtQuick.Layouts
 
 Item {
     id: page
+    objectName: "RockchipFirmwarePage"
 
     Card {
         anchors.fill: parent
@@ -42,6 +43,93 @@ Item {
                     onClicked: firmwareDialog.open()
                 }
 
+            }
+
+            ScrollView {
+                id: scroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                contentWidth: availableWidth
+                contentHeight: firmwareBody.implicitHeight
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                ColumnLayout {
+                    id: firmwareBody
+                    width: scroll.availableWidth - 14
+                    spacing: 10
+                    Text {
+                        Layout.fillWidth: true
+                        objectName: "rkFirmwareError"
+                        visible: app.rockchip.firmwareHintError
+                        text: app.rockchip.firmwareHint
+                        color: Theme.danger
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontNormal
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Card {
+                        Layout.fillWidth: true
+                        implicitHeight: metaColumn.implicitHeight + 32
+
+                        ColumnLayout {
+                            id: metaColumn
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            spacing: 12
+
+                            Text {
+                                text: qsTr("Firmware Info")
+                                color: Theme.textPrimary
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontMedium
+                                font.bold: true
+                            }
+
+                            GridLayout {
+                                Layout.fillWidth: true
+                                columns: 2
+                                columnSpacing: 28
+                                rowSpacing: 10
+
+                                Text { text: qsTr("Firmware version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                                Text { text: app.rockchip.firmwareVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                                Text { text: qsTr("Loader version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                                Text { text: app.rockchip.firmwareLoaderVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                                Text { text: qsTr("Chip info"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                                Text { text: app.rockchip.firmwareChip; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                                Text { text: qsTr("Build time"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                                Text { text: app.rockchip.firmwareBuildTime; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                                Text { text: qsTr("Signature"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
+                                Text { text: app.rockchip.firmwareSign; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
+                            }
+                        }
+                    }
+
+                    DisclosureSection {
+                        objectName: "rkFirmwareAdvanced"
+                        title: qsTr("Advanced options")
+                        AppCheckBox {
+                            id: rebootBox
+                            objectName: "rkFirmwareReboot"
+                            text: qsTr("Reboot device when done")
+                            checked: true
+                            enabled: !app.interactionLocked
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: Theme.border
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
                 SecondaryButton {
                     objectName: "rkSwitchButton"
                     text: qsTr("Switch")
@@ -53,71 +141,11 @@ Item {
                     ToolTip.visible: hovered && !enabled && !app.interactionLocked
                     ToolTip.text: qsTr("No ADB device detected")
                 }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: app.rockchip.firmwareHint
-                color: app.rockchip.firmwareHintError ? Theme.danger : Theme.textSecondary
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontNormal
-                wrapMode: Text.WordWrap
-            }
-
-            Card {
-                Layout.fillWidth: true
-                implicitHeight: metaColumn.implicitHeight + 32
-
-                ColumnLayout {
-                    id: metaColumn
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 12
-
-                    Text {
-                        text: qsTr("Firmware Info")
-                        color: Theme.textPrimary
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontMedium
-                        font.bold: true
-                    }
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 28
-                        rowSpacing: 10
-
-                        Text { text: qsTr("Firmware version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.rockchip.firmwareVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("Loader version"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.rockchip.firmwareLoaderVersion; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("Chip info"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.rockchip.firmwareChip; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("Build time"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.rockchip.firmwareBuildTime; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                        Text { text: qsTr("Signature"); color: Theme.textSecondary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal }
-                        Text { text: app.rockchip.firmwareSign; color: Theme.textPrimary; font.family: Theme.fontFamily; font.pixelSize: Theme.fontNormal; Layout.fillWidth: true }
-                    }
-                }
-            }
-
-            Item { Layout.fillHeight: true }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                AppCheckBox {
-                    id: rebootBox
-                    text: qsTr("Reboot device when done")
-                    checked: true
-                    enabled: !app.interactionLocked
-                }
 
                 Item { Layout.fillWidth: true }
 
                 PrimaryButton {
+                    objectName: "rkFirmwareUpgrade"
                     text: qsTr("Upgrade")
                     iconSource: Icons.playWhite
                     enabled: !app.interactionLocked && app.rockchip.firmwareValid && app.hasDevice

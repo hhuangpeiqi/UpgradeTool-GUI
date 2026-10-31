@@ -19,6 +19,7 @@ upgrade_test(test_file_picker LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
 foreach(name test_allwinner_ui test_qualcomm_ui test_qml_controls test_switching_ui test_file_picker)
   upgrade_attach_gui_test_resources(${name})
 endforeach()
+upgrade_attach_test_translations(test_allwinner_ui)
 upgrade_attach_test_translations(test_qualcomm_ui)
 upgrade_attach_test_translations(test_switching_ui)
 upgrade_test(test_maskrom_ui LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30

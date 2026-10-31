@@ -10,38 +10,43 @@ AllwinnerWorkspace {
     property var selectedPartitions: []
     onFirmwareChanged: selectedPartitions = []
 
-    GridLayout {
-        Layout.fillWidth: true
-        columns: 2
-        columnSpacing: 12
-        rowSpacing: 10
-        enabled: !app.interactionLocked
-        Text { text: qsTr("Flash Mode"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppComboBox {
-            id: mode
-            objectName: "awFlashMode"
+    DisclosureSection {
+        objectName: "awFlashAdvanced"
+        title: qsTr("Advanced options")
+        GridLayout {
             Layout.fillWidth: true
-            model: [qsTr("Flash selected partitions"), qsTr("Keep user data"), qsTr("Erase partitions, then flash"), qsTr("Full erase, then flash")]
-            currentIndex: Number(page.setting("mode", 3))
-            onActivated: page.saveSetting("mode", currentIndex)
+            columns: 2
+            columnSpacing: 12
+            rowSpacing: 10
+            enabled: !app.interactionLocked
+            Text { text: qsTr("Flash Mode"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppComboBox {
+                id: mode
+                objectName: "awFlashMode"
+                Layout.fillWidth: true
+                model: [qsTr("Flash selected partitions"), qsTr("Keep user data"), qsTr("Erase partitions, then flash"), qsTr("Full erase, then flash")]
+                currentIndex: Number(page.setting("mode", 3))
+                onActivated: page.saveSetting("mode", currentIndex)
+            }
+            Text { text: qsTr("After Finish"); color: Theme.textSecondary; font.family: Theme.fontFamily }
+            AppComboBox {
+                id: postAction
+                objectName: "awPostAction"
+                Layout.fillWidth: true
+                model: [qsTr("Reboot"), qsTr("Power off"), qsTr("Shut down")]
+                currentIndex: Number(page.setting("postAction", 0))
+                onActivated: page.saveSetting("postAction", currentIndex)
+            }
         }
-        Text { text: qsTr("After Finish"); color: Theme.textSecondary; font.family: Theme.fontFamily }
-        AppComboBox {
-            id: postAction
-            Layout.fillWidth: true
-            model: [qsTr("Reboot"), qsTr("Power off"), qsTr("Shut down")]
-            currentIndex: Number(page.setting("postAction", 0))
-            onActivated: page.saveSetting("postAction", currentIndex)
+        AppCheckBox {
+            focusPolicy: Qt.StrongFocus
+            id: verify
+            objectName: "awVerify"
+            text: qsTr("Verify after write")
+            enabled: !app.interactionLocked
+            checked: String(page.setting("verify", true)) === "true"
+            onToggled: page.saveSetting("verify", checked)
         }
-    }
-    AppCheckBox {
-        focusPolicy: Qt.StrongFocus
-        id: verify
-        objectName: "awVerify"
-        text: qsTr("Verify after write")
-        enabled: !app.interactionLocked
-        checked: String(page.setting("verify", true)) === "true"
-        onToggled: page.saveSetting("verify", checked)
     }
     AllwinnerPartitions {
         objectName: "awFlashPartitions"

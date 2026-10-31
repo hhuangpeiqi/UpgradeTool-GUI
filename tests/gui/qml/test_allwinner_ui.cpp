@@ -43,6 +43,8 @@ int main(int argc, char **argv) {
             CHECK(Await([&] { return controller.allwinner()->states()[context].toMap()["valid"].toBool(); }));
         }
         QQmlApplicationEngine engine;
+        QObject::connect(controller.language(), &gui::LanguageManager::languageChanged,
+                         &engine, &QQmlApplicationEngine::retranslate);
         QObject::connect(&engine,&QQmlEngine::warnings,&application,[&](const QList<QQmlError> &errors) {
             for(const auto &error:errors) { std::printf("QML: %s\n",error.toString().toUtf8().constData()); ++failures; }
         });
@@ -75,6 +77,23 @@ int main(int argc, char **argv) {
         CHECK(tools->findChild<QObject *>("AllwinnerDeviceDialog"));
         auto *gpt=find("rkGenerateGpt");
         controller.setVendor(0);
+        window->setProperty("currentPage", 1);
+        auto *rkAdvanced=find("rkFirmwareAdvanced");
+        CHECK(!rkAdvanced->property("expanded").toBool());
+        CHECK(!find("rkFirmwareReboot")->isVisible());
+        CHECK(!find("rkFirmwareError")->isVisible());
+        rkAdvanced->setProperty("expanded",true);
+        auto *rkReboot=find("rkFirmwareReboot");
+        CHECK(rkReboot->property("checked").toBool());
+        rkReboot->setProperty("checked",false);
+        rkAdvanced->setProperty("expanded",false);
+        rkAdvanced->setProperty("expanded",true);
+        CHECK(!rkReboot->property("checked").toBool());
+        controller.tasks()->setBusy(true);
+        CHECK(!rkReboot->isEnabled() && !find("rkSwitchButton")->isEnabled());
+        controller.tasks()->setBusy(false);
+        rkReboot->setProperty("checked",true);
+        rkAdvanced->setProperty("expanded",false);
         window->setProperty("currentPage", 2);
         CHECK(!controller.hasDevice() && gpt->isEnabled());
         auto *firmwareInfo = find("rkAdvancedFirmwareInfo");
@@ -122,6 +141,10 @@ int main(int argc, char **argv) {
         controller.allwinner()->setContextFirmware(2, QString::fromLocal8Bit(argv[1]));
         CHECK(Await([&] { return controller.allwinner()->states()[2].toMap()["valid"].toBool(); }));
 
+        auto *advanced=find("awFlashAdvanced");
+        CHECK(!advanced->property("expanded").toBool());
+        CHECK(!find("awVerify")->isVisible());
+        advanced->setProperty("expanded",true);
         CHECK(!find("awFlashPartitions")->isVisible());
         find("awFlashMode")->setProperty("currentIndex",0);
         CHECK(find("awFlashPartitions")->isVisible());
@@ -130,6 +153,11 @@ int main(int argc, char **argv) {
         partition->setProperty("checked",true);
         CHECK(QMetaObject::invokeMethod(partition,"toggled",Qt::DirectConnection));
         CHECK(flash->isEnabled());
+        advanced->setProperty("expanded",false);
+        CHECK(find("awFlashPartitions")->isVisible());
+        CHECK(flash->isEnabled());
+        CHECK(find("awFlashMode")->property("currentIndex").toInt()==0);
+        advanced->setProperty("expanded",true);
         find("awFlashMode")->setProperty("currentIndex",3);
         CHECK(!find("awFlashPartitions")->isVisible());
         auto *verify=find("awVerify");
@@ -139,6 +167,14 @@ int main(int argc, char **argv) {
         QKeyEvent press(QEvent::KeyPress,Qt::Key_Space,Qt::NoModifier), release(QEvent::KeyRelease,Qt::Key_Space,Qt::NoModifier);
         QGuiApplication::sendEvent(window,&press); QGuiApplication::sendEvent(window,&release);
         CHECK(verify->property("checked").toBool()!=checked);
+        advanced->setProperty("expanded",false);
+        advanced->setProperty("expanded",true);
+        CHECK(verify->property("checked").toBool()!=checked);
+        for(int action=0;action<3;++action) {
+            find("awPostAction")->setProperty("currentIndex",action);
+            CHECK(QMetaObject::invokeMethod(find("awPostAction"),"activated",Q_ARG(int,action)));
+            CHECK(controller.allwinner()->settings().value("page1/postAction").toInt()==action);
+        }
         QKeyEvent tab(QEvent::KeyPress,Qt::Key_Tab,Qt::NoModifier);
         QGuiApplication::sendEvent(window,&tab);
         CHECK(window->activeFocusItem() && window->activeFocusItem()!=verify);
@@ -200,6 +236,40 @@ int main(int argc, char **argv) {
                     const auto point=button->mapToScene(QPointF(0,0));
                     CHECK(point.x()>=0 && point.y()>=0 && point.x()+button->width()<=window->width()
                         && point.y()+button->height()<=window->height());
+                }
+            }
+        }
+        for(const auto &language:QStringList{"en","zh_CN"}) {
+            controller.language()->setMode(language);
+            for(const auto &theme:QStringList{"light","dark"}) {
+                controller.theme()->setMode(theme);
+                for(int vendor=0;vendor<2;++vendor) {
+                    controller.setVendor(vendor);
+                    window->setProperty("currentPage",1);
+                    auto *workspace=find(vendor==0?"RockchipFirmwarePage":"AllwinnerFirmwarePage");
+                    auto *options=find(vendor==0?"rkFirmwareAdvanced":"awFlashAdvanced");
+                    auto *start=find(vendor==0?"rkFirmwareUpgrade":"awFlashStart");
+                    auto *toggle=visualFind(workspace,vendor==0?"rkSwitchButton":"awSwitchButton");
+                    for(int small=0;small<2;++small) {
+                        window->resize(small?1024:1300,small?640:780);
+                        for(bool expanded:{false,true}) {
+                            options->setProperty("expanded",expanded);
+                            window->requestUpdate();
+                            QImage screenshot;
+                            CHECK(Await([&] {
+                                QCoreApplication::processEvents();
+                                screenshot=window->grabWindow();
+                                return !screenshot.isNull() && screenshot.width()==window->width()*window->devicePixelRatio();
+                            }));
+                            const auto action=start->mapToScene(QPointF(0,0));
+                            const auto switchPos=toggle->mapToScene(QPointF(0,0));
+                            CHECK(switchPos.x()+toggle->width()<=action.x());
+                            CHECK(qAbs(switchPos.y()-action.y())<1);
+                            CHECK(action.y()>=0 && action.y()+start->height()<=window->height());
+                            CHECK(screenshot.save(output.filePath(QString("firmware-%1-%2-vendor%3-%4-%5.png")
+                                .arg(language).arg(theme).arg(vendor).arg(small?"small":"normal").arg(expanded?"expanded":"collapsed"))));
+                        }
+                    }
                 }
             }
         }

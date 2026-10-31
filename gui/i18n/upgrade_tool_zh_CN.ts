@@ -590,6 +590,10 @@
 <context>
     <name>AllwinnerFirmwarePage</name>
     <message>
+        <source>Advanced options</source>
+        <translation>高级选项</translation>
+    </message>
+    <message>
         <location filename="../qml/pages/AllwinnerFirmwarePage.qml" line="+9"/>
         <source>Flash Firmware</source>
         <translation>固件刷写</translation>
@@ -1357,6 +1361,10 @@
 </context>
 <context>
     <name>FirmwarePage</name>
+    <message>
+        <source>Advanced options</source>
+        <translation>高级选项</translation>
+    </message>
     <message>
         <location filename="../qml/pages/FirmwarePage.qml" line="+18"/>
         <source>Firmware Upgrade</source>
