@@ -11,9 +11,9 @@ Firmware flashing tool for Rockchip (Loader / Maskrom), Allwinner (FEL / FES), a
 
 | Vendor | Flashing modes | Pages (1 / 2 / 3) | USB ID |
 |---|---|---|---|
-| Rockchip | Loader, Maskrom | Download Image / Upgrade Firmware / Advanced | VID `2207` |
-| Allwinner | FEL, FES | Raw Image Flash / Flash Firmware / Advanced | `1f3a:efe8` |
-| Qualcomm | EDL (9008) | Partition Tools / Download / Tools | VID `05c6` |
+| Rockchip | Loader, Maskrom | Flash Firmware / Raw Image Flash / Advanced | VID `2207` |
+| Allwinner | FEL, FES | Flash Firmware / Raw Image Flash / Advanced | `1f3a:efe8` |
+| Qualcomm | EDL (9008) | Flash Firmware / Partition Tools / Advanced | VID `05c6` |
 
 ## Features
 
@@ -53,8 +53,8 @@ Pick a vendor, connect a device in flashing mode, then select the target in the 
 
 | Page | Action |
 |---|---|
-| Download Image | Select a directory containing `parameter.txt` and images, tick partitions, then run. Partition names are matched to image files; double-click a path to pick one manually. A Loader in the directory is shown in the first row. |
-| Upgrade Firmware | Select a firmware package and confirm chip, version, and other info before upgrading. |
+| Flash Firmware | Select a firmware package and confirm chip, version, and other info before upgrading. |
+| Raw Image Flash | Select a directory containing `parameter.txt` and images, tick partitions, then run. Partition names are matched to image files; double-click a path to pick one manually. A Loader in the directory is shown in the first row. |
 | Advanced | Query device info, read/write serial numbers, export logs or images, erase storage. |
 | Config | Edit config, generate GPT, install Linux device rules, switch theme. |
 
@@ -62,8 +62,8 @@ Pick a vendor, connect a device in flashing mode, then select the target in the 
 
 | Page | Action |
 |---|---|
-| Raw Image Flash | Select a board-matched IMAGEWTY boot firmware and the image to write, with an optional write method (Command / logic offset) and logic offset; always full erase, no verification, reboot when done. |
 | Flash Firmware | Select a firmware package and a flash mode (partition / keep user data / partition erase / full erase), with optional verification after write; defaults are full erase, verification on, reboot when done, and a failed verification stops the task. |
+| Raw Image Flash | Select a board-matched IMAGEWTY boot firmware and the image to write, with an optional write method (Command / logic offset) and logic offset; always full erase, no verification, reboot when done. |
 | Advanced | View partitions and embedded files, extract firmware, reboot the device in FES mode, convert programmer images (SPI NOR / SD card / eMMC / SD NAND / UFS). |
 | Device menu | Query device information. |
 
@@ -73,9 +73,9 @@ The two flashing pages can switch to FEL over ADB: the standard `efex` entry is 
 
 | Page | Action |
 |---|---|
+| Flash Firmware | Select the build type (Flat Build / Meta) and programmer, then load rawprogram and patch XML with **Load XML** (or **Skip patch**) and click **Download**; use **Ctrl/Shift-click** to select several LUN files, and re-running **Load XML** replaces the previous selection. |
 | Partition Tools | Select a programmer, then add read / write / erase / SHA256 / reset operations by qdl address (`LUN`, `LUN/sector`, `LUN/sector+count`, a partition name, or `LUN/partition-name`) and run them in order; an explicit Firehose reset must be last. |
-| Download | Select the build type (Flat Build / Meta) and programmer, then load rawprogram and patch XML with **Load XML** (or **Skip patch**) and click **Download**; use **Ctrl/Shift-click** to select several LUN files, and re-running **Load XML** replaces the previous selection. |
-| Tools | Chip info, reset, RAM dump, Sahara kickstart, create ZIP / Sahara archive / VIP digests, and UFS provisioning. |
+| Advanced | Chip info, reset, RAM dump, Sahara kickstart, create ZIP / Sahara archive / VIP digests, and UFS provisioning. |
 | Switch settings… / Switch to EDL | Choose the device, switch method, and diagnostic interface (DIAG or authorized ADB), then move the device into EDL (9008) mode. |
 
 The **Load XML** dialog opens in the programmer's folder and the loaded list is read-only. DIAG is not restricted to PID 9091; unknown interfaces can be selected manually but must pass a read-only DIAG query. Qualcomm inputs are session-only and are not written to the configuration. Enabling **Dry run** simulates qdl without accessing a device or writing read-output files; it does not prove hardware support, so validate a real flash and boot separately. A switch attempt is not retried, and success is confirmed only when the device re-enumerates at the same USB location.
@@ -88,13 +88,13 @@ The **Load XML** dialog opens in the programmer's folder and the loaded list is 
 ./build/upgrade_tool_gui --vendor allwinner --firmware /path/to/allwinner.img
 ```
 
-`--vendor` defaults to `rockchip`; other values are `allwinner` and `qualcomm`. `--tab` defaults to `1` and selects the page in vendor order:
+`--vendor` defaults to `rockchip`; other values are `allwinner` and `qualcomm`. `--tab` defaults to `1` and selects a fixed page ID (independent of the displayed tab order):
 
 | `--vendor` | `--tab 0` | `--tab 1` (default) | `--tab 2` |
 |---|---|---|---|
-| `rockchip` | Download Image | Upgrade Firmware | Advanced |
+| `rockchip` | Raw Image Flash | Flash Firmware | Advanced |
 | `allwinner` | Raw Image Flash | Flash Firmware | Advanced |
-| `qualcomm` | Partition Tools | Download | Tools |
+| `qualcomm` | Partition Tools | Flash Firmware | Advanced |
 
 Only one instance can run per user. Starting another instance displays an already-running notice; its startup arguments are not applied.
 

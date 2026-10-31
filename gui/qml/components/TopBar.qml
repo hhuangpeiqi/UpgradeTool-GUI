@@ -7,9 +7,7 @@ Item {
 
     property int currentIndex: 0
 
-    // Qualcomm reuses the first two tabs for a different purpose (partition
-    // work and downloading), so the icons follow the tab's meaning per vendor
-    // instead of the slot index.
+    // Icons follow each page ID and its meaning for the selected vendor.
     readonly property url partitionIcon: root.currentIndex === 0
         ? (app.vendor === 2 ? Icons.chipBlue : Icons.downloadBlue)
         : (app.vendor === 2 ? Icons.chipGray : Icons.downloadGray)
@@ -55,22 +53,23 @@ Item {
             onActivated: (index) => app.vendor = app.availableVendors[index]
         }
 
+        // Keep page IDs stable for --tab and per-vendor page history.
         NavButton {
-            text: app.vendor === 2 ? qsTr("Partition Tools") : app.vendor === 0 ? qsTr("Download Image") : qsTr("Raw Image Flash")
-            iconSource: root.partitionIcon
-            selected: root.currentIndex === 0
-            onClicked: root.tabRequested(0)
-        }
-
-        NavButton {
-            text: app.vendor === 2 ? qsTr("Download") : app.vendor === 0 ? qsTr("Upgrade Firmware") : qsTr("Flash Firmware")
+            text: qsTr("Flash Firmware")
             iconSource: root.downloadIcon
             selected: root.currentIndex === 1
             onClicked: root.tabRequested(1)
         }
 
         NavButton {
-            text: app.vendor === 2 ? qsTr("Tools") : qsTr("Advanced")
+            text: app.vendor === 2 ? qsTr("Partition Tools") : qsTr("Raw Image Flash")
+            iconSource: root.partitionIcon
+            selected: root.currentIndex === 0
+            onClicked: root.tabRequested(0)
+        }
+
+        NavButton {
+            text: qsTr("Advanced")
             iconSource: root.currentIndex === 2 ? Icons.gearBlue : Icons.gearGray
             selected: root.currentIndex === 2
             onClicked: root.tabRequested(2)

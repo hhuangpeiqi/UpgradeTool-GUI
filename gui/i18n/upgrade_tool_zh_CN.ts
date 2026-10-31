@@ -3221,7 +3221,7 @@
     <message>
         <location line="+0"/>
         <source>Raw Image Flash</source>
-        <translation>裸镜像刷写</translation>
+        <translation>原始镜像烧录</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -3236,7 +3236,7 @@
     <message>
         <location line="+0"/>
         <source>Flash Firmware</source>
-        <translation>固件刷写</translation>
+        <translation>固件烧录</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -3246,7 +3246,7 @@
     <message>
         <location line="+7"/>
         <source>Advanced</source>
-        <translation>高级功能</translation>
+        <translation>高级</translation>
     </message>
     <message>
         <location line="+0"/>
