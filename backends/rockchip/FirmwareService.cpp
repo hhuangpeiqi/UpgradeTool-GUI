@@ -5,6 +5,7 @@
 #include <map>
 #include "backends/rockchip/FirmwareService.h"
 #include "RKImage.h"
+#include "RKAFEntry.h"
 #include "RKBoot.h"
 #include <cstdio>
 #include <cstring>
@@ -112,9 +113,10 @@ bool FirmwareService::InspectImage(CRKImage &image, const std::string &path, Fir
 			std::memcpy(part, ent, 32); std::memcpy(name, ent + 0x20, 32);
 			FirmwareEntry e;
 			e.partName = part; e.fileName = name;
-			e.offset = fwOffset + Read32(ent + 0x60);
-			if (ent[0x52] == 'H') e.offset += uint64_t(Read32(ent + 0x53)) << 32;
-			e.size = Read32(ent + 0x6c); e.lba = Read32(ent + 0x64);
+			const auto relativeOffset = rkaf::DataOffset(ent);
+			if (relativeOffset > uint64_t(fileSize) - fwOffset) { std::fclose(file); return false; }
+			e.offset = fwOffset + relativeOffset;
+			e.size = rkaf::DataSize(ent); e.lba = Read32(ent + 0x64);
 			if (e.offset > uint64_t(fileSize) || e.size > uint64_t(fileSize) - e.offset) { std::fclose(file); return false; }
 			e.hasPart = e.lba != 0xffffffff;
 			e.imageLike = std::strstr(name, ".img") || std::strstr(name, "parameter.txt");

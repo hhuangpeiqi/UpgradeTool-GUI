@@ -109,7 +109,16 @@ bool UpgradeEngine::ExtractUpdateFw(CRKImage *image, char *path, char *output)
 	if (!file) return Fail(ErrorCode::FileAccess);
 	bool ok = true;
 	for (const auto &entry : info.entries) {
-		if (IsAborted() || !ExtractEntryData(file, entry.offset, entry.size, output, entry.fileName.c_str())) { ok = false; break; }
+		auto offset = entry.offset, size = entry.size;
+		if (entry.partName == "parameter") {
+			if (size < 12) { Fail(ErrorCode::InvalidFirmware); ok = false; break; }
+			offset += 8; size -= 12;
+		}
+		auto name = entry.fileName;
+		const auto separator = name.find_last_of("/\\");
+		if (separator != std::string::npos) name.erase(0, separator + 1);
+		if (name.empty() || name == "." || name == "..") { Fail(ErrorCode::InvalidFirmware); ok = false; break; }
+		if (IsAborted() || !ExtractEntryData(file, offset, size, output, name.c_str())) { ok = false; break; }
 	}
 	fclose(file);
 	return ok;

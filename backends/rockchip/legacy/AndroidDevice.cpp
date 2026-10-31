@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "AndroidDevice.h"
+#include "RKAFEntry.h"
 #include "Parameter.h"
 #include "crc.h"
 #include "Idb.h"
@@ -194,12 +195,8 @@ bool CRKAndroidDevice::LoadFirmwarePackage(const char *szFile)
 			break;
 		memcpy(m_entries[i].szPart, e, 32); m_entries[i].szPart[32] = 0;
 		memcpy(m_entries[i].szFile, e + 0x20, 32); m_entries[i].szFile[32] = 0;
-		u64 uiDataOff = *(UINT *)(e + 0x60);
-		u64 uiSize = *(UINT *)(e + 0x6C);
-		if (e[0x52] == 'H')
-			uiDataOff |= (u64)*(UINT *)(e + 0x53) << 32;
-		if (e[0x57] == 'H')
-			uiSize |= (u64)*(UINT *)(e + 0x58) << 32;
+		u64 uiDataOff = rkaf::DataOffset(e);
+		u64 uiSize = rkaf::DataSize(e);
 		m_entries[i].uiSize = uiSize;
 		m_entries[i].uiPartSize = *(UINT *)(e + 0x5C);
 		m_entries[i].uiPartLba = *(UINT *)(e + 0x64);
