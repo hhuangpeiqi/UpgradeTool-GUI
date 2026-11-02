@@ -1608,6 +1608,26 @@
 <context>
     <name>Main</name>
     <message>
+        <source>Firmware platform mismatch</source>
+        <translation>固件平台不匹配</translation>
+    </message>
+    <message>
+        <source>This is Allwinner firmware. Switch to the Allwinner firmware page and load this file?</source>
+        <translation>所选文件为全志固件，当前为瑞芯微固件升级页。是否切换到全志固件烧录页并载入此文件？</translation>
+    </message>
+    <message>
+        <source>This is Rockchip firmware. Switch to the Rockchip firmware page and load this file?</source>
+        <translation>所选文件为瑞芯微固件，当前为全志固件烧录页。是否切换到瑞芯微固件升级页并载入此文件？</translation>
+    </message>
+    <message>
+        <source>Stay on this page</source>
+        <translation>留在当前页</translation>
+    </message>
+    <message>
+        <source>Switch and load</source>
+        <translation>切换并载入</translation>
+    </message>
+    <message>
         <location filename="../qml/Main.qml" line="+192"/>
         <source>Device detected</source>
         <translation>已检测到设备</translation>

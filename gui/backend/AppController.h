@@ -175,7 +175,13 @@ public:
 	Q_INVOKABLE void cancelAdbChoice();
 
 
+    Q_INVOKABLE void selectFirmware(int sourceVendor, const QString &path);
+    Q_INVOKABLE void confirmFirmwareRedirect();
+    Q_INVOKABLE void cancelFirmwareSelection();
 signals:
+    void firmwareRedirectRequested(int targetVendor, const QString &path);
+    void firmwareSelectionFinished();
+    void firmwarePageRequested();
     void interactionLockedChanged();
 	void quitConfirmationRequested();
 	void shuttingDownChanged();
@@ -200,6 +206,10 @@ signals:
     void switchAccessRequested(const gui::SwitchAccessPrompt &prompt);
 
 private:
+    quint64 m_firmwareSelectionGeneration = 0;
+    core::Cancellation m_firmwareSelection;
+    QString m_pendingFirmwarePath;
+    int m_pendingFirmwareVendor = -1;
     void LogError(const QString &message, const char *source = "Application");
     void UpdateInteractionLock();
     void BeginDriverMaintenance();

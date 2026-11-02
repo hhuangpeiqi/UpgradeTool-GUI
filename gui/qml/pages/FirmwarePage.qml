@@ -25,14 +25,15 @@ Item {
                 spacing: 12
 
                 AppTextField {
+                    id: firmwarePathField
+                    objectName: "rkFirmwarePath"
                     Layout.fillWidth: true
                     placeholderText: qsTr("Select a firmware file (.img)")
                     text: app.rockchip.firmwarePath
                     enabled: !app.interactionLocked
-                    onAccepted: app.rockchip.setFirmware(text)
                     onEditingFinished: {
                         if (text.trim() !== app.rockchip.firmwarePath)
-                            app.rockchip.setFirmware(text);
+                            app.selectFirmware(0, text);
                     }
                 }
 
@@ -159,6 +160,14 @@ Item {
         }
     }
 
+    Connections {
+        target: app.rockchip
+        function onFirmwareStateChanged() { firmwarePathField.text = app.rockchip.firmwarePath; }
+    }
+    Connections {
+        target: app
+        function onFirmwareSelectionFinished() { firmwarePathField.text = app.rockchip.firmwarePath; }
+    }
     AppFilePicker {
         id: firmwareDialog
         mode: AppFilePicker.OpenFile
@@ -167,7 +176,7 @@ Item {
         persistKey: "firmware"
         onAccepted: {
             var file = app.toLocalPath(selectedFile.toString());
-            app.rockchip.setFirmware(file);
+            app.selectFirmware(0, file);
         }
     }
 

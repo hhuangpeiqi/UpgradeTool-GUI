@@ -31,3 +31,8 @@ upgrade_test(test_logging_ui LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
   ENVIRONMENT ${test_gui_environment} LABELS gui qml logging)
 upgrade_attach_gui_test_resources(test_logging_ui)
 upgrade_attach_test_translations(test_logging_ui)
+
+upgrade_test(test_firmware_redirect LIBRARIES upgrade_gui_backend Qt6::Test TIMEOUT 30
+  ENVIRONMENT ${test_gui_environment} LABELS gui qml rockchip allwinner)
+upgrade_attach_gui_test_resources(test_firmware_redirect)
+upgrade_attach_test_translations(test_firmware_redirect)

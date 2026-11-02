@@ -17,6 +17,7 @@ ApplicationWindow {
     readonly property bool nativeWindow: Qt.platform.os === "osx"
     flags: nativeWindow ? Qt.Window : (Qt.Window | Qt.FramelessWindowHint)
 
+    onCurrentPageChanged: app.cancelFirmwareSelection()
     property int currentPage: 1
     property var vendorPages: [1, 1, 1]
     property int previousVendor: 0
@@ -273,6 +274,13 @@ ApplicationWindow {
     Connections {
         target: app
 
+        function onFirmwareRedirectRequested(targetVendor, path) {
+            firmwareRedirectDialog.targetVendor = targetVendor;
+            firmwareRedirectDialog.filePath = path;
+            firmwareRedirectDialog.open();
+        }
+        function onFirmwareSelectionFinished() { firmwareRedirectDialog.close(); }
+        function onFirmwarePageRequested() { window.currentPage = 1; }
         function onVendorChanged() {
             window.vendorPages[window.previousVendor] = window.currentPage;
             window.previousVendor = app.vendor;
@@ -294,6 +302,38 @@ ApplicationWindow {
         }
     }
 
+    AppDialog {
+        id: firmwareRedirectDialog
+        objectName: "firmwareRedirectDialog"
+        property int targetVendor: 0
+        property string filePath: ""
+        titleText: qsTr("Firmware platform mismatch")
+        onClosed: app.cancelFirmwareSelection()
+        Text {
+            width: parent.width
+            text: (firmwareRedirectDialog.targetVendor === 1
+                ? qsTr("This is Allwinner firmware. Switch to the Allwinner firmware page and load this file?")
+                : qsTr("This is Rockchip firmware. Switch to the Rockchip firmware page and load this file?"))
+                + "\n" + firmwareRedirectDialog.filePath
+            color: Theme.textPrimary
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontNormal
+            wrapMode: Text.Wrap
+        }
+        footerContent: [
+            SecondaryButton {
+                objectName: "firmwareRedirectCancel"
+                text: qsTr("Stay on this page")
+                onClicked: app.cancelFirmwareSelection()
+            },
+            PrimaryButton {
+                objectName: "firmwareRedirectConfirm"
+                text: qsTr("Switch and load")
+                enabled: !app.interactionLocked
+                onClicked: app.confirmFirmwareRedirect()
+            }
+        ]
+    }
     SettingsDialog { id: settingsDialog }
     AppDialog {
         id: quitDialog

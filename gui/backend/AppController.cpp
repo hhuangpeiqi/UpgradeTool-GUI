@@ -11,6 +11,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
+#include <QFile>
 #include <QGuiApplication>
 #include <QMap>
 #include <QSettings>
@@ -316,6 +317,7 @@ void AppController::UpdateInteractionLock()
     m_rockchip->setLocked(locked);
     m_qualcomm->setLocked(locked);
     m_drivers->setSuspended(locked);
+    if (interactionLocked()) cancelFirmwareSelection();
     emit interactionLockedChanged();
     if (!locked && (m_vendor == 2 || (m_vendor == 1 && m_pendingFelLocation))) {
         const auto snapshot = m_deviceModel->allRows();
@@ -1314,6 +1316,59 @@ QVariantList AppController::availableVendors() const {
     return vendors;
 }
 
+void AppController::cancelFirmwareSelection()
+{
+    if (m_firmwareSelection) m_firmwareSelection->request_stop();
+    ++m_firmwareSelectionGeneration;
+    m_firmwareSelection.reset();
+    m_pendingFirmwarePath.clear();
+    m_pendingFirmwareVendor = -1;
+    emit firmwareSelectionFinished();
+}
+
+void AppController::selectFirmware(int sourceVendor, const QString &path)
+{
+    if (interactionLocked() || sourceVendor != m_vendor || (sourceVendor != 0 && sourceVendor != 1)) return;
+    const QString trimmed = path.trimmed();
+    cancelFirmwareSelection();
+    const auto generation = m_firmwareSelectionGeneration;
+    m_firmwareSelection = std::make_shared<std::stop_source>();
+    m_inspections->submit(this, "firmware-platform", m_firmwareSelection,
+        [this, sourceVendor, trimmed, generation](std::stop_token) -> InspectionQueue::Completion {
+            QFile file(trimmed);
+            QByteArray header;
+            if (file.open(QIODevice::ReadOnly)) header = file.read(8);
+            int detected = -1;
+            if (header.startsWith("IMAGEWTY")) detected = 1;
+            else if (header.startsWith("RKFW") || header.startsWith("SSFW")) detected = 0;
+            return [this, sourceVendor, trimmed, generation, detected] {
+                if (generation != m_firmwareSelectionGeneration || interactionLocked() || m_vendor != sourceVendor) return;
+                if (detected >= 0 && detected != sourceVendor && availableVendors().contains(detected)) {
+                    m_pendingFirmwarePath = trimmed;
+                    m_pendingFirmwareVendor = detected;
+                    emit firmwareRedirectRequested(detected, trimmed);
+                    return;
+                }
+                if (sourceVendor == 0) m_rockchip->setFirmware(trimmed);
+                else m_allwinner->setFirmware(trimmed);
+                cancelFirmwareSelection();
+            };
+        });
+}
+
+void AppController::confirmFirmwareRedirect()
+{
+    if (interactionLocked() || m_pendingFirmwareVendor < 0) return;
+    const auto path = m_pendingFirmwarePath;
+    const int target = m_pendingFirmwareVendor;
+    cancelFirmwareSelection();
+    setVendor(target);
+    if (m_vendor != target) return;
+    emit firmwarePageRequested();
+    if (target == 0) m_rockchip->setFirmware(path);
+    else m_allwinner->setFirmware(path);
+}
+
 void AppController::setVendor(int vendor)
 {
     if(interactionLocked() || !availableVendors().contains(vendor) || vendor==m_vendor) return;
@@ -1326,6 +1381,7 @@ void AppController::setVendor(int vendor)
     m_pendingFelLocation.reset();
     m_felSwitchLocation.reset();
     m_vendorBatch[m_vendor] = m_batchKeys; m_vendorContinue[m_vendor] = m_bBatchContinue;
+    cancelFirmwareSelection();
     m_vendor=vendor; m_drivers->setVendor(vendor); m_allwinner->setActive(vendor==1); m_rockchip->setActive(vendor==0);
     m_deviceModel->setRows({}); m_iDeviceIndex=-1;
     m_batchKeys=m_vendorBatch[m_vendor]; m_bBatchContinue=m_vendorContinue[m_vendor]; m_bBatchMode=m_batchKeys.size()>1;

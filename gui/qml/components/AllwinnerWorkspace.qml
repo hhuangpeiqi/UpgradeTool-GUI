@@ -37,6 +37,9 @@ Item {
     onFirmwareChanged: { if (firmwareRow) firmwareRow.text = firmware; }
     Connections {
         target: app
+        function onFirmwareSelectionFinished() {
+            if (workspace.context === 1) firmwareRow.text = workspace.firmware;
+        }
         function onVendorChanged() { workspace.ensureLoaded(); }
     }
 
@@ -63,7 +66,8 @@ Item {
                 persistKey: "allwinnerFirmware" + workspace.context
                 onEdited: (path) => {
                     if (path !== workspace.firmware || !workspace.valid)
-                        app.allwinner.setContextFirmware(workspace.context, path);
+                        if (workspace.context === 1) app.selectFirmware(1, path);
+                        else app.allwinner.setContextFirmware(workspace.context, path);
                 }
             }
             ScrollView {
