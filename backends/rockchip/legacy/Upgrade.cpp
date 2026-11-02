@@ -302,8 +302,7 @@ void CRKUpgrade::Prompt(ENUM_UPGRADE_PROMPT emPrompt)
 bool CRKUpgrade::RunStep(const STRUCT_UPGRADE_STEP &step, bool &bCondition)
 {
 	CRKAndroidDevice *pAndroid = dynamic_cast<CRKAndroidDevice *>(m_pDevice);
-	STRUCT_RKDEVICE_DESC desc;
-	memset(&desc, 0, sizeof(desc));
+	STRUCT_RKDEVICE_DESC desc{};
 	desc.uiLocationID = m_pDevice->GetLocationID();
 	desc.usVid = m_pDevice->GetVendorID();
 	desc.usPid = m_pDevice->GetProductID();

@@ -146,7 +146,7 @@ bool parse_parameter(char *pParameter, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_V
 	return bFind;
 }
 
-bool parse_parameter_file(char *pParamFile, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_VECTOR &vecUuidItem, platform::LogService *log)
+bool parse_parameter_file(const char *pParamFile, PARAM_ITEM_VECTOR &vecItem, CONFIG_ITEM_VECTOR &vecUuidItem, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {
@@ -389,7 +389,7 @@ void update_gpt_disksize(u8 *master, u8 *backup, u32 total_sector)
 	prepare_gpt_backup(master, backup);
 }
 
-bool load_gpt_buffer(char *pParamFile, u8 *master, u8 *backup, platform::LogService *log)
+bool load_gpt_buffer(const char *pParamFile, u8 *master, u8 *backup, platform::LogService *log)
 {
 	FILE *file = platform::OpenFile(pParamFile, "rb");
 	if (!file) {

@@ -54,7 +54,7 @@ std::FILE *Open(const std::filesystem::path &p, bool exclusive) {
 #endif
 }
 }
-std::filesystem::path Path(const std::string &utf8) { return std::filesystem::u8path(utf8); }
+std::filesystem::path Path(const std::string &utf8) { return std::filesystem::path(std::u8string(utf8.begin(), utf8.end())); }
 std::string Utf8(const std::filesystem::path &path) {
     const auto s = path.u8string();
     return std::string(s.begin(), s.end());

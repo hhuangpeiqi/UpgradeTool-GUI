@@ -119,7 +119,7 @@ protected:
 	bool ErasePartition(UINT uiOffset, UINT uiSize);
 	bool EraseUbiBlock(u32 uiOffset, u32 uiPartSize);
 	bool WriteParameter(char *szParameter);
-	bool WriteGpt(char *szParameter);
+	bool WriteGpt(const char *szParameter);
 	bool ExtractEntry(FW_ENTRY &entry, const char *szOut);
 	void NotifyProgress(u64 uiTotal, u64 uiDone);
 

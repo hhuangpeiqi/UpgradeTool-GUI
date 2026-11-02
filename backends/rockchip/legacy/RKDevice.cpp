@@ -23,38 +23,6 @@ const char* szManufName[] =
 	"INTEL"
 };
 
-static unsigned char ByteToBCD(unsigned char ucByte)
-{
-	return (unsigned char)(((ucByte / 10) << 4) | (ucByte % 10));
-}
-
-static unsigned short UshortToBCD(unsigned short usValue)
-{
-	unsigned int uiHigh = (usValue / 100) % 100;
-	unsigned int uiLow = usValue % 100;
-	return (unsigned short)(((ByteToBCD((unsigned char)uiHigh)) << 8) | ByteToBCD((unsigned char)uiLow));
-}
-
-static bool ReadFileToBuffer(char *szFile, char *&pBuffer)
-{
-	FILE *file = platform::OpenFile(szFile, "rb");
-	if (!file)
-		return false;
-	fseeko(file, 0, SEEK_END);
-	long long iSize = ftello(file);
-	fseeko(file, 0, SEEK_SET);
-	pBuffer = new char[iSize + 1];
-	memset(pBuffer, 0, iSize + 1);
-	if (fread(pBuffer, 1, iSize, file) != (size_t)iSize) {
-		delete []pBuffer;
-		pBuffer = NULL;
-		fclose(file);
-		return false;
-	}
-	fclose(file);
-	return true;
-}
-
 void CRKDevice::SetVendorID(USHORT value)
 {
 	m_vid = value;
@@ -609,7 +577,7 @@ int CRKDevice::BuildBlockStateMap(UCHAR ucFlashCS)
 
 int CRKDevice::ReadMutilSector(UINT uiPos, UINT uiCount, PBYTE lpBuffer)
 {
-	UINT uiBlock, uiRemain, uiPerBlock, uiChunk, uiSectorBase;
+	UINT uiBlock, uiRemain, uiPerBlock;
 	UINT uiStartSector = 0;
 	USHORT usSecPerBlock;
 	if (!m_pComm)

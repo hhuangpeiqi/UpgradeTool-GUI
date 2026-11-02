@@ -103,7 +103,15 @@ public:
 	int RKU_ReadStorageList(BYTE *) { return ERR_SUCCESS; }
 	int RKU_ReadOtpChip(BYTE *) { return ERR_SUCCESS; }
 	int RKU_ReadComData(BYTE *, DWORD) { return ERR_SUCCESS; }
-	int RKU_ReadSector(DWORD, DWORD, BYTE *) { return ERR_SUCCESS; }
+	std::vector<BYTE> sectorData;
+	DWORD sectorReadCount = 0;
+	int RKU_ReadSector(DWORD, DWORD count, BYTE *buffer) {
+		sectorReadCount = count;
+		memset(buffer, 0, count * (SECTOR_SIZE + SPARE_SIZE));
+		if (!sectorData.empty())
+			memcpy(buffer, sectorData.data(), std::min(sectorData.size(), size_t(count * (SECTOR_SIZE + SPARE_SIZE))));
+		return ERR_SUCCESS;
+	}
 	int RKU_TestBadBlock(BYTE, DWORD, DWORD, BYTE *) { return ERR_SUCCESS; }
 	int RKU_ReadNewEfuse(USHORT, USHORT, BYTE *, BYTE) { return ERR_SUCCESS; }
 	int RKU_WriteNewEfuse(USHORT, USHORT, BYTE *, BYTE) { return ERR_SUCCESS; }
@@ -124,6 +132,9 @@ struct Probe : public CRKAndroidDevice {
 	Probe(STRUCT_RKDEVICE_DESC &x) : CRKAndroidDevice(x) {}
 	const FW_ENTRY &Entry(int i) const { return m_entries[i]; }
 	UINT Band() const { return m_uiBand; }
+	UINT ReservedSize() const { return m_uiReservedBlockSize; }
+	void SetBlockSectors(UINT sectors) { m_usFlashDataSec = sectors; }
+	const BYTE *OldSector() const { return m_pOldSectorData; }
 	using CRKAndroidDevice::WriteParameter;
 	using CRKAndroidDevice::ExtractEntry;
 };
@@ -279,8 +290,7 @@ static void test_entry_mapping()
 	const char *path = pathStorage.c_str();
 	CHECK(write_package(path));
 
-	STRUCT_RKDEVICE_DESC d;
-	memset(&d, 0, sizeof(d));
+	STRUCT_RKDEVICE_DESC d{};
 	d.usVid = 0x2207;
 	d.emUsbType = RKUSB_LOADER;
 	d.emDeviceType = RK32_DEVICE;
@@ -350,8 +360,7 @@ static void test_shared_payload()
 	const char *path = pathStorage.c_str();
 	CHECK(write_shared_package(path));
 
-	STRUCT_RKDEVICE_DESC d;
-	memset(&d, 0, sizeof(d));
+	STRUCT_RKDEVICE_DESC d{};
 	d.usVid = 0x2207;
 	d.emUsbType = RKUSB_LOADER;
 	d.emDeviceType = RK32_DEVICE;
@@ -382,8 +391,7 @@ static void test_device_band()
 	const char *path = pathStorage.c_str();
 	CHECK(write_shared_package(path));
 
-	STRUCT_RKDEVICE_DESC d;
-	memset(&d, 0, sizeof(d));
+	STRUCT_RKDEVICE_DESC d{};
 	d.usVid = 0x2207;
 	d.emUsbType = RKUSB_LOADER;
 	d.emDeviceType = RK32_DEVICE;
@@ -474,8 +482,7 @@ static void test_sparse_block_size()
 		fwrite(fill, 1, sizeof(fill), f);
 	fclose(f);
 
-	STRUCT_RKDEVICE_DESC d;
-	memset(&d, 0, sizeof(d));
+	STRUCT_RKDEVICE_DESC d{};
 	d.usVid = 0x2207;
 	d.emUsbType = RKUSB_LOADER;
 	d.emDeviceType = RK32_DEVICE;
@@ -619,8 +626,52 @@ static void test_small_stack()
 static void test_small_stack() { test_parameter_stack(); }
 #endif
 
+static void test_idb_read_buffers()
+{
+	STRUCT_RKDEVICE_DESC desc{};
+	Probe device(desc);
+	auto *comm = new FakeComm;
+	device.SetObject(nullptr, comm, nullptr);
+
+	// Read the actual number of transfer bytes, including spare bytes.
+	comm->sectorData.resize(2 * (SECTOR_SIZE + SPARE_SIZE), 0);
+	USHORT reserved = 12;
+	memcpy(comm->sectorData.data() + SECTOR_SIZE + SPARE_SIZE, &reserved, sizeof(reserved));
+	device.SetBlockSectors(64);
+	CHECK(device.GetReservedBlockByte());
+	CHECK(comm->sectorReadCount == 2);
+	CHECK(device.ReservedSize() == 12 * 64 * 1024);
+
+	UINT tag = 0x38324b52;
+	memcpy(comm->sectorData.data(), &tag, sizeof(tag));
+	CHECK(device.FindBackupBuffer());
+	std::fill(comm->sectorData.begin(), comm->sectorData.end(), 0);
+	CHECK(!device.FindBackupBuffer());
+
+	std::vector<BYTE> payload(SECTOR_SIZE, 0x5a);
+	comm->store[0x3d] = payload;
+	comm->store[0x3c] = std::vector<BYTE>(SECTOR_SIZE, 0);
+	tag = 0x435243;
+	memcpy(comm->store[0x3c].data(), &tag, sizeof(tag));
+	CHECK(device.FindBackupSector3());
+	CHECK(device.OldSector() && memcmp(device.OldSector(), payload.data(), payload.size()) == 0);
+
+	std::vector<BYTE> header(SECTOR_SIZE, 0);
+	tag = 0x0ff0aa55;
+	memcpy(header.data(), &tag, sizeof(tag));
+	P_RC4(header.data(), header.size());
+	comm->store[0x40] = header;
+	comm->store[0x41] = std::vector<BYTE>(SECTOR_SIZE, 0);
+	tag = 0x38324b52;
+	memcpy(comm->store[0x41].data() + 0x0a, &tag, sizeof(tag));
+	CHECK(device.GetOldIDBData());
+	comm->store.clear();
+	CHECK(!device.GetOldIDBData());
+}
+
 int main()
 {
+	test_idb_read_buffers();
 	test_upgrade_reboot_connection();
 	test_entry_mapping();
 	test_shared_payload();

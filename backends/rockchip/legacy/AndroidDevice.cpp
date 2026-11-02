@@ -543,7 +543,7 @@ bool CRKAndroidDevice::WriteParameter(char *szParameter)
 	return (iRet == ERR_SUCCESS);
 }
 
-bool CRKAndroidDevice::WriteGpt(char *szParameter)
+bool CRKAndroidDevice::WriteGpt(const char *szParameter)
 {
 	u8 flash_info[SECTOR_SIZE], master_gpt[34 * SECTOR_SIZE], backup_gpt[33 * SECTOR_SIZE];
 	u32 total_size_sector;
@@ -659,7 +659,6 @@ bool CRKAndroidDevice::MakeIDBlockData(PBYTE pIDB)
 	RK28_IDB_SEC1 sector1Info;
 	RK28_IDB_SEC2 sector2Info;
 	RK28_IDB_SEC3 sector3Info;
-	UINT i;
 	if (!MakeSector0((PBYTE)&sector0Info) ||
 	    !MakeSector1((PBYTE)&sector1Info) ||
 	    !MakeSector2((PBYTE)&sector2Info) ||
@@ -757,7 +756,7 @@ bool CRKAndroidDevice::FindIDBlock(char cStart, char &cBlock)
 	if ((unsigned char)c > 0x31)
 		return false;
 	while ((unsigned char)c <= 0x31) {
-		unsigned char sector[SECTOR_SIZE];
+		unsigned char sector[4 * (SECTOR_SIZE + SPARE_SIZE)]{};
 		if (m_pComm->RKU_ReadSector(c * m_uiEraseSectorPerUnit, 4, sector) != ERR_SUCCESS) {
 			m_iError = 0x65;
 			if (m_pLog)
@@ -765,7 +764,9 @@ bool CRKAndroidDevice::FindIDBlock(char cStart, char &cBlock)
 			return false;
 		}
 		P_RC4(sector, SECTOR_SIZE);
-		if (*(UINT *)sector == 0x0FF0AA55 && *(UINT *)(sector + 0x21a) == 0x38324B52) {
+		UINT chipTag;
+		memcpy(&chipTag, sector + SECTOR_SIZE + SPARE_SIZE + 0x0a, sizeof(chipTag));
+		if (*(UINT *)sector == 0x0FF0AA55 && chipTag == 0x38324B52) {
 			cBlock = c;
 			return true;
 		}
@@ -905,7 +906,7 @@ bool CRKAndroidDevice::IsExistSector3Crc(RKANDROID_IDB_SEC2 *pSec2)
 // (0x38324b52) or a "CRC" backup record, verifying the sector CRC when found.
 bool CRKAndroidDevice::FindBackupBuffer()
 {
-	unsigned char buf[0x210];
+	unsigned char buf[2 * (SECTOR_SIZE + SPARE_SIZE)]{};
 	for (int i = 5; i < 10; i++) {
 		memset(buf, 0, sizeof(buf));
 		UINT uiSector = (UINT)i * m_uiEraseSectorPerUnit;
@@ -927,7 +928,7 @@ bool CRKAndroidDevice::FindBackupBuffer()
 
 bool CRKAndroidDevice::FindBackupSector3()
 {
-	unsigned char buf[0x210];
+	unsigned char buf[2 * SECTOR_SIZE]{};
 	memset(buf, 0, sizeof(buf));
 	if (m_pComm->RKU_ReadLBA(0x3c, 2, buf) != ERR_SUCCESS) {
 		if (m_pLog)
@@ -959,13 +960,15 @@ bool CRKAndroidDevice::GetOldIDBData()
 {
 	m_ucIDBCount = 0;
 	for (UINT uiSector = 0x40; uiSector < 0x1440; uiSector += 0x400) {
-		unsigned char buf[SECTOR_SIZE];
+		unsigned char buf[4 * SECTOR_SIZE]{};
 		if (m_pComm->RKU_ReadLBA(uiSector, 4, buf) != ERR_SUCCESS)
 			continue;
 		P_RC4(buf, SECTOR_SIZE);
 		if (*(UINT *)buf != 0x0FF0AA55)
 			continue;
-		if (*(UINT *)(buf + 0x20a) != 0x38324B52)
+		UINT chipTag;
+		memcpy(&chipTag, buf + SECTOR_SIZE + 0x0a, sizeof(chipTag));
+		if (chipTag != 0x38324B52)
 			continue;
 		m_ucIDBCount++;
 		return true;
@@ -994,13 +997,15 @@ bool CRKAndroidDevice::GetOldSectorData()
 
 bool CRKAndroidDevice::GetReservedBlockByte()
 {
-	unsigned char buf[0x210];
-	if (m_pComm->RKU_ReadSector(m_uiIDBBlock[0] * m_uiEraseSectorPerUnit, 1, buf) != ERR_SUCCESS) {
+	// The reserved-block field starts in sector 1, after sector 0 and its spare.
+	unsigned char buf[2 * (SECTOR_SIZE + SPARE_SIZE)]{};
+	if (m_pComm->RKU_ReadSector(m_uiIDBBlock[0] * m_uiEraseSectorPerUnit, 2, buf) != ERR_SUCCESS) {
 		if (m_pLog)
 			m_pLog->writef(core::LogLevel::Error, "Rockchip", "GetReservedBlockByte-->RKU_ReadSector failed,RetCode(%d)", m_iError);
 		return false;
 	}
-	USHORT usBlocks = *(USHORT *)(buf + 0x210 + 0);
+	USHORT usBlocks;
+	memcpy(&usBlocks, buf + SECTOR_SIZE + SPARE_SIZE, sizeof(usBlocks));
 	m_uiReservedBlockSize = (UINT)usBlocks * m_usFlashDataSec * 1024;
 	return true;
 }
