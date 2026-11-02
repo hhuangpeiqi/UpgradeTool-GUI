@@ -37,7 +37,13 @@ int main(int argc, char **argv) {
         engine.load(QUrl("qrc:/qt/qml/UpgradeTool/Main.qml"));
         CHECK(!engine.rootObjects().isEmpty());
         if (engine.rootObjects().isEmpty()) return 1;
-        auto *window = engine.rootObjects().first();
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        CHECK(window);
+        if (!window) return 1;
+        CHECK(QTest::qWaitForWindowExposed(window));
+        // Xvfb has no window manager to activate the window for keyboard input.
+        window->requestActivate();
+        CHECK(QTest::qWaitForWindowActive(window));
         auto *dialog = window->findChild<QObject *>("firmwareRedirectDialog");
         auto *confirm = window->findChild<QObject *>("firmwareRedirectConfirm");
         auto *cancel = window->findChild<QObject *>("firmwareRedirectCancel");
@@ -65,7 +71,8 @@ int main(int argc, char **argv) {
         CHECK(pathField->property("text").toString().isEmpty());
         controller.selectFirmware(0, aw);
         CHECK(AwaitUi([&] { return dialog->property("visible").toBool(); }));
-        QTest::keyClick(qobject_cast<QQuickWindow *>(window), Qt::Key_Escape);
+        CHECK(AwaitUi([&] { return dialog->property("activeFocus").toBool(); }));
+        QTest::keyClick(window, Qt::Key_Escape);
         CHECK(AwaitUi([&] { return !dialog->property("visible").toBool(); }));
         CHECK(controller.vendor() == 0);
         controller.selectFirmware(0, aw);
