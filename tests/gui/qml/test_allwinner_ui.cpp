@@ -34,6 +34,8 @@ int main(int argc, char **argv) {
     if(argc<3 || libusb_init(nullptr)<0) return 2;
     {
         gui::AppController controller(nullptr);
+        // Text assertions below use English regardless of the host system locale.
+        controller.language()->setMode("en");
         // Device state below is supplied by SnapshotDevices. A board connected
         // to the test host must not replace those deterministic snapshots.
         QObject::disconnect(&controller, &gui::AppController::requestScan, nullptr, nullptr);
