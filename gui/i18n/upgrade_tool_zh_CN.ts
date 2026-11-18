@@ -951,27 +951,7 @@
 <context>
     <name>AppFilePicker</name>
     <message>
-        <location filename="../qml/components/AppFilePicker.qml" line="+103"/>
-        <source>Error</source>
-        <translation>错误</translation>
-    </message>
-    <message>
-        <location line="+28"/>
-        <source>OK</source>
-        <translation>确定</translation>
-    </message>
-    <message>
-        <location line="-70"/>
-        <source>The original path is no longer available. Returned to Home.</source>
-        <translation>原路径已不可用，已返回主目录。</translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Directory created</source>
-        <translation>已创建目录</translation>
-    </message>
-    <message>
-        <location line="-7"/>
+        <location filename="../qml/components/AppFilePicker.qml" line="+58"/>
         <source>Enter a file name</source>
         <translation>请输入文件名</translation>
     </message>
@@ -981,12 +961,57 @@
         <translation>文件名不能包含 “/”</translation>
     </message>
     <message>
-        <location line="+401"/>
+        <location line="+2"/>
+        <source>Bookmark path is unavailable.</source>
+        <translation>收藏路径不可用。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The original path is no longer available. Returned to Home.</source>
+        <translation>原路径已不可用，已返回主目录。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Directory created</source>
+        <translation>已创建目录</translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Unpin from sidebar</source>
+        <translation>取消固定</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pin containing folder to sidebar</source>
+        <translation>固定所在文件夹到侧边栏</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pin to sidebar</source>
+        <translation>固定到侧边栏</translation>
+    </message>
+    <message>
+        <location line="+345"/>
+        <source>Bookmarks</source>
+        <translation>收藏</translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>Location</source>
         <translation>位置</translation>
     </message>
     <message>
-        <location line="+163"/>
+        <location line="+169"/>
         <source>/absolute/path</source>
         <translation>/绝对/路径</translation>
     </message>
@@ -1017,12 +1042,12 @@
     </message>
     <message>
         <location line="+6"/>
-        <location line="+213"/>
+        <location line="+234"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location line="-207"/>
+        <location line="-228"/>
         <source>Create</source>
         <translation>创建</translation>
     </message>
@@ -1032,7 +1057,7 @@
         <translation>搜索当前目录…</translation>
     </message>
     <message>
-        <location line="+126"/>
+        <location line="+147"/>
         <source>No matches found</source>
         <translation>未找到匹配项</translation>
     </message>
@@ -1042,12 +1067,17 @@
         <translation>（空目录）</translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+22"/>
         <source>File name</source>
         <translation>文件名</translation>
     </message>
     <message>
         <location line="+12"/>
+        <source>%1 file(s) selected</source>
+        <translation>已选择 %1 个文件</translation>
+    </message>
+    <message>
+        <location line="+0"/>
         <source>Enter or choose a file to save</source>
         <translation>输入或选择要保存的文件</translation>
     </message>
@@ -1067,12 +1097,12 @@
         <translation>文件类型</translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+36"/>
         <source>Select this directory</source>
         <translation>选择该目录</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+0"/>
         <source>Save</source>
         <translation>保存</translation>
     </message>
@@ -1080,11 +1110,6 @@
         <location line="+0"/>
         <source>Select</source>
         <translation>选择</translation>
-    </message>
-    <message>
-        <location line="-47"/>
-        <source>%1 file(s) selected</source>
-        <translation>已选择 %1 个文件</translation>
     </message>
 </context>
 <context>

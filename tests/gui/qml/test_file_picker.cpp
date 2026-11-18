@@ -20,6 +20,7 @@ static int failures = 0;
 class PickerApp : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList bookmarkedPlaces READ bookmarkedPlaces NOTIFY bookmarkedPlacesChanged)
     Q_PROPERTY(QVariantList standardPlaces READ standardPlaces NOTIFY standardPlacesChanged)
     Q_PROPERTY(gui::LanguageManager *language READ language CONSTANT)
 public:
@@ -29,6 +30,23 @@ public:
     QList<gui::FileLocations::Volume> volumes;
     int scans = 0;
     QString remembered;
+    QStringList bookmarks;
+    QVariantList bookmarkedPlaces() const {
+        QVariantList places;
+        for (const auto &p : bookmarks)
+            places.append(QVariantMap{{"name", QFileInfo(p).fileName()}, {"path", p}});
+        return places;
+    }
+    Q_INVOKABLE QString dirOf(const QString &path) const { return QFileInfo(path).absolutePath(); }
+    Q_INVOKABLE bool isBookmarked(const QString &path) const { return bookmarks.contains(path); }
+    Q_INVOKABLE bool addBookmark(const QString &path) {
+        if (!directoryAvailable(path)) return false;
+        if (!isBookmarked(path)) { bookmarks.append(path); emit bookmarkedPlacesChanged(); }
+        return true;
+    }
+    Q_INVOKABLE void removeBookmark(const QString &path) {
+        bookmarks.removeAll(path); emit bookmarkedPlacesChanged();
+    }
     gui::LanguageManager *language() { return &m_language; }
     QVariantList standardPlaces() const {
         QVariantList places{QVariantMap{{"name", "Home"}, {"path", m_home}}};
@@ -49,6 +67,7 @@ public:
     Q_INVOKABLE QString toLocalPath(const QString &url) const { return QUrl(url).toLocalFile(); }
     Q_INVOKABLE QString pathUrl(const QString &path) const { return QUrl::fromLocalFile(path).toString(); }
 signals:
+    void bookmarkedPlacesChanged();
     void standardPlacesChanged();
     void storageVolumesChanged();
 private:
@@ -152,6 +171,54 @@ Window {
     open();
     CHECK(model->rowCount() == 3);
     CHECK(model->isDirAt(0));
+    auto *entries = window->findChild<QQuickItem *>("filePickerEntries");
+    auto *menu = window->findChild<QObject *>("filePickerBookmarkMenu");
+    auto *action = window->findChild<QObject *>("filePickerBookmarkAction");
+    CHECK(entries && menu && action);
+    if (!entries || !menu || !action) return;
+    auto rightClick = [&](int y, const QString &target) {
+        const auto point = entries->mapToScene(QPointF(25, y));
+        const auto selected = picker->property("selectedPath");
+        QTest::mouseClick(quickWindow, Qt::RightButton, Qt::NoModifier, point.toPoint());
+        CHECK(AwaitUi([&] { return menu->property("visible").toBool(); }));
+        CHECK(menu->property("path").toString() == target);
+        CHECK(picker->property("selectedPath") == selected);
+    };
+    rightClick(15, filterDir + "/subfolder");
+    CHECK(QMetaObject::invokeMethod(action, "triggered"));
+    CHECK(app.isBookmarked(filterDir + "/subfolder"));
+    CHECK(QMetaObject::invokeMethod(menu, "close"));
+    CHECK(AwaitUi([&] { return !menu->property("visible").toBool(); }));
+    rightClick(45, filterDir);
+    CHECK(menu->property("containingFolder").toBool());
+    CHECK(QMetaObject::invokeMethod(menu, "close"));
+    CHECK(AwaitUi([&] { return !menu->property("visible").toBool(); }));
+    rightClick(300, filterDir);
+    CHECK(!menu->property("containingFolder").toBool());
+    CHECK(QMetaObject::invokeMethod(menu, "close"));
+    CHECK(AwaitUi([&] { return !menu->property("visible").toBool(); }));
+    CHECK(QMetaObject::invokeMethod(picker, "navigateBookmark", Q_ARG(QVariant, filterDir + "/subfolder")));
+    CHECK(model->rootPath() == filterDir + "/subfolder");
+    navigate(filterDir);
+    CHECK(QDir().rmdir(filterDir + "/subfolder"));
+    CHECK(QMetaObject::invokeMethod(picker, "navigateBookmark", Q_ARG(QVariant, filterDir + "/subfolder")));
+    expectError("Bookmark path is unavailable.");
+    CHECK(model->rootPath() == filterDir);
+    dismissError();
+    auto *places = window->findChild<QQuickItem *>("filePickerPlaces");
+    CHECK(places);
+    if (!places) return;
+    const auto bookmarkPoint = places->mapToScene(QPointF(40, 45));
+    QTest::mouseClick(quickWindow, Qt::RightButton, Qt::NoModifier, bookmarkPoint.toPoint());
+    CHECK(AwaitUi([&] { return menu->property("visible").toBool(); }));
+    CHECK(menu->property("remove").toBool());
+    CHECK(QMetaObject::invokeMethod(action, "triggered"));
+    CHECK(QMetaObject::invokeMethod(menu, "close"));
+    CHECK(AwaitUi([&] { return !menu->property("visible").toBool(); }));
+    CHECK(app.bookmarkedPlaces().isEmpty());
+    CHECK(QDir().mkpath(filterDir + "/subfolder"));
+    navigate(filterDir);
+
     picker->setProperty("activeFilter", 1);
     invoke("applyFilter");
     CHECK(model->rowCount() == 4);

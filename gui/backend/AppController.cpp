@@ -248,6 +248,8 @@ AppController::AppController(platform::LogService *pLog, EdlHooks edlHooks, int 
 
 	// Single source of truth for retranslation: every cached string owner
 	// registers here so LanguageManager refreshes them all on a language switch.
+	QSettings bookmarkSettings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+	m_bookmarkPaths = bookmarkSettings.value("filePicker/bookmarks").toStringList();
 	m_fileLocations.refresh();
 	m_standardPlaces.Set([this] { return BuildStandardPlaces(); });
 	m_pLanguage->registerRetranslatable(this);
@@ -496,6 +498,49 @@ QVariantList AppController::BuildStandardPlaces() const
 	}
 
 	return places;
+}
+
+QVariantList AppController::bookmarkedPlaces() const
+{
+    QVariantList places;
+    for (const auto &path : m_bookmarkPaths) {
+        const QString name = QFileInfo(path).fileName();
+        places.append(QVariantMap{{"name", name.isEmpty() ? path : name}, {"path", path}});
+    }
+    return places;
+}
+
+bool AppController::isBookmarked(const QString &path) const
+{
+    const QString clean = FileLocations::normalizePath(path);
+    const auto sensitivity = FileLocations::hostPlatform() == FileLocations::Platform::Windows
+        ? Qt::CaseInsensitive : Qt::CaseSensitive;
+    return m_bookmarkPaths.contains(clean, sensitivity);
+}
+
+bool AppController::addBookmark(const QString &path)
+{
+    if (!QDir::isAbsolutePath(path) || !directoryAvailable(path)) return false;
+    const QString clean = FileLocations::normalizePath(path);
+    if (isBookmarked(clean)) return true;
+    m_bookmarkPaths.append(clean);
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+    settings.setValue("filePicker/bookmarks", m_bookmarkPaths);
+    emit bookmarkedPlacesChanged();
+    return true;
+}
+
+void AppController::removeBookmark(const QString &path)
+{
+    const QString clean = FileLocations::normalizePath(path);
+    const auto sensitivity = FileLocations::hostPlatform() == FileLocations::Platform::Windows
+        ? Qt::CaseInsensitive : Qt::CaseSensitive;
+    const auto count = m_bookmarkPaths.size();
+    m_bookmarkPaths.removeIf([&](const QString &entry) { return entry.compare(clean, sensitivity) == 0; });
+    if (count == m_bookmarkPaths.size()) return;
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "upgrade_tool", "upgrade_tool");
+    settings.setValue("filePicker/bookmarks", m_bookmarkPaths);
+    emit bookmarkedPlacesChanged();
 }
 
 QString AppController::lastDir(const QString &strKey) const

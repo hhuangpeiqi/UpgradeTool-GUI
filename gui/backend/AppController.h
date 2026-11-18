@@ -82,6 +82,7 @@ class AppController : public QObject, public Retranslatable
 
 
 
+	Q_PROPERTY(QVariantList bookmarkedPlaces READ bookmarkedPlaces NOTIFY bookmarkedPlacesChanged)
 	Q_PROPERTY(QVariantList standardPlaces READ standardPlaces NOTIFY standardPlacesChanged)
 
 public:
@@ -146,6 +147,10 @@ public:
 	Q_INVOKABLE QString logDir() const;
 	Q_INVOKABLE void openLogDir();
 	Q_INVOKABLE QString homeDir() const;
+	QVariantList bookmarkedPlaces() const;
+	Q_INVOKABLE bool isBookmarked(const QString &path) const;
+	Q_INVOKABLE bool addBookmark(const QString &path);
+	Q_INVOKABLE void removeBookmark(const QString &path);
 	QVariantList standardPlaces() const { return m_standardPlaces.value(); }
 	Q_INVOKABLE void refreshStandardPlaces();
 	Q_INVOKABLE bool directoryAvailable(const QString &path) const { return m_fileLocations.directoryAvailable(path); }
@@ -197,6 +202,7 @@ signals:
 	void felSwitchStateChanged();
 	void switchingChanged();
 	void batchModeChanged();
+	void bookmarkedPlacesChanged();
 	void standardPlacesChanged();
 	void storageVolumesChanged();
 
@@ -277,6 +283,7 @@ private:
 
 	Translatable<QVariantList> m_standardPlaces;
 	FileLocations m_fileLocations;
+	QStringList m_bookmarkPaths;
 	QString m_strDeviceStatus;
 	int m_iDeviceIndex;
 

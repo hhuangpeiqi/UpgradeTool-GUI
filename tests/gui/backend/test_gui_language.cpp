@@ -25,6 +25,44 @@ int TestLanguage([[maybe_unused]] QGuiApplication &application) {
     qputenv("XDG_STATE_HOME", temporary.path().toUtf8());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temporary.path());
 
+
+    {
+        gui::AppController controller(nullptr);
+        CHECK(controller.bookmarkedPlaces().isEmpty());
+        CHECK(!controller.addBookmark(""));
+        CHECK(!controller.addBookmark(temporary.path() + "/missing"));
+        int changes = 0;
+        QObject::connect(&controller, &gui::AppController::bookmarkedPlacesChanged,
+                         &application, [&] { ++changes; });
+        CHECK(controller.addBookmark(temporary.path()));
+        CHECK(controller.addBookmark(temporary.path() + "/./"));
+        CHECK(changes == 1);
+        CHECK(controller.bookmarkedPlaces().size() == 1);
+        CHECK(controller.isBookmarked(temporary.path()));
+#ifdef Q_OS_WIN
+        CHECK(controller.isBookmarked(temporary.path().toUpper()));
+#endif
+        QFile file(temporary.path() + "/file");
+        CHECK(file.open(QIODevice::WriteOnly));
+        file.close();
+        CHECK(!controller.addBookmark(file.fileName()));
+        QDir(temporary.path()).mkdir("removed");
+        CHECK(controller.addBookmark(temporary.path() + "/removed"));
+        QDir(temporary.path()).rmdir("removed");
+        CHECK(controller.bookmarkedPlaces().size() == 2);
+    }
+    {
+        gui::AppController controller(nullptr);
+        CHECK(controller.bookmarkedPlaces().size() == 2);
+        controller.removeBookmark(temporary.path() + "/removed");
+        controller.removeBookmark(temporary.path() + "/./");
+        CHECK(controller.bookmarkedPlaces().isEmpty());
+    }
+    {
+        gui::AppController controller(nullptr);
+        CHECK(controller.bookmarkedPlaces().isEmpty());
+    }
+
 	// Changing the effective language retranslates the UI, which rebuilds the
 	// language combo box model and resets its currentIndex. The settings dialog
 	// restores the selection from modeChanged, so it must be emitted after

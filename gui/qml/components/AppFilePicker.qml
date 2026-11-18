@@ -50,7 +50,7 @@ AppDialog {
     // Hint text is a binding rather than an imperative assignment so it
     // retranslates like any other qsTr text; the C++ error text has its own
     // NOTIFY signal. C++ location names come through app.standardPlaces.
-    enum Hint { None, Created, EnterName, SlashInName, ModelError, StorageRemoved }
+    enum Hint { None, Created, EnterName, SlashInName, ModelError, StorageRemoved, BookmarkUnavailable }
     property int hint: AppFilePicker.Hint.None
     readonly property string errorMessage: {
         if (selectionError !== "") return selectionError;
@@ -58,6 +58,7 @@ AppDialog {
         case AppFilePicker.Hint.EnterName:   return qsTr("Enter a file name");
         case AppFilePicker.Hint.SlashInName: return qsTr("File name cannot contain \"/\"");
         case AppFilePicker.Hint.ModelError:  return dirModel.errorText;
+        case AppFilePicker.Hint.BookmarkUnavailable: return qsTr("Bookmark path is unavailable.");
         case AppFilePicker.Hint.StorageRemoved: return qsTr("The original path is no longer available. Returned to Home.");
         default:                             return "";
         }
@@ -130,6 +131,42 @@ AppDialog {
             focusPolicy: Qt.StrongFocus
             text: qsTr("OK")
             onClicked: errorDialog.close()
+        }
+    }
+
+    function openBookmarkMenu(path, containingFolder, remove, item, x, y) {
+        bookmarkMenu.path = path;
+        bookmarkMenu.containingFolder = containingFolder;
+        bookmarkMenu.remove = remove;
+        bookmarkMenu.popup(item, x, y);
+    }
+
+    function navigateBookmark(path) {
+        if (!app.directoryAvailable(path)) {
+            showError(AppFilePicker.Hint.BookmarkUnavailable);
+            return;
+        }
+        navigateTo(path);
+    }
+
+    AppMenu {
+        id: bookmarkMenu
+        objectName: "filePickerBookmarkMenu"
+        property string path: ""
+        property bool containingFolder: false
+        property bool remove: false
+        AppMenuItem {
+            objectName: "filePickerBookmarkAction"
+            text: bookmarkMenu.remove ? qsTr("Unpin from sidebar")
+                : bookmarkMenu.containingFolder ? qsTr("Pin containing folder to sidebar")
+                : qsTr("Pin to sidebar")
+            enabled: bookmarkMenu.remove || !app.isBookmarked(bookmarkMenu.path)
+            onTriggered: {
+                if (bookmarkMenu.remove)
+                    app.removeBookmark(bookmarkMenu.path);
+                else if (!app.addBookmark(bookmarkMenu.path))
+                    root.showError(AppFilePicker.Hint.BookmarkUnavailable);
+            }
         }
     }
 
@@ -456,20 +493,26 @@ AppDialog {
                 width: 150
                 spacing: 6
 
-                Text {
-                    text: qsTr("Location")
-                    color: Theme.textSecondary
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSmall
-                }
-
                 ListView {
                     id: placesList
                     width: parent.width
                     height: root.listHeight
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-                    model: app.standardPlaces
+                    objectName: "filePickerPlaces"
+                    model: {
+                        var rows = [];
+                        var bookmarks = app.bookmarkedPlaces;
+                        if (bookmarks.length > 0) {
+                            rows.push({ name: qsTr("Bookmarks"), heading: true });
+                            for (var i = 0; i < bookmarks.length; ++i)
+                                rows.push({ name: bookmarks[i].name, path: bookmarks[i].path, bookmark: true });
+                        }
+                        rows.push({ name: qsTr("Location"), heading: true });
+                        for (var j = 0; j < app.standardPlaces.length; ++j)
+                            rows.push(app.standardPlaces[j]);
+                        return rows;
+                    }
 
                     ScrollBar.vertical: ScrollBar {
                         id: placesBar
@@ -498,29 +541,43 @@ AppDialog {
                             anchors.leftMargin: 6
                             anchors.verticalCenter: parent.verticalCenter
                             source: Icons.folderGray
+                            visible: !modelData.heading
                             sourceSize.width: 16
                             sourceSize.height: 16
                         }
 
                         Text {
-                            anchors.left: placeIcon.right
+                            anchors.left: modelData.heading ? parent.left : placeIcon.right
                             anchors.leftMargin: 8
                             anchors.right: parent.right
                             anchors.rightMargin: 6
                             anchors.verticalCenter: parent.verticalCenter
                             text: modelData.name
-                            color: Theme.textPrimary
+                            color: modelData.heading ? Theme.textSecondary : Theme.textPrimary
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontNormal
+                            font.pixelSize: modelData.heading ? Theme.fontSmall : Theme.fontNormal
                             elide: Text.ElideRight
                         }
+
+                        ToolTip.visible: !modelData.heading && placeMouse.containsMouse
+                        ToolTip.text: modelData.path || ""
 
                         MouseArea {
                             id: placeMouse
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.navigateTo(modelData.path)
+                            enabled: !modelData.heading
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: function(mouse) {
+                                if (mouse.button === Qt.RightButton)
+                                    root.openBookmarkMenu(modelData.path, false, !!modelData.bookmark,
+                                                          placeMouse, mouse.x, mouse.y);
+                                else if (modelData.bookmark)
+                                    root.navigateBookmark(modelData.path);
+                                else
+                                    root.navigateTo(modelData.path);
+                            }
                         }
                     }
                 }
@@ -769,13 +826,23 @@ AppDialog {
                     border.width: 1
                     border.color: Theme.border
 
+                    MouseArea {
+                        anchors.fill: entryList
+                        acceptedButtons: Qt.RightButton
+                        onClicked: function(mouse) {
+                            root.openBookmarkMenu(dirModel.rootPath, false, false, entryList, mouse.x, mouse.y);
+                        }
+                    }
+
                     ListView {
                         id: entryList
+                        objectName: "filePickerEntries"
                         anchors.fill: parent
                         anchors.margins: 4
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
                         model: dirModel
+
                         focus: true
 
                         Keys.onPressed: function (event) {
@@ -856,8 +923,19 @@ AppDialog {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) { root.selectEntry(name, path, isDir, mouse.modifiers); }
-                                onDoubleClicked: root.activateEntry(name, path, isDir)
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: function(mouse) {
+                                    if (mouse.button === Qt.RightButton) {
+                                        var target = isDir ? path : app.dirOf(path);
+                                        root.openBookmarkMenu(target, !isDir, false, entryMouse, mouse.x, mouse.y);
+                                    } else {
+                                        root.selectEntry(name, path, isDir, mouse.modifiers);
+                                    }
+                                }
+                                onDoubleClicked: function(mouse) {
+                                    if (mouse.button === Qt.LeftButton)
+                                        root.activateEntry(name, path, isDir);
+                                }
                             }
                         }
 
